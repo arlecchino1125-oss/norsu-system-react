@@ -697,7 +697,7 @@ export default function DeptDashboard() {
                     {/* REPORTS */}
                     {activeModule === 'reports' && (
                         <div className="space-y-8 animate-fade-in">
-                            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm max-w-3xl mx-auto card-hover">
+                            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm w-full mx-auto card-hover">
                                 <h3 className="font-bold text-gray-900 mb-6 dark:text-white">Status Distribution</h3>
                                 <div className="relative h-96 w-full"><Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} /></div>
                             </div>
@@ -708,11 +708,11 @@ export default function DeptDashboard() {
                     {/* SETTINGS */}
                     {activeModule === 'settings' && (
                         <div className="space-y-8 animate-fade-in">
-                            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm max-w-3xl card-hover flex justify-between items-center">
+                            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm w-full card-hover flex justify-between items-center">
                                 <div><h3 className="font-bold text-gray-900 dark:text-white">Dark Mode</h3><p className="text-sm text-gray-500">Toggle theme</p></div>
                                 <button onClick={() => setData(prev => ({ ...prev, settings: { ...prev.settings, darkMode: !prev.settings.darkMode } }))} className={`w-12 h-6 rounded-full relative transition-colors ${data.settings.darkMode ? 'bg-green-600' : 'bg-gray-200'}`}><div className={`w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform ${data.settings.darkMode ? 'translate-x-6' : ''}`}></div></button>
                             </div>
-                            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm max-w-3xl card-hover">
+                            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm w-full card-hover">
                                 <h3 className="font-bold text-gray-900 mb-4 dark:text-white">Referral Reasons</h3>
                                 <div className="flex gap-3 mb-6"><input value={newReason} onChange={(e) => setNewReason(e.target.value)} className="flex-1 border rounded-lg px-4 py-2 text-sm dark:bg-gray-700 dark:text-white" placeholder="New reason..." /><button onClick={addReason} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">Add</button></div>
                                 <div className="space-y-2">{data.settings.referralReasons.map((r, i) => (

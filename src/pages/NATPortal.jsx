@@ -531,7 +531,22 @@ export default function NATPortal() {
             // 5. Delete application
             await supabase.from('applications').delete().eq('id', currentUser.id);
 
-            showToast("Account Activated Successfully! Your application details have been transferred to your Student Profile.");
+            // Send Activation Email
+            try {
+                await supabase.functions.invoke('send-email', {
+                    body: {
+                        type: 'STUDENT_ACTIVATION',
+                        email: currentUser.email,
+                        name: `${currentUser.first_name} ${currentUser.last_name}`,
+                        studentId: studentId,
+                        password: currentUser.password
+                    }
+                });
+            } catch (emailErr) {
+                console.error("Activation email failed:", emailErr);
+            }
+
+            showToast("Account Activated Successfully! A confirmation email has been sent. Your application details have been transferred to your Student Profile.");
             setShowActivationModal(false);
             setCurrentUser(null);
             navigate('/student');

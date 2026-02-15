@@ -923,7 +923,7 @@ export default function StudentPortal() {
 
                     {/* DASHBOARD */}
                     {activeView === 'dashboard' && (
-                        <div className="max-w-6xl mx-auto space-y-8 page-transition">
+                        <div className="space-y-8 page-transition">
                             {/* Hero Banner (Optimized) */}
                             <StudentHero firstName={personalInfo.firstName} />
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -952,7 +952,7 @@ export default function StudentPortal() {
 
                     {/* EVENTS */}
                     {activeView === 'events' && (
-                        <div className="max-w-6xl mx-auto page-transition">
+                        <div className="page-transition">
                             <div className="flex justify-between items-start mb-8 animate-fade-in-up">
                                 <div><h2 className="text-2xl font-extrabold mb-1 text-gray-800">Events & Announcements</h2><p className="text-sm text-gray-400">Stay updated with campus activities and important news.</p></div>
                                 <button onClick={fetchHistory} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1 font-bold transition-colors"><Icons.Clock /> Refresh</button>
@@ -1452,7 +1452,7 @@ function renderRemainingViews(p) {
 
             {/* SCHOLARSHIP VIEW */}
             {activeView === 'scholarship' && (
-                <div className="max-w-4xl mx-auto page-transition">
+                <div className="page-transition">
                     <h2 className="text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Scholarship Services</h2>
                     <p className="text-sm text-gray-400 mb-8 animate-fade-in-up">View available scholarships and check your eligibility.</p>
                     {scholarshipsList.length === 0 ? (
@@ -1577,7 +1577,7 @@ function renderRemainingViews(p) {
 function renderFeedbackView(p) {
     const { feedbackType, setFeedbackType, rating, setRating, Icons } = p;
     return (
-        <div className="max-w-4xl mx-auto page-transition">
+        <div className="page-transition">
             <h2 className="text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Feedback Center</h2>
             <p className="text-sm text-gray-400 mb-8 animate-fade-in-up">Share your thoughts and help us improve our services.</p>
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-8 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '100ms' }}>
@@ -1606,7 +1606,7 @@ function renderFeedbackView(p) {
 function renderProfileView(p) {
     const { profileTab, setProfileTab, personalInfo, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, Icons, attendanceMap, formatFullDate, showMoreProfile, setShowMoreProfile } = p;
     return (
-        <div className="max-w-6xl mx-auto flex gap-8 page-transition">
+        <div className="flex gap-8 page-transition">
             <div className="w-80 shrink-0 space-y-6 animate-fade-in-up">
                 <div className="bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/20 text-white text-center relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl animate-float"></div>

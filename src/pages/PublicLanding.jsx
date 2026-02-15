@@ -59,7 +59,7 @@ export default function PublicLanding() {
                 </div>
 
                 {/* STUDENT PORTAL CARD */}
-                <div onClick={() => navigate('/student')} className="bg-white/60 backdrop-blur-md border border-white/50 rounded-3xl p-8 card-hover cursor-pointer group relative overflow-hidden shadow-lg">
+                <div onClick={() => navigate('/student/login')} className="bg-white/60 backdrop-blur-md border border-white/50 rounded-3xl p-8 card-hover cursor-pointer group relative overflow-hidden shadow-lg">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-blue-200"></div>
                     <div className="bg-blue-50 rounded-2xl w-16 h-16 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-blue-100"><GraduationCap className="w-8 h-8 text-blue-600" /></div>
                     <h3 className="text-xl font-bold text-slate-800 mb-2">Student Portal</h3>
