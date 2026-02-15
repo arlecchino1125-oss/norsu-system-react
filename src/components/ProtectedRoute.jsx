@@ -1,55 +1,54 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { Loader2, ShieldAlert } from 'lucide-react';
 
-/**
- * ProtectedRoute Component
- * @param {object} props
- * @param {React.ReactNode} props.children - The child component to render if authenticated.
- * @param {string[]} [props.allowedRoles] - List of roles allowed to access this route. If empty, any authenticated user can access.
- * @param {string} [props.redirectPath] - Path to redirect to if unauthorized. Defaults to '/' or specific login pages based on intended role.
- */
-export default function ProtectedRoute({ children, allowedRoles = [], redirectPath }) {
-    const { session, isAuthenticated, loading } = useAuth();
-    const location = useLocation();
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+    const { session, loading, isAuthenticated } = useAuth();
+    const [isVendorReady, setIsVendorReady] = useState(false);
 
-    if (loading) {
-        // Optional: Render a loading spinner here
-        return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-400">Loading...</div>;
+    // Artificial delay to prevent flash of content (optional)
+    useEffect(() => {
+        const timer = setTimeout(() => setIsVendorReady(true), 500);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (loading || !isVendorReady) {
+        return (
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50">
+                <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+                <p className="text-slate-500 font-medium animate-pulse">Verifying access...</p>
+            </div>
+        );
     }
 
     if (!isAuthenticated) {
-        // Determine redirect path if not provided
-        let target = redirectPath || '/';
-        // Basic heuristic for redirection based on path
-        if (location.pathname.startsWith('/admin')) target = '/admin';
-        else if (location.pathname.startsWith('/care-staff')) target = '/care-staff';
-        else if (location.pathname.startsWith('/department')) target = '/department/login';
-        else if (location.pathname.startsWith('/student')) target = '/student/login'; // Changed from /student to /student/login to avoid loop if /student is protected
-
-        return <Navigate to={target} replace state={{ from: location }} />;
+        return <Navigate to="/" replace />;
     }
 
-    // Role Check
-    if (allowedRoles.length > 0) {
-        // Clean role comparison (case-insensitive)
-        const userRole = (session.role || '').toLowerCase();
-        const hasrole = allowedRoles.some(r => r.toLowerCase() === userRole);
-
-        if (!hasrole) {
-            // User is logged in but doesn't have permission
-            return (
-                <div className="min-h-screen flex items-center justify-center bg-red-50">
-                    <div className="text-center p-8 bg-white rounded-2xl shadow-xl">
-                        <h1 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h1>
-                        <p className="text-gray-600 mb-4">You do not have permission to view this page.</p>
-                        <p className="text-xs text-gray-400">Required: {allowedRoles.join(', ')}</p>
-                        <button onClick={() => window.history.back()} className="mt-6 px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-black transition-all">Go Back</button>
+    if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
+        return (
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-red-50 p-6 text-center">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-red-100">
+                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <ShieldAlert size={32} />
                     </div>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+                    <p className="text-gray-500 mb-6">
+                        You do not have permission to view this page. Required role: <span className="font-mono text-red-600 bg-red-50 px-2 py-0.5 rounded text-sm">{allowedRoles.join(' or ')}</span>
+                    </p>
+                    <button
+                        onClick={() => window.history.back()}
+                        className="w-full py-3 px-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors"
+                    >
+                        Go Back
+                    </button>
                 </div>
-            );
-        }
+            </div>
+        );
     }
 
     return children;
-}
+};
+
+export default ProtectedRoute;

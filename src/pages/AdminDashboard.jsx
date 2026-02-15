@@ -83,7 +83,7 @@ export default function AdminDashboard() {
             ];
 
             for (const table of tables) {
-                await supabase.from(table).delete().neq('id', 0);
+                await supabase.from(table).delete().not('id', 'is', null);
             }
 
             // Delete from tables with specific PKs
