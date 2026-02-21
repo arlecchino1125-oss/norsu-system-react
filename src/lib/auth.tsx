@@ -3,9 +3,9 @@ import { supabase } from './supabase';
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
+export function AuthProvider({ children }: any) {
     const [session, setSession] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     /**
      * Login against staff_accounts table.
@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
     /**
      * Login for Staff (Admin, Department Head, Care Staff)
      */
-    const loginStaff = useCallback(async (username, password, requiredRole) => {
+    const loginStaff = useCallback(async (username: any, password: any, requiredRole: any) => {
         setLoading(true);
         try {
             const { data: userCheck, error: userError } = await supabase
@@ -69,7 +69,7 @@ export function AuthProvider({ children }) {
     /**
      * Login for Students
      */
-    const loginStudent = useCallback(async (studentId, password) => {
+    const loginStudent = useCallback(async (studentId: any, password: any) => {
         setLoading(true);
         try {
             const { data: student, error } = await supabase
@@ -123,6 +123,7 @@ export function AuthProvider({ children }) {
                 localStorage.removeItem('norsu_session');
             }
         }
+        setLoading(false);
     }, []);
 
     const logout = useCallback(() => {
