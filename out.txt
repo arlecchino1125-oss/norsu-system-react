@@ -1,0 +1,79 @@
+﻿src/pages/carestaff/AuditLogsPage.tsx(10,15): error TS2345: Argument of type '() => () => Promise<"error" | "ok" | "timed out">' is not assignable to parameter of type 'EffectCallback'.
+  Type '() => Promise<"error" | "ok" | "timed out">' is not assignable to type 'void | Destructor'.
+    Type '() => Promise<"error" | "ok" | "timed out">' is not assignable to type 'Destructor'.
+      Type 'Promise<"error" | "ok" | "timed out">' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+src/pages/carestaff/AuditLogsPage.tsx(53,48): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/AuditLogsPage.tsx(54,61): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/CounselingPage.tsx(1,8): error TS2300: Duplicate identifier 'CalendarView'.
+src/pages/carestaff/CounselingPage.tsx(3,5): error TS2300: Duplicate identifier 'Users'.
+src/pages/carestaff/CounselingPage.tsx(3,12): error TS2300: Duplicate identifier 'FileText'.
+src/pages/carestaff/CounselingPage.tsx(3,22): error TS2300: Duplicate identifier 'Clock'.
+src/pages/carestaff/CounselingPage.tsx(3,29): error TS2300: Duplicate identifier 'CheckCircle'.
+src/pages/carestaff/CounselingPage.tsx(3,42): error TS2300: Duplicate identifier 'Calendar'.
+src/pages/carestaff/CounselingPage.tsx(4,5): error TS2300: Duplicate identifier 'User'.
+src/pages/carestaff/CounselingPage.tsx(4,11): error TS2300: Duplicate identifier 'Eye'.
+src/pages/carestaff/CounselingPage.tsx(4,16): error TS2300: Duplicate identifier 'Send'.
+src/pages/carestaff/CounselingPage.tsx(4,22): error TS2300: Duplicate identifier 'Download'.
+src/pages/carestaff/CounselingPage.tsx(7,8): error TS2300: Duplicate identifier 'CalendarView'.
+src/pages/carestaff/CounselingPage.tsx(9,5): error TS2300: Duplicate identifier 'Users'.
+src/pages/carestaff/CounselingPage.tsx(9,12): error TS2300: Duplicate identifier 'FileText'.
+src/pages/carestaff/CounselingPage.tsx(9,22): error TS2300: Duplicate identifier 'Clock'.
+src/pages/carestaff/CounselingPage.tsx(9,29): error TS2300: Duplicate identifier 'CheckCircle'.
+src/pages/carestaff/CounselingPage.tsx(9,42): error TS2300: Duplicate identifier 'Calendar'.
+src/pages/carestaff/CounselingPage.tsx(10,5): error TS2300: Duplicate identifier 'User'.
+src/pages/carestaff/CounselingPage.tsx(10,11): error TS2300: Duplicate identifier 'Eye'.
+src/pages/carestaff/CounselingPage.tsx(10,16): error TS2300: Duplicate identifier 'Send'.
+src/pages/carestaff/CounselingPage.tsx(10,22): error TS2300: Duplicate identifier 'Download'.
+src/pages/carestaff/CounselingPage.tsx(170,60): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/CounselingPage.tsx(174,60): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/CounselingPage.tsx(178,60): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/CounselingPage.tsx(230,60): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/CounselingPage.tsx(234,60): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/CounselingPage.tsx(238,60): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/FeedbackPage.tsx(96,28): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/FormManagementPage.tsx(71,45): error TS2339: Property 'id' does not exist on type '{ title: any; description: any; }'.
+src/pages/carestaff/FormManagementPage.tsx(89,37): error TS2339: Property 'id' does not exist on type '{ form_id: any; question_text: any; order_index: number; question_type: string; }'.
+src/pages/carestaff/FormManagementPage.tsx(132,32): error TS2339: Property 'split' does not exist on type 'string | ArrayBuffer'.
+  Property 'split' does not exist on type 'ArrayBuffer'.
+src/pages/carestaff/FormManagementPage.tsx(244,325): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/NATManagementPage.tsx(120,13): error TS2339: Property 'autoTable' does not exist on type 'jsPDF'.
+src/pages/carestaff/NATManagementPage.tsx(219,49): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/NATManagementPage.tsx(272,49): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/OfficeLogbookPage.tsx(13,15): error TS2345: Argument of type '() => () => Promise<"error" | "ok" | "timed out">' is not assignable to parameter of type 'EffectCallback'.
+  Type '() => Promise<"error" | "ok" | "timed out">' is not assignable to type 'void | Destructor'.
+    Type '() => Promise<"error" | "ok" | "timed out">' is not assignable to type 'Destructor'.
+      Type 'Promise<"error" | "ok" | "timed out">' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+src/pages/carestaff/OfficeLogbookPage.tsx(82,44): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/OfficeLogbookPage.tsx(83,59): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(67,98): error TS2339: Property 'id' does not exist on type '{}'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(69,13): error TS2552: Cannot find name 'functions'. Did you mean 'Function'?
+src/pages/carestaff/StudentAnalyticsPage.tsx(72,25): error TS2552: Cannot find name 'functions'. Did you mean 'Function'?
+src/pages/carestaff/StudentAnalyticsPage.tsx(80,13): error TS2552: Cannot find name 'functions'. Did you mean 'Function'?
+src/pages/carestaff/StudentAnalyticsPage.tsx(85,13): error TS2552: Cannot find name 'functions'. Did you mean 'Function'?
+src/pages/carestaff/StudentAnalyticsPage.tsx(89,27): error TS2304: Cannot find name 'functions'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(244,34): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/pages/carestaff/StudentAnalyticsPage.tsx(244,40): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/pages/carestaff/StudentAnalyticsPage.tsx(281,13): error TS2322: Type 'number' is not assignable to type 'string'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(282,13): error TS2322: Type 'number' is not assignable to type 'string'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(443,73): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(443,81): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(443,91): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/pages/carestaff/StudentAnalyticsPage.tsx(483,53): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/carestaff/StudentPopulationPage.tsx(195,49): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | ArrayBuffer' is not assignable to parameter of type 'ArrayBuffer | ArrayLike<number>'.
+      Type 'string' is not assignable to type 'ArrayBuffer | ArrayLike<number>'.
+src/pages/carestaff/StudentPopulationPage.tsx(196,38): error TS2304: Cannot find name 'XLSX'.
+src/pages/carestaff/StudentPopulationPage.tsx(199,38): error TS2304: Cannot find name 'XLSX'.
+src/pages/carestaff/StudentPopulationPage.tsx(218,35): error TS2339: Property 'split' does not exist on type 'string | ArrayBuffer'.
+  Property 'split' does not exist on type 'ArrayBuffer'.
+src/pages/carestaff/StudentPopulationPage.tsx(356,62): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+src/pages/carestaff/StudentPopulationPage.tsx(356,70): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+src/pages/carestaff/StudentPopulationPage.tsx(356,80): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/pages/carestaff/StudentPopulationPage.tsx(372,65): error TS2322: Type 'unknown' is not assignable to type 'Key'.
+src/pages/carestaff/StudentPopulationPage.tsx(372,73): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[]'.
+src/pages/carestaff/StudentPopulationPage.tsx(372,83): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/pages/carestaff/StudentPopulationPage.tsx(426,116): error TS2304: Cannot find name 'handleSort'.
+src/pages/carestaff/StudentPopulationPage.tsx(427,116): error TS2304: Cannot find name 'handleSort'.
+src/pages/carestaff/StudentPopulationPage.tsx(428,116): error TS2304: Cannot find name 'handleSort'.
+src/pages/carestaff/StudentPopulationPage.tsx(429,116): error TS2304: Cannot find name 'handleSort'.

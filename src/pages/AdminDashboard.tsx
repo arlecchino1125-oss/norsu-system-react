@@ -6,12 +6,12 @@ import { Trash2, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
-    const { session, isAuthenticated, logout } = useAuth();
-    const [loading, setLoading] = useState(false);
-    const [accounts, setAccounts] = useState([]);
-    const [form, setForm] = useState({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
-    const [toast, setToast] = useState(null);
-    const [showResetModal, setShowResetModal] = useState(false);
+    const { session, isAuthenticated, logout } = useAuth() as any;
+    const [loading, setLoading] = useState<boolean>(false);
+    const [accounts, setAccounts] = useState<any[]>([]);
+    const [form, setForm] = useState<any>({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
+    const [toast, setToast] = useState<any>(null);
+    const [showResetModal, setShowResetModal] = useState<boolean>(false);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -21,12 +21,12 @@ export default function AdminDashboard() {
         }
     }, [isAuthenticated, navigate]);
 
-    const showToast = (msg, type = 'success') => {
+    const showToast = (msg: string, type: string = 'success') => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3000);
     };
 
-    const departments = [
+    const departments: string[] = [
         'College of Arts and Sciences',
         'College of Engineering',
         'College of Education',
@@ -42,7 +42,7 @@ export default function AdminDashboard() {
         if (data) setAccounts(data);
     };
 
-    const handleCreate = async (e) => {
+    const handleCreate = async (e: any) => {
         e.preventDefault();
         const payload = { ...form };
         payload.username = payload.username.trim();
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (id: any) => {
         if (!confirm("Delete this account?")) return;
         await supabase.from('staff_accounts').delete().eq('id', id);
         fetchAccounts();
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
 
             showToast("System data has been successfully reset. You can now create new accounts.");
             fetchAccounts();
-        } catch (err) {
+        } catch (err: any) {
             showToast("Error resetting: " + err.message, 'error');
         } finally {
             setLoading(false);
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                     <div className="bg-white p-6 rounded-xl shadow-sm h-fit">
                         <h2 className="font-bold text-lg mb-4">Create New Account</h2>
                         <form onSubmit={handleCreate} className="space-y-4">
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Role</label><select className="w-full border p-2 rounded" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option>Department Head</option><option>Care Staff</option><option>Admin</option></select></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Role</label><select className="w-full border p-2 rounded" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option>Department Head</option><option value="Care Staff">CARE Staff</option><option>Admin</option></select></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Full Name</label><input required className="w-full border p-2 rounded" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Username</label><input required className="w-full border p-2 rounded" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Password</label><input required className="w-full border p-2 rounded" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
@@ -142,10 +142,10 @@ export default function AdminDashboard() {
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 border-b"><tr><th className="p-4">Name</th><th className="p-4">Role</th><th className="p-4">Details</th><th className="p-4">Username</th><th className="p-4">Password</th><th className="p-4 text-right">Action</th></tr></thead>
                                 <tbody className="divide-y">
-                                    {accounts.map(acc => (
+                                    {accounts.map((acc: any) => (
                                         <tr key={acc.id} className="hover:bg-gray-50">
                                             <td className="p-4 font-bold">{acc.full_name}</td>
-                                            <td className="p-4"><span className={`px-2 py-1 rounded text-xs text-white ${acc.role === 'Admin' ? 'bg-red-500' : acc.role === 'Care Staff' ? 'bg-purple-500' : 'bg-green-500'}`}>{acc.role}</span></td>
+                                            <td className="p-4"><span className={`px-2 py-1 rounded text-xs text-white ${acc.role === 'Admin' ? 'bg-red-500' : acc.role === 'Care Staff' ? 'bg-purple-500' : 'bg-green-500'}`}>{acc.role === 'Care Staff' ? 'CARE Staff' : acc.role}</span></td>
                                             <td className="p-4 text-gray-500">{acc.department || '-'}</td>
                                             <td className="p-4 font-mono">{acc.username}</td>
                                             <td className="p-4 font-mono text-gray-500">{acc.password}</td>

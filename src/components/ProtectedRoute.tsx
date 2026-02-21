@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
-const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+const ProtectedRoute = ({ children, allowedRoles = [] }: any) => {
     const { session, loading, isAuthenticated, logout } = useAuth();
 
     if (loading) {
