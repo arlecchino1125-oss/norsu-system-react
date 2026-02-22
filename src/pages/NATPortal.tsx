@@ -597,19 +597,7 @@ const NATPortal = () => {
         }
     };
 
-    const fillMockData = () => {
-        setFormData({
-            ...formData,
-            agreedToPrivacy: true,
-            firstName: 'Mock', lastName: 'Student', age: '18',
-            dob: '2006-01-01', placeOfBirth: 'City', nationality: 'Filipino',
-            sex: 'Male', genderIdentity: 'Male', civilStatus: 'Single',
-            street: '123 St', city: 'City', province: 'Prov', zipCode: '6200',
-            mobile: '09123456789', email: `mock${Date.now()}@test.com`,
-            schoolLastAttended: 'High School', yearLevelApplying: '1st Year', reason: 'Test',
-            testDate: availableDates[0]?.date || ''
-        });
-    };
+
 
     // Render Views
     // Page transition variants
@@ -1255,7 +1243,6 @@ const NATPortal = () => {
                                 Please fill out all fields accurately. Your application will be used for your official university records. Fields marked with <span className="text-red-500 font-black">*</span> are required.
                             </p>
                         </div>
-                        <button type="button" onClick={fillMockData} className="ml-auto px-4 py-2 bg-gradient-to-r from-yellow-100 to-amber-100 text-amber-800 border border-yellow-200/50 rounded-xl text-xs font-bold hover:shadow-md transition-all h-fit self-center active:scale-95">Fill Mock Data</button>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-8 relative z-10 min-h-[50vh]">

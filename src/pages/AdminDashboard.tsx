@@ -12,12 +12,14 @@ export default function AdminDashboard() {
     const [form, setForm] = useState<any>({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
     const [toast, setToast] = useState<any>(null);
     const [showResetModal, setShowResetModal] = useState<boolean>(false);
+    const [departments, setDepartments] = useState<string[]>([]);
 
     useEffect(() => {
         if (!isAuthenticated) {
             navigate('/admin');
         } else {
             fetchAccounts();
+            fetchDepartments();
         }
     }, [isAuthenticated, navigate]);
 
@@ -26,20 +28,14 @@ export default function AdminDashboard() {
         setTimeout(() => setToast(null), 3000);
     };
 
-    const departments: string[] = [
-        'College of Arts and Sciences',
-        'College of Engineering',
-        'College of Education',
-        'College of Agriculture and Forestry',
-        'College of Criminal Justice Education',
-        'College of Information Technology',
-        'College of Nursing',
-        'College of Business'
-    ];
-
     const fetchAccounts = async () => {
         const { data } = await supabase.from('staff_accounts').select('*').order('created_at', { ascending: false });
         if (data) setAccounts(data);
+    };
+
+    const fetchDepartments = async () => {
+        const { data } = await supabase.from('departments').select('name').order('name');
+        if (data) setDepartments(data.map(d => d.name));
     };
 
     const handleCreate = async (e: any) => {
