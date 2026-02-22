@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
+import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
 
 const FeedbackPage = ({ functions }: any) => {
     const [currentView, setCurrentView] = useState('Counseling');
@@ -151,16 +152,16 @@ const FeedbackPage = ({ functions }: any) => {
                     if (items.length === 0) return;
                     if (currentView === 'Events' && rawEventData.length > 0) {
                         const headers = ['Student', 'Sex', 'College', 'Event', 'Date of Activity', 'Avg Rating', 'Q1-Relevance', 'Q2-Quality', 'Q3-Timeliness', 'Q4-Management', 'Q5-Organization', 'Q6-Assessment', 'Q7-Facilitator', 'What They Liked Best', 'Suggestions', 'Other Comments', 'Submitted'];
-                        const rows = rawEventData.map(d => [d.student_name, d.sex || '', d.college || '', d.events?.title || '', d.date_of_activity || '', d.rating || '', d.q1_score || '', d.q2_score || '', d.q3_score || '', d.q4_score || '', d.q5_score || '', d.q6_score || '', d.q7_score || '', d.open_best || '', d.open_suggestions || '', d.open_comments || '', d.submitted_at ? new Date(d.submitted_at).toLocaleString() : '']);
-                        exportToExcel(headers, rows, 'event_evaluations');
+                        const rows = rawEventData.map(d => [d.student_name, d.sex || '', d.college || '', d.events?.title || '', d.date_of_activity || '', d.rating || '', d.q1_score || '', d.q2_score || '', d.q3_score || '', d.q4_score || '', d.q5_score || '', d.q6_score || '', d.q7_score || '', d.open_best || '', d.open_suggestions || '', d.open_comments || '', formatDateTime(d.submitted_at)]);
+                        exportToExcel(headers, rows, generateExportFilename('event_evaluations', 'xlsx').replace('.xlsx', ''));
                     } else if (currentView === 'General' && rawGeneralData.length > 0) {
                         const headers = ['Student', 'Client Type', 'Sex', 'Age', 'Region', 'Service Availed', 'CC1', 'CC2', 'CC3', 'SQD0', 'SQD1', 'SQD2', 'SQD3', 'SQD4', 'SQD5', 'SQD6', 'SQD7', 'SQD8', 'Suggestions', 'Email', 'Date'];
-                        const rows = rawGeneralData.map(d => [d.student_name, d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', d.email || '', d.created_at ? new Date(d.created_at).toLocaleString() : '']);
-                        exportToExcel(headers, rows, 'general_csm_feedback');
+                        const rows = rawGeneralData.map(d => [d.student_name, d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', d.email || '', formatDateTime(d.created_at)]);
+                        exportToExcel(headers, rows, generateExportFilename('general_csm_feedback', 'xlsx').replace('.xlsx', ''));
                     } else {
                         const headers = ['Student', 'Rating', 'Comment', 'Date', 'Request Type'];
-                        const rows = items.map(i => [i.student, i.rating, i.comment || '', new Date(i.date).toLocaleString(), i.context]);
-                        exportToExcel(headers, rows, 'counseling_feedback');
+                        const rows = items.map(i => [i.student, i.rating, i.comment || '', formatDateTime(i.date), i.context]);
+                        exportToExcel(headers, rows, generateExportFilename('counseling_feedback', 'xlsx').replace('.xlsx', ''));
                     }
                 }} disabled={items.length === 0} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
                     <Download size={16} /> Export Excel
@@ -208,7 +209,7 @@ const FeedbackPage = ({ functions }: any) => {
                                     <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs">{item.student.charAt(0)}</div>
                                     <div>
                                         <h4 className="font-bold text-gray-900 text-xs">{item.student}</h4>
-                                        <p className="text-[10px] text-gray-400">{new Date(item.date).toLocaleDateString()}</p>
+                                        <p className="text-[10px] text-gray-400">{formatDate(item.date)}</p>
                                     </div>
                                 </div>
                                 <div className="flex text-yellow-400">
@@ -249,7 +250,7 @@ const FeedbackPage = ({ functions }: any) => {
                                 <div className="info-item"><label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Name</label><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{viewingEval.student_name}</p></div>
                                 <div className="info-item"><label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Sex</label><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{viewingEval.sex || '—'}</p></div>
                                 <div className="info-item"><label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>College / Course</label><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{viewingEval.college || '—'}</p></div>
-                                <div className="info-item"><label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Date of Activity</label><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{viewingEval.date_of_activity ? new Date(viewingEval.date_of_activity).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}</p></div>
+                                <div className="info-item"><label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Date of Activity</label><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{formatDate(viewingEval.date_of_activity)}</p></div>
                             </div>
 
                             <div>
@@ -324,7 +325,7 @@ const FeedbackPage = ({ functions }: any) => {
                                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Client Type</p><p className="text-sm font-bold">{viewingCSM.client_type || '—'}</p></div>
                                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Sex</p><p className="text-sm font-bold">{viewingCSM.sex || '—'}</p></div>
                                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Age</p><p className="text-sm font-bold">{viewingCSM.age || '—'}</p></div>
-                                    <div><p className="text-[10px] font-bold text-gray-400 uppercase">Date</p><p className="text-sm font-bold">{viewingCSM.created_at ? new Date(viewingCSM.created_at).toLocaleDateString() : '—'}</p></div>
+                                    <div><p className="text-[10px] font-bold text-gray-400 uppercase">Date</p><p className="text-sm font-bold">{formatDate(viewingCSM.created_at)}</p></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Region</p><p className="text-sm font-bold">{viewingCSM.region || '—'}</p></div>

@@ -1,4 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { exportToExcel } from '../../utils/dashboardUtils';
+import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
 import { supabase } from '../../lib/supabase';
 import CalendarView from '../../components/CalendarView';
 import { jsPDF } from 'jspdf';
@@ -122,8 +124,11 @@ const CounselingPage = ({ functions }: any) => {
         doc.text('Office of the Director, Counseling, Assessment, Resources, and Enhancement Center', 105, y, { align: 'center' });
         y += 15;
 
+        const marginLeft = 15;
+        const halfW = 80;
+
         // Form Fields Helper
-        const drawField = (label: string, value: string, x: number, lineLength: number, currentY: number) => {
+        const drawFieldRow = (label: string, value: string, x: number, lineLength: number, currentY: number) => {
             doc.setFont('helvetica', 'bold');
             doc.text(label, x, currentY);
             const labelW = doc.getTextWidth(label) + 2;
@@ -133,11 +138,13 @@ const CounselingPage = ({ functions }: any) => {
             doc.line(x + labelW, currentY + 1, x + labelW + lineLength, currentY + 1);
         };
 
-        drawField('Name of Student:', req.student_name || '', 15, 60, y);
-        drawField('Course & Yr:', req.course_year || '', 120, 40, y);
+        const rightX = marginLeft + halfW + 8;
+
+        drawFieldRow('Full Name:', req.student_name || '', marginLeft, halfW, y);
+        drawFieldRow('Date Filed:', formatDate(req.created_at), rightX, halfW, y);
         y += 10;
 
-        drawField('Date:', new Date(req.created_at).toLocaleDateString() || '', 15, 60, y);
+        drawFieldRow('Course & Yr:', req.course_year || '', marginLeft, halfW, y);
         y += 15;
 
         // Long text helper
@@ -166,10 +173,10 @@ const CounselingPage = ({ functions }: any) => {
         y = drawLongText('Date / Duration of Observations:', req.date_duration_of_observations, y, 2);
 
         y += 10;
-        drawField('Name and Signature of Ref. Person:', req.referred_by || '', 15, 70, y);
-        drawField('Contact No:', req.referrer_contact_number || '', 130, 30, y);
+        drawFieldRow('Name and Signature of Ref. Person:', req.referred_by || '', 15, 70, y);
+        drawFieldRow('Contact No:', req.referrer_contact_number || '', 130, 30, y);
         y += 10;
-        drawField('Relationship with Student:', req.relationship_with_student || '', 15, 60, y);
+        drawFieldRow('Relationship with Student:', req.relationship_with_student || '', 15, 60, y);
         y += 20;
 
         if (req.referrer_signature) {
@@ -184,7 +191,7 @@ const CounselingPage = ({ functions }: any) => {
         doc.setFontSize(8);
         doc.text('Note: This is a system-generated document based on the submitted referral.', 105, 280, { align: 'center' });
 
-        doc.save(`Counseling_Referral_${req.student_name?.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+        doc.save(generateExportFilename(`Counseling_Referral_${(req.student_name || 'unknown').replace(/\s+/g, '_')}`, 'pdf'));
         showToastMessage('Referral form downloaded', 'success');
     };
 
@@ -249,7 +256,7 @@ const CounselingPage = ({ functions }: any) => {
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-gray-900">{req.student_name}</h3>
-                                            <p className="text-xs text-gray-500">{req.request_type} • {new Date(req.created_at).toLocaleDateString()}{req.scheduled_date ? ` • Scheduled: ${new Date(req.scheduled_date).toLocaleDateString()}` : ''}</p>
+                                            <p className="text-xs text-gray-500">{req.request_type} • {formatDate(req.created_at)}{req.scheduled_date ? ` • Scheduled: ${formatDate(req.scheduled_date)}` : ''}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -287,7 +294,7 @@ const CounselingPage = ({ functions }: any) => {
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
                                             <h3 className="font-extrabold text-lg">DEPARTMENT HEAD REFERRAL</h3>
-                                            <p className="text-xs text-gray-400 mt-1">Submitted: {new Date(viewFormReq.created_at).toLocaleString()}</p>
+                                            <p className="text-xs text-gray-400 mt-1">Submitted: {formatDateTime(viewFormReq.created_at)}</p>
                                         </div>
                                         <button onClick={() => setShowCounselingFormModal(false)} className="text-gray-400 hover:text-gray-600 text-xl"><XCircle /></button>
                                     </div>
@@ -309,7 +316,7 @@ const CounselingPage = ({ functions }: any) => {
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
                                             <h3 className="font-extrabold text-lg">STUDENT SELF-REFERRAL</h3>
-                                            <p className="text-xs text-gray-400 mt-1">Submitted: {new Date(viewFormReq.created_at).toLocaleString()}</p>
+                                            <p className="text-xs text-gray-400 mt-1">Submitted: {formatDateTime(viewFormReq.created_at)}</p>
                                         </div>
                                         <button onClick={() => setShowCounselingFormModal(false)} className="text-gray-400 hover:text-gray-600 text-xl"><XCircle /></button>
                                     </div>

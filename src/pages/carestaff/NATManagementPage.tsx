@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Download, FileText, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { savePdf } from '../../utils/dashboardUtils';
+import { formatDate, formatTime, formatDateTime, generateExportFilename } from '../../utils/formatters';
 import StatusBadge from '../../components/StatusBadge';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -208,8 +209,8 @@ const NATManagementPage = ({ showToast }: any) => {
             startY: 30,
             head: [["Student Name", "Ref ID", "Status", "Test Date", "Course", "In", "Out"]],
             body: filteredApplications.map(app => [
-                `${app.first_name} ${app.last_name}`, app.reference_id, app.status, app.test_date, app.priority_course,
-                app.time_in ? new Date(app.time_in).toLocaleTimeString() : '-', app.time_out ? new Date(app.time_out).toLocaleTimeString() : '-'
+                `${app.first_name} ${app.last_name}`, app.reference_id, app.status, formatDate(app.test_date), app.priority_course,
+                app.time_in ? formatTime(app.time_in) : '-', app.time_out ? formatTime(app.time_out) : '-'
             ])
         });
         savePdf(doc, "NAT_Log.pdf");
@@ -227,7 +228,7 @@ const NATManagementPage = ({ showToast }: any) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `nat_applications_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = generateExportFilename('nat_applications', 'csv');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -309,9 +310,9 @@ const NATManagementPage = ({ showToast }: any) => {
                                             <td className="p-4 font-bold">{r.first_name} {r.last_name}</td>
                                             <td className="p-4 text-xs text-gray-400 font-mono">{r.reference_id}</td>
                                             <td className="p-4">{r.priority_course}</td>
-                                            <td className="p-4 text-gray-600">{r.test_date ? new Date(r.test_date).toLocaleDateString() : '—'}</td>
-                                            <td className="p-4 text-green-600 font-mono text-xs">{r.time_in ? new Date(r.time_in).toLocaleTimeString() : '—'}</td>
-                                            <td className="p-4 text-red-500 font-mono text-xs">{r.time_out ? new Date(r.time_out).toLocaleTimeString() : '—'}</td>
+                                            <td className="p-4 text-gray-600">{formatDate(r.test_date)}</td>
+                                            <td className="p-4 text-green-600 font-mono text-xs">{formatTime(r.time_in)}</td>
+                                            <td className="p-4 text-red-500 font-mono text-xs">{formatTime(r.time_out)}</td>
                                             <td className="p-4"><StatusBadge status={r.status} /></td>
                                             <td className="p-4">
                                                 <div className="flex gap-2">
@@ -365,7 +366,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                             <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
                                             <td className="p-4">{app.priority_course}</td>
                                             <td className="p-4"><StatusBadge status={app.status} /></td>
-                                            <td className="p-4 text-gray-500 text-xs">{new Date(app.created_at).toLocaleDateString()}</td>
+                                            <td className="p-4 text-gray-500 text-xs">{formatDate(app.created_at)}</td>
                                             <td className="p-4">
                                                 <div className="flex gap-2">
                                                     <button onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
@@ -385,7 +386,7 @@ const NATManagementPage = ({ showToast }: any) => {
                             {schedules.map(sch => (
                                 <div key={sch.id} className="bg-white p-4 rounded-xl border shadow-sm">
                                     <div className="flex justify-between mb-2">
-                                        <span className="font-bold text-gray-800">{new Date(sch.date).toDateString()}</span>
+                                        <span className="font-bold text-gray-800">{formatDate(sch.date)}</span>
                                         <button onClick={() => toggleSchedule(sch)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${sch.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{sch.is_active ? 'Active' : 'Closed'}</button>
                                     </div>
                                     <div className="text-sm text-gray-600 text-center py-4">{sch.venue} • {sch.slots} Slots</div>
@@ -434,7 +435,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                     <div>
                                         <h3 className="font-extrabold text-lg text-gray-900">NAT APPLICATION FORM</h3>
                                         <p className="text-xs text-gray-400 mt-1">Complete application details submitted by the applicant</p>
-                                        <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(selectedApp.created_at).toLocaleString()}</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">Submitted: {formatDateTime(selectedApp.created_at)}</p>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <StatusBadge status={selectedApp.status} />
@@ -506,9 +507,9 @@ const NATManagementPage = ({ showToast }: any) => {
                                 <div className="mb-6">
                                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 border-b pb-2">Test Schedule</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Test Date</label><p className="text-sm font-bold text-blue-700">{selectedApp.test_date ? new Date(selectedApp.test_date).toLocaleDateString() : '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Time In</label><p className="text-sm text-green-600 font-mono">{selectedApp.time_in ? new Date(selectedApp.time_in).toLocaleString() : '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Time Out</label><p className="text-sm text-red-500 font-mono">{selectedApp.time_out ? new Date(selectedApp.time_out).toLocaleString() : '—'}</p></div>
+                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Test Date</label><p className="text-sm font-bold text-blue-700">{formatDate(selectedApp.test_date)}</p></div>
+                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Time In</label><p className="text-sm text-green-600 font-mono">{formatTime(selectedApp.time_in)}</p></div>
+                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Time Out</label><p className="text-sm text-red-500 font-mono">{formatTime(selectedApp.time_out)}</p></div>
                                     </div>
                                 </div>
 

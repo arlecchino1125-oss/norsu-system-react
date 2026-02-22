@@ -3,39 +3,38 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { Trash2, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
+import { useSupabaseData } from '../hooks/useSupabaseData';
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
     const { session, isAuthenticated, logout } = useAuth() as any;
     const [loading, setLoading] = useState<boolean>(false);
-    const [accounts, setAccounts] = useState<any[]>([]);
     const [form, setForm] = useState<any>({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
     const [toast, setToast] = useState<any>(null);
     const [showResetModal, setShowResetModal] = useState<boolean>(false);
-    const [departments, setDepartments] = useState<string[]>([]);
+
+    // Use custom hook for real-time data fetching
+    const { data: accounts, refetch: refetchAccounts } = useSupabaseData({
+        table: 'staff_accounts',
+        order: { column: 'created_at', ascending: false },
+        subscribe: true
+    });
+
+    const { data: departmentsData } = useSupabaseData({
+        table: 'departments',
+        order: { column: 'name', ascending: true }
+    });
+    const departments = departmentsData.map(d => d.name);
 
     useEffect(() => {
         if (!isAuthenticated) {
             navigate('/admin');
-        } else {
-            fetchAccounts();
-            fetchDepartments();
         }
     }, [isAuthenticated, navigate]);
 
     const showToast = (msg: string, type: string = 'success') => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3000);
-    };
-
-    const fetchAccounts = async () => {
-        const { data } = await supabase.from('staff_accounts').select('*').order('created_at', { ascending: false });
-        if (data) setAccounts(data);
-    };
-
-    const fetchDepartments = async () => {
-        const { data } = await supabase.from('departments').select('name').order('name');
-        if (data) setDepartments(data.map(d => d.name));
     };
 
     const handleCreate = async (e: any) => {
@@ -49,14 +48,14 @@ export default function AdminDashboard() {
         else {
             showToast("Account created successfully!");
             setForm({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
-            fetchAccounts();
+            refetchAccounts();
         }
     };
 
     const handleDelete = async (id: any) => {
         if (!confirm("Delete this account?")) return;
         await supabase.from('staff_accounts').delete().eq('id', id);
-        fetchAccounts();
+        refetchAccounts();
     };
 
     const handleReset = async () => {
@@ -86,7 +85,7 @@ export default function AdminDashboard() {
             await supabase.from('enrolled_students').delete().neq('student_id', '0');
 
             showToast("System data has been successfully reset. You can now create new accounts.");
-            fetchAccounts();
+            refetchAccounts();
         } catch (err: any) {
             showToast("Error resetting: " + err.message, 'error');
         } finally {
