@@ -9,26 +9,6 @@ import { motion, Variants, AnimatePresence } from 'framer-motion';
 
 // --- ASSETS & CONSTANTS ---
 
-// Sample data for the dropdowns (assuming this was intended to be added)
-const degreePrograms = [
-    "Bachelor of Science in Information Technology",
-    "Bachelor of Science in Computer Science",
-    "Bachelor of Science in Agriculture",
-    "Bachelor of Science in Forestry",
-    "Bachelor of Science in Criminology",
-    "Bachelor of Science in Nursing",
-    "Bachelor of Science in Accountancy",
-    "Bachelor of Science in Business Administration",
-    "Bachelor of Elementary Education",
-    "Bachelor of Secondary Education",
-    "Bachelor of Arts in English Language",
-    "Bachelor of Arts in Political Science",
-    "Bachelor of Science in Civil Engineering",
-    "Bachelor of Science in Electrical Engineering",
-    "Bachelor of Science in Mechanical Engineering",
-    "Bachelor of Science in Midwifery"
-];
-
 // --- REUSABLE LAYOUT COMPONENT ---
 const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false, onBack, rightAction }: any) => (
     <div className="min-h-screen bg-slate-50 relative overflow-hidden font-inter selection:bg-blue-200">
