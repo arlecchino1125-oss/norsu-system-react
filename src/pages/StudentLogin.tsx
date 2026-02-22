@@ -299,6 +299,7 @@ export default function StudentLogin() {
                 // Extra-Curricular & Scholarships
                 extracurricular_activities: formData.extracurricularActivities,
                 scholarships_availed: formData.scholarshipsAvailed,
+                profile_completed: true,
             };
 
             const { error: insertError } = await supabase.from('students').insert([studentPayload]);

@@ -4,6 +4,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
+import { useEventsData } from '../../hooks/useEventsData';
+import { SystemEvent } from '../../types/models';
 
 const EventsPage = ({ functions }: any) => {
     const { showToast } = functions || {};
@@ -11,9 +13,8 @@ const EventsPage = ({ functions }: any) => {
     // Filter States
     const [eventFilter, setEventFilter] = useState('All Items');
 
-    // Data States
-    const [events, setEvents] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    // Data States from Custom Hook
+    const { events, loading, refetchEvents: fetchEvents } = useEventsData();
 
     // UI/Modal States
     const [showEventModal, setShowEventModal] = useState(false);
@@ -22,9 +23,9 @@ const EventsPage = ({ functions }: any) => {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
     // Target Item States
-    const [editingEventId, setEditingEventId] = useState<any>(null);
-    const [eventToDelete, setEventToDelete] = useState<any>(null);
-    const [newEvent, setNewEvent] = useState<any>({
+    const [editingEventId, setEditingEventId] = useState<string | null>(null);
+    const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+    const [newEvent, setNewEvent] = useState<Partial<SystemEvent>>({
         title: '', description: '', event_date: '', event_time: '',
         end_time: '', location: '', latitude: '', longitude: '', type: 'Event'
     });
@@ -39,49 +40,6 @@ const EventsPage = ({ functions }: any) => {
     const [yearLevelFilter, setYearLevelFilter] = useState('All');
     const [attendeeCourseFilter, setAttendeeCourseFilter] = useState('All');
     const [attendeeSectionFilter, setAttendeeSectionFilter] = useState('All');
-
-    // Default Supabase fetch on mount + real-time
-    const fetchEvents = async () => {
-        setLoading(true);
-        try {
-            const { data: evs } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-
-            // Generate basic aggregated views (attendees count + ratings) if needed
-            const eventsData = evs || [];
-            if (eventsData.length > 0) {
-                const { data: attData } = await supabase.from('event_attendance').select('event_id');
-                const { data: fbData } = await supabase.from('event_feedback').select('event_id, rating');
-
-                const enrichedEvents = eventsData.map(ev => {
-                    const evAtts = (attData || []).filter(a => a.event_id === ev.id);
-                    const evFbs = (fbData || []).filter(f => f.event_id === ev.id);
-                    const avgRating = evFbs.length ? (evFbs.reduce((acc, curr) => acc + curr.rating, 0) / evFbs.length).toFixed(1) : null;
-                    return {
-                        ...ev,
-                        attendees: evAtts.length,
-                        avgRating,
-                        feedbackCount: evFbs.length
-                    };
-                });
-                setEvents(enrichedEvents);
-            } else {
-                setEvents([]);
-            }
-        } catch (error) {
-            console.error("Error fetching events:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchEvents();
-        const eventChannel = supabase.channel('care_events_isolated')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchEvents())
-            .subscribe();
-
-        return () => { supabase.removeChannel(eventChannel); };
-    }, []);
 
     // Handlers
     const createEvent = async (e: any) => {
@@ -115,7 +73,7 @@ const EventsPage = ({ functions }: any) => {
         }
     };
 
-    const handleEditEvent = (item: any) => {
+    const handleEditEvent = (item: SystemEvent) => {
         setNewEvent({
             title: item.title,
             type: item.type,
@@ -127,11 +85,11 @@ const EventsPage = ({ functions }: any) => {
             latitude: item.latitude || '',
             longitude: item.longitude || ''
         });
-        setEditingEventId(item.id);
+        setEditingEventId(item.id || null);
         setShowEventModal(true);
     };
 
-    const handleDeleteEvent = async (id: any) => {
+    const handleDeleteEvent = async (id: string) => {
         setEventToDelete(id);
         setShowDeleteEventModal(true);
     };
@@ -151,10 +109,10 @@ const EventsPage = ({ functions }: any) => {
         }
     };
 
-    const handleViewAttendees = async (event: any) => {
-        setSelectedEventTitle(event.title);
+    const handleViewAttendees = async (item: SystemEvent) => {
+        setSelectedEventTitle(item.title);
         try {
-            const { data, error } = await supabase.from('event_attendance').select('*').eq('event_id', event.id).order('time_in', { ascending: false });
+            const { data, error } = await supabase.from('event_attendance').select('*').eq('event_id', item.id).order('time_in', { ascending: false });
             if (error) throw error;
 
             // Enrich with year_level, section, course, department from students table
@@ -184,10 +142,10 @@ const EventsPage = ({ functions }: any) => {
         }
     };
 
-    const handleViewFeedback = async (event: any) => {
-        setSelectedEventTitle(event.title);
+    const handleViewFeedback = async (item: SystemEvent) => {
+        setSelectedEventTitle(item.title);
         try {
-            const { data, error } = await supabase.from('event_feedback').select('*').eq('event_id', event.id).order('submitted_at', { ascending: false });
+            const { data, error } = await supabase.from('event_feedback').select('*').eq('event_id', item.id).order('submitted_at', { ascending: false });
             if (error) throw error;
             setFeedbackList(data || []);
             setShowFeedbackModal(true);
@@ -265,12 +223,12 @@ const EventsPage = ({ functions }: any) => {
                                 <div className="flex gap-2">
                                     {item.type === 'Event' && (
                                         <>
-                                            <button onClick={() => handleViewFeedback(item)} className="px-4 py-2 bg-yellow-50 text-yellow-700 text-sm font-medium rounded-lg hover:bg-yellow-100 transition flex items-center gap-1"><Star size={14} /> Feedback</button>
-                                            <button onClick={() => handleViewAttendees(item)} className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition">Attendees</button>
+                                            <button onClick={() => item.id && handleViewFeedback(item)} className="p-2 border rounded text-xs flex items-center gap-1 hover:bg-gray-50 flex-1 justify-center"><Star size={14} className="text-yellow-500" /> Reviews ({item.feedbackCount || 0})</button>
+                                            <button onClick={() => item.id && handleViewAttendees(item)} className="p-2 border rounded text-xs flex items-center gap-1 hover:bg-gray-50 flex-1 justify-center"><Users size={14} className="text-blue-500" /> Attendees ({item.attendees || 0})</button>
                                         </>
                                     )}
-                                    <button onClick={() => handleEditEvent(item)} className="px-4 py-2 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition">Edit</button>
-                                    <button onClick={() => handleDeleteEvent(item.id)} className="px-4 py-2 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 transition">Delete</button>
+                                    <button onClick={() => handleEditEvent(item)} className="p-2 border rounded text-xs text-blue-600 hover:bg-blue-50"><CheckCircle size={14} /></button>
+                                    <button onClick={() => item.id && handleDeleteEvent(item.id)} className="p-2 border rounded text-xs text-red-600 hover:bg-red-50"><Trash2 size={14} /></button>
                                 </div>
                             </div>
                         ))}
@@ -289,7 +247,7 @@ const EventsPage = ({ functions }: any) => {
                         <div className="p-6 overflow-y-auto">
                             <form onSubmit={createEvent} className="space-y-4">
                                 <div><label className="block text-xs font-bold text-gray-500 mb-1">Category</label>
-                                    <select className="w-full border rounded-lg p-2 text-sm" value={newEvent.type} onChange={e => setNewEvent({ ...newEvent, type: e.target.value })}>
+                                    <select className="w-full border rounded-lg p-2 text-sm" value={newEvent.type} onChange={e => setNewEvent({ ...newEvent, type: e.target.value as SystemEvent['type'] })}>
                                         <option value="Event">Event</option>
                                         <option value="Announcement">Announcement</option>
                                     </select>

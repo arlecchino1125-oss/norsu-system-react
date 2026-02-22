@@ -295,6 +295,7 @@ const CareStaffDashboard = () => {
                     {activeTab === 'support' && <SupportRequestsPage functions={functions} />}
 
                     {activeTab === 'events' && <EventsPage functions={functions} />}
+                    {activeTab === 'scholarship' && <ScholarshipPage functions={functions} />}
                     {activeTab === 'forms' && <FormManagementPage functions={functions} />}
                     {activeTab === 'feedback' && <FeedbackPage functions={functions} />}
                     {activeTab === 'audit' && <AuditLogsPage />}

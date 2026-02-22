@@ -5,6 +5,9 @@ import {
     Eye, ChevronLeft, ChevronRight, FileSpreadsheet, User
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 
 declare const XLSX: any;
 
@@ -119,10 +122,24 @@ const PROFILE_CATEGORIES = [
 const StudentPopulationPage = ({ functions }: any) => {
     const { showToast } = functions || {};
 
-    // Local State (Moved from CareStaffDashboard)
-    const [studentsList, setStudentsList] = useState<any[]>([]);
-    const [allCourses, setAllCourses] = useState<any[]>([]);
-    const [allDepartments, setAllDepartments] = useState<any[]>([]);
+    // Use custom hook for data fetching & real-time updates
+    const { data: studentsList, loading: loadingStudents, refetch: refetchStudents } = useSupabaseData({
+        table: 'students',
+        order: { column: 'created_at', ascending: false },
+        subscribe: true
+    });
+
+    const { data: allCourses } = useSupabaseData({
+        table: 'courses',
+        order: { column: 'name', ascending: true }
+    });
+
+    const { data: allDepartments } = useSupabaseData({
+        table: 'departments',
+        order: { column: 'name', ascending: true }
+    });
+
+    const loading = loadingStudents;
 
     // Modals
     const [showModal, setShowModal] = useState(false);
@@ -132,40 +149,6 @@ const StudentPopulationPage = ({ functions }: any) => {
     const [editForm, setEditForm] = useState<any>({});
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [studentToDelete, setStudentToDelete] = useState<any>(null);
-
-    const [loading, setLoading] = useState(false);
-
-    const fetchStudents = async () => {
-        setLoading(true);
-        try {
-            const [
-                { data: studs, error: studErr },
-                { data: courses },
-                { data: depts }
-            ] = await Promise.all([
-                supabase.from('students').select('*').order('created_at', { ascending: false }),
-                supabase.from('courses').select('*').order('name', { ascending: true }),
-                supabase.from('departments').select('*').order('name', { ascending: true })
-            ]);
-
-            if (studErr) console.error('[CareStaff] Error fetching students:', studErr);
-            setStudentsList(studs || []);
-            setAllCourses(courses || []);
-            setAllDepartments(depts || []);
-        } catch (err) {
-            console.error('Error fetching population data:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchStudents();
-        const channel = supabase.channel('student_population_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => fetchStudents())
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, []);
 
     const openEditModal = (student: any) => {
         setEditForm({ ...student });
@@ -187,7 +170,7 @@ const StudentPopulationPage = ({ functions }: any) => {
             if (error) throw error;
             if (showToast) showToast("Student updated successfully!");
             setShowEditModal(false);
-            fetchStudents();
+            refetchStudents();
         } catch (error: any) {
             if (showToast) showToast("Error updating student: " + error.message, 'error');
         }
@@ -205,7 +188,7 @@ const StudentPopulationPage = ({ functions }: any) => {
             if (showToast) showToast("Student and enrollment key deleted successfully.");
             setShowDeleteModal(false);
             setStudentToDelete(null);
-            fetchStudents();
+            refetchStudents();
         } catch (error: any) {
             if (showToast) showToast("Error deleting student: " + error.message, 'error');
         }
@@ -308,7 +291,7 @@ const StudentPopulationPage = ({ functions }: any) => {
             functions.showToast("Student saved successfully!");
             setShowModal(false);
             setStudentForm({ firstName: '', lastName: '', studentId: '', course: '', year: '1st Year', status: 'Active' });
-            fetchStudents();
+            refetchStudents();
         } catch (error) {
             functions.showToast("Error saving student: " + error.message, 'error');
         } finally {
@@ -606,18 +589,18 @@ const StudentPopulationPage = ({ functions }: any) => {
                     <p className="text-slate-500 text-sm mt-1">Comprehensive management and analytics for the student body.</p>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={handleExportExcel} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
-                        <FileSpreadsheet size={16} /> Export Excel
-                    </button>
-                    <button onClick={() => setShowEnrollmentModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 shadow-md shadow-purple-200 transition">
-                        <Key size={16} /> Enrollment Keys
-                    </button>
-                    <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-200 transition">
-                        <Plus size={16} /> Add Student
-                    </button>
-                    <button onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
-                        {viewMode === 'list' ? <PieChart size={16} /> : <List size={16} />} {viewMode === 'list' ? 'View Stats' : 'View List'}
-                    </button>
+                    <Button variant="secondary" onClick={handleExportExcel} leftIcon={<FileSpreadsheet size={16} />}>
+                        Export Excel
+                    </Button>
+                    <Button variant="primary" onClick={() => setShowEnrollmentModal(true)} leftIcon={<Key size={16} />}>
+                        Enrollment Keys
+                    </Button>
+                    <Button variant="primary" className="bg-blue-600 hover:bg-blue-700 shadow-blue-200" onClick={() => setShowModal(true)} leftIcon={<Plus size={16} />}>
+                        Add Student
+                    </Button>
+                    <Button variant="secondary" onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')} leftIcon={viewMode === 'list' ? <PieChart size={16} /> : <List size={16} />}>
+                        {viewMode === 'list' ? 'View Stats' : 'View List'}
+                    </Button>
                 </div>
             </div>
 

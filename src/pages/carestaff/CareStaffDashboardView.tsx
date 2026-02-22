@@ -53,9 +53,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { data: recentApps }
                 ] = await Promise.all([
                     supabase.from('events').select('id, title, type, created_at').order('created_at', { ascending: false }).limit(10),
-                    supabase.from('counseling_requests').select('id, student_name, status, updated_at, created_at').in('status', ['Scheduled', 'Completed']).order('created_at', { ascending: false }).limit(10),
-                    supabase.from('support_requests').select('id, student_name, status, updated_at, created_at').order('created_at', { ascending: false }).limit(10),
-                    supabase.from('scholarship_applications').select('id, first_name, last_name, status, updated_at, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10)
+                    supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', ['Scheduled', 'Completed']).order('created_at', { ascending: false }).limit(10),
+                    supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
+                    supabase.from('scholarship_applications').select('id, student_name, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10)
                 ]);
 
                 if (!isMounted) return;
@@ -77,7 +77,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         color: c.status === 'Completed' ? 'from-green-400 to-emerald-500' : 'from-blue-400 to-cyan-500',
                         title: c.status === 'Completed' ? 'Counseling completed' : 'Counseling scheduled',
                         detail: c.student_name,
-                        date: new Date(c.updated_at || c.created_at)
+                        date: new Date(c.created_at)
                     })),
                     ...(recentSupport || []).map((s: any) => ({
                         id: `sup-${s.id}`,
@@ -86,7 +86,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         color: s.status === 'Completed' ? 'from-green-400 to-emerald-500' : s.status === 'Forwarded to Dept' ? 'from-orange-400 to-amber-500' : 'from-amber-400 to-yellow-500',
                         title: s.status === 'Completed' ? 'Support resolved' : s.status === 'Forwarded to Dept' ? 'Support forwarded' : 'Support request received',
                         detail: s.student_name,
-                        date: new Date(s.updated_at || s.created_at)
+                        date: new Date(s.created_at)
                     })),
                     ...(recentApps || []).map((a: any) => ({
                         id: `app-${a.id}`,
@@ -94,8 +94,8 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         icon: <ClipboardList size={16} />,
                         color: a.status === 'Approved' ? 'from-green-400 to-emerald-500' : 'from-red-400 to-rose-500',
                         title: `Application ${a.status?.toLowerCase() || ''}`,
-                        detail: `${a.first_name || ''} ${a.last_name || ''}`.trim(),
-                        date: new Date(a.updated_at || a.created_at)
+                        detail: a.student_name || 'Unknown Applicant',
+                        date: new Date(a.created_at)
                     }))
                 ].sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 10);
 

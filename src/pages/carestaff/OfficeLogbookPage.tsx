@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Download, ListChecks, XCircle, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
+import { formatDateTime, generateExportFilename } from '../../utils/formatters';
 
 const OfficeLogbookPage = ({ functions }: any) => {
     const [visits, setVisits] = useState<any[]>([]);
@@ -57,8 +58,8 @@ const OfficeLogbookPage = ({ functions }: any) => {
                     <button onClick={() => {
                         if (visits.length === 0) return;
                         const headers = ['Student Name', 'Student ID', 'Reason', 'Time In', 'Time Out', 'Status'];
-                        const rows = visits.map(v => [v.student_name, v.student_id, v.reason, new Date(v.time_in).toLocaleString(), v.time_out ? new Date(v.time_out).toLocaleString() : '-', v.status]);
-                        exportToExcel(headers, rows, 'office_logbook');
+                        const rows = visits.map(v => [v.student_name, v.student_id, v.reason, formatDateTime(v.time_in), v.time_out ? formatDateTime(v.time_out) : '-', v.status]);
+                        exportToExcel(headers, rows, generateExportFilename('office_logbook', 'xlsx').replace('.xlsx', ''));
                     }} disabled={visits.length === 0} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
                         <Download size={16} /> Export Excel
                     </button>
@@ -85,8 +86,8 @@ const OfficeLogbookPage = ({ functions }: any) => {
                                     <tr key={v.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-3 font-bold text-gray-900">{v.student_name}<div className="text-xs text-gray-400 font-normal">{v.student_id}</div></td>
                                         <td className="px-6 py-3 text-gray-600">{v.reason}</td>
-                                        <td className="px-6 py-3 text-gray-500">{new Date(v.time_in).toLocaleString()}</td>
-                                        <td className="px-6 py-3 text-gray-500">{v.time_out ? new Date(v.time_out).toLocaleString() : '-'}</td>
+                                        <td className="px-6 py-3 text-gray-500">{formatDateTime(v.time_in)}</td>
+                                        <td className="px-6 py-3 text-gray-500">{v.time_out ? formatDateTime(v.time_out) : '-'}</td>
                                         <td className="px-6 py-3"><span className={`px-2 py-1 rounded text-xs font-bold ${v.status === 'Ongoing' ? 'bg-green-100 text-green-700 animate-pulse' : 'bg-gray-100 text-gray-600'}`}>{v.status}</span></td>
                                     </tr>
                                 ))}
