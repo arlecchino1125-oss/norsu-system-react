@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { Trash2, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
+import { Trash2, AlertTriangle, AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 
 export default function AdminDashboard() {
@@ -12,6 +12,7 @@ export default function AdminDashboard() {
     const [form, setForm] = useState<any>({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
     const [toast, setToast] = useState<any>(null);
     const [showResetModal, setShowResetModal] = useState<boolean>(false);
+    const [newDeptName, setNewDeptName] = useState<string>('');
 
     // Use custom hook for real-time data fetching
     const { data: accounts, refetch: refetchAccounts } = useSupabaseData({
@@ -20,9 +21,10 @@ export default function AdminDashboard() {
         subscribe: true
     });
 
-    const { data: departmentsData } = useSupabaseData({
+    const { data: departmentsData, refetch: refetchDepartments } = useSupabaseData({
         table: 'departments',
-        order: { column: 'name', ascending: true }
+        order: { column: 'name', ascending: true },
+        subscribe: true
     });
     const departments = departmentsData.map(d => d.name);
 
@@ -62,7 +64,52 @@ export default function AdminDashboard() {
         setShowResetModal(false);
         setLoading(true);
         try {
-            // 1. Clean Staff Accounts (Keep current admin)
+            // === PHASE 1: Wipe all Storage Buckets ===
+            const buckets = ['profile-pictures', 'attendance_proofs', 'support_documents'];
+            for (const bucket of buckets) {
+                try {
+                    const { data: files } = await supabase.storage.from(bucket).list('', { limit: 10000 });
+                    if (files && files.length > 0) {
+                        const filePaths = files.map((f: any) => f.name);
+                        await supabase.storage.from(bucket).remove(filePaths);
+                    }
+                } catch {
+                    // Bucket may not exist yet, skip silently
+                }
+            }
+
+            // === PHASE 2: Wipe all Database Tables (FK-safe order) ===
+            // Child tables first (those with foreign keys), then parent tables
+            const tables = [
+                'answers',               // FK → submissions, questions
+                'submissions',           // FK → forms, students
+                'questions',             // FK → forms
+                'forms',                 // Standalone (parent of questions/submissions)
+                'general_feedback',      // FK → students
+                'notifications',         // FK → students
+                'office_visits',         // FK → students
+                'support_requests',      // FK → students
+                'counseling_requests',   // FK → students
+                'event_feedback',        // FK → events
+                'event_attendance',      // FK → events
+                'applications',          // FK → students
+                'scholarships',          // Standalone
+                'events',               // Standalone (parent of event_feedback/attendance)
+                'audit_logs',           // Standalone
+                'needs_assessments',    // Standalone
+            ];
+
+            for (const table of tables) {
+                await supabase.from(table).delete().not('id', 'is', null);
+            }
+
+            // Tables with non-standard PKs
+            await supabase.from('enrolled_students').delete().neq('student_id', '0');
+
+            // Students table (cleared after all dependent tables)
+            await supabase.from('students').delete().not('id', 'is', null);
+
+            // === PHASE 3: Clean Staff Accounts (Keep current admin only) ===
             const { error: staffError } = await supabase
                 .from('staff_accounts')
                 .delete()
@@ -70,27 +117,29 @@ export default function AdminDashboard() {
 
             if (staffError) throw staffError;
 
-            // 2. Clean Operational Data
-            const tables = [
-                'answers', 'submissions', 'notifications', 'office_visits', 'support_requests',
-                'counseling_requests', 'event_feedback', 'event_attendance', 'applications',
-                'scholarships', 'events', 'audit_logs', 'needs_assessments', 'students'
-            ];
-
-            for (const table of tables) {
-                await supabase.from(table).delete().not('id', 'is', null);
-            }
-
-            // Delete from tables with specific PKs
-            await supabase.from('enrolled_students').delete().neq('student_id', '0');
-
-            showToast("System data has been successfully reset. You can now create new accounts.");
+            showToast("Full system reset complete — all data, files, and accounts have been wiped.");
             refetchAccounts();
         } catch (err: any) {
             showToast("Error resetting: " + err.message, 'error');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleAddDepartment = async () => {
+        const name = newDeptName.trim();
+        if (!name) return;
+        if (departments.includes(name)) { showToast('Department already exists.', 'error'); return; }
+        const { error } = await supabase.from('departments').insert([{ name }]);
+        if (error) showToast(error.message, 'error');
+        else { showToast(`Department "${name}" added.`); setNewDeptName(''); refetchDepartments(); }
+    };
+
+    const handleDeleteDepartment = async (dept: any) => {
+        if (!confirm(`Remove department "${dept.name}"? This will NOT delete accounts or students linked to it.`)) return;
+        const { error } = await supabase.from('departments').delete().eq('id', dept.id);
+        if (error) showToast(error.message, 'error');
+        else { showToast(`Department "${dept.name}" removed.`); refetchDepartments(); }
     };
 
     const handleLogout = () => {
@@ -153,6 +202,26 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Department Management */}
+                <div className="bg-white rounded-xl shadow-sm mt-8 overflow-hidden">
+                    <div className="p-6 border-b flex items-center justify-between">
+                        <h2 className="font-bold text-lg">Departments ({departmentsData.length})</h2>
+                        <div className="flex gap-2">
+                            <input className="border p-2 rounded text-sm w-64" placeholder="New department name…" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDepartment()} />
+                            <button onClick={handleAddDepartment} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 flex items-center gap-1 text-sm"><Plus className="w-4 h-4" /> Add</button>
+                        </div>
+                    </div>
+                    <div className="p-6 flex flex-wrap gap-2">
+                        {departmentsData.length === 0 && <p className="text-gray-400 text-sm">No departments yet. Add one above.</p>}
+                        {departmentsData.map((dept: any) => (
+                            <span key={dept.id} className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium">
+                                {dept.name}
+                                <button onClick={() => handleDeleteDepartment(dept)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
                 {toast && (
                     <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-50 ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
                         <div className="text-xl">{toast.type === 'error' ? <AlertCircle /> : <CheckCircle />}</div>
@@ -166,7 +235,7 @@ export default function AdminDashboard() {
                             <div className="text-center">
                                 <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"><AlertTriangle /></div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">Danger Zone</h3>
-                                <p className="text-gray-500 text-sm mb-6">This will wipe ALL data (Students, Events, Logs) and ALL other Staff Accounts. Only your Admin account will remain.</p>
+                                <p className="text-gray-500 text-sm mb-6">This will wipe ALL data — Students, Events, Forms, Logs, uploaded files (profile pictures, attendance proofs, support documents) — and ALL other Staff Accounts. Only your Admin account will remain.</p>
                                 <div className="flex gap-3">
                                     <button onClick={() => setShowResetModal(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50">Cancel</button>
                                     <button onClick={handleReset} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-lg shadow-red-200">Confirm Reset</button>

@@ -89,13 +89,17 @@ const SupportRequestsPage = ({ functions }: any) => {
         const req = selectedSupportReq;
         const student = selectedStudent;
         const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
 
+        // Margins: Top 1" (25.4mm), Left 1.5" (38.1mm), Bottom 1" (25.4mm), Right 1" (25.4mm)
         const marginTop = 25.4;
         const marginLeft = 38.1;
+        const marginBottom = 25.4;
         const marginRight = 25.4;
+
         const contentW = pageW - marginLeft - marginRight;
 
-        // Header
+        // --- HEADER ---
         doc.setFontSize(6);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(60, 60, 60);
@@ -115,6 +119,7 @@ const SupportRequestsPage = ({ functions }: any) => {
 
         let y = marginTop + 32;
 
+        // --- STUDENT INFO TABLE ---
         const drawFieldRow = (label: any, value: any, x: any, fieldW: any, yPos: any) => {
             doc.setFontSize(8);
             doc.setFont('helvetica', 'bold');
@@ -130,7 +135,7 @@ const SupportRequestsPage = ({ functions }: any) => {
         const rightX = marginLeft + halfW + 8;
 
         drawFieldRow('Full Name:', req.student_name || '', marginLeft, halfW, y);
-        drawFieldRow('Date Filed:', formatDate(req.created_at), rightX, halfW, y);
+        drawFieldRow('Date Filed:', req.created_at ? new Date(req.created_at).toLocaleDateString() : '', rightX, halfW, y);
         y += 7;
         drawFieldRow('Date of Birth:', student?.dob || '', marginLeft, halfW, y);
         drawFieldRow('Program-Year Level:', `${student?.course || ''} ${student?.year_level ? '- ' + student.year_level : ''}`.trim(), rightX, halfW, y);
@@ -142,25 +147,31 @@ const SupportRequestsPage = ({ functions }: any) => {
         drawFieldRow('Home Address:', student?.address || '', marginLeft, contentW, y);
         y += 9;
 
-        // Category Section
+        // --- CATEGORY SECTION ---
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
         doc.text('Category (check all that apply):', marginLeft, y);
         y += 5;
 
         const allCategories = [
-            'Persons with Disabilities (PWDs)', 'Indigenous Peoples (IPs) & Cultural Communities',
-            'Working Students', 'Economically Challenged Students',
-            'Students with Special Learning Needs', 'Rebel Returnees',
-            'Orphans', 'Senior Citizens', 'Homeless Students', 'Solo Parenting',
-            'Pregnant Women', 'Women in Especially Difficult Circumstances',
+            'Persons with Disabilities (PWDs)',
+            'Indigenous Peoples (IPs) & Cultural Communities',
+            'Working Students',
+            'Economically Challenged Students',
+            'Students with Special Learning Needs',
+            'Rebel Returnees',
+            'Orphans',
+            'Senior Citizens',
+            'Homeless Students',
+            'Solo Parenting',
+            'Pregnant Women',
+            'Women in Especially Difficult Circumstances',
         ];
-
         const selectedCats = (req.support_type || '').split(', ').map((c: any) => c.trim());
+
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         const catColW = contentW / 2;
-
         allCategories.forEach((cat: string, i: number) => {
             const col = i % 2;
             const row = Math.floor(i / 2);
@@ -168,14 +179,15 @@ const SupportRequestsPage = ({ functions }: any) => {
             const cy = y + row * 5;
             const isChecked = selectedCats.some((sc: any) => cat.toLowerCase().includes(sc.toLowerCase()) || sc.toLowerCase().includes(cat.toLowerCase()));
 
+            // Draw checkbox
             doc.setDrawColor(0, 0, 0);
             if (isChecked) {
-                doc.setFillColor(0, 0, 0);
-                doc.rect(cx, cy - 3, 3, 3, 'FD');
-                doc.setTextColor(255, 255, 255);
+                doc.setFillColor(0, 0, 0); // Black fill
+                doc.rect(cx, cy - 3, 3, 3, 'FD'); // Fill and Draw
+                doc.setTextColor(255, 255, 255); // White text
                 doc.setFont('helvetica', 'bold');
                 doc.text('✓', cx + 0.5, cy - 0.5);
-                doc.setTextColor(0, 0, 0);
+                doc.setTextColor(0, 0, 0); // Reset text color
                 doc.setFont('helvetica', 'normal');
             } else {
                 doc.setFillColor(255, 255, 255);
@@ -184,34 +196,142 @@ const SupportRequestsPage = ({ functions }: any) => {
             doc.text(cat, cx + 5, cy);
         });
 
+        // Handle "Other" categories
+        const otherCats = selectedCats.filter((sc: any) => sc.startsWith('Other:'));
         const otherRow = Math.ceil(allCategories.length / 2);
-        y += otherRow * 5 + 5;
+        const otherY = y + otherRow * 5;
 
-        doc.setFontSize(8);
+        doc.setDrawColor(0, 0, 0);
+        if (otherCats.length > 0) {
+            doc.setFillColor(0, 0, 0);
+            doc.rect(marginLeft, otherY - 3, 3, 3, 'FD');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.text('✓', marginLeft + 0.5, otherY - 0.5);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+        } else {
+            doc.setFillColor(255, 255, 255);
+            doc.rect(marginLeft, otherY - 3, 3, 3, 'FD');
+        }
+        doc.text(`Others, specify: ${otherCats.map((o: any) => o.replace('Other: ', '')).join(', ')}`, marginLeft + 5, otherY);
+
+        y = otherY + 8;
+
+        // --- SECTION A: YOUR STUDIES ---
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.4);
+        doc.line(marginLeft, y, marginLeft + contentW, y);
+        y += 5;
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text('Action Taken:', marginLeft, y);
+        doc.text('A. Your studies', marginLeft, y);
+        y += 4;
+        doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Status: ${req.status}`, marginLeft + 25, y);
+        doc.text('Which program(s) did you apply for?', marginLeft, y);
         y += 6;
-        if (req.care_notes) {
-            doc.text(`CARE Notes: ${req.care_notes}`, marginLeft, y);
-            y += 6;
-        }
-        if (req.dept_notes) {
-            doc.text(`Dept Head Notes: ${req.dept_notes}`, marginLeft, y);
-            y += 6;
-        }
-        if (req.resolution_notes) {
-            doc.text(`Final Resolution: ${req.resolution_notes}`, marginLeft, y);
-            y += 6;
-        }
 
-        const footerY = doc.internal.pageSize.getHeight() - 25.4;
-        doc.setFontSize(6);
-        doc.setDrawColor(200, 200, 200);
-        doc.line(marginLeft, footerY, marginLeft + contentW, footerY);
-        doc.text('Generated by NORSU CARE System', marginLeft, footerY + 4);
-        doc.text('Page 1 of 1', marginLeft + contentW, footerY + 4, { align: 'right' });
+        const drawPriorityRow = (label: any, value: any, yPos: any) => {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.text(label, marginLeft, yPos);
+            const labelW = doc.getTextWidth(label) + 2;
+            doc.setFont('helvetica', 'normal');
+            doc.text(String(value || 'N/A'), marginLeft + labelW, yPos);
+            doc.setDrawColor(0, 0, 0);
+            doc.line(marginLeft + labelW, yPos + 1, marginLeft + contentW, yPos + 1);
+        };
+
+        drawPriorityRow('1st Priority:', student?.priority_course || 'N/A', y);
+        y += 6;
+        drawPriorityRow('2nd Priority:', student?.alt_course_1 || 'N/A', y);
+        y += 6;
+        drawPriorityRow('3rd Priority:', student?.alt_course_2 || 'N/A', y);
+        y += 8;
+
+        // --- SECTION B: PARTICULARS ---
+        doc.setLineWidth(0.4);
+        doc.line(marginLeft, y, marginLeft + contentW, y);
+        y += 5;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('B. Particulars of your disability or special learning need', marginLeft, y);
+        y += 4;
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'italic');
+        const disclaimerText = 'We would like to gain a better understanding of the kind of support that you may need. However, we might not be able to assist in all the ways that you require, but it might help us with our planning in future.';
+        const splitDisclaimer = doc.splitTextToSize(disclaimerText, contentW);
+        doc.text(splitDisclaimer, marginLeft, y);
+        y += splitDisclaimer.length * 3.5 + 3;
+
+        // Parse Q1-Q4 from description
+        const desc = req.description || '';
+        const getPart = (key: any, nextKey: any) => {
+            const start = desc.indexOf(key);
+            if (start === -1) return '';
+            let end = nextKey ? desc.indexOf(nextKey) : -1;
+            if (end === -1) end = desc.length;
+            return desc.substring(start + key.length, end).trim();
+        };
+        const q1 = getPart('[Q1 Description]:', '[Q2 Previous Support]:');
+        const q2 = getPart('[Q2 Previous Support]:', '[Q3 Required Support]:');
+        const q3 = getPart('[Q3 Required Support]:', '[Q4 Other Needs]:');
+        const q4 = getPart('[Q4 Other Needs]:', null);
+
+        const drawQuestion = (num: any, question: any, answer: any) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            const qLines = doc.splitTextToSize(`${num}. ${question}`, contentW);
+            doc.text(qLines, marginLeft, y);
+            y += qLines.length * 3.5 + 2;
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            if (answer) {
+                const aLines = doc.splitTextToSize(answer, contentW);
+                // Draw lined area for answers
+                doc.setDrawColor(180, 180, 180);
+                const lineCount = Math.max(aLines.length, 2);
+                for (let i = 0; i < lineCount; i++) {
+                    doc.line(marginLeft, y + (i * 5.5), marginLeft + contentW, y + (i * 5.5));
+                }
+                // Write content
+                for (let i = 0; i < aLines.length; i++) {
+                    doc.text(aLines[i], marginLeft, y + (i * 5.5) - 1);
+                }
+                y += lineCount * 5.5 + 3;
+            } else {
+                doc.setDrawColor(180, 180, 180);
+                for (let i = 0; i < 2; i++) {
+                    doc.line(marginLeft, y + (i * 5.5), marginLeft + contentW, y + (i * 5.5));
+                }
+                y += 14;
+            }
+        };
+
+        drawQuestion(1, 'Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.', q1);
+        drawQuestion(2, 'What kind of support did you receive at your previous school?', q2);
+        drawQuestion(3, 'What support or assistance do you require from NORSU-Guihulngan Campus to enable you to fully participate in campus activities, move safely and independently within the campus, and engage effectively in classroom and other learning environments, including lectures, practical sessions, tests, examinations, and other forms of assessment?', q3);
+        drawQuestion(4, 'Indicate and elaborate on any other special needs or assistance that may be required:', q4);
+
+        // --- FOOTER ---
+        const totalPages = (doc as any).getNumberOfPages ? (doc as any).getNumberOfPages() : 1;
+        for (let p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            const footerY = pageH - marginBottom;
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.3);
+            doc.line(marginLeft, footerY, marginLeft + contentW, footerY);
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(80, 80, 80);
+            doc.text(`Date Filed: ${new Date(req.created_at).toLocaleDateString()}`, marginLeft, footerY + 4);
+            doc.text(`Status: ${req.status}`, marginLeft + contentW / 2, footerY + 4, { align: 'center' });
+            doc.text(`Page ${p} of ${totalPages}`, marginLeft + contentW, footerY + 4, { align: 'right' });
+            doc.setFontSize(5);
+            doc.text('Disclaimer: The information transmitted by this document is intended only for the person or entity to which it is addressed.', marginLeft + contentW / 2, footerY + 8, { align: 'center' });
+        }
 
         doc.save(generateExportFilename(`Additional_Support_${(req.student_name || 'unknown').replace(/\s+/g, '_')}`, 'pdf'));
         showToast?.('Support form downloaded successfully!', 'success');
