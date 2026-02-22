@@ -835,14 +835,14 @@ const StudentPopulationPage = ({ functions }: any) => {
 
             {/* ===== FULL STUDENT PROFILE MODAL ===== */}
             {profileViewStudent && (
-                <div className="absolute -inset-8 bg-black/10 flex items-center justify-center z-50 p-12 pb-[25%]" onClick={() => setProfileViewStudent(null)}>
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-6" onClick={() => setProfileViewStudent(null)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
                         {/* Header */}
-                        <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 flex items-center justify-between shrink-0">
-                            <div className="flex items-center gap-4">
+                        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 flex flex-col sm:flex-row items-start sm:items-center justify-between shrink-0 gap-3">
+                            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                                 <button
                                     onClick={() => profileViewStudent?.profile_picture_url && setShowPhotoModal(true)}
-                                    className={`w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg shadow-blue-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-blue-400 transition-all focus:outline-none' : 'cursor-default'}`}
+                                    className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center text-xl sm:text-2xl font-black text-white shrink-0 shadow-lg shadow-blue-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-blue-400 transition-all focus:outline-none' : 'cursor-default'}`}
                                 >
                                     {profileViewStudent.profile_picture_url ? (
                                         <img src={profileViewStudent.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
@@ -850,15 +850,15 @@ const StudentPopulationPage = ({ functions }: any) => {
                                         <span>{profileViewStudent.first_name?.[0] || 'S'}</span>
                                     )}
                                 </button>
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-900">
+                                <div className="min-w-0">
+                                    <h2 className="text-base sm:text-xl font-bold text-slate-900 truncate">
                                         {profileViewStudent.last_name}, {profileViewStudent.first_name} {profileViewStudent.suffix || ''} {profileViewStudent.middle_name || ''}
                                     </h2>
-                                    <p className="text-sm text-slate-500 font-mono">{profileViewStudent.student_id} &bull; {profileViewStudent.course} &bull; {profileViewStudent.year_level}</p>
+                                    <p className="text-xs sm:text-sm text-slate-500 font-mono truncate">{profileViewStudent.student_id} &bull; {profileViewStudent.course} &bull; {profileViewStudent.year_level}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => { openEditModal(profileViewStudent); setProfileViewStudent(null); }} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-md">
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                <button onClick={() => { openEditModal(profileViewStudent); setProfileViewStudent(null); }} className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-md">
                                     <Edit size={14} /> Edit
                                 </button>
                                 <button onClick={() => setProfileViewStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
@@ -868,26 +868,28 @@ const StudentPopulationPage = ({ functions }: any) => {
                         </div>
 
                         {/* Body with sidebar + content */}
-                        <div className="flex flex-1 overflow-hidden">
-                            {/* Category Sidebar */}
-                            <div className="w-56 bg-slate-50 border-r border-slate-100 overflow-y-auto shrink-0 py-2">
-                                {PROFILE_CATEGORIES.map((cat, i) => (
-                                    <button
-                                        key={cat.key}
-                                        onClick={() => setProfileCategoryIndex(i)}
-                                        className={`w-full text-left px-4 py-3 flex items-center gap-3 text-sm transition-all ${profileCategoryIndex === i
-                                            ? 'bg-white text-blue-700 font-bold border-r-2 border-blue-600 shadow-sm'
-                                            : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
-                                            }`}
-                                    >
-                                        <span className="text-lg">{cat.icon}</span>
-                                        <span className="truncate">{cat.label}</span>
-                                    </button>
-                                ))}
+                        <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
+                            {/* Category Sidebar — horizontal scroll on mobile, vertical sidebar on desktop */}
+                            <div className="sm:w-56 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-100 overflow-x-auto sm:overflow-x-visible sm:overflow-y-auto shrink-0 py-1 sm:py-2">
+                                <div className="flex sm:flex-col gap-0.5 px-1 sm:px-0 min-w-max sm:min-w-0">
+                                    {PROFILE_CATEGORIES.map((cat, i) => (
+                                        <button
+                                            key={cat.key}
+                                            onClick={() => setProfileCategoryIndex(i)}
+                                            className={`text-left px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm transition-all whitespace-nowrap sm:whitespace-normal rounded-lg sm:rounded-none sm:w-full ${profileCategoryIndex === i
+                                                ? 'bg-white text-blue-700 font-bold sm:border-r-2 border-blue-600 shadow-sm'
+                                                : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+                                                }`}
+                                        >
+                                            <span className="text-base sm:text-lg">{cat.icon}</span>
+                                            <span className="truncate">{cat.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Content */}
-                            <div className="flex-1 overflow-y-auto p-6">
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                                 {profileLoading ? (
                                     <div className="flex items-center justify-center h-64 text-slate-400">Loading student data...</div>
                                 ) : (
@@ -899,7 +901,7 @@ const StudentPopulationPage = ({ functions }: any) => {
                                             <h3 className="text-lg font-bold text-slate-900">{PROFILE_CATEGORIES[profileCategoryIndex].label}</h3>
                                         </div>
                                         {/* Profile picture — shown only inside Personal Information */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                             {PROFILE_CATEGORIES[profileCategoryIndex].fields.map((field: any, idx: number) => {
                                                 let value = field.compute ? field.compute(profileViewStudent) : profileViewStudent[field.db];
                                                 if (field.type === 'boolean') value = value ? 'Yes' : 'No';
@@ -919,7 +921,7 @@ const StudentPopulationPage = ({ functions }: any) => {
                         </div>
 
                         {/* Footer with navigation */}
-                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
                             <button
                                 onClick={() => setProfileCategoryIndex(i => Math.max(0, i - 1))}
                                 disabled={profileCategoryIndex === 0}
