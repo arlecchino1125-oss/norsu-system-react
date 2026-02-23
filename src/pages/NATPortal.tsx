@@ -638,7 +638,7 @@ const NATPortal = () => {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                    className="bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-white p-8 md:p-14 text-center relative overflow-hidden group"
+                    className="bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-white p-6 md:p-14 text-center relative overflow-hidden group"
                 >
                     <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none"></div>
 
@@ -648,34 +648,34 @@ const NATPortal = () => {
                         animate="in"
                         className="relative z-10"
                     >
-                        <motion.div variants={itemVariants} className="inline-flex p-5 bg-gradient-to-br from-white to-blue-50 border border-white rounded-[2rem] shadow-xl shadow-blue-200/50 mb-8 transform hover:scale-110 transition-transform duration-500 relative">
+                        <motion.div variants={itemVariants} className="inline-flex p-4 md:p-5 bg-gradient-to-br from-white to-blue-50 border border-white rounded-[2rem] shadow-xl shadow-blue-200/50 mb-6 md:mb-8 transform hover:scale-110 transition-transform duration-500 relative">
                             <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
-                            <FileText className="w-14 h-14 text-blue-600 relative z-10 drop-shadow-sm" />
+                            <FileText className="w-10 h-10 md:w-14 md:h-14 text-blue-600 relative z-10 drop-shadow-sm" />
                         </motion.div>
-                        <motion.h2 variants={itemVariants} className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
+                        <motion.h2 variants={itemVariants} className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
                             Welcome to NORSU
                         </motion.h2>
-                        <motion.p variants={itemVariants} className="text-xl md:text-2xl text-slate-600/90 font-medium mb-12 max-w-2xl mx-auto leading-relaxed">
+                        <motion.p variants={itemVariants} className="text-lg md:text-2xl text-slate-600/90 font-medium mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                             Begin your academic journey with the Negros Oriental State University Admission Test.
                         </motion.p>
 
-                        <motion.div variants={containerVariants} className="grid md:grid-cols-2 gap-6 mb-12 text-left">
-                            <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/card hover:-translate-y-1 relative overflow-hidden">
+                        <motion.div variants={containerVariants} className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12 text-left">
+                            <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/card hover:-translate-y-1 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300"></div>
-                                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-3 text-lg relative z-10">
+                                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-3 text-base md:text-lg relative z-10">
                                     <div className="p-2 bg-blue-100/50 rounded-xl"><Info className="w-5 h-5 text-blue-600" /></div> About the Test
                                 </h3>
-                                <p className="text-slate-600/90 leading-relaxed font-medium relative z-10">
+                                <p className="text-sm md:text-base text-slate-600/90 leading-relaxed font-medium relative z-10">
                                     The NAT assesses your readiness for university-level education. It ensures you are prepared for the academic challenges ahead with a comprehensive evaluation.
                                 </p>
                             </motion.div>
-                            <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/steps hover:-translate-y-1 relative overflow-hidden">
+                            <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/steps hover:-translate-y-1 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover/steps:opacity-100 transition-opacity duration-300"></div>
-                                <h3 className="font-bold text-slate-800 mb-5 text-lg relative z-10">Application Steps</h3>
-                                <div className="space-y-4 relative z-10">
+                                <h3 className="font-bold text-slate-800 mb-5 text-base md:text-lg relative z-10">Application Steps</h3>
+                                <div className="space-y-3 md:space-y-4 relative z-10">
                                     {["Complete application form", "Choose test schedule", "Receive credentials", "Take the test"].map((text, i) => (
-                                        <div key={i} className="flex items-center gap-4 text-sm text-slate-700 font-bold group/step">
-                                            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center text-xs font-black border border-blue-200/50 shadow-sm group-hover/step:scale-110 transition-transform">{i + 1}</div>
+                                        <div key={i} className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-700 font-bold group/step">
+                                            <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center text-[10px] md:text-xs font-black border border-blue-200/50 shadow-sm group-hover/step:scale-110 transition-transform">{i + 1}</div>
                                             {text}
                                         </div>
                                     ))}
@@ -683,17 +683,17 @@ const NATPortal = () => {
                             </motion.div>
                         </motion.div>
 
-                        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 justify-center max-w-lg mx-auto">
+                        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
                             <button
                                 onClick={() => setCurrentScreen('form')}
-                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-8 rounded-2xl font-bold text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
+                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
                             >
                                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
-                                <span className="relative z-10 flex items-center gap-2">Apply Now <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" /></span>
+                                <span className="relative z-10 flex items-center gap-2">Apply Now <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:translate-x-1 transition-transform" /></span>
                             </button>
                             <button
                                 onClick={() => setCurrentScreen('login')}
-                                className="flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-8 rounded-2xl font-bold text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95"
+                                className="flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95"
                             >
                                 Login to Portal
                             </button>
@@ -712,16 +712,16 @@ const NATPortal = () => {
             <div className="max-w-4xl mx-auto w-full">
                 <motion.div
                     initial="initial" animate="in" variants={containerVariants}
-                    className="bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-900/10 border border-white p-8 md:p-12 overflow-hidden relative"
+                    className="bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-900/10 border border-white p-6 md:p-12 overflow-hidden relative"
                 >
                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500"></div>
 
-                    <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+                    <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10 gap-4">
                         <div>
-                            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Application Status</h1>
-                            <p className="text-slate-500 text-sm font-semibold mt-2 flex items-center gap-2">Reference ID: <span className="font-mono text-slate-700 bg-white/60 border border-slate-200 px-3 py-1 rounded-lg shadow-sm">{credentials?.referenceId}</span></p>
+                            <h1 className="text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Application Status</h1>
+                            <p className="text-slate-500 text-sm font-semibold mt-2 flex items-center gap-2">Ref ID: <span className="font-mono text-xs md:text-sm text-slate-700 bg-white/60 border border-slate-200 px-2 md:px-3 py-1 rounded-lg shadow-sm">{credentials?.referenceId}</span></p>
                         </div>
-                        <span className="px-6 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 text-emerald-700 rounded-2xl text-sm font-bold flex items-center gap-3 shadow-md shadow-emerald-500/10 border border-emerald-200/50">
+                        <span className="px-5 md:px-6 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 text-emerald-700 rounded-2xl text-xs md:text-sm font-bold flex items-center gap-3 shadow-md shadow-emerald-500/10 border border-emerald-200/50 w-full md:w-auto justify-center md:justify-start">
                             <span className="relative flex h-3.5 w-3.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
@@ -730,14 +730,14 @@ const NATPortal = () => {
                         </span>
                     </motion.div>
 
-                    <div className="grid md:grid-cols-2 gap-6 mb-10">
-                        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md rounded-[1.5rem] p-6 border border-white shadow-sm">
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Applicant Name</p>
-                            <p className="text-2xl font-black text-slate-800 tracking-tight">{credentials?.firstName} {credentials?.lastName}</p>
+                    <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-10">
+                        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-white shadow-sm">
+                            <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1 md:mb-2">Applicant Name</p>
+                            <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{credentials?.firstName} {credentials?.lastName}</p>
                         </motion.div>
-                        <motion.div variants={itemVariants} className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-md rounded-[1.5rem] p-6 border border-blue-100/50 shadow-sm">
-                            <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-2">Priority Course</p>
-                            <p className="text-2xl font-black text-blue-700 tracking-tight">{credentials?.priorityCourse}</p>
+                        <motion.div variants={itemVariants} className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-blue-100/50 shadow-sm">
+                            <p className="text-[10px] md:text-xs font-black text-blue-400 uppercase tracking-widest mb-1 md:mb-2">Priority Course</p>
+                            <p className="text-xl md:text-2xl font-black text-blue-700 tracking-tight">{credentials?.priorityCourse}</p>
                         </motion.div>
                     </div>
 
@@ -1048,42 +1048,42 @@ const NATPortal = () => {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
                         {/* Left Column: Status Card + Actions */}
-                        <div className="lg:col-span-2 space-y-6">
+                        <div className="lg:col-span-2 space-y-4 md:space-y-6">
                             {/* Header Info */}
-                            <div className="bg-white/60 backdrop-blur-md rounded-3xl p-8 border border-white/50 shadow-xl shadow-blue-900/5">
-                                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+                            <div className="bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-blue-900/5">
+                                <div className="flex flex-col md:flex-row justify-between md:items-center gap-3 md:gap-4 mb-5 md:mb-6">
                                     <div>
-                                        <h2 className="text-2xl font-bold text-gray-900">Hello, {currentUser.first_name}!</h2>
-                                        <p className="text-gray-500 text-sm">Application ID: <span className="font-mono text-gray-700">{currentUser.reference_id}</span></p>
+                                        <h2 className="text-xl md:text-2xl font-bold text-gray-900">Hello, {currentUser.first_name}!</h2>
+                                        <p className="text-gray-500 text-xs md:text-sm">App ID: <span className="font-mono text-gray-700">{currentUser.reference_id}</span></p>
                                     </div>
-                                    <span className="px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-bold border border-green-200 w-fit">
+                                    <span className="px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-[10px] md:text-xs font-bold border border-green-200 w-fit">
                                         Status: {currentUser.status || 'Applied'}
                                     </span>
                                 </div>
 
                                 {/* Activation Status */}
                                 {currentUser.student_id ? (
-                                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5 mb-6 flex items-center gap-4 shadow-sm">
-                                        <div className="bg-white p-3 rounded-full text-green-600 shadow-sm"><Check className="w-6 h-6" /></div>
+                                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 md:p-5 mb-5 md:mb-6 flex items-center gap-3 md:gap-4 shadow-sm">
+                                        <div className="bg-white p-2.5 md:p-3 rounded-full text-green-600 shadow-sm"><Check className="w-5 h-5 md:w-6 md:h-6" /></div>
                                         <div>
-                                            <p className="text-sm font-bold text-green-900">Student Account Active</p>
-                                            <p className="text-xs text-green-700 font-medium">Student ID: <span className="font-mono text-lg ml-1">{currentUser.student_id}</span></p>
+                                            <p className="text-xs md:text-sm font-bold text-green-900">Student Account Active</p>
+                                            <p className="text-[10px] md:text-xs text-green-700 font-medium">Student ID: <span className="font-mono text-base md:text-lg ml-1">{currentUser.student_id}</span></p>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="mb-6">
+                                    <div className="mb-5 md:mb-6">
                                         <button
                                             onClick={() => setShowActivationModal(true)}
                                             disabled={currentUser?.status !== 'Approved for Enrollment'}
-                                            className={`w-full py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${currentUser?.status === 'Approved for Enrollment' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-blue-500/30 hover:-translate-y-1' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                            className={`w-full py-3 md:py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm md:text-base ${currentUser?.status === 'Approved for Enrollment' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-blue-500/30 hover:-translate-y-1' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
                                         >
-                                            <GraduationCap className="w-5 h-5" /> Activate Student Account
+                                            <GraduationCap className="w-4 h-4 md:w-5 md:h-5" /> Activate Student Account
                                         </button>
                                         {currentUser?.status !== 'Approved for Enrollment' && (
-                                            <p className="text-center text-xs text-gray-500 mt-2 font-medium flex justify-center items-center gap-1">
-                                                <Info className="w-3 h-3" /> Activation unlocks after your department interview is completed and approved.
+                                            <p className="text-center text-[10px] md:text-xs text-gray-500 mt-2 font-medium flex justify-center items-center gap-1 px-2">
+                                                <Info className="w-3 h-3 shrink-0" /> Activation unlocks after your department interview is completed and approved.
                                             </p>
                                         )}
                                     </div>
@@ -1091,37 +1091,37 @@ const NATPortal = () => {
 
                                 {/* Attendance Widget */}
                                 {(currentUser.time_in || currentUser.time_out) && (
-                                    <div className={`border rounded-2xl p-6 transition-all duration-300 ${!currentUser.time_out ? 'bg-blue-50/50 border-blue-100 shadow-blue-500/5' : 'bg-gray-50 border-gray-100'}`}>
-                                        <div className="flex justify-between items-center mb-6">
-                                            <h3 className={`font-bold flex items-center gap-2 text-sm uppercase tracking-wider ${!currentUser.time_out ? 'text-blue-900' : 'text-gray-500'}`}>
-                                                <Clock className="w-5 h-5" /> Attendance Log
+                                    <div className={`border rounded-2xl p-4 md:p-6 transition-all duration-300 ${!currentUser.time_out ? 'bg-blue-50/50 border-blue-100 shadow-blue-500/5' : 'bg-gray-50 border-gray-100'}`}>
+                                        <div className="flex justify-between items-center mb-4 md:mb-6">
+                                            <h3 className={`font-bold flex items-center gap-2 text-xs md:text-sm uppercase tracking-wider ${!currentUser.time_out ? 'text-blue-900' : 'text-gray-500'}`}>
+                                                <Clock className="w-4 h-4 md:w-5 md:h-5" /> Attendance Log
                                             </h3>
                                             {!currentUser.time_out && (
-                                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold animate-pulse">Live</span>
+                                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] md:text-xs font-bold animate-pulse">Live</span>
                                             )}
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-white p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
-                                                <div className="absolute top-0 right-0 p-2 opacity-50"><Clock className="w-12 h-12 text-blue-100 transform rotate-12 group-hover:scale-110 transition-transform" /></div>
-                                                <p className="text-xs text-blue-400 uppercase font-bold mb-1">Started At</p>
-                                                <p className="font-mono text-xl text-gray-900 font-bold tracking-tight relative z-10">
+                                        <div className="grid grid-cols-2 gap-3 md:gap-4">
+                                            <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><Clock className="w-8 h-8 md:w-12 md:h-12 text-blue-100 transform rotate-12 group-hover:scale-110 transition-transform" /></div>
+                                                <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Started At</p>
+                                                <p className="font-mono text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
                                                     {currentUser.time_in ? new Date(currentUser.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                                 </p>
                                             </div>
-                                            <div className="bg-white p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
-                                                <div className="absolute top-0 right-0 p-2 opacity-50"><LogOut className="w-12 h-12 text-gray-100 transform -rotate-12 group-hover:scale-110 transition-transform" /></div>
-                                                <p className="text-xs text-blue-400 uppercase font-bold mb-1">Finished At</p>
-                                                <p className="font-mono text-xl text-gray-900 font-bold tracking-tight relative z-10">
+                                            <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><LogOut className="w-8 h-8 md:w-12 md:h-12 text-gray-100 transform -rotate-12 group-hover:scale-110 transition-transform" /></div>
+                                                <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Finished At</p>
+                                                <p className="font-mono text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
                                                     {currentUser.time_out ? new Date(currentUser.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {!currentUser.time_out && (
-                                            <div className="mt-4 p-4 bg-white rounded-xl border border-blue-100 flex items-center justify-between">
-                                                <span className="text-sm font-medium text-gray-500">Duration</span>
-                                                <span className="font-mono text-2xl font-bold text-blue-600 tabular-nums">{elapsedTime}</span>
+                                            <div className="mt-3 md:mt-4 p-3 md:p-4 bg-white rounded-xl border border-blue-100 flex items-center justify-between">
+                                                <span className="text-xs md:text-sm font-medium text-gray-500">Duration</span>
+                                                <span className="font-mono text-xl md:text-2xl font-bold text-blue-600 tabular-nums">{elapsedTime}</span>
                                             </div>
                                         )}
                                     </div>
@@ -1129,23 +1129,23 @@ const NATPortal = () => {
                             </div>
 
                             {/* Test Details */}
-                            <div className="bg-white/60 backdrop-blur-md rounded-3xl p-8 border border-white/50 shadow-xl shadow-indigo-900/5">
-                                <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                    <FileText className="w-5 h-5 text-indigo-500" /> Test Details
+                            <div className="bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-indigo-900/5">
+                                <h3 className="font-bold text-gray-900 mb-5 md:mb-6 flex items-center gap-2 text-sm md:text-base">
+                                    <FileText className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> Test Details
                                 </h3>
-                                <div className="grid md:grid-cols-2 gap-6">
+                                <div className="grid md:grid-cols-2 gap-4 md:gap-6">
                                     <div className="flex gap-3 items-start">
-                                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0"><Calendar className="w-5 h-5" /></div>
+                                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0"><Calendar className="w-4 h-4 md:w-5 md:h-5" /></div>
                                         <div>
-                                            <p className="text-xs text-gray-500 font-bold uppercase">Test Date</p>
-                                            <p className="font-semibold text-gray-900">{currentUser.test_date}</p>
+                                            <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase">Test Date</p>
+                                            <p className="font-semibold text-gray-900 text-sm md:text-base">{currentUser.test_date}</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-3 items-start">
-                                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0"><MapPin className="w-5 h-5" /></div>
+                                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0"><MapPin className="w-4 h-4 md:w-5 md:h-5" /></div>
                                         <div>
-                                            <p className="text-xs text-gray-500 font-bold uppercase">Venue</p>
-                                            <p className="font-semibold text-gray-900">NORSU Main Campus</p>
+                                            <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase">Venue</p>
+                                            <p className="font-semibold text-gray-900 text-sm md:text-base">NORSU Main Campus</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1153,40 +1153,40 @@ const NATPortal = () => {
                         </div>
 
                         {/* Right Column: Profile Summary */}
-                        <div className="bg-white/60 backdrop-blur-md rounded-3xl p-8 border border-white/50 shadow-xl shadow-blue-900/5 h-fit">
-                            <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2 border-b border-gray-100 pb-4">
-                                <User className="w-5 h-5 text-gray-500" /> Profile Summary
+                        <div className="bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-blue-900/5 h-fit">
+                            <h3 className="font-bold text-gray-900 mb-5 md:mb-6 flex items-center gap-2 border-b border-gray-100 pb-4 text-sm md:text-base">
+                                <User className="w-4 h-4 md:w-5 md:h-5 text-gray-500" /> Profile Summary
                             </h3>
 
-                            <div className="space-y-6">
+                            <div className="space-y-5 md:space-y-6">
                                 <div>
-                                    <p className="text-xs text-gray-400 uppercase font-bold mb-1">Full Name</p>
-                                    <p className="font-semibold text-gray-900 truncate">{currentUser.first_name} {currentUser.middle_name} {currentUser.last_name} {currentUser.suffix}</p>
+                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase font-bold mb-1">Full Name</p>
+                                    <p className="font-semibold text-gray-900 truncate text-sm md:text-base">{currentUser.first_name} {currentUser.middle_name} {currentUser.last_name} {currentUser.suffix}</p>
                                 </div>
 
                                 <div>
-                                    <p className="text-xs text-gray-400 uppercase font-bold mb-1">Contact</p>
-                                    <div className="space-y-2 text-sm">
-                                        <p className="flex items-center gap-2 text-gray-700"><Mail className="w-3.5 h-3.5 text-gray-400" /> {currentUser.email}</p>
-                                        <p className="flex items-center gap-2 text-gray-700"><Phone className="w-3.5 h-3.5 text-gray-400" /> {currentUser.mobile}</p>
-                                        <p className="flex items-center gap-2 text-gray-700"><MapPin className="w-3.5 h-3.5 text-gray-400" /> {currentUser.city}, {currentUser.province}</p>
+                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase font-bold mb-1">Contact</p>
+                                    <div className="space-y-1 md:space-y-2 text-xs md:text-sm">
+                                        <p className="flex items-center gap-2 text-gray-700 truncate"><Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {currentUser.email}</p>
+                                        <p className="flex items-center gap-2 text-gray-700"><Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {currentUser.mobile}</p>
+                                        <p className="flex items-center gap-2 text-gray-700"><MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {currentUser.city}, {currentUser.province}</p>
                                     </div>
                                 </div>
 
                                 <div className="pt-4 border-t border-gray-100">
-                                    <p className="text-xs text-gray-400 uppercase font-bold mb-3">Course Preferences</p>
-                                    <div className="space-y-3">
-                                        <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                                            <span className="text-[10px] uppercase font-bold text-blue-400 block mb-1">1st Choice</span>
-                                            <p className="text-sm font-bold text-blue-900 leading-tight">{currentUser.priority_course}</p>
+                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase font-bold mb-2 md:mb-3">Course Preferences</p>
+                                    <div className="space-y-2 md:space-y-3">
+                                        <div className="bg-blue-50 p-2.5 md:p-3 rounded-xl border border-blue-100">
+                                            <span className="text-[9px] md:text-[10px] uppercase font-bold text-blue-400 block mb-0.5 md:mb-1">1st Choice</span>
+                                            <p className="text-xs md:text-sm font-bold text-blue-900 leading-tight">{currentUser.priority_course}</p>
                                         </div>
-                                        <div className="px-3">
-                                            <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">2nd Choice</span>
-                                            <p className="text-sm font-medium text-gray-700 leading-tight">{currentUser.alt_course_1}</p>
+                                        <div className="px-2 md:px-3">
+                                            <span className="text-[9px] md:text-[10px] uppercase font-bold text-gray-400 block mb-0.5 md:mb-1">2nd Choice</span>
+                                            <p className="text-[11px] md:text-sm font-medium text-gray-700 leading-tight">{currentUser.alt_course_1}</p>
                                         </div>
-                                        <div className="px-3">
-                                            <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">3rd Choice</span>
-                                            <p className="text-sm font-medium text-gray-700 leading-tight">{currentUser.alt_course_2}</p>
+                                        <div className="px-2 md:px-3">
+                                            <span className="text-[9px] md:text-[10px] uppercase font-bold text-gray-400 block mb-0.5 md:mb-1">3rd Choice</span>
+                                            <p className="text-[11px] md:text-sm font-medium text-gray-700 leading-tight">{currentUser.alt_course_2}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1225,8 +1225,8 @@ const NATPortal = () => {
                                     <React.Fragment key={step.id}>
                                         <div className="flex flex-col items-center gap-1.5 flex-1">
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${isActive ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110'
-                                                    : isPast ? 'border-green-500 bg-green-500 text-white'
-                                                        : 'border-slate-200 bg-white text-slate-400'
+                                                : isPast ? 'border-green-500 bg-green-500 text-white'
+                                                    : 'border-slate-200 bg-white text-slate-400'
                                                 }`}>
                                                 {isPast ? <Check className="w-4 h-4" /> : <span className="text-xs font-black">{step.id}</span>}
                                             </div>
@@ -1274,41 +1274,42 @@ const NATPortal = () => {
 
                 {/* ===== DESKTOP: Original Sidebar Navigation (hidden on mobile) ===== */}
                 <div className="hidden lg:block lg:w-1/4 shrink-0">
-                    <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-6 border border-white shadow-xl shadow-blue-900/5 sticky top-24">
-                        <h3 className="font-black text-slate-800 mb-6 uppercase tracking-widest text-xs">Application Sections</h3>
-                        <div className="space-y-2">
-                            {[
-                                { id: 1, title: 'Personal Info' },
-                                { id: 2, title: 'Course Selection' },
-                                { id: 3, title: 'Contact Details' }
-                            ].map((step) => {
-                                const isActive = currentStep === step.id;
-                                const isPast = currentStep > step.id;
-                                return (
-                                    <div key={step.id} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isActive ? 'bg-blue-50/50' : ''}`}>
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${isActive ? 'border-blue-600 bg-blue-50 text-blue-600' : isPast ? 'border-green-500 bg-green-50 text-green-500' : 'border-slate-200 text-slate-400'}`}>
-                                            {isPast ? <Check className="w-4 h-4" /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-600' : 'bg-slate-300'}`}></div>}
+                    <div className="sticky top-24 space-y-4">
+                        {/* Application Sections */}
+                        <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-6 border border-white shadow-xl shadow-blue-900/5">
+                            <h3 className="font-black text-slate-800 mb-6 uppercase tracking-widest text-xs">Application Sections</h3>
+                            <div className="space-y-2">
+                                {[
+                                    { id: 1, title: 'Personal Info' },
+                                    { id: 2, title: 'Course Selection' },
+                                    { id: 3, title: 'Contact Details' }
+                                ].map((step) => {
+                                    const isActive = currentStep === step.id;
+                                    const isPast = currentStep > step.id;
+                                    return (
+                                        <div key={step.id} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isActive ? 'bg-blue-50/50' : ''}`}>
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${isActive ? 'border-blue-600 bg-blue-50 text-blue-600' : isPast ? 'border-green-500 bg-green-50 text-green-500' : 'border-slate-200 text-slate-400'}`}>
+                                                {isPast ? <Check className="w-4 h-4" /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-600' : 'bg-slate-300'}`}></div>}
+                                            </div>
+                                            <span className={`text-sm font-bold ${isActive ? 'text-blue-700' : isPast ? 'text-slate-700' : 'text-slate-500'}`}>{step.title}</span>
                                         </div>
-                                        <span className={`text-sm font-bold ${isActive ? 'text-blue-700' : isPast ? 'text-slate-700' : 'text-slate-500'}`}>{step.title}</span>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
 
-                        {/* Data Privacy Act Disclaimer */}
-                        <div className="mt-6 pt-6 border-t border-slate-200/50">
-                            <div className="relative overflow-hidden rounded-xl border border-white bg-white/40 p-4">
-                                <div className="absolute top-0 w-full h-0.5 bg-gradient-to-r from-blue-400 to-indigo-500 left-0"></div>
-                                <h4 className="text-[10px] font-black text-slate-800 mb-2 flex items-center gap-1.5 uppercase tracking-widest"><Info className="w-3 h-3 text-blue-500" /> Data Privacy Disclaimer</h4>
-                                <p className="text-[11px] text-slate-600 mb-3 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
-                                <label className="flex items-center gap-2 cursor-pointer group/check bg-white/50 p-2.5 rounded-lg border border-white/60 hover:bg-white transition-all w-fit">
-                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shadow-sm ${formData.agreedToPrivacy ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover/check:border-blue-400'}`}>
-                                        {formData.agreedToPrivacy && <Check className="w-3 h-3 text-white" />}
-                                    </div>
-                                    <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
-                                    <span className="text-xs font-bold text-slate-800">I agree to the terms and conditions</span>
-                                </label>
-                            </div>
+                        {/* Data Privacy Act Disclaimer — separate card */}
+                        <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-5 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+                            <h4 className="text-[10px] font-black text-slate-800 mb-2 flex items-center gap-1.5 uppercase tracking-widest"><Info className="w-3 h-3 text-blue-500" /> Data Privacy Disclaimer</h4>
+                            <p className="text-[11px] text-slate-600 mb-3 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
+                            <label className="flex items-center gap-2 cursor-pointer group/check bg-white/50 p-2.5 rounded-lg border border-white/60 hover:bg-white transition-all w-fit">
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shadow-sm ${formData.agreedToPrivacy ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover/check:border-blue-400'}`}>
+                                    {formData.agreedToPrivacy && <Check className="w-3 h-3 text-white" />}
+                                </div>
+                                <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
+                                <span className="text-xs font-bold text-slate-800">I agree to the terms and conditions</span>
+                            </label>
                         </div>
                     </div>
                 </div>
