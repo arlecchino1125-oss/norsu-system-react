@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
     GraduationCap, ArrowLeft, FileText, Info, Check, User, Key,
-    Calendar, MapPin, Loader2, X, Clock, HelpCircle, LogOut, Mail, Phone, ArrowRight
+    Calendar, MapPin, Loader2, X, Clock, HelpCircle, LogOut, Mail, Phone, ArrowRight, ChevronDown
 } from 'lucide-react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 
@@ -1207,9 +1207,73 @@ const NATPortal = () => {
             showBack={true}
             onBack={() => setCurrentScreen('welcome')}
         >
-            <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto w-full animate-slide-in-up pb-24">
-                {/* Sidebar Navigation */}
-                <div className="lg:w-1/4 shrink-0">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 max-w-6xl mx-auto w-full animate-slide-in-up pb-24">
+
+                {/* ===== MOBILE: Compact Horizontal Stepper + Collapsible Disclaimer ===== */}
+                <div className="block lg:hidden">
+                    {/* Horizontal Step Indicator */}
+                    <div className="bg-white/40 backdrop-blur-2xl rounded-2xl p-4 border border-white shadow-lg shadow-blue-900/5">
+                        <div className="flex items-center justify-between gap-2">
+                            {[
+                                { id: 1, title: 'Personal' },
+                                { id: 2, title: 'Course' },
+                                { id: 3, title: 'Contact' }
+                            ].map((step, idx) => {
+                                const isActive = currentStep === step.id;
+                                const isPast = currentStep > step.id;
+                                return (
+                                    <React.Fragment key={step.id}>
+                                        <div className="flex flex-col items-center gap-1.5 flex-1">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${isActive ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110'
+                                                    : isPast ? 'border-green-500 bg-green-500 text-white'
+                                                        : 'border-slate-200 bg-white text-slate-400'
+                                                }`}>
+                                                {isPast ? <Check className="w-4 h-4" /> : <span className="text-xs font-black">{step.id}</span>}
+                                            </div>
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-blue-700' : isPast ? 'text-green-600' : 'text-slate-400'}`}>{step.title}</span>
+                                        </div>
+                                        {idx < 2 && (
+                                            <div className={`flex-1 h-0.5 rounded-full -mt-4 mx-1 transition-colors duration-300 ${currentStep > step.id ? 'bg-green-400' : 'bg-slate-200'}`}></div>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Collapsible Data Privacy Disclaimer */}
+                    <div className="mt-3 bg-white/40 backdrop-blur-2xl rounded-2xl border border-white shadow-lg shadow-blue-900/5 overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={() => setFormData((prev: any) => ({ ...prev, _disclaimerOpen: !prev._disclaimerOpen }))}
+                            className="w-full flex items-center justify-between p-4 text-left"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Info className="w-4 h-4 text-blue-500" />
+                                <span className="text-xs font-black text-slate-800 uppercase tracking-widest">Data Privacy Disclaimer</span>
+                                {formData.agreedToPrivacy && <span className="ml-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-3 h-3 text-white" /></span>}
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${formData._disclaimerOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${formData._disclaimerOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className="px-4 pb-4">
+                                <div className="relative overflow-hidden rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                                    <p className="text-xs text-slate-600 mb-3 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
+                                    <label className="flex items-center gap-2.5 cursor-pointer bg-white p-3 rounded-xl border border-white/60 hover:bg-blue-50 transition-all w-fit">
+                                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all shadow-sm ${formData.agreedToPrivacy ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
+                                            {formData.agreedToPrivacy && <Check className="w-3.5 h-3.5 text-white" />}
+                                        </div>
+                                        <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
+                                        <span className="text-sm font-bold text-slate-800">I agree to the terms and conditions</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ===== DESKTOP: Original Sidebar Navigation (hidden on mobile) ===== */}
+                <div className="hidden lg:block lg:w-1/4 shrink-0">
                     <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-6 border border-white shadow-xl shadow-blue-900/5 sticky top-24">
                         <h3 className="font-black text-slate-800 mb-6 uppercase tracking-widest text-xs">Application Sections</h3>
                         <div className="space-y-2">
