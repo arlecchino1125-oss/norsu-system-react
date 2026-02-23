@@ -1230,6 +1230,22 @@ const NATPortal = () => {
                                 );
                             })}
                         </div>
+
+                        {/* Data Privacy Act Disclaimer */}
+                        <div className="mt-6 pt-6 border-t border-slate-200/50">
+                            <div className="relative overflow-hidden rounded-xl border border-white bg-white/40 p-4">
+                                <div className="absolute top-0 w-full h-0.5 bg-gradient-to-r from-blue-400 to-indigo-500 left-0"></div>
+                                <h4 className="text-[10px] font-black text-slate-800 mb-2 flex items-center gap-1.5 uppercase tracking-widest"><Info className="w-3 h-3 text-blue-500" /> Data Privacy Disclaimer</h4>
+                                <p className="text-[11px] text-slate-600 mb-3 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
+                                <label className="flex items-center gap-2 cursor-pointer group/check bg-white/50 p-2.5 rounded-lg border border-white/60 hover:bg-white transition-all w-fit">
+                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shadow-sm ${formData.agreedToPrivacy ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover/check:border-blue-400'}`}>
+                                        {formData.agreedToPrivacy && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                    <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
+                                    <span className="text-xs font-bold text-slate-800">I agree to the terms and conditions</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1249,19 +1265,7 @@ const NATPortal = () => {
                         <AnimatePresence mode="wait">
                             {currentStep === 1 && (
                                 <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
-                                    {/* DATA PRIVACY */}
-                                    <section className="bg-white/40 backdrop-blur-2xl p-8 rounded-[2rem] border border-white shadow-xl shadow-blue-900/5 hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500 relative overflow-hidden group">
-                                        <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 left-0"></div>
-                                        <h2 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 uppercase tracking-widest"><Info className="w-4 h-4 text-blue-500" /> DATA PRIVACY ACT DISCLAIMER</h2>
-                                        <p className="text-sm text-slate-600 mb-6 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
-                                        <label className="flex items-center gap-3 cursor-pointer group/check bg-white/50 p-4 rounded-xl border border-white/60 hover:bg-white transition-all w-fit">
-                                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all shadow-sm ${formData.agreedToPrivacy ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover/check:border-blue-400'}`}>
-                                                {formData.agreedToPrivacy && <Check className="w-3.5 h-3.5 text-white" />}
-                                            </div>
-                                            <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
-                                            <span className="text-sm font-bold text-slate-800">I agree to the terms and conditions</span>
-                                        </label>
-                                    </section>
+
                                     {/* Personal Information */}
                                     <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
                                         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-blue-600"></div>
