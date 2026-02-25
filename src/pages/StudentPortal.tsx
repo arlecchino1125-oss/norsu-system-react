@@ -152,7 +152,9 @@ export default function StudentPortal() {
     const [supportRequests, setSupportRequests] = useState<any[]>([]);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
+    const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
     const [sessionFeedback, setSessionFeedback] = useState<any>({ rating: 0, comment: '' });
+    const [feedbackPrefill, setFeedbackPrefill] = useState<any>(null);
     const [activeVisit, setActiveVisit] = useState<any>(null);
     const [toast, setToast] = useState<any>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -188,7 +190,7 @@ export default function StudentPortal() {
     const [supportForm, setSupportForm] = useState<any>({
         categories: [], otherCategory: '',
         q1: '', q2: '', q3: '', q4: '',
-        file: null
+        files: [] as File[]
     });
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
     const [selectedScholarship, setSelectedScholarship] = useState<any>(null);
@@ -197,6 +199,8 @@ export default function StudentPortal() {
     const [showTimeInModal, setShowTimeInModal] = useState(false);
     const [visitReasons, setVisitReasons] = useState<any[]>([]);
     const [selectedReason, setSelectedReason] = useState('');
+    const [showTimeOutFeedback, setShowTimeOutFeedback] = useState(false);
+    const [timeOutVisitReason, setTimeOutVisitReason] = useState('');
 
     const [proofFile, setProofFile] = useState<any>(null);
     const [isTimingIn, setIsTimingIn] = useState(false);
@@ -285,10 +289,160 @@ export default function StudentPortal() {
         setProfileStep(prev => Math.min(prev + 1, PROFILE_TOTAL_STEPS));
     };
 
+    const PROFILE_FIELD_LABELS: Record<string, string> = {
+        first_name: 'First Name',
+        last_name: 'Last Name',
+        middle_name: 'Middle Name',
+        suffix: 'Suffix',
+        dob: 'Birth Date',
+        age: 'Age',
+        place_of_birth: 'Place of Birth',
+        nationality: 'Nationality',
+        sex: 'Sex',
+        gender: 'Gender',
+        gender_identity: 'Gender Identity',
+        civil_status: 'Civil Status',
+        address: 'Address',
+        street: 'Street',
+        city: 'City',
+        province: 'Province',
+        zip_code: 'Zip Code',
+        mobile: 'Mobile',
+        email: 'Email',
+        facebook_url: 'Facebook URL',
+        religion: 'Religion',
+        school_last_attended: 'School Last Attended',
+        year_level: 'Year Level',
+        section: 'Section',
+        supporter: 'Supporter',
+        supporter_contact: 'Supporter Contact',
+        is_working_student: 'Working Student Status',
+        working_student_type: 'Working Student Type',
+        is_pwd: 'PWD Status',
+        pwd_type: 'PWD Type',
+        is_indigenous: 'Indigenous Status',
+        indigenous_group: 'Indigenous Group',
+        witnessed_conflict: 'Witnessed Conflict',
+        is_safe_in_community: 'Community Safety',
+        is_solo_parent: 'Solo Parent Status',
+        is_child_of_solo_parent: 'Child of Solo Parent Status',
+        mother_name: 'Mother Name',
+        mother_occupation: 'Mother Occupation',
+        mother_contact: 'Mother Contact',
+        father_name: 'Father Name',
+        father_occupation: 'Father Occupation',
+        father_contact: 'Father Contact',
+        parent_address: 'Parent Address',
+        num_brothers: 'No. of Brothers',
+        num_sisters: 'No. of Sisters',
+        birth_order: 'Birth Order',
+        spouse_name: 'Spouse Name',
+        spouse_occupation: 'Spouse Occupation',
+        num_children: 'No. of Children',
+        guardian_name: 'Guardian Name',
+        guardian_address: 'Guardian Address',
+        guardian_contact: 'Guardian Contact',
+        guardian_relation: 'Guardian Relation',
+        emergency_name: 'Emergency Contact Name',
+        emergency_address: 'Emergency Address',
+        emergency_relationship: 'Emergency Relationship',
+        emergency_number: 'Emergency Number',
+        emergency_contact: 'Emergency Contact',
+        elem_school: 'Elementary School',
+        elem_year_graduated: 'Elementary Year Graduated',
+        junior_high_school: 'Junior High School',
+        junior_high_year_graduated: 'Junior High Year Graduated',
+        senior_high_school: 'Senior High School',
+        senior_high_year_graduated: 'Senior High Year Graduated',
+        college_school: 'College School',
+        college_year_graduated: 'College Year Graduated',
+        honors_awards: 'Honors/Awards',
+        extracurricular_activities: 'Extracurricular Activities',
+        scholarships_availed: 'Scholarships Availed',
+        profile_completed: 'Profile Completion',
+        profile_picture_url: 'Profile Picture'
+    };
+
+    const normalizeProfileField = (value: any) => {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'boolean') return value ? '1' : '0';
+        if (typeof value === 'number') return Number.isNaN(value) ? '' : String(value);
+        return String(value).trim();
+    };
+
+    const toProfileFieldLabel = (field: string) => {
+        if (PROFILE_FIELD_LABELS[field]) return PROFILE_FIELD_LABELS[field];
+        return field
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const getChangedProfileFields = (beforeProfile: any, afterPayload: any) => {
+        const changedFields: string[] = [];
+        Object.keys(afterPayload || {}).forEach((key) => {
+            const beforeValue = normalizeProfileField(beforeProfile?.[key]);
+            const afterValue = normalizeProfileField(afterPayload?.[key]);
+            if (beforeValue !== afterValue) {
+                changedFields.push(toProfileFieldLabel(key));
+            }
+        });
+        return changedFields;
+    };
+
+    const logStudentProfileUpdate = async ({
+        action,
+        beforeProfile,
+        afterPayload,
+        fallbackName,
+        fallbackStudentId
+    }: {
+        action: string;
+        beforeProfile: any;
+        afterPayload: any;
+        fallbackName?: string;
+        fallbackStudentId?: string;
+    }) => {
+        try {
+            const changedFields = getChangedProfileFields(beforeProfile, afterPayload);
+            if (changedFields.length === 0) return;
+
+            const studentId = fallbackStudentId || personalInfo.studentId || session?.user?.id || 'unknown';
+            const fullName = (fallbackName || `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`).trim() || 'Student';
+            const changedPreview = changedFields.slice(0, 6).join(', ');
+            const moreSuffix = changedFields.length > 6 ? ` (+${changedFields.length - 6} more)` : '';
+            const details = `${fullName} (${studentId}) modified: ${changedPreview}${moreSuffix}.`;
+
+            const { error: auditError } = await supabaseClient.from('audit_logs').insert([{
+                user_id: studentId,
+                user_name: fullName,
+                action,
+                details
+            }]);
+
+            if (auditError) {
+                const { error: notificationError } = await supabaseClient.from('notifications').insert([{
+                    student_id: studentId,
+                    message: `[PROFILE UPDATE] ${details}`
+                }]);
+                if (notificationError) {
+                    console.warn('Profile update log fallback failed:', notificationError.message);
+                }
+            }
+        } catch (loggingError: any) {
+            console.warn('Unable to record profile update notification:', loggingError?.message || loggingError);
+        }
+    };
+
     const handleProfileCompletion = async () => {
         if (!profileFormData.agreedToPrivacy) return;
         setProfileSaving(true);
         try {
+            const { data: beforeProfile } = await supabaseClient
+                .from('students')
+                .select('*')
+                .eq('student_id', personalInfo.studentId)
+                .maybeSingle();
+
             const payload: any = {
                 // Personal (auto-filled + new)
                 first_name: profileFormData.firstName, last_name: profileFormData.lastName,
@@ -341,6 +495,13 @@ export default function StudentPortal() {
             };
             const { error } = await supabaseClient.from('students').update(payload).eq('student_id', personalInfo.studentId);
             if (error) throw error;
+            await logStudentProfileUpdate({
+                action: 'Student Profile Completed',
+                beforeProfile,
+                afterPayload: payload,
+                fallbackName: `${profileFormData.firstName || personalInfo.firstName || ''} ${profileFormData.lastName || personalInfo.lastName || ''}`.trim(),
+                fallbackStudentId: personalInfo.studentId
+            });
             setShowProfileCompletion(false);
             showToast('Profile completed successfully!');
         } catch (err: any) {
@@ -617,6 +778,12 @@ export default function StudentPortal() {
     const saveProfileChanges = async () => {
         setIsEditing(false);
         try {
+            const { data: beforeProfile } = await supabaseClient
+                .from('students')
+                .select('*')
+                .eq('student_id', personalInfo.studentId)
+                .maybeSingle();
+
             const updatePayload = {
                 first_name: personalInfo.firstName || null,
                 last_name: personalInfo.lastName || null,
@@ -696,6 +863,13 @@ export default function StudentPortal() {
                 .eq('student_id', personalInfo.studentId);
 
             if (error) throw error;
+            await logStudentProfileUpdate({
+                action: 'Student Profile Updated',
+                beforeProfile,
+                afterPayload: updatePayload,
+                fallbackName: `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim(),
+                fallbackStudentId: personalInfo.studentId
+            });
             showToast("Profile updated successfully!");
         } catch (err: any) {
             showToast("Error saving profile: " + err.message, 'error');
@@ -721,6 +895,13 @@ export default function StudentPortal() {
                 .update({ profile_picture_url: publicUrl })
                 .eq('student_id', personalInfo.studentId);
             if (dbError) throw dbError;
+            await logStudentProfileUpdate({
+                action: 'Student Profile Picture Updated',
+                beforeProfile: { profile_picture_url: personalInfo.profile_picture_url || null },
+                afterPayload: { profile_picture_url: publicUrl },
+                fallbackName: `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim(),
+                fallbackStudentId: personalInfo.studentId
+            });
             setPersonalInfo((prev: any) => ({ ...prev, profile_picture_url: publicUrl }));
             showToast("Profile picture updated!");
         } catch (err: any) {
@@ -820,18 +1001,16 @@ export default function StudentPortal() {
         const supportChannel = supabaseClient
             .channel('student_support')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests', filter: `student_id=eq.${personalInfo?.studentId}` }, () => {
-                if (activeView === 'support') {
-                    const fetchSupport = async () => {
-                        try {
-                            const { data, error } = await supabaseClient.from('support_requests').select('*').eq('student_id', personalInfo?.studentId).order('created_at', { ascending: false });
-                            if (error) console.error("Error fetching support:", error);
-                            if (data) setSupportRequests(data);
-                        } catch (err) {
-                            console.error("Unexpected error fetching support:", err);
-                        }
-                    };
-                    fetchSupport();
-                }
+                const fetchSupport = async () => {
+                    try {
+                        const { data, error } = await supabaseClient.from('support_requests').select('*').eq('student_id', personalInfo?.studentId).order('created_at', { ascending: false });
+                        if (error) console.error("Error fetching support:", error);
+                        if (data) setSupportRequests(data);
+                    } catch (err) {
+                        console.error("Unexpected error fetching support:", err);
+                    }
+                };
+                fetchSupport();
             })
             .subscribe();
 
@@ -1244,23 +1423,30 @@ export default function StudentPortal() {
         if (supportForm.categories.length === 0 && !supportForm.otherCategory) { showToast("Please select at least one category.", 'error'); return; }
         setIsSubmitting(true);
         try {
-            let docUrl = null;
-            if (supportForm.file) {
-                const fileExt = supportForm.file.name.split('.').pop();
-                const fileName = `${personalInfo.studentId}_support_${Date.now()}.${fileExt}`;
-                const { data: uploadData, error: uploadError } = await supabaseClient.storage.from('support_documents').upload(fileName, supportForm.file);
-                if (uploadError) throw uploadError;
-                const { data: publicUrlData } = supabaseClient.storage.from('support_documents').getPublicUrl(fileName);
-                docUrl = publicUrlData.publicUrl;
+            // Upload multiple files (up to 4)
+            const docUrls: string[] = [];
+            if (supportForm.files && supportForm.files.length > 0) {
+                for (const file of supportForm.files) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${personalInfo.studentId}_support_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${fileExt}`;
+                    const { error: uploadError } = await supabaseClient.storage.from('support_documents').upload(fileName, file);
+                    if (uploadError) throw uploadError;
+                    const { data: publicUrlData } = supabaseClient.storage.from('support_documents').getPublicUrl(fileName);
+                    docUrls.push(publicUrlData.publicUrl);
+                }
             }
             const description = `[Q1 Description]: ${supportForm.q1}\n[Q2 Previous Support]: ${supportForm.q2}\n[Q3 Required Support]: ${supportForm.q3}\n[Q4 Other Needs]: ${supportForm.q4}`.trim();
             const finalCategories = [...supportForm.categories];
             if (supportForm.otherCategory) finalCategories.push(`Other: ${supportForm.otherCategory}`);
-            const { error } = await supabaseClient.from('support_requests').insert([{ student_id: personalInfo.studentId, student_name: `${personalInfo.firstName} ${personalInfo.lastName}`, department: personalInfo.department, support_type: finalCategories.join(', '), description: description, documents_url: docUrl, status: 'Submitted' }]);
+            const documentsValue = docUrls.length > 0 ? JSON.stringify(docUrls) : null;
+            const { error } = await supabaseClient.from('support_requests').insert([{ student_id: personalInfo.studentId, student_name: `${personalInfo.firstName} ${personalInfo.lastName}`, department: personalInfo.department, support_type: finalCategories.join(', '), description: description, documents_url: documentsValue, status: 'Submitted' }]);
             if (error) throw error;
             showToast("Support Request Submitted!");
             setShowSupportModal(false);
-            setSupportForm({ categories: [], otherCategory: '', q1: '', q2: '', q3: '', q4: '', file: null });
+            setSupportForm({ categories: [], otherCategory: '', q1: '', q2: '', q3: '', q4: '', files: [] });
+            // Immediately refresh support requests list for live update
+            const { data: updatedRequests } = await supabaseClient.from('support_requests').select('*').eq('student_id', personalInfo.studentId).order('created_at', { ascending: false });
+            if (updatedRequests) setSupportRequests(updatedRequests);
         } catch (error: any) {
             showToast("Error: " + error.message, 'error');
         } finally { setIsSubmitting(false); }
@@ -1298,9 +1484,13 @@ export default function StudentPortal() {
 
     const handleOfficeTimeOut = async () => {
         if (!activeVisit) return;
+        const visitReason = activeVisit.reason || '';
         await supabaseClient.from('office_visits').update({ time_out: new Date().toISOString(), status: 'Completed' }).eq('id', activeVisit.id);
         setActiveVisit(null);
         showToast("You have Timed Out. Thank you for visiting!");
+        // Trigger feedback form with the visit reason pre-filled
+        setTimeOutVisitReason(visitReason);
+        setShowTimeOutFeedback(true);
     };
 
     const sidebarLinks = [
@@ -1753,6 +1943,16 @@ export default function StudentPortal() {
                             eventsList={eventsList}
                             attendanceMap={attendanceMap}
                             StudentHero={StudentHero}
+                            showTimeInModal={showTimeInModal}
+                            setShowTimeInModal={setShowTimeInModal}
+                            visitReasons={visitReasons}
+                            selectedReason={selectedReason}
+                            setSelectedReason={setSelectedReason}
+                            submitTimeIn={submitTimeIn}
+                            showTimeOutFeedback={showTimeOutFeedback}
+                            setShowTimeOutFeedback={setShowTimeOutFeedback}
+                            timeOutVisitReason={timeOutVisitReason}
+                            showToast={showToast}
                         />
                     )}
 
@@ -1795,7 +1995,7 @@ export default function StudentPortal() {
                     )}
 
                     {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
-                    {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, uploadProfilePicture })}
+                    {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill })}
                 </div>
 
                 {/* FAB TRIGGER FOR COMMAND HUB */}
@@ -1845,6 +2045,29 @@ export default function StudentPortal() {
                     </div>
                 )}
             </main>
+
+            {/* GLOBAL TOAST NOTIFICATION */}
+            {toast && createPortal(
+                <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] px-6 py-3.5 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-3 animate-fade-in-up transition-all ${toast.type === 'error'
+                    ? 'bg-red-600 text-white shadow-red-500/30'
+                    : toast.type === 'info'
+                        ? 'bg-blue-600 text-white shadow-blue-500/30'
+                        : 'bg-emerald-600 text-white shadow-emerald-500/30'
+                    }`}>
+                    {toast.type === 'error' ? (
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg>
+                    ) : toast.type === 'info' ? (
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+                    ) : (
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
+                    )}
+                    <span>{toast.message}</span>
+                    <button onClick={() => setToast(null)} className="ml-2 text-white/70 hover:text-white transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>,
+                document.body
+            )}
         </div>
     );
 }

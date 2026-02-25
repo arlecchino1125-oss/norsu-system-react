@@ -469,6 +469,24 @@ const NATPortal = () => {
                     // Generate key
                     const { data: newKey } = await supabase.from('enrolled_students').insert([{ student_id: studentId, course: course, is_used: false }]).select().single();
                     keyData = newKey;
+                } else if (currentUser.status === 'Approved for Enrollment') {
+                    // No enrollment key found — ask user to confirm their details before auto-creating
+                    const confirmed = window.confirm(
+                        `⚠️ No enrollment record found for Student ID "${studentId}".\n\n` +
+                        `This may happen if the enrollment key has not been uploaded yet by the staff.\n\n` +
+                        `Please confirm your details are correct:\n` +
+                        `• Student ID: ${studentId}\n` +
+                        `• Course: ${course}\n\n` +
+                        `Since your application is approved for enrollment, we can proceed with activation using these details.\n\n` +
+                        `Are you sure these are correct?`
+                    );
+                    if (!confirmed) {
+                        setLoading(false);
+                        return;
+                    }
+                    const { data: newKey, error: createError } = await supabase.from('enrolled_students').insert([{ student_id: studentId, course: course, is_used: false }]).select().single();
+                    if (createError) throw new Error("Failed to create enrollment record: " + createError.message);
+                    keyData = newKey;
                 }
             }
 
@@ -1195,6 +1213,13 @@ const NATPortal = () => {
                     </div>
 
                 </div>
+
+                {toast && (
+                    <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[200] ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
+                        <div className="text-xl">{toast.type === 'error' ? '⚠️' : '✅'}</div>
+                        <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
+                    </div>
+                )}
             </NATLayout>
         );
     }

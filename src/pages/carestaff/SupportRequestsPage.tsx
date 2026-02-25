@@ -21,6 +21,7 @@ const SupportRequestsPage = ({ functions }: any) => {
     const [selectedSupportReq, setSelectedSupportReq] = useState<any>(null);
     const [supportForm, setSupportForm] = useState<any>({ care_notes: '', resolution_notes: '' });
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
+    const [letterFile, setLetterFile] = useState<File | null>(null);
 
     // Fetch data
     const fetchSupport = async () => {
@@ -60,15 +61,29 @@ const SupportRequestsPage = ({ functions }: any) => {
             const { data } = await supabase.from('students').select('*').eq('student_id', req.student_id).maybeSingle();
             setSelectedStudent(data);
         }
+        setLetterFile(null);
         setShowSupportModal(true);
     };
 
     const handleForwardSupport = async () => {
         if (!supportForm.care_notes) { showToast?.("Please add notes for Dept Head.", 'error'); return; }
         try {
-            await supabase.from('support_requests').update({ status: 'Forwarded to Dept', care_notes: supportForm.care_notes }).eq('id', selectedSupportReq.id);
-            showToast?.("Request forwarded to Department Head.", 'success');
+            let letterUrl = null;
+            if (letterFile) {
+                const fileExt = letterFile.name.split('.').pop();
+                const fileName = `endorsement_${selectedSupportReq.student_id}_${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage.from('support_documents').upload(fileName, letterFile);
+                if (uploadError) throw uploadError;
+                const { data: publicUrlData } = supabase.storage.from('support_documents').getPublicUrl(fileName);
+                letterUrl = publicUrlData.publicUrl;
+            }
+            const careNotesValue = letterUrl
+                ? JSON.stringify({ notes: supportForm.care_notes, letter_url: letterUrl })
+                : supportForm.care_notes;
+            await supabase.from('support_requests').update({ status: 'Forwarded to Dept', care_notes: careNotesValue }).eq('id', selectedSupportReq.id);
+            showToast?.("Request forwarded to Dean.", 'success');
             setShowSupportModal(false);
+            setLetterFile(null);
             fetchSupport();
         } catch (err: any) { showToast?.(err.message, 'error'); }
     };
@@ -100,11 +115,7 @@ const SupportRequestsPage = ({ functions }: any) => {
         const contentW = pageW - marginLeft - marginRight;
 
         // --- HEADER ---
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(60, 60, 60);
-        doc.text('Kagawasan Avenue, Dumaguete City', marginLeft, marginTop);
-        doc.text('Phone: (63) (35) 522-5050    Fax: 225-4751    Email: norsu@norsu.edu.ph', marginLeft, marginTop + 3);
+
 
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
@@ -380,7 +391,7 @@ const SupportRequestsPage = ({ functions }: any) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
                     {[
                         { label: 'New Requests', value: supportReqs.filter(r => r.status === 'Submitted').length, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-                        { label: 'With Dept Head', value: supportReqs.filter(r => r.status === 'Forwarded to Dept').length, icon: <Send size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+                        { label: 'With Dean', value: supportReqs.filter(r => r.status === 'Forwarded to Dept').length, icon: <Send size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
                         { label: 'Action Needed', value: supportReqs.filter(r => r.status === 'Approved' || r.status === 'Rejected').length, icon: <AlertTriangle size={20} />, color: 'text-orange-500', bg: 'bg-orange-50' },
                         { label: 'Completed', value: supportReqs.filter(r => r.status === 'Completed').length, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
                     ].map((stat, idx) => (
@@ -440,9 +451,9 @@ const SupportRequestsPage = ({ functions }: any) => {
 
             {/* Support Modal - Enhanced Side Panel */}
             {showSupportModal && selectedSupportReq && (
-                <div className="fixed inset-0 z-50 flex justify-end">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-backdrop" onClick={() => setShowSupportModal(false)}></div>
-                    <div className="relative bg-white w-full max-w-2xl h-full shadow-2xl shadow-purple-900/10 flex flex-col animate-slide-in-right">
+                    <div className="relative bg-white w-full max-w-5xl max-h-[90vh] shadow-2xl shadow-purple-900/10 flex flex-col animate-fade-in-up rounded-2xl overflow-hidden">
                         <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <div>
                                 <h3 className="font-bold text-xl text-gray-900 gradient-text">Support Application</h3>
@@ -491,11 +502,24 @@ const SupportRequestsPage = ({ functions }: any) => {
                                     </div>
                                 </div>
                                 {renderDetailedDescription(selectedSupportReq.description)}
-                                {selectedSupportReq.documents_url && (
-                                    <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                                        <a href={selectedSupportReq.documents_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-700 hover:underline font-bold flex items-center gap-2"><Paperclip size={14} /> View Supporting Documents</a>
-                                    </div>
-                                )}
+                                {selectedSupportReq.documents_url && (() => {
+                                    let urls: string[] = [];
+                                    try {
+                                        const parsed = JSON.parse(selectedSupportReq.documents_url);
+                                        urls = Array.isArray(parsed) ? parsed : [selectedSupportReq.documents_url];
+                                    } catch { urls = [selectedSupportReq.documents_url]; }
+                                    return urls.length > 0 ? (
+                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-2">
+                                            <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1"><Paperclip size={12} /> Supporting Documents ({urls.length})</p>
+                                            {urls.map((url: string, idx: number) => (
+                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline font-medium py-1">
+                                                    <Download size={14} className="flex-shrink-0" />
+                                                    <span className="truncate">Document {idx + 1} — {decodeURIComponent(url.split('/').pop() || 'file')}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : null;
+                                })()}
                             </section>
 
                             {/* Action Section */}
@@ -504,20 +528,31 @@ const SupportRequestsPage = ({ functions }: any) => {
 
                                 {selectedSupportReq.status === 'Submitted' && (
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">CARE Staff Notes (For Dept Head)</label>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">CARE Staff Notes (For Dean)</label>
                                         <textarea rows={3} value={supportForm.care_notes} onChange={e => setSupportForm({ ...supportForm, care_notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Add endorsement notes..."></textarea>
-                                        <button onClick={handleForwardSupport} className="w-full mt-2 bg-yellow-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-yellow-600">Forward to Dept Head</button>
+                                        <div className="mt-3">
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Attach Endorsement Letter (Optional)</label>
+                                            <input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" onChange={(e: any) => setLetterFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100" />
+                                            {letterFile && (
+                                                <div className="flex items-center gap-2 mt-1.5 bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-1.5">
+                                                    <Paperclip size={12} className="text-yellow-600" />
+                                                    <span className="text-xs text-gray-700 truncate flex-1">{letterFile.name}</span>
+                                                    <button type="button" onClick={() => setLetterFile(null)} className="text-red-400 hover:text-red-600"><XCircle size={14} /></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button onClick={handleForwardSupport} className="w-full mt-3 bg-yellow-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-yellow-600">Forward to Dean</button>
                                     </div>
                                 )}
 
                                 {selectedSupportReq.status === 'Forwarded to Dept' && (
-                                    <div className="text-center text-sm text-gray-500 italic py-4">Waiting for Department Head review...</div>
+                                    <div className="text-center text-sm text-gray-500 italic py-4">Waiting for Dean review...</div>
                                 )}
 
                                 {(selectedSupportReq.status === 'Approved' || selectedSupportReq.status === 'Rejected') && (
                                     <div>
                                         <div className={`p-3 rounded-lg mb-3 ${selectedSupportReq.status === 'Approved' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                                            <p className="text-xs font-bold uppercase">Dept Head Decision: {selectedSupportReq.status}</p>
+                                            <p className="text-xs font-bold uppercase">Dean's Decision: {selectedSupportReq.status}</p>
                                             <p className="text-sm mt-1">{selectedSupportReq.dept_notes || 'No notes provided.'}</p>
                                         </div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Final Resolution / Ideas for Student</label>

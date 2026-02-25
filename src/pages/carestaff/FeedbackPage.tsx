@@ -5,7 +5,8 @@ import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
 
 const FeedbackPage = ({ functions }: any) => {
-    const [currentView, setCurrentView] = useState('Counseling');
+    const [currentView, setCurrentView] = useState('General');
+    const [eventFilter, setEventFilter] = useState('All Events');
     const [items, setItems] = useState<any[]>([]);
     const [rawEventData, setRawEventData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,27 +26,75 @@ const FeedbackPage = ({ functions }: any) => {
         'Skills/competence of the facilitator/s'
     ];
 
+    const ccQuestions = [
+        {
+            key: 'cc1',
+            question: "CC1. Which of the following best describes your awareness of a CC?",
+            options: {
+                1: "1. I know what a CC is and I saw this office's CC.",
+                2: "2. I know what a CC is but I did NOT see this office's CC.",
+                3: "3. I learned of the CC only when I saw this office's CC.",
+                4: '4. I do not know what a CC is and I did not see one in this office.',
+            } as Record<number, string>
+        },
+        {
+            key: 'cc2',
+            question: 'CC2. If aware of CC (answered 1-3 in CC1), would you say that the CC of this office was ...?',
+            options: {
+                1: '1. Easy to see',
+                2: '2. Somewhat easy to see',
+                3: '3. Difficult to see',
+                4: '4. Not visible at all',
+                5: '5. N/A',
+            } as Record<number, string>
+        },
+        {
+            key: 'cc3',
+            question: 'CC3. If aware of CC (answered 1-3 in CC1), how much did the CC help you in your transaction?',
+            options: {
+                1: '1. Helped very much',
+                2: '2. Somewhat helped',
+                3: '3. Did not help',
+                4: '4. N/A',
+            } as Record<number, string>
+        }
+    ];
+
+    const getCcAnswerText = (item: any, value: any) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed <= 0) return 'No response';
+        return item.options[parsed] || String(value);
+    };
+
+    const getEventName = (row: any) => row?.events?.title || 'Event';
+
+    const getEventRating = (row: any) => {
+        const direct = Number(row?.rating);
+        if (Number.isFinite(direct) && direct >= 1 && direct <= 5) return direct;
+        const scores = [1, 2, 3, 4, 5, 6, 7]
+            .map(i => Number(row?.[`q${i}_score`]))
+            .filter(v => Number.isFinite(v) && v >= 1 && v <= 5);
+        if (scores.length === 0) return 0;
+        return Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
+    };
+
+    const computeStats = (list: any[]) => {
+        if (!list || list.length === 0) return { avg: 0, total: 0, distribution: [0, 0, 0, 0, 0] };
+        const total = list.length;
+        const sum = list.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0);
+        const dist = [0, 0, 0, 0, 0];
+        list.forEach(r => {
+            const rounded = Math.round(Number(r.rating));
+            if (rounded >= 1 && rounded <= 5) dist[rounded - 1]++;
+        });
+        return { avg: Number((sum / total).toFixed(1)), total, distribution: dist };
+    };
+
     const fetchData = async () => {
         setLoading(true);
         try {
             let rawData = [];
-            if (currentView === 'Counseling') {
-                const { data, error } = await supabase
-                    .from('counseling_requests')
-                    .select('*')
-                    .not('rating', 'is', null)
-                    .order('created_at', { ascending: false });
-                if (error) throw error;
-                rawData = data.map(d => ({
-                    id: d.id,
-                    student: d.student_name,
-                    rating: d.rating,
-                    comment: d.feedback,
-                    date: d.created_at,
-                    context: d.request_type
-                }));
-                setRawEventData([]);
-            } else if (currentView === 'Events') {
+            if (currentView === 'Events') {
                 const { data, error } = await supabase
                     .from('event_feedback')
                     .select('*, events(title)')
@@ -56,12 +105,15 @@ const FeedbackPage = ({ functions }: any) => {
                 rawData = (data || []).map(d => ({
                     id: d.id,
                     student: d.student_name,
-                    rating: d.rating,
-                    comment: d.feedback,
+                    rating: getEventRating(d),
+                    comment: d.open_comments || d.feedback || d.comments || '',
                     date: d.submitted_at,
-                    context: d.events?.title || 'Event',
+                    context: getEventName(d),
                     hasEvaluation: !!(d.q1_score || d.q2_score)
                 }));
+                if (eventFilter !== 'All Events') {
+                    rawData = rawData.filter(item => item.context === eventFilter);
+                }
             } else {
                 // General CSM feedback
                 const { data, error } = await supabase
@@ -83,21 +135,11 @@ const FeedbackPage = ({ functions }: any) => {
                         context: d.service_availed || 'General'
                     };
                 });
+                setEventFilter('All Events');
             }
 
             setItems(rawData);
-
-            if (rawData.length > 0) {
-                const total = rawData.length;
-                const sum = rawData.reduce((acc, curr) => acc + (curr.rating || 0), 0);
-                const dist = [0, 0, 0, 0, 0];
-                rawData.forEach(r => {
-                    if (r.rating >= 1 && r.rating <= 5) dist[r.rating - 1]++;
-                });
-                setStats({ avg: Number((sum / total).toFixed(1)), total, distribution: dist });
-            } else {
-                setStats({ avg: 0, total: 0, distribution: [0, 0, 0, 0, 0] });
-            }
+            setStats(computeStats(rawData));
 
         } catch (err) {
             console.error(err);
@@ -108,11 +150,31 @@ const FeedbackPage = ({ functions }: any) => {
 
     useEffect(() => {
         fetchData();
-    }, [currentView]);
+    }, [currentView, eventFilter]);
 
     const handleViewEvaluation = (itemId) => {
         const raw = rawEventData.find(d => d.id === itemId);
         if (raw) setViewingEval(raw);
+    };
+
+    const eventOptions = ['All Events', ...Array.from(new Set((rawEventData || []).map(getEventName)))];
+    const filteredEventRows = (rawEventData || []).filter(d => eventFilter === 'All Events' || getEventName(d) === eventFilter);
+
+    const eventCriteriaStats = criteriaLabels.map((label, idx) => {
+        const key = `q${idx + 1}_score`;
+        const scores = filteredEventRows
+            .map(row => Number(row?.[key]))
+            .filter(score => Number.isFinite(score) && score >= 1 && score <= 5);
+        const mean = scores.length > 0
+            ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2))
+            : null;
+        return { label, mean, responses: scores.length };
+    });
+
+    const eventOpenText = {
+        best: filteredEventRows.filter(r => r.open_best && String(r.open_best).trim()),
+        suggestions: filteredEventRows.filter(r => r.open_suggestions && String(r.open_suggestions).trim()),
+        comments: filteredEventRows.filter(r => (r.open_comments || r.feedback || r.comments) && String(r.open_comments || r.feedback || r.comments).trim())
     };
 
     const handlePrintEval = () => {
@@ -151,17 +213,18 @@ const FeedbackPage = ({ functions }: any) => {
                 <button onClick={() => {
                     if (items.length === 0) return;
                     if (currentView === 'Events' && rawEventData.length > 0) {
+                        const eventExportRows = filteredEventRows;
                         const headers = ['Student', 'Sex', 'College', 'Event', 'Date of Activity', 'Avg Rating', 'Q1-Relevance', 'Q2-Quality', 'Q3-Timeliness', 'Q4-Management', 'Q5-Organization', 'Q6-Assessment', 'Q7-Facilitator', 'What They Liked Best', 'Suggestions', 'Other Comments', 'Submitted'];
-                        const rows = rawEventData.map(d => [d.student_name, d.sex || '', d.college || '', d.events?.title || '', d.date_of_activity || '', d.rating || '', d.q1_score || '', d.q2_score || '', d.q3_score || '', d.q4_score || '', d.q5_score || '', d.q6_score || '', d.q7_score || '', d.open_best || '', d.open_suggestions || '', d.open_comments || '', formatDateTime(d.submitted_at)]);
+                        const rows = eventExportRows.map(d => [d.student_name, d.sex || '', d.college || '', getEventName(d), d.date_of_activity || '', getEventRating(d) || '', d.q1_score || '', d.q2_score || '', d.q3_score || '', d.q4_score || '', d.q5_score || '', d.q6_score || '', d.q7_score || '', d.open_best || '', d.open_suggestions || '', d.open_comments || d.feedback || d.comments || '', formatDateTime(d.submitted_at || d.created_at)]);
                         exportToExcel(headers, rows, generateExportFilename('event_evaluations', 'xlsx').replace('.xlsx', ''));
                     } else if (currentView === 'General' && rawGeneralData.length > 0) {
                         const headers = ['Student', 'Client Type', 'Sex', 'Age', 'Region', 'Service Availed', 'CC1', 'CC2', 'CC3', 'SQD0', 'SQD1', 'SQD2', 'SQD3', 'SQD4', 'SQD5', 'SQD6', 'SQD7', 'SQD8', 'Suggestions', 'Email', 'Date'];
                         const rows = rawGeneralData.map(d => [d.student_name, d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', d.email || '', formatDateTime(d.created_at)]);
                         exportToExcel(headers, rows, generateExportFilename('general_csm_feedback', 'xlsx').replace('.xlsx', ''));
                     } else {
-                        const headers = ['Student', 'Rating', 'Comment', 'Date', 'Request Type'];
-                        const rows = items.map(i => [i.student, i.rating, i.comment || '', formatDateTime(i.date), i.context]);
-                        exportToExcel(headers, rows, generateExportFilename('counseling_feedback', 'xlsx').replace('.xlsx', ''));
+                        const headers = ['Student', 'Client Type', 'Sex', 'Age', 'Region', 'Service Availed', 'CC1', 'CC2', 'CC3', 'SQD0', 'SQD1', 'SQD2', 'SQD3', 'SQD4', 'SQD5', 'SQD6', 'SQD7', 'SQD8', 'Suggestions', 'Email', 'Date'];
+                        const rows = rawGeneralData.map(d => [d.student_name, d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', d.email || '', formatDateTime(d.created_at)]);
+                        exportToExcel(headers, rows, generateExportFilename('general_csm_feedback', 'xlsx').replace('.xlsx', ''));
                     }
                 }} disabled={items.length === 0} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
                     <Download size={16} /> Export Excel
@@ -169,10 +232,29 @@ const FeedbackPage = ({ functions }: any) => {
             </div>
 
             <div className="flex gap-4 mb-8">
-                <button onClick={() => setCurrentView('Counseling')} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${currentView === 'Counseling' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200'}`}>Counseling Services</button>
                 <button onClick={() => setCurrentView('Events')} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${currentView === 'Events' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200'}`}>Events &amp; Activities</button>
                 <button onClick={() => setCurrentView('General')} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${currentView === 'General' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200'}`}>General (CSM)</button>
             </div>
+
+            {currentView === 'Events' && (
+                <div className="mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <label htmlFor="event-feedback-filter" className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2 block">
+                        Filter by Event
+                    </label>
+                    <select
+                        id="event-feedback-filter"
+                        value={eventFilter}
+                        onChange={(e) => setEventFilter(e.target.value)}
+                        className="w-full md:w-96 px-3 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                    >
+                        {eventOptions.map((name) => (
+                            <option key={name} value={name}>
+                                {name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
@@ -196,6 +278,64 @@ const FeedbackPage = ({ functions }: any) => {
                     })}
                 </div>
             </div>
+
+            {currentView === 'Events' && (
+                <>
+                    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mb-6">
+                        <h3 className="text-sm font-bold text-gray-900 mb-3">Likert Criteria Statistics {eventFilter !== 'All Events' ? `(${eventFilter})` : ''}</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 text-[10px] uppercase text-gray-500">
+                                    <tr>
+                                        <th className="text-left px-3 py-2">Criteria</th>
+                                        <th className="text-left px-3 py-2">Mean</th>
+                                        <th className="text-left px-3 py-2">Responses</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {eventCriteriaStats.map((row, idx) => (
+                                        <tr key={idx}>
+                                            <td className="px-3 py-2 text-xs text-gray-700">{row.label}</td>
+                                            <td className="px-3 py-2 text-xs font-bold text-gray-900">{row.mean ?? '-'}</td>
+                                            <td className="px-3 py-2 text-xs text-gray-600">{row.responses}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <p className="text-xs font-bold text-gray-700 mb-2">What they liked best</p>
+                            <div className="space-y-2 max-h-44 overflow-y-auto">
+                                {eventOpenText.best.length === 0 && <p className="text-xs text-gray-400">No responses.</p>}
+                                {eventOpenText.best.slice(0, 8).map((r: any) => (
+                                    <div key={r.id} className="text-xs bg-blue-50 rounded-lg p-2 text-gray-700">{r.open_best}</div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <p className="text-xs font-bold text-gray-700 mb-2">Suggestions</p>
+                            <div className="space-y-2 max-h-44 overflow-y-auto">
+                                {eventOpenText.suggestions.length === 0 && <p className="text-xs text-gray-400">No responses.</p>}
+                                {eventOpenText.suggestions.slice(0, 8).map((r: any) => (
+                                    <div key={r.id} className="text-xs bg-blue-50 rounded-lg p-2 text-gray-700">{r.open_suggestions}</div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <p className="text-xs font-bold text-gray-700 mb-2">Other comments</p>
+                            <div className="space-y-2 max-h-44 overflow-y-auto">
+                                {eventOpenText.comments.length === 0 && <p className="text-xs text-gray-400">No responses.</p>}
+                                {eventOpenText.comments.slice(0, 8).map((r: any) => (
+                                    <div key={r.id} className="text-xs bg-blue-50 rounded-lg p-2 text-gray-700">{r.open_comments || r.feedback || r.comments}</div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {loading ? <div className="text-center py-12 text-gray-500">Loading feedback...</div> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -335,13 +475,23 @@ const FeedbackPage = ({ functions }: any) => {
 
                                 <div>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">Citizen's Charter Questions</p>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"><span className="text-xs text-gray-700">CC1 — Awareness</span><span className="text-xs font-bold">{viewingCSM.cc1 || '—'}</span></div>
-                                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"><span className="text-xs text-gray-700">CC2 — Visibility</span><span className="text-xs font-bold">{viewingCSM.cc2 === 5 ? 'N/A' : viewingCSM.cc2 || '—'}</span></div>
-                                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"><span className="text-xs text-gray-700">CC3 — Helpfulness</span><span className="text-xs font-bold">{viewingCSM.cc3 === 4 ? 'N/A' : viewingCSM.cc3 || '—'}</span></div>
+                                    <p className="text-[10px] text-gray-500 mb-3">
+                                        Full CC statements from the original form are shown below with the selected answer.
+                                    </p>
+                                    <div className="space-y-3">
+                                        {ccQuestions.map((item: any) => {
+                                            const rawValue = viewingCSM[item.key];
+                                            const code = Number(rawValue);
+                                            return (
+                                                <div key={item.key} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                                    <p className="text-xs font-bold text-gray-800">{item.question}</p>
+                                                    <p className="text-xs text-gray-700 mt-1">{getCcAnswerText(item, rawValue)}</p>
+                                                    <p className="text-[10px] text-gray-400 mt-1">Response code: {Number.isFinite(code) && code > 0 ? code : 'N/A'}</p>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-
                                 <div>
                                     <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">Service Quality Dimensions</p>
                                     <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -379,3 +529,7 @@ const FeedbackPage = ({ functions }: any) => {
 };
 
 export default FeedbackPage;
+
+
+
+

@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle, Calendar, User, Mail, Phone, CalendarDays } from 'lucide-react';
 
+// Mock applicants for testing the course filter
+const MOCK_APPLICANTS = [
+    { id: 'mock-1', first_name: 'Juan', last_name: 'Dela Cruz', reference_id: 'NAT-2026-001', email: 'juan@email.com', mobile: '09171234567', priority_course: 'Bronny', alt_course_1: 'Awra', alt_course_2: 'Atoy', current_choice: 1, status: 'Qualified for Interview (1st Choice)' },
+    { id: 'mock-2', first_name: 'Maria', last_name: 'Santos', reference_id: 'NAT-2026-002', email: 'maria@email.com', mobile: '09181234567', priority_course: 'Awra', alt_course_1: 'Bronny', alt_course_2: 'Atoy', current_choice: 1, status: 'Qualified for Interview (1st Choice)' },
+    { id: 'mock-3', first_name: 'Pedro', last_name: 'Reyes', reference_id: 'NAT-2026-003', email: 'pedro@email.com', mobile: '09191234567', priority_course: 'Atoy', alt_course_1: 'Bronny', alt_course_2: 'Awra', current_choice: 1, status: 'Interview Scheduled', interview_date: '2026-03-15 10:00 AM' },
+    { id: 'mock-4', first_name: 'Ana', last_name: 'Garcia', reference_id: 'NAT-2026-004', email: 'ana@email.com', mobile: '09201234567', priority_course: 'Atoy', alt_course_1: 'Awra', alt_course_2: 'Bronny', current_choice: 2, status: 'Forwarded to 2nd Choice for Interview' },
+    { id: 'mock-5', first_name: 'Carlos', last_name: 'Mendoza', reference_id: 'NAT-2026-005', email: 'carlos@email.com', mobile: '09211234567', priority_course: 'Bronny', alt_course_1: 'Atoy', alt_course_2: 'Awra', current_choice: 1, status: 'Interview Scheduled', interview_date: '2026-03-16 2:00 PM' },
+    { id: 'mock-6', first_name: 'Sofia', last_name: 'Villanueva', reference_id: 'NAT-2026-006', email: 'sofia@email.com', mobile: '09221234567', priority_course: 'Awra', alt_course_1: 'Bronny', alt_course_2: 'Atoy', current_choice: 3, status: 'Forwarded to 3rd Choice for Interview' },
+];
+
 const DeptAdmissionsPage = ({
     applicants,
     handleApproveApplicant,
@@ -9,12 +19,24 @@ const DeptAdmissionsPage = ({
 }: any) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
+    const [courseFilter, setCourseFilter] = useState('All');
 
-    const filteredApplicants = applicants.filter((app: any) => {
+    // Merge real applicants with mock data for demonstration
+    const allApplicants = [...applicants, ...MOCK_APPLICANTS];
+
+    // Extract unique courses from applicants' active course choices
+    const uniqueCourses = [...new Set(allApplicants.map((app: any) => {
+        const choice = app.current_choice || 1;
+        return choice === 1 ? app.priority_course : choice === 2 ? app.alt_course_1 : app.alt_course_2;
+    }).filter(Boolean))].sort();
+
+    const filteredApplicants = allApplicants.filter((app: any) => {
         const searchString = `${app.first_name || ''} ${app.last_name || ''} ${app.reference_id || ''}`.toLowerCase();
         const matchesSearch = !searchTerm || searchString.includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'All' || app.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        const activeCourse = (app.current_choice || 1) === 1 ? app.priority_course : (app.current_choice || 1) === 2 ? app.alt_course_1 : app.alt_course_2;
+        const matchesCourse = courseFilter === 'All' || activeCourse === courseFilter;
+        return matchesSearch && matchesStatus && matchesCourse;
     });
 
     return (
@@ -22,7 +44,7 @@ const DeptAdmissionsPage = ({
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-emerald-500 pl-3">Admissions Screening</h2>
-                    <p className="text-sm text-gray-500 mt-1 pl-4">Review and interview applicants interested in your department.</p>
+                    <p className="text-sm text-gray-500 mt-1 pl-4">Review and interview applicants interested in your college.</p>
                 </div>
             </div>
 
@@ -43,6 +65,16 @@ const DeptAdmissionsPage = ({
                     <option value="Forwarded to 2nd Choice for Interview">2nd Choice (Pending)</option>
                     <option value="Forwarded to 3rd Choice for Interview">3rd Choice (Pending)</option>
                     <option value="Interview Scheduled">Interview Scheduled</option>
+                </select>
+                <select
+                    value={courseFilter}
+                    onChange={(e) => setCourseFilter(e.target.value)}
+                    className="w-full md:w-1/4 px-4 py-2 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                >
+                    <option value="All">All Courses</option>
+                    {uniqueCourses.map((course: string) => (
+                        <option key={course} value={course}>{course}</option>
+                    ))}
                 </select>
             </div>
 
@@ -106,7 +138,7 @@ const DeptAdmissionsPage = ({
                 {filteredApplicants.length === 0 && (
                     <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-400 bg-white/50 rounded-2xl border border-gray-100 border-dashed">
                         <User size={48} className="mb-4 opacity-20" />
-                        <p className="text-sm font-medium">No pending admissions found for your department.</p>
+                        <p className="text-sm font-medium">No pending admissions found for your college.</p>
                     </div>
                 )}
             </div>

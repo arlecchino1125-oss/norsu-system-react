@@ -80,6 +80,14 @@ export default function DeptDashboard() {
     const [showDecisionModal, setShowDecisionModal] = useState<boolean>(false);
     const [decisionData, setDecisionData] = useState<any>({ id: null, type: '', notes: '' });
     const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
+    // Support Approval modals
+    const [showApproveScheduleModal, setShowApproveScheduleModal] = useState<boolean>(false);
+    const [approveScheduleData, setApproveScheduleData] = useState<any>({ id: null, student_id: null, date: '', time: '', notes: '' });
+    const [showResolveModal, setShowResolveModal] = useState<boolean>(false);
+    const [resolveData, setResolveData] = useState<any>({ id: null, student_id: null, notes: '' });
+    const [showReferCareModal, setShowReferCareModal] = useState<boolean>(false);
+    const [referCareForm, setReferCareForm] = useState<any>({ id: null, student_id: null, student_name: '', date_acted: '', actions_taken: '', comments: '' });
+    const sigCanvasRefSupport = useRef<any>(null);
 
     // Events State
     // Events State
@@ -133,13 +141,6 @@ export default function DeptDashboard() {
         const dept = data.profile.department;
         const filteredStudents = data.students.filter((s: any) => s.department === dept);
 
-        console.log("[DEBUG FILTER] My Dept:", dept);
-        console.log("[DEBUG FILTER] All Students Length:", data.students.length);
-        console.log("[DEBUG FILTER] Dept Students Length:", filteredStudents.length);
-        if (filteredStudents.length > 0) {
-            console.log("[DEBUG FILTER] First Dept Student Course:", filteredStudents[0].course);
-        }
-
         const activeStudents = filteredStudents.filter((s: any) => s.status === 'Active');
         const populationByYear = {
             '1st Year': activeStudents.filter((s: any) => s.year === '1st Year').length,
@@ -153,19 +154,17 @@ export default function DeptDashboard() {
 
     const filteredData = getFilteredData();
 
-    // Derived cascading filter options (scoped to this department's students)
-    const deptCourses = [...new Set(filteredData.students.map((s: any) => s.course).filter(Boolean))].sort();
-    const deptAvailableSections = [...new Set(
-        filteredData.students
-            .filter((s: any) => (deptCourseFilter === 'All' || s.course === deptCourseFilter) && (deptYearFilter === 'All' || s.year === deptYearFilter))
-            .map((s: any) => s.section)
-            .filter(Boolean)
-    )].sort();
+    // Derived cascading filter options — pull ALL courses belonging to this college from courseMap
+    const dept = data.profile.department;
+    const deptCourses = data.courseMap
+        ? [...new Set(Object.entries(data.courseMap).filter(([_, d]) => d === dept).map(([courseName]) => courseName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')))].sort()
+        : [...new Set(filteredData.students.map((s: any) => s.course).filter(Boolean))].sort();
+
 
     // Helper: check if a student matches the current cascade filters
     const matchesCascadeFilters = (student: any) => {
         if (!student) return true;
-        if (deptCourseFilter !== 'All' && student.course !== deptCourseFilter) return false;
+        if (deptCourseFilter !== 'All' && student.course?.toLowerCase() !== deptCourseFilter.toLowerCase()) return false;
         if (deptYearFilter !== 'All' && student.year !== deptYearFilter) return false;
         if (deptSectionFilter !== 'All' && student.section !== deptSectionFilter) return false;
         return true;
@@ -192,7 +191,11 @@ export default function DeptDashboard() {
             </select>
             <select value={deptSectionFilter} onChange={(e) => setDeptSectionFilter(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white text-gray-700 max-w-[120px]">
                 <option value="All">All Sections</option>
-                {deptAvailableSections.map((s: any) => <option key={s} value={s}>Sec {s}</option>)}
+                <option value="A">Sec A</option>
+                <option value="B">Sec B</option>
+                <option value="C">Sec C</option>
+                <option value="D">Sec D</option>
+                <option value="E">Sec E</option>
             </select>
             {(deptCourseFilter !== 'All' || deptYearFilter !== 'All' || deptSectionFilter !== 'All') && (
                 <button onClick={() => { setDeptCourseFilter('All'); setDeptYearFilter('All'); setDeptSectionFilter('All'); }} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">Reset</button>
@@ -266,7 +269,7 @@ export default function DeptDashboard() {
             type: req.request_type || 'Self-Referral',
             notes: req.reason_for_referral || req.description || '',
             referrer_contact_number: '',
-            relationship_with_student: 'Department Head',
+            relationship_with_student: 'Dean',
             reason_for_referral: req.reason_for_referral || req.description || '',
             actions_made: `Scheduled a meeting with the student. Issue was not fully resolved at department level.`,
             date_duration_of_observations: req.date_duration_of_concern || ''
@@ -431,7 +434,7 @@ export default function DeptDashboard() {
                     student_name: referralForm.student,
                     course_year: studentObj ? `${studentObj.course || ''} - ${studentObj.year || ''}` : '',
                     contact_number: studentObj?.mobile || '',
-                    request_type: 'Dept Head Referral',
+                    request_type: 'Dean Referral',
                     description: referralForm.reason_for_referral,
                     referred_by: data.profile.name,
                     referrer_contact_number: referralForm.referrer_contact_number,
@@ -526,6 +529,82 @@ export default function DeptDashboard() {
         } catch (err: any) { showToastMessage(err.message, 'error'); }
     };
 
+    // ── Support Approval Actions ──
+    const handleSupportApproveAndSchedule = async () => {
+        const { id, student_id, date, time, notes } = approveScheduleData;
+        if (!date || !time) { showToastMessage('Please select date and time.', 'error'); return; }
+        try {
+            const { error } = await supabase.from('support_requests')
+                .update({ status: 'Visit Scheduled', dept_notes: JSON.stringify({ scheduled_date: `${date} ${time}`, approval_notes: notes }) })
+                .eq('id', id);
+            if (error) throw error;
+            if (student_id) {
+                await supabase.from('notifications').insert([{ student_id, message: `Your support request has been approved and scheduled for ${date} at ${time} by ${data.profile.department}.` }]);
+            }
+            showToastMessage('Visit scheduled successfully.', 'success');
+            setShowApproveScheduleModal(false);
+            setApproveScheduleData({ id: null, student_id: null, date: '', time: '', notes: '' });
+            // Re-fetch to update list with new statuses
+            const { data: reqs } = await supabase.from('support_requests').select('*').eq('department', data.profile.department).in('status', ['Forwarded to Dept', 'Visit Scheduled', 'Resolved by Dept', 'Referred to CARE']).order('created_at', { ascending: false });
+            if (reqs) setSupportRequests(reqs);
+        } catch (err: any) { showToastMessage(err.message, 'error'); }
+    };
+
+    const handleRejectSupport = async (id: string, notes: string) => {
+        try {
+            const { error } = await supabase.from('support_requests')
+                .update({ status: 'Rejected', dept_notes: notes })
+                .eq('id', id);
+            if (error) throw error;
+            showToastMessage('Request rejected.', 'success');
+            setSupportRequests(prev => prev.filter((r: any) => r.id !== id));
+        } catch (err: any) { showToastMessage(err.message, 'error'); }
+    };
+
+    const handleResolveSupport = async () => {
+        const { id, student_id, notes } = resolveData;
+        if (!notes.trim()) { showToastMessage('Please add resolution notes.', 'error'); return; }
+        try {
+            const { error } = await supabase.from('support_requests')
+                .update({ status: 'Resolved by Dept', dept_notes: notes })
+                .eq('id', id);
+            if (error) throw error;
+            if (student_id) {
+                await supabase.from('notifications').insert([{ student_id, message: `Your support request has been marked as resolved by ${data.profile.department}.` }]);
+            }
+            showToastMessage('Request marked as resolved and sent to CARE.', 'success');
+            setShowResolveModal(false);
+            setResolveData({ id: null, student_id: null, notes: '' });
+            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: 'Resolved by Dept', dept_notes: notes } : r));
+        } catch (err: any) { showToastMessage(err.message, 'error'); }
+    };
+
+    const handleReferToCare = async () => {
+        const { id, student_id, date_acted, actions_taken, comments } = referCareForm;
+        if (!actions_taken.trim()) { showToastMessage('Please describe actions taken.', 'error'); return; }
+        const sigData = sigCanvasRefSupport.current && !sigCanvasRefSupport.current.isEmpty() ? sigCanvasRefSupport.current.toDataURL() : null;
+        try {
+            const referralData = JSON.stringify({
+                referred_by: data.profile.name,
+                date_acted,
+                actions_taken,
+                comments,
+                signature: sigData
+            });
+            const { error } = await supabase.from('support_requests')
+                .update({ status: 'Referred to CARE', dept_notes: referralData })
+                .eq('id', id);
+            if (error) throw error;
+            if (student_id) {
+                await supabase.from('notifications').insert([{ student_id, message: `Your support request case has been referred back to CARE Staff by ${data.profile.department} for further intervention.` }]);
+            }
+            showToastMessage('Request referred to CARE Staff.', 'success');
+            setShowReferCareModal(false);
+            setReferCareForm({ id: null, student_id: null, student_name: '', date_acted: '', actions_taken: '', comments: '' });
+            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: 'Referred to CARE', dept_notes: referralData } : r));
+        } catch (err: any) { showToastMessage(err.message, 'error'); }
+    };
+
     const renderDetailedDescription = (desc: any) => {
         if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
         const q1Index = desc.indexOf('[Q1 Description]:');
@@ -543,7 +622,7 @@ export default function DeptDashboard() {
         dashboard: 'Home',
         admissions: 'Admissions Screening',
         counseling_queue: 'Counseling Requests',
-        events: 'Dept. Events',
+        events: 'College Events',
         support_approvals: 'Support Approvals',
         settings: 'Settings',
         students: 'Students',
@@ -561,7 +640,7 @@ export default function DeptDashboard() {
                 {/* Logo Area */}
                 <div className="p-6 flex items-center justify-between border-b border-white/10">
                     <div onClick={() => { setProfileForm(data.profile); setShowProfileModal(true); }} className="flex items-center gap-3 cursor-pointer">
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-600/30 text-sm">DH</div>
+                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-600/30 text-sm">DN</div>
                         <div>
                             <h1 className="font-bold text-white text-lg tracking-tight">{data.profile.name}</h1>
                             <p className="text-emerald-300/70 text-xs font-medium truncate max-w-[160px]">{data.profile.department}</p>
@@ -584,7 +663,7 @@ export default function DeptDashboard() {
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
                         {[
                             { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling Requests', hasIndicator: counselingRequests.filter((r: any) => r.status === 'Submitted').length > 0 },
-                            { id: 'events', icon: <CalendarDays size={18} />, label: 'Dept. Events' },
+                            { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
                             { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Support Approvals', hasIndicator: supportRequests.length > lastSeenSupportCount },
                         ].map((item: any) => (
                             <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
@@ -723,6 +802,23 @@ export default function DeptDashboard() {
                             matchesCascadeFilters={matchesCascadeFilters}
                             cascadeFilterBar={cascadeFilterBar}
                             openDecisionModal={openDecisionModal}
+                            showApproveScheduleModal={showApproveScheduleModal}
+                            setShowApproveScheduleModal={setShowApproveScheduleModal}
+                            approveScheduleData={approveScheduleData}
+                            setApproveScheduleData={setApproveScheduleData}
+                            handleSupportApproveAndSchedule={handleSupportApproveAndSchedule}
+                            handleRejectSupport={handleRejectSupport}
+                            showResolveModal={showResolveModal}
+                            setShowResolveModal={setShowResolveModal}
+                            resolveData={resolveData}
+                            setResolveData={setResolveData}
+                            handleResolveSupport={handleResolveSupport}
+                            showReferCareModal={showReferCareModal}
+                            setShowReferCareModal={setShowReferCareModal}
+                            referCareForm={referCareForm}
+                            setReferCareForm={setReferCareForm}
+                            handleReferToCare={handleReferToCare}
+                            sigCanvasRefSupport={sigCanvasRefSupport}
                         />
                     )}
 

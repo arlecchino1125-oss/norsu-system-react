@@ -24,7 +24,7 @@ const SERVICE_GUIDES = {
             { icon: '2️⃣', text: 'Your name, course, and year are auto-filled from your profile.' },
             { icon: '3️⃣', text: 'Describe your reasons for requesting counseling and any actions you\'ve already taken.' },
             { icon: '4️⃣', text: 'Submit and wait for the care staff to review and schedule your session.' },
-            { icon: '5️⃣', text: 'After your session is completed, rate it to help us improve.' },
+            { icon: '5️⃣', text: 'After your session is completed, submit the CSM feedback form.' },
         ],
         tip: 'All information is kept strictly confidential. Don\'t hesitate to reach out — we\'re here to help.'
     },
@@ -143,7 +143,7 @@ export function ServiceIntroModal({ serviceKey }: any) {
 
 // Helper: renders assessment, counseling, support, scholarship, feedback, profile views
 export function renderRemainingViews(p: any) {
-    const { activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship } = p;
+    const { activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, setActiveView, feedbackPrefill, setFeedbackPrefill } = p;
     return (
         <>
             {/* SERVICE INTRO MODALS */}
@@ -424,18 +424,40 @@ export function renderRemainingViews(p: any) {
                                     )}
                                     {selectedRequest.status === 'Completed' && (
                                         <div className="border-t pt-6">
-                                            <h4 className="font-bold text-sm mb-4">Rate your Session</h4>
-                                            {selectedRequest.rating ? (
+                                            <h4 className="font-bold text-sm mb-4">Counseling Feedback</h4>
+                                            {(selectedRequest.rating || (typeof selectedRequest.feedback === 'string' && selectedRequest.feedback.startsWith('[CSM]'))) ? (
                                                 <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-center">
-                                                    <div className="flex justify-center gap-1 text-yellow-500 mb-2">{[1, 2, 3, 4, 5].map(n => <div key={n} className="scale-75"><Icons.Star filled={n <= selectedRequest.rating} /></div>)}</div>
-                                                    <p className="text-sm text-yellow-800 italic">"{selectedRequest.feedback || 'No comment provided.'}"</p>
+                                                    {selectedRequest.rating ? (
+                                                        <div className="flex justify-center gap-1 text-yellow-500 mb-2">
+                                                            {[1, 2, 3, 4, 5].map(n => <div key={n} className="scale-75"><Icons.Star filled={n <= selectedRequest.rating} /></div>)}
+                                                        </div>
+                                                    ) : null}
+                                                    <p className="text-sm text-yellow-800 italic">
+                                                        {selectedRequest.feedback?.startsWith('[CSM]')
+                                                            ? 'Feedback submitted through the CSM form.'
+                                                            : `"${selectedRequest.feedback || 'No comment provided.'}"`}
+                                                    </p>
                                                     <p className="text-[10px] text-yellow-600 mt-2 font-bold uppercase">Thank you for your feedback!</p>
                                                 </div>
                                             ) : (
-                                                <div className="space-y-4">
-                                                    <div className="flex justify-center gap-2">{[1, 2, 3, 4, 5].map(num => (<button key={num} onClick={() => setSessionFeedback({ ...sessionFeedback, rating: num })} className="hover:scale-110 transition-transform"><Icons.Star filled={num <= sessionFeedback.rating} /></button>))}</div>
-                                                    <textarea className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-blue-500" rows={3} placeholder="How was your session? (Optional)" value={sessionFeedback.comment} onChange={e => setSessionFeedback({ ...sessionFeedback, comment: e.target.value })}></textarea>
-                                                    <button onClick={submitSessionFeedback} className="w-full bg-gradient-to-r from-blue-500 to-sky-400 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Submit Feedback</button>
+                                                <div className="space-y-3">
+                                                    <p className="text-xs text-gray-600 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                                        Please complete the Client Satisfaction Measurement (CSM) form for this completed counseling session.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => {
+                                                            setFeedbackPrefill({
+                                                                source: 'counseling',
+                                                                counselingRequestId: selectedRequest.id,
+                                                                service_availed: selectedRequest.request_type ? `Counseling - ${selectedRequest.request_type}` : 'Counseling Services',
+                                                            });
+                                                            setSelectedRequest(null);
+                                                            setActiveView('feedback');
+                                                        }}
+                                                        className="w-full bg-gradient-to-r from-blue-500 to-sky-400 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all"
+                                                    >
+                                                        Open CSM Feedback Form
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -496,13 +518,12 @@ export function renderRemainingViews(p: any) {
                                     {supportRequests.length === 0 ? (
                                         <div className="text-center py-12"><p className="text-gray-400 text-sm">No requests found.</p></div>
                                     ) : supportRequests.map((req: any, idx: number) => (
-                                        <div key={req.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all" style={{ animationDelay: `${idx * 60}ms` }}>
+                                        <div key={req.id} onClick={() => setSelectedSupportRequest(req)} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer" style={{ animationDelay: `${idx * 60}ms` }}>
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="text-sm font-bold bg-teal-50 text-teal-700 px-2.5 py-1 rounded-lg">{req.support_type}</span>
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${req.status === 'Completed' ? 'bg-green-100 text-green-700' : req.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{req.status}</span>
+                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${req.status === 'Resolved by Dept' ? 'bg-green-100 text-green-700' : req.status === 'Referred to CARE' ? 'bg-orange-100 text-orange-700' : req.status === 'Visit Scheduled' ? 'bg-blue-100 text-blue-700' : req.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{req.status}</span>
                                             </div>
                                             <p className="text-[10px] text-gray-400">{formatFullDate(new Date(req.created_at))}</p>
-                                            {req.resolution_notes && <div className="mt-2 p-2.5 bg-green-50 border border-green-100 rounded-lg"><p className="text-[10px] font-bold text-green-800 uppercase">Resolution</p><p className="text-xs text-green-900 mt-0.5">{req.resolution_notes}</p></div>}
                                         </div>
                                     ))}
                                 </div>
@@ -510,9 +531,191 @@ export function renderRemainingViews(p: any) {
                         </div>
                         , document.body)}
 
+                    {selectedSupportRequest && createPortal(
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={() => setSelectedSupportRequest(null)}>
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-scale-in" onClick={e => e.stopPropagation()}>
+                                <div className="px-6 py-4 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex justify-between items-center shrink-0">
+                                    <h3 className="font-extrabold text-lg">Support Request Details</h3>
+                                    <button onClick={() => setSelectedSupportRequest(null)} className="text-white hover:text-teal-200">✕</button>
+                                </div>
+                                <div className="p-6 space-y-8 overflow-y-auto">
+                                    {/* Status Badge */}
+                                    <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Current Status</p>
+                                            <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${selectedSupportRequest.status === 'Resolved by Dept' ? 'bg-green-100 text-green-700' : selectedSupportRequest.status === 'Referred to CARE' ? 'bg-orange-100 text-orange-700' : selectedSupportRequest.status === 'Visit Scheduled' ? 'bg-blue-100 text-blue-700' : selectedSupportRequest.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                {selectedSupportRequest.status}
+                                            </span>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Date Submitted</p>
+                                            <p className="text-sm font-medium">{formatFullDate(new Date(selectedSupportRequest.created_at))}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Department & Resolution Notes */}
+                                    {selectedSupportRequest.dept_notes && (
+                                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                                            <p className="text-xs text-blue-800 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                                                <Icons.Dashboard /> Department Updates
+                                            </p>
+                                            <div className="space-y-2">
+                                                {(() => {
+                                                    try {
+                                                        const notes = JSON.parse(selectedSupportRequest.dept_notes);
+                                                        if (selectedSupportRequest.status === 'Visit Scheduled' && notes.scheduled_date) {
+                                                            return (
+                                                                <>
+                                                                    <p className="text-sm font-bold text-gray-800 bg-white p-2 rounded border border-blue-200 shadow-sm">Scheduled Visit: <span className="text-blue-600">{notes.scheduled_date}</span></p>
+                                                                    {notes.approval_notes && <p className="text-xs text-gray-600 bg-white p-2 rounded border border-blue-100 shadow-sm mt-1">{notes.approval_notes}</p>}
+                                                                </>
+                                                            );
+                                                        } else if (selectedSupportRequest.status === 'Referred to CARE' && notes.referred_by) {
+                                                            return (
+                                                                <>
+                                                                    <p className="text-xs text-gray-700 bg-white p-2 rounded shadow-sm border border-orange-100"><span className="font-semibold text-gray-900">Referred by:</span> {notes.referred_by}</p>
+                                                                    {notes.actions_taken && <p className="text-xs text-gray-700 bg-white p-2 rounded shadow-sm border border-orange-100"><span className="font-semibold text-gray-900">Actions Taken:</span> {notes.actions_taken}</p>}
+                                                                    {notes.comments && <p className="text-xs text-gray-700 bg-white p-2 rounded shadow-sm border border-orange-100"><span className="font-semibold text-gray-900">Comments:</span> {notes.comments}</p>}
+                                                                    {notes.date_acted && <p className="text-xs text-gray-500 mt-1">Date: {notes.date_acted}</p>}
+                                                                </>
+                                                            );
+                                                        }
+                                                        return <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedSupportRequest.dept_notes}</p>;
+                                                    } catch (e) {
+                                                        return <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedSupportRequest.dept_notes}</p>;
+                                                    }
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {selectedSupportRequest.resolution_notes && (
+                                        <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
+                                            <p className="text-xs text-green-800 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                                                <Icons.CheckCircle /> Resolution Details
+                                            </p>
+                                            <p className="text-sm text-green-900 whitespace-pre-wrap">{selectedSupportRequest.resolution_notes}</p>
+                                        </div>
+                                    )}
+
+                                    <hr className="border-gray-200" />
+                                    <h4 className="font-bold text-sm text-blue-800 uppercase tracking-wider opacity-80">Original Request Form</h4>
+
+                                    {/* Student Info */}
+                                    <section className="bg-gray-50 p-4 rounded-xl border border-gray-100 opacity-90 pointer-events-none">
+                                        <h4 className="font-bold text-sm text-blue-800 mb-4 uppercase tracking-wider">Student Information</h4>
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div><label className="block text-xs font-bold text-gray-500">Full Name</label><div className="font-semibold">{personalInfo.firstName} {personalInfo.lastName}</div></div>
+                                            <div><label className="block text-xs font-bold text-gray-500">Date Filed</label><div className="font-semibold">{new Date(selectedSupportRequest.created_at).toLocaleDateString()}</div></div>
+                                            <div><label className="block text-xs font-bold text-gray-500">Date of Birth</label><div className="font-semibold">{personalInfo.dob}</div></div>
+                                            <div><label className="block text-xs font-bold text-gray-500">Program – Year Level</label><div className="font-semibold">{personalInfo.course} - {personalInfo.year}</div></div>
+                                            <div><label className="block text-xs font-bold text-gray-500">Cell Phone Number</label><div className="font-semibold">{personalInfo.mobile}</div></div>
+                                            <div><label className="block text-xs font-bold text-gray-500">Email Address</label><div className="font-semibold">{personalInfo.email}</div></div>
+                                            <div className="col-span-2"><label className="block text-xs font-bold text-gray-500">Home Address</label><div className="font-semibold">{personalInfo.address}</div></div>
+                                        </div>
+                                    </section>
+
+                                    {/* Category */}
+                                    <section className="opacity-90 pointer-events-none">
+                                        <h4 className="font-bold text-sm text-blue-800 mb-4 uppercase tracking-wider">Category</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {['Persons with Disabilities (PWDs)', 'Indigenous Peoples (IPs) & Cultural Communities', 'Working Students', 'Economically Challenged Students', 'Students with Special Learning Needs', 'Rebel Returnees', 'Orphans', 'Senior Citizens', 'Homeless Students', 'Solo Parenting', 'Pregnant Women', 'Women in Especially Difficult Circumstances'].map(cat => (
+                                                <label key={cat} className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={(selectedSupportRequest.support_type || '').includes(cat)} readOnly className="w-4 h-4 text-blue-600 rounded" /> {cat}</label>
+                                            ))}
+                                            {selectedSupportRequest.support_type?.includes('Other:') && (() => {
+                                                const match = selectedSupportRequest.support_type.match(/Other:\s*(.+)$/);
+                                                return match ? (
+                                                    <div className="col-span-2 flex items-center gap-2 mt-2">
+                                                        <input type="checkbox" checked readOnly className="w-4 h-4 text-blue-600 rounded" />
+                                                        <span className="text-sm text-gray-600">Others, specify:</span>
+                                                        <input value={match[1]} readOnly className="border-b border-gray-300 px-2 py-1 text-sm flex-1 bg-transparent text-gray-600" />
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                    </section>
+
+                                    {/* Section A */}
+                                    <section className="opacity-90 pointer-events-none">
+                                        <h4 className="font-bold text-sm text-blue-800 mb-4 uppercase tracking-wider">A. Your Studies</h4>
+                                        <div className="space-y-3">
+                                            <div><label className="block text-xs font-bold text-gray-500">1st Priority</label><input disabled value={personalInfo.priorityCourse} className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-700" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500">2nd Priority</label><input disabled value={personalInfo.altCourse1} className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-700" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500">3rd Priority</label><input disabled value={personalInfo.altCourse2} className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm text-gray-700" /></div>
+                                        </div>
+                                    </section>
+
+                                    {/* Section B */}
+                                    <section className="opacity-90 pointer-events-none">
+                                        <h4 className="font-bold text-sm text-blue-800 mb-2 uppercase tracking-wider">B. Particulars of your disability or special learning need</h4>
+                                        <div className="space-y-4 mt-4">
+                                            {(() => {
+                                                const desc = selectedSupportRequest.description || '';
+                                                let q1 = '', q2 = '', q3 = '', q4 = '';
+                                                if (desc.includes('[Q1 Description]:')) {
+                                                    const getPart = (startToken: string, endToken: string | null) => {
+                                                        const start = desc.indexOf(startToken);
+                                                        if (start === -1) return '';
+                                                        const end = endToken ? desc.indexOf(endToken, start) : -1;
+                                                        return end === -1 ? desc.substring(start + startToken.length).trim() : desc.substring(start + startToken.length, end).trim();
+                                                    };
+                                                    q1 = getPart('[Q1 Description]:', '[Q2 Previous Support]:');
+                                                    q2 = getPart('[Q2 Previous Support]:', '[Q3 Required Support]:');
+                                                    q3 = getPart('[Q3 Required Support]:', '[Q4 Other Needs]:');
+                                                    q4 = getPart('[Q4 Other Needs]:', null);
+                                                } else {
+                                                    q1 = desc;
+                                                }
+                                                return (
+                                                    <>
+                                                        <div><label className="block text-xs font-bold text-gray-700 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</label><textarea rows={2} value={q1} readOnly className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 resize-none"></textarea></div>
+                                                        <div><label className="block text-xs font-bold text-gray-700 mb-1">2. What kind of support did you receive at your previous school?</label><textarea rows={2} value={q2} readOnly className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 resize-none"></textarea></div>
+                                                        <div><label className="block text-xs font-bold text-gray-700 mb-1">3. What support or assistance do you require from NORSU–Guihulngan Campus to enable you to fully participate in campus activities...?</label><textarea rows={3} value={q3} readOnly className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 resize-none"></textarea></div>
+                                                        <div><label className="block text-xs font-bold text-gray-700 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</label><textarea rows={2} value={q4} readOnly className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 resize-none"></textarea></div>
+                                                    </>
+                                                )
+                                            })()}
+                                        </div>
+                                    </section>
+
+                                    {/* Uploaded Documents */}
+                                    {selectedSupportRequest.documents_url && (() => {
+                                        let urls: string[] = [];
+                                        try {
+                                            const parsed = JSON.parse(selectedSupportRequest.documents_url);
+                                            urls = Array.isArray(parsed) ? parsed : [selectedSupportRequest.documents_url];
+                                        } catch { urls = [selectedSupportRequest.documents_url]; }
+                                        return urls.length > 0 ? (
+                                            <section className="mt-2">
+                                                <h4 className="font-bold text-sm text-blue-800 mb-3 uppercase tracking-wider">Supporting Documents</h4>
+                                                <div className="space-y-2">
+                                                    {urls.map((url: string, idx: number) => (
+                                                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors group">
+                                                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 group-hover:bg-blue-200 transition-colors">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-bold text-blue-700 truncate">Document {idx + 1}</p>
+                                                                <p className="text-xs text-blue-500 truncate">{decodeURIComponent(url.split('/').pop() || '')}</p>
+                                                            </div>
+                                                            <svg className="w-4 h-4 text-blue-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            </section>
+                                        ) : null;
+                                    })()}
+                                </div>
+                                <div className="p-4 bg-gray-50 border-t border-gray-100 text-right">
+                                    <button onClick={() => setSelectedSupportRequest(null)} className="px-6 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 font-bold text-sm shadow-sm transition-all focus:ring-2 focus:ring-teal-500 focus:outline-none focus:ring-offset-1">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                        , document.body)}
+
                     {showSupportModal && createPortal(
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-fade-in-up">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-fade-in-up">
                                 <div className="flex justify-between items-center p-6 border-b shrink-0">
                                     <div>
                                         <h3 className="font-bold text-lg text-gray-900">FORM FOR STUDENTS WHO REQUIRE ADDITIONAL SUPPORT</h3>
@@ -574,7 +777,35 @@ export function renderRemainingViews(p: any) {
                                         </div>
                                     </section>
 
-                                    <div className="mb-6"><label className="block text-xs font-bold text-gray-700 mb-1">Upload Supporting Documents (Medical/Psychological Proof)</label><input type="file" onChange={(e: any) => setSupportForm({ ...supportForm, file: e.target.files[0] })} className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" /></div>
+                                    <div className="mb-6">
+                                        <label className="block text-xs font-bold text-gray-700 mb-2">Upload Supporting Documents (Medical/Psychological Proof) — Max 4 files</label>
+                                        <input type="file" multiple onChange={(e: any) => {
+                                            const newFiles = Array.from(e.target.files || []) as File[];
+                                            const combined = [...(supportForm.files || []), ...newFiles].slice(0, 4);
+                                            setSupportForm({ ...supportForm, files: combined });
+                                            e.target.value = '';
+                                        }} disabled={(supportForm.files || []).length >= 4} className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50" />
+                                        <p className="text-[10px] text-gray-400 mt-1">{(supportForm.files || []).length}/4 files selected</p>
+                                        {(supportForm.files || []).length > 0 && (
+                                            <div className="mt-2 space-y-1">
+                                                {(supportForm.files || []).map((f: File, idx: number) => (
+                                                    <div key={idx} className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                            <span className="text-xs text-gray-700 truncate">{f.name}</span>
+                                                            <span className="text-[10px] text-gray-400 flex-shrink-0">({(f.size / 1024).toFixed(0)} KB)</span>
+                                                        </div>
+                                                        <button type="button" onClick={() => {
+                                                            const updated = (supportForm.files || []).filter((_: any, i: number) => i !== idx);
+                                                            setSupportForm({ ...supportForm, files: updated });
+                                                        }} className="text-red-400 hover:text-red-600 ml-2 flex-shrink-0">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="flex gap-3 p-6 border-t border-purple-100/50 shrink-0">
@@ -583,127 +814,130 @@ export function renderRemainingViews(p: any) {
                                 </div>
                             </div>
                         </div>
-                        , document.body)}
-                </div>
+                        , document.body)
+                    }
+                </div >
             )}
 
             {/* SCHOLARSHIP VIEW */}
-            {activeView === 'scholarship' && (
-                <div className="page-transition">
-                    <h2 className="text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Scholarship Services</h2>
-                    <p className="text-sm text-gray-400 mb-8 animate-fade-in-up">View available scholarships and check your eligibility.</p>
-                    {scholarshipsList.length === 0 ? (
-                        <div className="text-center py-12 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 animate-fade-in-up">
-                            <p className="text-gray-400 italic">No scholarships available at the moment.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {scholarshipsList.map((s: any, idx: number) => {
-                                const isApplied = myApplications.some((app: any) => app.scholarship_id === s.id);
-                                const isExpired = new Date(s.deadline) < new Date();
-                                return (
-                                    <div
-                                        key={s.id}
-                                        onClick={() => { setSelectedScholarship(s); setShowScholarshipModal(true); }}
-                                        className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm hover:shadow-lg transition-all card-hover animate-fade-in-up cursor-pointer group"
-                                        style={{ animationDelay: `${idx * 100}ms` }}
-                                    >
-                                        <div className="flex justify-between items-start mb-4">
-                                            <h3 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors" title={s.title}>{s.title}</h3>
-                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                {isExpired ? 'Closed' : 'Open'}
-                                            </span>
-                                        </div>
-
-                                        <div className="flex justify-between items-center text-xs text-gray-400">
-                                            <span>Deadline: {new Date(s.deadline).toLocaleDateString()}</span>
-                                            {isApplied && <span className="font-bold text-blue-600 flex items-center gap-1"><Icons.CheckCircle /> Applied</span>}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* Scholarship Details Modal (Redesigned) */}
-                    {showScholarshipModal && selectedScholarship && createPortal(
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                            {/* Backdrop */}
-                            <div className="animate-backdrop" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }} onClick={() => setShowScholarshipModal(false)} />
-
-                            {/* Modal */}
-                            <div className="animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-
-                                {/* Header */}
-                                <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>{selectedScholarship.title}</h3>
-                                            <div className="flex gap-2 mt-2">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm`}>
-                                                    {new Date(selectedScholarship.deadline) < new Date() ? 'Closed' : 'Open'}
+            {
+                activeView === 'scholarship' && (
+                    <div className="page-transition">
+                        <h2 className="text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Scholarship Services</h2>
+                        <p className="text-sm text-gray-400 mb-8 animate-fade-in-up">View available scholarships and check your eligibility.</p>
+                        {scholarshipsList.length === 0 ? (
+                            <div className="text-center py-12 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 animate-fade-in-up">
+                                <p className="text-gray-400 italic">No scholarships available at the moment.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {scholarshipsList.map((s: any, idx: number) => {
+                                    const isApplied = myApplications.some((app: any) => app.scholarship_id === s.id);
+                                    const isExpired = new Date(s.deadline) < new Date();
+                                    return (
+                                        <div
+                                            key={s.id}
+                                            onClick={() => { setSelectedScholarship(s); setShowScholarshipModal(true); }}
+                                            className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm hover:shadow-lg transition-all card-hover animate-fade-in-up cursor-pointer group"
+                                            style={{ animationDelay: `${idx * 100}ms` }}
+                                        >
+                                            <div className="flex justify-between items-start mb-4">
+                                                <h3 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors" title={s.title}>{s.title}</h3>
+                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                    {isExpired ? 'Closed' : 'Open'}
                                                 </span>
                                             </div>
-                                        </div>
-                                        <button onClick={() => setShowScholarshipModal(false)} style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>✕</button>
-                                    </div>
-                                </div>
 
-                                {/* Body */}
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#f8fafc' }}>
-                                    <div className="space-y-6">
-                                        <div style={{ background: '#fff', borderRadius: '14px', padding: '20px', border: '1.5px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Description</h4>
-                                            <p className="text-sm text-gray-700 leading-relaxed">{selectedScholarship.description || 'No description provided.'}</p>
-                                        </div>
-
-                                        <div style={{ background: '#fff', borderRadius: '14px', padding: '20px', border: '1.5px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Requirements</h4>
-                                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                                                {selectedScholarship.requirements || 'No specific requirements listed.'}
-                                            </p>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div style={{ background: '#fff', borderRadius: '14px', padding: '16px', border: '1.5px solid #e5e7eb' }}>
-                                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Deadline</h4>
-                                                <p className="text-sm font-bold text-gray-900">{new Date(selectedScholarship.deadline).toLocaleDateString()}</p>
+                                            <div className="flex justify-between items-center text-xs text-gray-400">
+                                                <span>Deadline: {new Date(s.deadline).toLocaleDateString()}</span>
+                                                {isApplied && <span className="font-bold text-blue-600 flex items-center gap-1"><Icons.CheckCircle /> Applied</span>}
                                             </div>
-                                            <div style={{ background: '#fff', borderRadius: '14px', padding: '16px', border: '1.5px solid #e5e7eb' }}>
-                                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Status</h4>
-                                                <p className={`text-sm font-bold ${new Date(selectedScholarship.deadline) < new Date() ? 'text-red-500' : 'text-emerald-500'}`}>
-                                                    {new Date(selectedScholarship.deadline) < new Date() ? 'Applications Closed' : 'Accepting Applications'}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Scholarship Details Modal (Redesigned) */}
+                        {showScholarshipModal && selectedScholarship && createPortal(
+                            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                                {/* Backdrop */}
+                                <div className="animate-backdrop" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }} onClick={() => setShowScholarshipModal(false)} />
+
+                                {/* Modal */}
+                                <div className="animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+
+                                    {/* Header */}
+                                    <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>{selectedScholarship.title}</h3>
+                                                <div className="flex gap-2 mt-2">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm`}>
+                                                        {new Date(selectedScholarship.deadline) < new Date() ? 'Closed' : 'Open'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => setShowScholarshipModal(false)} style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>✕</button>
+                                        </div>
+                                    </div>
+
+                                    {/* Body */}
+                                    <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#f8fafc' }}>
+                                        <div className="space-y-6">
+                                            <div style={{ background: '#fff', borderRadius: '14px', padding: '20px', border: '1.5px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Description</h4>
+                                                <p className="text-sm text-gray-700 leading-relaxed">{selectedScholarship.description || 'No description provided.'}</p>
+                                            </div>
+
+                                            <div style={{ background: '#fff', borderRadius: '14px', padding: '20px', border: '1.5px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Requirements</h4>
+                                                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                                    {selectedScholarship.requirements || 'No specific requirements listed.'}
                                                 </p>
                                             </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div style={{ background: '#fff', borderRadius: '14px', padding: '16px', border: '1.5px solid #e5e7eb' }}>
+                                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Deadline</h4>
+                                                    <p className="text-sm font-bold text-gray-900">{new Date(selectedScholarship.deadline).toLocaleDateString()}</p>
+                                                </div>
+                                                <div style={{ background: '#fff', borderRadius: '14px', padding: '16px', border: '1.5px solid #e5e7eb' }}>
+                                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Status</h4>
+                                                    <p className={`text-sm font-bold ${new Date(selectedScholarship.deadline) < new Date() ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                        {new Date(selectedScholarship.deadline) < new Date() ? 'Applications Closed' : 'Accepting Applications'}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Footer */}
-                                <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fff', flexShrink: 0 }}>
-                                    {myApplications.some((app: any) => app.scholarship_id === selectedScholarship.id) ? (
-                                        <button disabled style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '14px', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                            <Icons.CheckCircle /> Application Submitted
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => { handleApplyScholarship(selectedScholarship); setShowScholarshipModal(false); }}
-                                            disabled={new Date(selectedScholarship.deadline) < new Date()}
-                                            className="btn-press"
-                                            style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: new Date(selectedScholarship.deadline) < new Date() ? '#cbd5e1' : 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: new Date(selectedScholarship.deadline) < new Date() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: new Date(selectedScholarship.deadline) < new Date() ? 'none' : '0 4px 14px rgba(37,99,235,0.3)', transition: 'all 0.25s ease' }}
-                                        >
-                                            {new Date(selectedScholarship.deadline) < new Date() ? 'Deadline Passed' : 'Apply Now'}
-                                        </button>
-                                    )}
+                                    {/* Footer */}
+                                    <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fff', flexShrink: 0 }}>
+                                        {myApplications.some((app: any) => app.scholarship_id === selectedScholarship.id) ? (
+                                            <button disabled style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '14px', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                <Icons.CheckCircle /> Application Submitted
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => { handleApplyScholarship(selectedScholarship); setShowScholarshipModal(false); }}
+                                                disabled={new Date(selectedScholarship.deadline) < new Date()}
+                                                className="btn-press"
+                                                style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: new Date(selectedScholarship.deadline) < new Date() ? '#cbd5e1' : 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: new Date(selectedScholarship.deadline) < new Date() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: new Date(selectedScholarship.deadline) < new Date() ? 'none' : '0 4px 14px rgba(37,99,235,0.3)', transition: 'all 0.25s ease' }}
+                                            >
+                                                {new Date(selectedScholarship.deadline) < new Date() ? 'Deadline Passed' : 'Apply Now'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        , document.body)}
-                </div>
-            )}
+                            , document.body)}
+                    </div>
+                )
+            }
 
             {/* FEEDBACK VIEW - PLACEHOLDER Part 2 */}
-            {activeView === 'feedback' && <FeedbackView Icons={Icons} personalInfo={personalInfo} />}
+            {activeView === 'feedback' && <FeedbackView Icons={Icons} personalInfo={personalInfo} feedbackPrefill={feedbackPrefill} setFeedbackPrefill={setFeedbackPrefill} />}
 
             {/* PROFILE VIEW - PLACEHOLDER Part 2 */}
             {activeView === 'profile' && renderProfileView(p)}
@@ -711,7 +945,7 @@ export function renderRemainingViews(p: any) {
     );
 }
 
-function FeedbackView({ Icons, personalInfo }: { Icons: any; personalInfo: any }) {
+function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedbackPrefill }: { Icons: any; personalInfo: any; feedbackPrefill?: any; setFeedbackPrefill?: any }) {
     const [submitting, setSubmitting] = React.useState(false);
     const [submitted, setSubmitted] = React.useState(false);
     const [myFeedbacks, setMyFeedbacks] = React.useState<any[]>([]);
@@ -729,6 +963,15 @@ function FeedbackView({ Icons, personalInfo }: { Icons: any; personalInfo: any }
     });
 
     const updateForm = (field: string, value: any) => setForm((prev: any) => ({ ...prev, [field]: value }));
+
+    React.useEffect(() => {
+        if (feedbackPrefill?.source === 'counseling') {
+            setForm((prev: any) => ({
+                ...prev,
+                service_availed: feedbackPrefill.service_availed || prev.service_availed || 'Counseling Services',
+            }));
+        }
+    }, [feedbackPrefill]);
 
     React.useEffect(() => {
         const fetchHistory = async () => {
@@ -774,8 +1017,27 @@ function FeedbackView({ Icons, personalInfo }: { Icons: any; personalInfo: any }
             };
             const { error } = await supabase.from('general_feedback').insert(payload);
             if (error) throw error;
+
+            // Link completed counseling requests to CSM feedback flow.
+            if (feedbackPrefill?.source === 'counseling' && feedbackPrefill?.counselingRequestId) {
+                const sqdScores = sqdKeys
+                    .map(k => parseInt(form[k]))
+                    .filter(v => Number.isFinite(v) && v > 0);
+                const linkedRating = sqdScores.length > 0
+                    ? Math.round(sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length)
+                    : null;
+                const linkedComment = `[CSM] ${form.suggestions?.trim() || 'Submitted via CSM feedback form.'}`;
+
+                await supabase
+                    .from('counseling_requests')
+                    .update({ rating: linkedRating, feedback: linkedComment })
+                    .eq('id', feedbackPrefill.counselingRequestId)
+                    .eq('student_id', personalInfo.studentId);
+            }
+
             setSubmitted(true);
             setForm({ client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '', cc1: '', cc2: '', cc3: '', sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '', suggestions: '', email: '' });
+            if (setFeedbackPrefill) setFeedbackPrefill(null);
         } catch (err: any) {
             alert('Error submitting feedback: ' + err.message);
         } finally {
@@ -814,7 +1076,7 @@ function FeedbackView({ Icons, personalInfo }: { Icons: any; personalInfo: any }
                     <div className="w-20 h-20 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">✓</div>
                     <h3 className="font-extrabold text-xl mb-2 text-gray-900">Thank You!</h3>
                     <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
-                    <button onClick={() => setSubmitted(false)} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Submit Another Feedback</button>
+                    <button onClick={() => { setSubmitted(false); if (setFeedbackPrefill) setFeedbackPrefill(null); }} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Submit Another Feedback</button>
                 </div>
             </div>
         );
@@ -830,6 +1092,13 @@ function FeedbackView({ Icons, personalInfo }: { Icons: any; personalInfo: any }
                 </div>
                 <div className="px-8 py-5">
                     <p className="text-xs text-gray-600 leading-relaxed">Your feedback on your <span className="font-bold">recently concluded transaction</span> will help this office provide a better service. Personal information shared will be kept confidential and you always have the option not to answer this form.</p>
+                    {feedbackPrefill?.source === 'counseling' && (
+                        <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                            <p className="text-[11px] text-blue-700">
+                                Counseling session detected. Please complete this CSM form to submit your counseling feedback.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 

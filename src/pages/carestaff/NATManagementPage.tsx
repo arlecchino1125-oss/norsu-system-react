@@ -111,7 +111,7 @@ const NATManagementPage = ({ showToast }: any) => {
         e.preventDefault();
         try {
             if (!courseForm.department_id) {
-                showToast('Please select a department.', 'error');
+                showToast('Please select a college.', 'error');
                 return;
             }
 
@@ -578,9 +578,9 @@ const NATManagementPage = ({ showToast }: any) => {
                                 <input type="number" className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={courseForm.application_limit} onChange={e => setCourseForm({ ...courseForm, application_limit: parseInt(e.target.value) })} required />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Department</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">College</label>
                                 <select className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={courseForm.department_id} onChange={e => setCourseForm({ ...courseForm, department_id: e.target.value })} required>
-                                    <option value="" disabled>Select Department</option>
+                                    <option value="" disabled>Select College</option>
                                     {departments.map((dept: any) => (
                                         <option key={dept.id} value={dept.id}>{dept.name}</option>
                                     ))}
