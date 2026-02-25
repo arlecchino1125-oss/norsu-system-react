@@ -78,13 +78,13 @@ export default function DeptLogin() {
                         </motion.div>
 
                         <h2 className="text-5xl lg:text-6xl font-black mb-6 leading-tight tracking-tight text-slate-800">
-                            Department <br /> Administration
+                            College <br /> Administration
                         </h2>
 
                         <div className="h-1.5 w-20 bg-emerald-500 mb-8 rounded-full"></div>
 
                         <p className="text-slate-500 text-lg leading-relaxed font-medium">
-                            Secure access for department heads. Manage student welfare, approve counseling requests, and monitor academic performance within your jurisdiction.
+                            Secure access for college deans. Manage student welfare, approve counseling requests, and monitor academic performance within your jurisdiction.
                         </p>
 
                         <div className="mt-12 flex items-center gap-4 text-sm font-bold text-slate-400 uppercase tracking-widest">
@@ -124,7 +124,7 @@ export default function DeptLogin() {
                                             <input
                                                 required
                                                 className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium placeholder-slate-400 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
-                                                placeholder="e.g. dept_head_cs"
+                                                placeholder="e.g. dean_cas"
                                                 value={username}
                                                 onChange={e => setUsername(e.target.value)}
                                             />

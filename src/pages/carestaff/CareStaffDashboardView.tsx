@@ -10,6 +10,12 @@ interface CareStaffDashboardViewProps {
 }
 
 const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab }) => {
+    const PROFILE_ACTIVITY_ACTIONS = [
+        'Student Profile Updated',
+        'Student Profile Completed',
+        'Student Profile Picture Updated'
+    ];
+
     const [counts, setCounts] = useState({
         students: 0,
         counseling: 0,
@@ -18,6 +24,35 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
     });
     const [activities, setActivities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const mapProfileLogToActivity = (log: any) => ({
+        id: `profile-${log.id}`,
+        type: 'Profile',
+        icon: <Users size={16} />,
+        color: 'from-fuchsia-400 to-purple-500',
+        title:
+            log.action === 'Student Profile Completed'
+                ? 'Student profile completed'
+                : log.action === 'Student Profile Picture Updated'
+                    ? 'Student profile picture updated'
+                    : 'Student profile updated',
+        detail: log.details || log.user_name || 'Student modified profile information',
+        date: new Date(log.created_at)
+    });
+
+    const mapProfileNotificationToActivity = (notification: any) => {
+        const rawMessage = String(notification?.message || '');
+        const cleanedMessage = rawMessage.replace(/^\[PROFILE UPDATE\]\s*/i, '');
+        return {
+            id: `profile-notif-${notification.id}`,
+            type: 'Profile',
+            icon: <Users size={16} />,
+            color: 'from-fuchsia-400 to-purple-500',
+            title: 'Student profile updated',
+            detail: cleanedMessage || 'Student modified profile information',
+            date: new Date(notification.created_at)
+        };
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -50,12 +85,26 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { data: recentEvents },
                     { data: recentCounseling },
                     { data: recentSupport },
-                    { data: recentApps }
+                    { data: recentApps },
+                    { data: recentProfileUpdates },
+                    { data: recentProfileNotifications }
                 ] = await Promise.all([
                     supabase.from('events').select('id, title, type, created_at').order('created_at', { ascending: false }).limit(10),
                     supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', ['Scheduled', 'Completed']).order('created_at', { ascending: false }).limit(10),
                     supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
-                    supabase.from('scholarship_applications').select('id, student_name, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10)
+                    supabase.from('scholarship_applications').select('id, student_name, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
+                    supabase
+                        .from('audit_logs')
+                        .select('id, user_name, action, details, created_at')
+                        .in('action', PROFILE_ACTIVITY_ACTIONS)
+                        .order('created_at', { ascending: false })
+                        .limit(15),
+                    supabase
+                        .from('notifications')
+                        .select('id, message, created_at')
+                        .like('message', '[PROFILE UPDATE]%')
+                        .order('created_at', { ascending: false })
+                        .limit(15)
                 ]);
 
                 if (!isMounted) return;
@@ -96,7 +145,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         title: `Application ${a.status?.toLowerCase() || ''}`,
                         detail: a.student_name || 'Unknown Applicant',
                         date: new Date(a.created_at)
-                    }))
+                    })),
+                    ...(recentProfileUpdates || []).map((log: any) => mapProfileLogToActivity(log)),
+                    ...(recentProfileNotifications || []).map((notif: any) => mapProfileNotificationToActivity(notif))
                 ].sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 10);
 
                 setActivities(combinedActivities);
@@ -109,7 +160,41 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
 
         fetchDashboardData();
 
-        return () => { isMounted = false; };
+        const profileActivityChannel = supabase
+            .channel('care_staff_profile_activity')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: any) => {
+                if (!isMounted) return;
+                const action = payload?.new?.action;
+                if (!PROFILE_ACTIVITY_ACTIONS.includes(action)) return;
+                const nextActivity = mapProfileLogToActivity(payload.new);
+                setActivities(prev =>
+                    [nextActivity, ...prev]
+                        .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
+                        .slice(0, 10)
+                );
+            })
+            .subscribe();
+
+        const profileNotificationChannel = supabase
+            .channel('care_staff_profile_notification_activity')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
+                if (!isMounted) return;
+                const message = String(payload?.new?.message || '');
+                if (!message.startsWith('[PROFILE UPDATE]')) return;
+                const nextActivity = mapProfileNotificationToActivity(payload.new);
+                setActivities(prev =>
+                    [nextActivity, ...prev]
+                        .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
+                        .slice(0, 10)
+                );
+            })
+            .subscribe();
+
+        return () => {
+            isMounted = false;
+            supabase.removeChannel(profileActivityChannel).catch(console.error);
+            supabase.removeChannel(profileNotificationChannel).catch(console.error);
+        };
     }, []);
 
     if (loading) {
@@ -151,13 +236,14 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-gray-800">{act.title}</p>
-                                        <p className="text-xs text-gray-500 truncate">{act.detail}</p>
+                                        <p className="text-xs text-gray-500">{act.detail}</p>
                                     </div>
                                     <div className="text-right flex-shrink-0">
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${act.type === 'Event' ? 'bg-blue-50 text-blue-600' :
                                             act.type === 'Announcement' ? 'bg-purple-50 text-purple-600' :
                                                 act.type === 'Counseling' ? 'bg-teal-50 text-teal-600' :
                                                     act.type === 'Support' ? 'bg-amber-50 text-amber-600' :
+                                                        act.type === 'Profile' ? 'bg-fuchsia-50 text-fuchsia-700' :
                                                         'bg-gray-50 text-gray-600'
                                             }`}>{act.type}</span>
                                         <p className="text-[10px] text-gray-400 mt-1">{act.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>

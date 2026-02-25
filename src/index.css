@@ -29,6 +29,11 @@
         background: #f8fafc;
     }
 
+    /* Lock body scroll when any modal overlay is open */
+    body:has(.fixed.inset-0) {
+        overflow: hidden;
+    }
+
     /* Global smooth transitions on all interactive elements */
     *,
     *::before,
@@ -45,6 +50,17 @@
         -webkit-backface-visibility: hidden;
         backface-visibility: hidden;
     }
+}
+
+/* Lock any scrollable container that contains a modal */
+.overflow-y-auto:has(.fixed.inset-0),
+.overflow-auto:has(.fixed.inset-0) {
+    overflow: hidden !important;
+}
+
+/* Prevent scroll chaining from modals to background content */
+.fixed.inset-0 {
+    overscroll-behavior: contain;
 }
 
 /* ─── CUSTOM SCROLLBAR ─── */

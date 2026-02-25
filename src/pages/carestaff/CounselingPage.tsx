@@ -362,7 +362,7 @@ const CounselingPage = ({ functions }: any) => {
                                 <>
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
-                                            <h3 className="font-extrabold text-lg">DEPARTMENT HEAD REFERRAL FORM</h3>
+                                            <h3 className="font-extrabold text-lg">DEAN'S REFERRAL FORM</h3>
                                             <p className="text-xs text-gray-400 mt-1">Referral submitted for counseling intervention</p>
                                             <p className="text-[10px] text-gray-400 mt-1">Submitted: {formatDateTime(viewFormReq.created_at)}</p>
                                         </div>

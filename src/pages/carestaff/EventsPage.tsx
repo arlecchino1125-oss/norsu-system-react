@@ -405,16 +405,31 @@ const EventsPage = ({ functions }: any) => {
                             <button onClick={() => setShowFeedbackModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
                         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                            {feedbackList.length === 0 ? <p className="text-center text-gray-500">No feedback submitted yet.</p> : feedbackList.map((fb, i) => (
-                                <div key={i} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                    <div className="flex items-center gap-1 text-yellow-500 mb-2">
-                                        {[...Array(5)].map((_, idx) => <i key={idx} className={`fa-solid fa-star ${idx < fb.rating ? '' : 'text-gray-300'}`}></i>)}
-                                        <span className="text-xs font-bold text-gray-600 ml-2">{fb.rating}/5</span>
+                            {feedbackList.length === 0 ? <p className="text-center text-gray-500">No feedback submitted yet.</p> : feedbackList.map((fb, i) => {
+                                const criteriaScores = [fb.q1_score, fb.q2_score, fb.q3_score, fb.q4_score, fb.q5_score, fb.q6_score, fb.q7_score]
+                                    .map((value) => Number(value))
+                                    .filter((score) => Number.isFinite(score) && score >= 1 && score <= 5);
+                                const numericRating = Number(fb.rating);
+                                const displayRating = Number.isFinite(numericRating) && numericRating > 0
+                                    ? numericRating
+                                    : (criteriaScores.length > 0 ? Number((criteriaScores.reduce((sum, score) => sum + score, 0) / criteriaScores.length).toFixed(1)) : 0);
+                                const roundedRating = Math.round(displayRating);
+                                const mainComment = fb.open_comments || fb.feedback || fb.comments || '';
+                                return (
+                                    <div key={i} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <div className="flex items-center gap-1 text-yellow-500 mb-2">
+                                            {[1, 2, 3, 4, 5].map((idx) => (
+                                                <Star key={idx} size={14} fill={idx <= roundedRating ? 'currentColor' : 'none'} className={idx <= roundedRating ? 'text-yellow-500' : 'text-gray-300'} />
+                                            ))}
+                                            <span className="text-xs font-bold text-gray-600 ml-2">{displayRating ? `${displayRating}/5` : 'No rating'}</span>
+                                        </div>
+                                        {mainComment ? <p className="text-sm text-gray-700 italic mb-2">"{mainComment}"</p> : <p className="text-xs text-gray-400 mb-2">No comment provided.</p>}
+                                        {fb.open_best && <p className="text-xs text-gray-600"><span className="font-bold text-gray-700">Liked best:</span> {fb.open_best}</p>}
+                                        {fb.open_suggestions && <p className="text-xs text-gray-600 mt-1"><span className="font-bold text-gray-700">Suggestion:</span> {fb.open_suggestions}</p>}
+                                        <p className="text-xs text-gray-400 mt-2 text-right">{new Date(fb.submitted_at || fb.created_at || Date.now()).toLocaleDateString()}</p>
                                     </div>
-                                    <p className="text-sm text-gray-700 italic">"{fb.comments}"</p>
-                                    <p className="text-xs text-gray-400 mt-2 text-right">{new Date(fb.submitted_at).toLocaleDateString()}</p>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

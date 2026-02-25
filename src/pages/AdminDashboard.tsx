@@ -129,17 +129,17 @@ export default function AdminDashboard() {
     const handleAddDepartment = async () => {
         const name = newDeptName.trim();
         if (!name) return;
-        if (departments.includes(name)) { showToast('Department already exists.', 'error'); return; }
+        if (departments.includes(name)) { showToast('College already exists.', 'error'); return; }
         const { error } = await supabase.from('departments').insert([{ name }]);
         if (error) showToast(error.message, 'error');
-        else { showToast(`Department "${name}" added.`); setNewDeptName(''); refetchDepartments(); }
+        else { showToast(`College "${name}" added.`); setNewDeptName(''); refetchDepartments(); }
     };
 
     const handleDeleteDepartment = async (dept: any) => {
-        if (!confirm(`Remove department "${dept.name}"? This will NOT delete accounts or students linked to it.`)) return;
+        if (!confirm(`Remove college "${dept.name}"? This will NOT delete accounts or students linked to it.`)) return;
         const { error } = await supabase.from('departments').delete().eq('id', dept.id);
         if (error) showToast(error.message, 'error');
-        else { showToast(`Department "${dept.name}" removed.`); refetchDepartments(); }
+        else { showToast(`College "${dept.name}" removed.`); refetchDepartments(); }
     };
 
     const handleLogout = () => {
@@ -165,14 +165,14 @@ export default function AdminDashboard() {
                     <div className="bg-white p-6 rounded-xl shadow-sm h-fit">
                         <h2 className="font-bold text-lg mb-4">Create New Account</h2>
                         <form onSubmit={handleCreate} className="space-y-4">
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Role</label><select className="w-full border p-2 rounded" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option>Department Head</option><option value="Care Staff">CARE Staff</option><option>Admin</option></select></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Role</label><select className="w-full border p-2 rounded" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="Department Head">Dean</option><option value="Care Staff">CARE Staff</option><option>Admin</option></select></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Full Name</label><input required className="w-full border p-2 rounded" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Username</label><input required className="w-full border p-2 rounded" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Password</label><input required className="w-full border p-2 rounded" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Email (Optional)</label><input className="w-full border p-2 rounded" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
 
                             {form.role === 'Department Head' && (
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">Department</label><select className="w-full border p-2 rounded" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}><option value="">Select Department</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 mb-1">College</label><select className="w-full border p-2 rounded" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}><option value="">Select College</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
                             )}
 
                             <button className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Create Account</button>
@@ -205,14 +205,14 @@ export default function AdminDashboard() {
                 {/* Department Management */}
                 <div className="bg-white rounded-xl shadow-sm mt-8 overflow-hidden">
                     <div className="p-6 border-b flex items-center justify-between">
-                        <h2 className="font-bold text-lg">Departments ({departmentsData.length})</h2>
+                        <h2 className="font-bold text-lg">Colleges ({departmentsData.length})</h2>
                         <div className="flex gap-2">
-                            <input className="border p-2 rounded text-sm w-64" placeholder="New department name…" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDepartment()} />
+                            <input className="border p-2 rounded text-sm w-64" placeholder="New college name…" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDepartment()} />
                             <button onClick={handleAddDepartment} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 flex items-center gap-1 text-sm"><Plus className="w-4 h-4" /> Add</button>
                         </div>
                     </div>
                     <div className="p-6 flex flex-wrap gap-2">
-                        {departmentsData.length === 0 && <p className="text-gray-400 text-sm">No departments yet. Add one above.</p>}
+                        {departmentsData.length === 0 && <p className="text-gray-400 text-sm">No colleges yet. Add one above.</p>}
                         {departmentsData.map((dept: any) => (
                             <span key={dept.id} className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium">
                                 {dept.name}

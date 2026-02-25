@@ -179,8 +179,8 @@ export default function PublicLanding() {
                     <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-2xl w-16 h-16 flex items-center justify-center mb-6 border border-emerald-200/50 shadow-inner group-hover:scale-110 transition-transform duration-500">
                         <Users className="w-8 h-8 text-emerald-600 drop-shadow-sm group-hover:text-emerald-500 transition-colors" />
                     </div>
-                    <h3 className="text-xl font-extrabold text-slate-800 mb-2 relative">Department Head</h3>
-                    <p className="text-slate-600/90 text-sm mb-6 leading-relaxed relative font-medium">Manage department requests, approve counseling, and refer students.</p>
+                    <h3 className="text-xl font-extrabold text-slate-800 mb-2 relative">Dean's Portal</h3>
+                    <p className="text-slate-600/90 text-sm mb-6 leading-relaxed relative font-medium">Manage college requests, approve counseling, and refer students.</p>
                     <div className="flex items-center text-emerald-600 font-bold text-sm tracking-wide group-hover:gap-3 gap-2 transition-all relative">
                         Faculty Portal <ArrowRight className="w-4 h-4 inline" />
                     </div>

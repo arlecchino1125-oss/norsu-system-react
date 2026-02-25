@@ -69,6 +69,11 @@ const STORAGE_KEY = 'norsu_care_data_v2';
 const CareStaffDashboard = () => {
     const navigate = useNavigate();
     const { session, isAuthenticated, logout } = useAuth() as any;
+    const PROFILE_NOTIFICATION_ACTIONS = [
+        'Student Profile Updated',
+        'Student Profile Completed',
+        'Student Profile Picture Updated'
+    ];
     const [activeTab, setActiveTab] = useState<string>('home');
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
@@ -114,6 +119,59 @@ const CareStaffDashboard = () => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 4000);
     };
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchProfileNotifications = async () => {
+            const [{ data: auditRows }, { data: notificationRows }] = await Promise.all([
+                supabase
+                    .from('audit_logs')
+                    .select('id, action, details, created_at')
+                    .in('action', PROFILE_NOTIFICATION_ACTIONS)
+                    .order('created_at', { ascending: false })
+                    .limit(25),
+                supabase
+                    .from('notifications')
+                    .select('id, message, created_at')
+                    .like('message', '[PROFILE UPDATE]%')
+                    .order('created_at', { ascending: false })
+                    .limit(25)
+            ]);
+
+            const merged = [...(auditRows || []), ...(notificationRows || [])]
+                .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .slice(0, 25);
+
+            if (isMounted) setNotifications(merged);
+        };
+
+        fetchProfileNotifications();
+
+        const profileNotificationsChannel = supabase
+            .channel('care_staff_profile_notifications')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: any) => {
+                const action = payload?.new?.action;
+                if (!PROFILE_NOTIFICATION_ACTIONS.includes(action)) return;
+                setNotifications((prev) => [payload.new, ...prev].slice(0, 25));
+            })
+            .subscribe();
+
+        const profileNotificationsFallbackChannel = supabase
+            .channel('care_staff_profile_notifications_fallback')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
+                const message = String(payload?.new?.message || '');
+                if (!message.startsWith('[PROFILE UPDATE]')) return;
+                setNotifications((prev) => [payload.new, ...prev].slice(0, 25));
+            })
+            .subscribe();
+
+        return () => {
+            isMounted = false;
+            supabase.removeChannel(profileNotificationsChannel).catch(console.error);
+            supabase.removeChannel(profileNotificationsFallbackChannel).catch(console.error);
+        };
+    }, []);
 
     const logAudit = async (action: any, details: any) => {
         try {

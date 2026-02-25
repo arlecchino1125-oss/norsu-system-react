@@ -170,7 +170,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                 .from('support_requests')
                 .select('*')
                 .eq('department', data.profile.department)
-                .eq('status', 'Forwarded to Dept')
+                .in('status', ['Forwarded to Dept', 'Visit Scheduled', 'Resolved by Dept', 'Referred to CARE'])
                 .order('created_at', { ascending: false });
             if (reqs) setSupportRequests(reqs);
         };

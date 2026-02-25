@@ -108,7 +108,7 @@ export function renderDeptModals(props: any) {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 mb-1">Referred by</label><input readOnly value={data?.profile?.name || ''} className="w-full px-4 py-2.5 border rounded-xl text-sm bg-gray-100 cursor-not-allowed" /></div>
                                     <div><label className="block text-xs font-bold text-gray-500 mb-1">Referrer Contact Number</label><input value={referralForm.referrer_contact_number} onChange={e => setReferralForm({ ...referralForm, referrer_contact_number: e.target.value })} className="w-full px-4 py-2.5 border rounded-xl text-sm" placeholder="Your contact number" /></div>
-                                    <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-500 mb-1">Relationship with Student</label><input value={referralForm.relationship_with_student} onChange={e => setReferralForm({ ...referralForm, relationship_with_student: e.target.value })} className="w-full px-4 py-2.5 border rounded-xl text-sm" placeholder="e.g. Department Head, Faculty Adviser" /></div>
+                                    <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-500 mb-1">Relationship with Student</label><input value={referralForm.relationship_with_student} onChange={e => setReferralForm({ ...referralForm, relationship_with_student: e.target.value })} className="w-full px-4 py-2.5 border rounded-xl text-sm" placeholder="e.g. Dean, Faculty Adviser" /></div>
                                 </div>
 
                                 {/* Reason for Referral */}
