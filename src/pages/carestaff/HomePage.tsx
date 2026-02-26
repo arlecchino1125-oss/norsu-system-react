@@ -3,8 +3,22 @@ import {
     Search, Settings, BarChart2, Rocket,
     ClipboardCheck, CalendarCheck, Award
 } from 'lucide-react';
+import type { CareStaffDashboardFunctions } from './types';
 
-const HomeAdminTools = ({ functions }: any) => {
+type HomePageFunctions = Pick<
+    CareStaffDashboardFunctions,
+    'handleLaunchModule' | 'handleGetStarted' | 'handleOpenAnalytics'
+>;
+
+interface HomeAdminToolsProps {
+    functions: HomePageFunctions;
+}
+
+interface HomePageProps {
+    functions: HomePageFunctions;
+}
+
+const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
     const tools = [
         { title: 'Student Analytics', desc: 'Deep dive into student population trends and wellness metrics.', icon: <Search />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-200/50' },
         { title: 'Form Management', desc: 'Build and analyze Needs Assessment forms with real-time feedback.', icon: <ClipboardCheck />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-200/50' },
@@ -35,7 +49,7 @@ const HomeAdminTools = ({ functions }: any) => {
     );
 };
 
-const HomePage = ({ functions }: any) => {
+const HomePage = ({ functions }: HomePageProps) => {
 
     return (
         <div className="space-y-8 animate-fade-in">

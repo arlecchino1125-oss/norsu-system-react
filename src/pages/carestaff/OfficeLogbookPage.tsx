@@ -3,8 +3,13 @@ import { Download, ListChecks, XCircle, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDateTime, generateExportFilename } from '../../utils/formatters';
+import type { CareStaffDashboardFunctions } from './types';
 
-const OfficeLogbookPage = ({ functions }: any) => {
+interface OfficeLogbookPageProps {
+    functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
     const [visits, setVisits] = useState<any[]>([]);
     const [reasons, setReasons] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);

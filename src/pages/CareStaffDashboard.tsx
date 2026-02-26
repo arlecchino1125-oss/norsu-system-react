@@ -1,104 +1,205 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
-import { exportToExcel, savePdf } from '../utils/dashboardUtils';
-import { ClockDisplay, GreetingText } from '../components/ClockDisplay';
-import QuestionChart from '../components/charts/QuestionChart';
-import YearLevelChart from '../components/charts/YearLevelChart';
-import TopQuestionsChart from '../components/charts/TopQuestionsChart';
-import StatusBadge from '../components/StatusBadge';
-import CalendarView from '../components/CalendarView';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+    Activity,
+    Award,
+    BarChart2,
+    Bell,
+    BookOpen,
+    Calendar,
+    CheckCircle,
+    ClipboardList,
+    FileText,
+    LayoutDashboard,
+    LogOut,
+    Menu,
+    RefreshCw,
+    Shield,
+    Star,
+    Users,
+    XCircle
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 import AuditLogsPage from './carestaff/AuditLogsPage';
+import CareStaffDashboardView from './carestaff/CareStaffDashboardView';
+import CounselingPage from './carestaff/CounselingPage';
+import EventsPage from './carestaff/EventsPage';
+import FeedbackPage from './carestaff/FeedbackPage';
+import FormManagementPage from './carestaff/FormManagementPage';
+import HomePage from './carestaff/HomePage';
+import NATManagementPage from './carestaff/NATManagementPage';
 import OfficeLogbookPage from './carestaff/OfficeLogbookPage';
 import ScholarshipPage from './carestaff/ScholarshipPage';
-import FormManagementPage from './carestaff/FormManagementPage';
-import FeedbackPage from './carestaff/FeedbackPage';
-import NATManagementPage from './carestaff/NATManagementPage';
-import StudentPopulationPage from './carestaff/StudentPopulationPage';
 import StudentAnalyticsPage from './carestaff/StudentAnalyticsPage';
-import HomePage from './carestaff/HomePage';
-import CounselingPage from './carestaff/CounselingPage';
+import StudentPopulationPage from './carestaff/StudentPopulationPage';
 import SupportRequestsPage from './carestaff/SupportRequestsPage';
-import EventsPage from './carestaff/EventsPage';
-import CareStaffDashboardView from './carestaff/CareStaffDashboardView';
 import { renderCareStaffModals } from './carestaff/modals/CareStaffModals';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
-import {
-    LayoutDashboard, Users, ClipboardList, Calendar, CheckCircle,
-    XCircle, Clock, Search, Filter, Download, User, MapPin,
-    Phone, Mail, FileText, ChevronRight, Menu, LogOut, Bell,
-    ArrowUpDown, Edit, Trash2, UploadCloud, AlertTriangle, Key, Plus,
-    BarChart2, PieChart, List, Activity, Settings, Book, GraduationCap,
-    TrendingUp, ClipboardCheck, CalendarCheck, Award, Rocket, ListChecks, Shield, Star, BookOpen,
-    Send, Paperclip, MessageCircle, Info, Lock, Eye, RefreshCw
-} from 'lucide-react';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    ArcElement
-} from 'chart.js';
-import { Bar, Doughnut } from 'react-chartjs-2';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import type { CareStaffDashboardFunctions, ToastHandler, ToastType } from './carestaff/types';
 
+const PROFILE_NOTIFICATION_ACTIONS = [
+    'Student Profile Updated',
+    'Student Profile Completed',
+    'Student Profile Picture Updated'
+];
 
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-    ArcElement
-);
-import { Chart } from 'chart.js/auto'; // Ensure Chart is imported if not already handled by react-chartjs-2 imports
+const ACTIVE_TABS = [
+    'home',
+    'dashboard',
+    'population',
+    'analytics',
+    'nat',
+    'counseling',
+    'support',
+    'events',
+    'scholarship',
+    'forms',
+    'feedback',
+    'audit',
+    'logbook'
+] as const;
 
-const STORAGE_KEY = 'norsu_care_data_v2';
+type ActiveTab = (typeof ACTIVE_TABS)[number];
+type CommandHubTab = 'actions' | 'help' | 'notes';
 
-// exportToExcel, savePdf       → src/utils/dashboardUtils.js
-// QuestionChart, YearLevelChart, TopQuestionsChart → src/components/charts/
-// StatusBadge                  → src/components/StatusBadge.jsx
+interface ToastState {
+    msg: string;
+    type: ToastType;
+}
 
-// HomePage - see src/pages/carestaff/HomePage.jsx
+interface NotificationItem {
+    id?: string | number;
+    action?: string;
+    details?: unknown;
+    message?: string;
+    created_at?: string | null;
+}
+
+interface StaffNote {
+    id: number;
+    text: string;
+    time: string;
+}
+
+interface AuthSession {
+    id?: string;
+    full_name?: string;
+}
+
+interface RealtimeInsertPayload {
+    new?: NotificationItem;
+}
+
+type NavItem = { tab: ActiveTab; label: string; icon: LucideIcon };
+type NavSection = { title?: string; withDivider?: boolean; items: NavItem[] };
+
+const NAV_SECTIONS: NavSection[] = [
+    {
+        items: [
+            { tab: 'home', icon: LayoutDashboard, label: 'Home' },
+            { tab: 'dashboard', icon: Activity, label: 'Dashboard' }
+        ]
+    },
+    {
+        title: 'Student Management',
+        withDivider: true,
+        items: [
+            { tab: 'population', icon: Users, label: 'Student Population' },
+            { tab: 'analytics', icon: BarChart2, label: 'Student Analytics' }
+        ]
+    },
+    {
+        title: 'Services',
+        withDivider: true,
+        items: [
+            { tab: 'nat', icon: FileText, label: 'NAT Management' },
+            { tab: 'counseling', icon: Users, label: 'Counseling' },
+            { tab: 'support', icon: CheckCircle, label: 'Support Requests' },
+            { tab: 'events', icon: Calendar, label: 'Events' },
+            { tab: 'scholarship', icon: Award, label: 'Scholarships' }
+        ]
+    },
+    {
+        title: 'Administration',
+        withDivider: true,
+        items: [
+            { tab: 'forms', icon: ClipboardList, label: 'Forms' },
+            { tab: 'feedback', icon: Star, label: 'Feedback' },
+            { tab: 'audit', icon: Shield, label: 'Audit Logs' },
+            { tab: 'logbook', icon: BookOpen, label: 'Office Logbook' }
+        ]
+    }
+];
+
+const MODULE_TAB_MAP: Record<string, ActiveTab> = {
+    'Student Analytics': 'analytics',
+    'Form Management': 'forms',
+    'Event Broadcasting': 'events',
+    'Scholarship Tracking': 'scholarship'
+};
+
+const STAT_TAB_MAP: Record<string, ActiveTab> = {
+    students: 'population',
+    cases: 'support',
+    events: 'events',
+    reports: 'forms',
+    forms: 'forms'
+};
+
+const QUICK_ACTION_TAB_MAP: Record<string, ActiveTab> = {
+    'Schedule Wellness Check': 'counseling',
+    'View Reports': 'analytics'
+};
 
 const CareStaffDashboard = () => {
     const navigate = useNavigate();
-    const { session, isAuthenticated, logout } = useAuth() as any;
-    const PROFILE_NOTIFICATION_ACTIONS = [
-        'Student Profile Updated',
-        'Student Profile Completed',
-        'Student Profile Picture Updated'
-    ];
-    const [activeTab, setActiveTab] = useState<string>('home');
-    const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-    const [loading, setLoading] = useState<boolean>(true);
+    const { session, isAuthenticated, logout } = useAuth() as {
+        session?: AuthSession | null;
+        isAuthenticated: boolean;
+        logout: () => void;
+    };
 
-    // Session guard — redirect to login if no session
+    const [activeTab, setActiveTab] = useState<ActiveTab>('home');
+    const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+
+    // Data States
+    const [toast, setToast] = useState<ToastState | null>(null);
+    const [showResetModal, setShowResetModal] = useState<boolean>(false);
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+    // Command Hub (FAB Panel)
+    const [showCommandHub, setShowCommandHub] = useState<boolean>(false);
+    const [commandHubTab, setCommandHubTab] = useState<CommandHubTab>('actions');
+    const [staffNotes, setStaffNotes] = useState<StaffNote[]>(() => {
+        try {
+            const parsed = JSON.parse(localStorage.getItem('care_staff_notes') || '[]');
+            return Array.isArray(parsed) ? (parsed as StaffNote[]) : [];
+        } catch {
+            return [];
+        }
+    });
+
+    const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Session guard - redirect to login if no session
     useEffect(() => {
         if (!isAuthenticated) {
             navigate('/care-staff');
         }
     }, [isAuthenticated, navigate]);
 
-    // Data States
-    const [toast, setToast] = useState<any>(null);
-    const [showResetModal, setShowResetModal] = useState<boolean>(false);
-    const [notifications, setNotifications] = useState<any[]>([]);
+    useEffect(() => {
+        return () => {
+            if (toastTimeoutRef.current) {
+                clearTimeout(toastTimeoutRef.current);
+            }
+        };
+    }, []);
 
-    // Command Hub (FAB Panel)
-    const [showCommandHub, setShowCommandHub] = useState<boolean>(false);
-    const [commandHubTab, setCommandHubTab] = useState<string>('actions');
-    const [staffNotes, setStaffNotes] = useState<any[]>(() => {
-        try { return JSON.parse(localStorage.getItem('care_staff_notes') || '[]'); } catch { return []; }
-    });
-
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const refreshAll = async () => {
+    const refreshAll = useCallback(async () => {
         setIsRefreshing(true);
         try {
             // Since data is decentralized, full refresh reloads the page.
@@ -106,19 +207,17 @@ const CareStaffDashboard = () => {
         } finally {
             setIsRefreshing(false);
         }
-    };
+    }, []);
 
-    // Auto-calculate stats effect removed (handled by useMemo)
-
-
-
-
-
-
-    const showToastMessage = (msg: string, type: string = 'success') => {
+    const showToastMessage = useCallback<ToastHandler>((msg, type = 'success') => {
         setToast({ msg, type });
-        setTimeout(() => setToast(null), 4000);
-    };
+
+        if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+        }
+
+        toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -139,30 +238,43 @@ const CareStaffDashboard = () => {
                     .limit(25)
             ]);
 
-            const merged = [...(auditRows || []), ...(notificationRows || [])]
-                .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            const merged = [
+                ...((auditRows || []) as NotificationItem[]),
+                ...((notificationRows || []) as NotificationItem[])
+            ]
+                .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
                 .slice(0, 25);
 
-            if (isMounted) setNotifications(merged);
+            if (isMounted) {
+                setNotifications(merged);
+            }
         };
 
         fetchProfileNotifications();
 
         const profileNotificationsChannel = supabase
             .channel('care_staff_profile_notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: any) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: RealtimeInsertPayload) => {
                 const action = payload?.new?.action;
-                if (!PROFILE_NOTIFICATION_ACTIONS.includes(action)) return;
-                setNotifications((prev) => [payload.new, ...prev].slice(0, 25));
+                if (typeof action !== 'string' || !PROFILE_NOTIFICATION_ACTIONS.includes(action)) {
+                    return;
+                }
+                if (payload.new) {
+                    setNotifications((prev) => [payload.new as NotificationItem, ...prev].slice(0, 25));
+                }
             })
             .subscribe();
 
         const profileNotificationsFallbackChannel = supabase
             .channel('care_staff_profile_notifications_fallback')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: RealtimeInsertPayload) => {
                 const message = String(payload?.new?.message || '');
-                if (!message.startsWith('[PROFILE UPDATE]')) return;
-                setNotifications((prev) => [payload.new, ...prev].slice(0, 25));
+                if (!message.startsWith('[PROFILE UPDATE]')) {
+                    return;
+                }
+                if (payload.new) {
+                    setNotifications((prev) => [payload.new as NotificationItem, ...prev].slice(0, 25));
+                }
             })
             .subscribe();
 
@@ -173,57 +285,43 @@ const CareStaffDashboard = () => {
         };
     }, []);
 
-    const logAudit = async (action: any, details: any) => {
+    const logAudit = useCallback(async (action: string, details: unknown) => {
         try {
-            const { error } = await supabase.from('audit_logs').insert([{
-                user_id: session?.id || 'unknown',
-                user_name: session?.full_name || 'CARE Staff',
-                action,
-                details
-            }]);
-            if (error) console.error('Audit log error:', error);
-        } catch (err: any) {
+            const { error } = await supabase.from('audit_logs').insert([
+                {
+                    user_id: session?.id || 'unknown',
+                    user_name: session?.full_name || 'CARE Staff',
+                    action,
+                    details
+                }
+            ]);
+            if (error) {
+                console.error('Audit log error:', error);
+            }
+        } catch (err: unknown) {
             console.error('Audit log error:', err);
         }
-    };
+    }, [session?.full_name, session?.id]);
 
-    const functions = {
-        showToast: showToastMessage,
-        logAudit,
-        handleGetStarted: () => setActiveTab('dashboard'),
-        handleDocs: () => window.open('https://norsu.edu.ph', '_blank'),
-        handleLaunchModule: (module: any) => {
-            if (module === 'Student Analytics') setActiveTab('analytics');
-            if (module === 'Form Management') setActiveTab('forms');
-            if (module === 'Event Broadcasting') setActiveTab('events');
-            if (module === 'Scholarship Tracking') setActiveTab('scholarship');
-        },
-        handleOpenAnalytics: () => setActiveTab('analytics'),
-
-        handleStatClick: (stat: any) => {
-            if (stat === 'students') setActiveTab('population'); // Updated to point to new tab
-            if (stat === 'cases') setActiveTab('support');
-            if (stat === 'events') setActiveTab('events');
-            if (stat === 'reports') setActiveTab('forms'); // Or wherever reports go
-            if (stat === 'forms') setActiveTab('forms');
-        },
-        handleResetSystem: () => handleResetSystem(),
-        setShowResetModal,
-        handleViewAllActivity: () => setActiveTab('audit'), // Or specific activity view
-        handleQuickAction: (action: any) => {
-            if (action === 'Schedule Wellness Check') setActiveTab('counseling');
-            if (action === 'View Reports') setActiveTab('analytics');
-        }
-    };
-
-    // System Reset (matches HTML handleResetSystem exactly — wipes 14+ tables)
-    const handleResetSystem = async () => {
+    // System Reset (matches HTML handleResetSystem exactly - wipes 14+ tables)
+    const handleResetSystem = useCallback(async () => {
         setShowResetModal(false);
         try {
             const standardTables = [
-                'answers', 'submissions', 'notifications', 'office_visits', 'support_requests',
-                'counseling_requests', 'event_feedback', 'event_attendance', 'applications',
-                'scholarships', 'events', 'audit_logs', 'needs_assessments', 'students'
+                'answers',
+                'submissions',
+                'notifications',
+                'office_visits',
+                'support_requests',
+                'counseling_requests',
+                'event_feedback',
+                'event_attendance',
+                'applications',
+                'scholarships',
+                'events',
+                'audit_logs',
+                'needs_assessments',
+                'students'
             ];
             for (const table of standardTables) {
                 await supabase.from(table).delete().neq('id', 0);
@@ -233,9 +331,77 @@ const CareStaffDashboard = () => {
 
             showToastMessage('System data has been successfully reset.');
             window.location.reload();
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Reset error:', err);
             showToastMessage('Reset completed with some warnings. Check console.', 'error');
+        }
+    }, [showToastMessage]);
+
+    const functions = useMemo<CareStaffDashboardFunctions>(() => ({
+        showToast: showToastMessage,
+        showToastMessage,
+        logAudit,
+        handleGetStarted: () => setActiveTab('dashboard'),
+        handleDocs: () => window.open('https://norsu.edu.ph', '_blank'),
+        handleLaunchModule: (module: string) => {
+            const tab = MODULE_TAB_MAP[module];
+            if (tab) {
+                setActiveTab(tab);
+            }
+        },
+        handleOpenAnalytics: () => setActiveTab('analytics'),
+
+        handleStatClick: (stat: string) => {
+            const tab = STAT_TAB_MAP[stat];
+            if (tab) {
+                setActiveTab(tab);
+            }
+        },
+        handleResetSystem: () => handleResetSystem(),
+        setShowResetModal,
+        handleViewAllActivity: () => setActiveTab('audit'),
+        handleQuickAction: (action: string) => {
+            const tab = QUICK_ACTION_TAB_MAP[action];
+            if (tab) {
+                setActiveTab(tab);
+            }
+        }
+    }), [handleResetSystem, logAudit, showToastMessage]);
+
+    const setActiveTabFromString = useCallback((tab: string) => {
+        setActiveTab(tab as ActiveTab);
+    }, []);
+
+    const renderActiveTab = (): React.ReactNode => {
+        switch (activeTab) {
+            case 'home':
+                return <HomePage functions={functions} />;
+            case 'population':
+                return <StudentPopulationPage functions={functions} />;
+            case 'dashboard':
+                return <CareStaffDashboardView setActiveTab={setActiveTabFromString} />;
+            case 'analytics':
+                return <StudentAnalyticsPage functions={functions} />;
+            case 'nat':
+                return <NATManagementPage showToast={showToastMessage} />;
+            case 'counseling':
+                return <CounselingPage functions={functions} />;
+            case 'support':
+                return <SupportRequestsPage functions={functions} />;
+            case 'events':
+                return <EventsPage functions={functions} />;
+            case 'scholarship':
+                return <ScholarshipPage functions={functions} />;
+            case 'forms':
+                return <FormManagementPage functions={functions} />;
+            case 'feedback':
+                return <FeedbackPage functions={functions} />;
+            case 'audit':
+                return <AuditLogsPage />;
+            case 'logbook':
+                return <OfficeLogbookPage functions={functions} />;
+            default:
+                return null;
         }
     };
 
@@ -260,55 +426,28 @@ const CareStaffDashboard = () => {
 
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                    {[
-                        { tab: 'home', icon: <LayoutDashboard size={18} />, label: 'Home' },
-                        { tab: 'dashboard', icon: <Activity size={18} />, label: 'Dashboard' },
-                    ].map(item => (
-                        <button key={item.tab} onClick={() => setActiveTab(item.tab)} className={`nav-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeTab === item.tab ? 'nav-item-active text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                            {item.icon} {item.label}
-                        </button>
+                    {NAV_SECTIONS.map((section, sectionIndex) => (
+                        <div key={section.title || `section-${sectionIndex}`} className={section.withDivider ? 'pt-5 mt-4 border-t border-white/5' : ''}>
+                            {section.title && (
+                                <p className="px-4 text-[10px] font-bold text-purple-400/50 uppercase tracking-[0.15em] mb-3">
+                                    {section.title}
+                                </p>
+                            )}
+
+                            {section.items.map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <button
+                                        key={item.tab}
+                                        onClick={() => setActiveTab(item.tab)}
+                                        className={`nav-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeTab === item.tab ? 'nav-item-active text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                    >
+                                        <Icon size={18} /> {item.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     ))}
-
-                    <div className="pt-5 mt-4 border-t border-white/5">
-                        <p className="px-4 text-[10px] font-bold text-purple-400/50 uppercase tracking-[0.15em] mb-3">Student Management</p>
-                        {[
-                            { tab: 'population', icon: <Users size={18} />, label: 'Student Population' },
-                            { tab: 'analytics', icon: <BarChart2 size={18} />, label: 'Student Analytics' },
-                        ].map(item => (
-                            <button key={item.tab} onClick={() => setActiveTab(item.tab)} className={`nav-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeTab === item.tab ? 'nav-item-active text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                {item.icon} {item.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="pt-5 mt-4 border-t border-white/5">
-                        <p className="px-4 text-[10px] font-bold text-purple-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
-                        {[
-                            { tab: 'nat', icon: <FileText size={18} />, label: 'NAT Management' },
-                            { tab: 'counseling', icon: <Users size={18} />, label: 'Counseling' },
-                            { tab: 'support', icon: <CheckCircle size={18} />, label: 'Support Requests' },
-                            { tab: 'events', icon: <Calendar size={18} />, label: 'Events' },
-                            { tab: 'scholarship', icon: <Award size={18} />, label: 'Scholarships' },
-                        ].map(item => (
-                            <button key={item.tab} onClick={() => setActiveTab(item.tab)} className={`nav-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeTab === item.tab ? 'nav-item-active text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                {item.icon} {item.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="pt-5 mt-4 border-t border-white/5">
-                        <p className="px-4 text-[10px] font-bold text-purple-400/50 uppercase tracking-[0.15em] mb-3">Administration</p>
-                        {[
-                            { tab: 'forms', icon: <ClipboardList size={18} />, label: 'Forms' },
-                            { tab: 'feedback', icon: <Star size={18} />, label: 'Feedback' },
-                            { tab: 'audit', icon: <Shield size={18} />, label: 'Audit Logs' },
-                            { tab: 'logbook', icon: <BookOpen size={18} />, label: 'Office Logbook' },
-                        ].map(item => (
-                            <button key={item.tab} onClick={() => setActiveTab(item.tab)} className={`nav-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeTab === item.tab ? 'nav-item-active text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                {item.icon} {item.label}
-                            </button>
-                        ))}
-                    </div>
                 </nav>
 
                 {/* Logout */}
@@ -339,25 +478,7 @@ const CareStaffDashboard = () => {
                 </header>
 
                 <div key={activeTab} className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
-                    {activeTab === 'home' && <HomePage functions={functions} />}
-                    {activeTab === 'population' && <StudentPopulationPage functions={functions} />}
-                    {activeTab === 'dashboard' && (
-                        <CareStaffDashboardView setActiveTab={setActiveTab} />
-                    )}
-
-                    {activeTab === 'analytics' && <StudentAnalyticsPage functions={functions} />}
-                    {activeTab === 'nat' && <NATManagementPage showToast={showToastMessage} />}
-
-                    {activeTab === 'counseling' && <CounselingPage functions={functions} />}
-
-                    {activeTab === 'support' && <SupportRequestsPage functions={functions} />}
-
-                    {activeTab === 'events' && <EventsPage functions={functions} />}
-                    {activeTab === 'scholarship' && <ScholarshipPage functions={functions} />}
-                    {activeTab === 'forms' && <FormManagementPage functions={functions} />}
-                    {activeTab === 'feedback' && <FeedbackPage functions={functions} />}
-                    {activeTab === 'audit' && <AuditLogsPage />}
-                    {activeTab === 'logbook' && <OfficeLogbookPage functions={functions} />}
+                    {renderActiveTab()}
 
                     {renderCareStaffModals({
                         showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,

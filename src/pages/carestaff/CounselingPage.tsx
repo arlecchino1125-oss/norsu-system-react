@@ -8,8 +8,13 @@ import {
     Users, FileText, Clock, CheckCircle, Calendar,
     User, Eye, Send, Download, XCircle
 } from 'lucide-react';
+import type { CareStaffDashboardFunctions } from './types';
 
-const CounselingPage = ({ functions }: any) => {
+interface CounselingPageProps {
+    functions: Pick<CareStaffDashboardFunctions, 'showToastMessage' | 'handleViewProfile'>;
+}
+
+const CounselingPage = ({ functions }: CounselingPageProps) => {
     const { handleViewProfile, showToastMessage } = functions;
 
     // Data State

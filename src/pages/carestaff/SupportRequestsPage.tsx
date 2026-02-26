@@ -7,8 +7,13 @@ import {
 import StatusBadge from '../../components/StatusBadge';
 import { jsPDF } from 'jspdf';
 import { formatDate, generateExportFilename } from '../../utils/formatters';
+import type { CareStaffDashboardFunctions } from './types';
 
-const SupportRequestsPage = ({ functions }: any) => {
+interface SupportRequestsPageProps {
+    functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const { showToast } = functions || {};
 
     // Data State

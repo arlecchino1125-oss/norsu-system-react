@@ -3,8 +3,13 @@ import { Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
+import type { CareStaffDashboardFunctions } from './types';
 
-const FeedbackPage = ({ functions }: any) => {
+interface FeedbackPageProps {
+    functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const FeedbackPage = ({ functions }: FeedbackPageProps) => {
     const [currentView, setCurrentView] = useState('General');
     const [eventFilter, setEventFilter] = useState('All Events');
     const [items, setItems] = useState<any[]>([]);

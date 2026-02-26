@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Plus, ClipboardList, CheckCircle, Trash2, XCircle, Download, UploadCloud } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import type { CareStaffDashboardFunctions } from './types';
 
-const FormManagementPage = ({ functions }: any) => {
+interface FormManagementPageProps {
+    functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const FormManagementPage = ({ functions }: FormManagementPageProps) => {
     const [forms, setForms] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
