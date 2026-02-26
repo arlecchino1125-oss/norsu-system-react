@@ -7,8 +7,13 @@ import { supabase } from '../../lib/supabase';
 import QuestionChart from '../../components/charts/QuestionChart';
 import YearLevelChart from '../../components/charts/YearLevelChart';
 import TopQuestionsChart from '../../components/charts/TopQuestionsChart';
+import type { CareStaffDashboardFunctions } from './types';
 
-const StudentAnalyticsPage = ({ functions }: any) => {
+interface StudentAnalyticsPageProps {
+    functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
     const [forms, setForms] = useState<any[]>([]);
     const [selectedFormId, setSelectedFormId] = useState<any>(null);
     const [allDepartments, setAllDepartments] = useState<any[]>([]);

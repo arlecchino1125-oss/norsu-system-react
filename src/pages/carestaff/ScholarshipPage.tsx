@@ -4,8 +4,13 @@ import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { Scholarship } from '../../types/models';
+import type { CareStaffDashboardFunctions } from './types';
 
-const ScholarshipPage = ({ functions }: any) => {
+interface ScholarshipPageProps {
+    functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     const { showToast } = functions || {};
 
     // Data States from Custom Hook

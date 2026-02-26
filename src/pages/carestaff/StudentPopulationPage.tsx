@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import type { CareStaffDashboardFunctions } from './types';
 
 declare const XLSX: any;
 
@@ -119,7 +120,11 @@ const PROFILE_CATEGORIES = [
     },
 ];
 
-const StudentPopulationPage = ({ functions }: any) => {
+interface StudentPopulationPageProps {
+    functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
     const { showToast } = functions || {};
 
     // Use custom hook for data fetching & real-time updates

@@ -6,8 +6,13 @@ import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { useEventsData } from '../../hooks/useEventsData';
 import { SystemEvent } from '../../types/models';
+import type { CareStaffDashboardFunctions } from './types';
 
-const EventsPage = ({ functions }: any) => {
+interface EventsPageProps {
+    functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
+}
+
+const EventsPage = ({ functions }: EventsPageProps) => {
     const { showToast } = functions || {};
 
     // Filter States
