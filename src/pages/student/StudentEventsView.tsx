@@ -274,11 +274,11 @@ const StudentEventsView = ({
 
                 return (
                     <div
-                        className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+                        className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm student-mobile-modal-overlay"
                         onClick={() => setSelectedEvent(null)}
                     >
                         <div
-                            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl"
+                            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel"
                             onClick={(event: any) => event.stopPropagation()}
                         >
                             <div className={`h-2 w-full rounded-t-3xl ${selectedEvent.type === 'Event' ? 'bg-gradient-to-r from-blue-600 to-sky-500' : 'bg-gradient-to-r from-slate-800 to-slate-600'}`} />
@@ -430,9 +430,9 @@ const StudentEventsView = ({
             })(), document.body)}
 
             {showRatingModal && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 student-mobile-modal-overlay">
                     <div className="absolute inset-0 animate-backdrop bg-black/60 backdrop-blur-sm" onClick={() => setShowRatingModal(false)} />
-                    <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scale-in">
+                    <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scale-in student-mobile-modal-panel">
                         <div className="shrink-0 bg-gradient-to-r from-blue-600 to-blue-800 px-8 py-5 text-white">
                             <div className="flex items-start justify-between">
                                 <div>

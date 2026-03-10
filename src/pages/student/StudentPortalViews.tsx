@@ -54,12 +54,12 @@ export function renderRemainingViews(p: any) {
 
                     {/* ASSESSMENT FORM MODAL */}
                     {showAssessmentModal && activeForm && createPortal(
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                        <div className="student-mobile-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
                             {/* Backdrop */}
                             <div className="animate-backdrop" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }} onClick={() => setShowAssessmentModal(false)} />
 
                             {/* Modal */}
-                            <div className="animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+                            <div className="animate-scale-in student-mobile-modal-panel" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
 
                                 {/* Header */}
                                 <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>
@@ -135,8 +135,8 @@ export function renderRemainingViews(p: any) {
 
                     {/* SUCCESS MODAL */}
                     {showSuccessModal && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-sm p-8 shadow-2xl text-center border border-purple-100/50 animate-fade-in-up">
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-sm p-8 shadow-2xl text-center border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
                                     <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                                 </div>
@@ -175,8 +175,8 @@ export function renderRemainingViews(p: any) {
                     </div>
                     {/* Self-Referral Modal */}
                     {showCounselingForm && createPortal(
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up">
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h3 className="font-extrabold text-lg">STUDENT SELF-REFERRAL FOR COUNSELING FORM</h3>
@@ -212,8 +212,8 @@ export function renderRemainingViews(p: any) {
                         , document.body)}
                     {/* Counseling Requests Modal */}
                     {showCounselingRequestsModal && createPortal(
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-end z-50" onClick={() => setShowCounselingRequestsModal(false)}>
-                            <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-end z-50 student-mobile-modal-overlay" onClick={() => setShowCounselingRequestsModal(false)}>
+                            <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-fade-in-up student-mobile-modal-drawer-panel" onClick={e => e.stopPropagation()}>
                                 <div className="px-6 py-5 bg-gradient-to-r from-purple-600 to-indigo-700 text-white flex-shrink-0">
                                     <div className="flex justify-between items-center">
                                         <div><h3 className="text-lg font-extrabold">Your Requests</h3><p className="text-xs text-purple-200 mt-0.5">{counselingRequests.length} total request{counselingRequests.length !== 1 ? 's' : ''}</p></div>
@@ -242,8 +242,8 @@ export function renderRemainingViews(p: any) {
                         , document.body)}
                     {/* Request Details Modal */}
                     {selectedRequest && createPortal(
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up">
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h3 className="font-extrabold text-lg">STUDENT SELF-REFERRAL FOR COUNSELING FORM</h3>
@@ -371,8 +371,8 @@ export function renderRemainingViews(p: any) {
 
                     {/* Support Requests Modal */}
                     {showSupportRequestsModal && createPortal(
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-end z-50" onClick={() => setShowSupportRequestsModal(false)}>
-                            <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-end z-50 student-mobile-modal-overlay" onClick={() => setShowSupportRequestsModal(false)}>
+                            <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-fade-in-up student-mobile-modal-drawer-panel" onClick={e => e.stopPropagation()}>
                                 <div className="px-6 py-5 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex-shrink-0">
                                     <div className="flex justify-between items-center">
                                         <div><h3 className="text-lg font-extrabold">Your Support Requests</h3><p className="text-xs text-teal-200 mt-0.5">{supportRequests.length} total request{supportRequests.length !== 1 ? 's' : ''}</p></div>
@@ -397,8 +397,8 @@ export function renderRemainingViews(p: any) {
                         , document.body)}
 
                     {selectedSupportRequest && createPortal(
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={() => setSelectedSupportRequest(null)}>
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-scale-in" onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 student-mobile-modal-overlay" onClick={() => setSelectedSupportRequest(null)}>
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-scale-in student-mobile-modal-panel" onClick={e => e.stopPropagation()}>
                                 <div className="px-6 py-4 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex justify-between items-center shrink-0">
                                     <h3 className="font-extrabold text-lg">Support Request Details</h3>
                                     <button onClick={() => setSelectedSupportRequest(null)} className="text-white hover:text-teal-200">✕</button>
@@ -579,8 +579,8 @@ export function renderRemainingViews(p: any) {
                         , document.body)}
 
                     {showSupportModal && createPortal(
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-fade-in-up">
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel">
                                 <div className="flex justify-between items-center p-6 border-b shrink-0">
                                     <div>
                                         <h3 className="font-bold text-lg text-gray-900">FORM FOR STUDENTS WHO REQUIRE ADDITIONAL SUPPORT</h3>
@@ -725,12 +725,12 @@ export function renderRemainingViews(p: any) {
 
                         {/* Scholarship Details Modal (Redesigned) */}
                         {showScholarshipModal && selectedScholarship && createPortal(
-                            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                            <div className="student-mobile-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
                                 {/* Backdrop */}
                                 <div className="animate-backdrop" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }} onClick={() => setShowScholarshipModal(false)} />
 
                                 {/* Modal */}
-                                <div className="animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+                                <div className="animate-scale-in student-mobile-modal-panel" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
 
                                     {/* Header */}
                                     <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>

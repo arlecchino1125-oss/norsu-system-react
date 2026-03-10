@@ -359,8 +359,8 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
 
             {/* View Detail Modal */}
             {viewingFeedback && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                         <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white sticky top-0 z-10">
                             <div className="flex justify-between items-start">
                                 <div>

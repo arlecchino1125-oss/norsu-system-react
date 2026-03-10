@@ -74,8 +74,8 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
     // Success state
     if (submitted) {
         return createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-                <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl text-center animate-fade-in-up">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
+                <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl text-center animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                     <div className="w-16 h-16 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
                     <h3 className="font-extrabold text-lg mb-2 text-gray-900">Thank You!</h3>
                     <p className="text-sm text-gray-500 mb-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
@@ -87,8 +87,8 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
     }
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-            <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fade-in-up">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
+            <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fade-in-up student-mobile-modal-panel">
                 {/* Header */}
                 <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white flex-shrink-0">
                     <div className="flex justify-between items-start">
@@ -303,8 +303,8 @@ const StudentDashboardView = ({
 
         {/* OFFICE VISIT TIME IN MODAL */}
         {showTimeInModal && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-lg">Office Visit</h3>
                         <button onClick={() => setShowTimeInModal(false)} className="text-gray-400 text-xl">✕</button>

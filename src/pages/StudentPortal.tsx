@@ -2006,9 +2006,9 @@ export default function StudentPortal() {
 
             {/* Profile Completion Modal */}
             {showProfileCompletion && createPortal(
-                <div className="fixed inset-0 z-[9999] overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4">
-                    <div className="flex min-h-full items-start justify-center sm:items-center">
-                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="fixed inset-0 z-[9999] overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4 student-mobile-modal-overlay">
+                    <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel">
                         {/* Header */}
                         <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
                             <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Complete Your Profile</h2>
@@ -2258,8 +2258,8 @@ export default function StudentPortal() {
 
             {/* Forced Course/Year Confirmation Gate */}
             {courseYearGate.visible && createPortal(
-                <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 student-mobile-modal-overlay">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 student-mobile-modal-panel student-mobile-modal-scroll-panel">
                         <h3 className="text-lg font-extrabold text-slate-900">Course and Year Confirmation Required</h3>
                         <p className="text-sm text-slate-600 mt-2">
                             Please confirm your course and year level for the current enrollment cycle before continuing.
@@ -2482,8 +2482,8 @@ export default function StudentPortal() {
 
                 {/* STUDENT COMMAND HUB */}
                 {showCommandHub && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-backdrop" onClick={() => setShowCommandHub(false)}>
-                        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in border border-white/20" onClick={(e: any) => e.stopPropagation()}>
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-backdrop student-mobile-modal-overlay" onClick={() => setShowCommandHub(false)}>
+                        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in border border-white/20 student-mobile-modal-panel student-mobile-modal-scroll-panel" onClick={(e: any) => e.stopPropagation()}>
                             <div className="p-6 bg-gradient-to-br from-blue-600 to-blue-800 text-white relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl animate-float"></div>
                                 <h3 className="text-xl font-extrabold relative z-10">Student Hub</h3>

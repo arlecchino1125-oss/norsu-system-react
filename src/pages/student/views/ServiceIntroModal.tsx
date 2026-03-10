@@ -103,8 +103,8 @@ export function ServiceIntroModal({ serviceKey }: any) {
     const dismiss = () => { localStorage.setItem(storageKey, '1'); setShow(false); };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-backdrop">
-            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-backdrop student-mobile-modal-overlay">
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in student-mobile-modal-panel student-mobile-modal-scroll-panel">
                 {/* Header */}
                 <div className={`px-8 py-6 bg-gradient-to-r ${guide.color} text-white relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
