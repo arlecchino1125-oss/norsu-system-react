@@ -29,8 +29,8 @@
         background: #f8fafc;
     }
 
-    /* Lock body scroll when any modal overlay is open */
-    body:has(.fixed.inset-0) {
+    /* Lock body scroll only for interactive full-screen overlays, not decorative fixed backgrounds */
+    body:has(.fixed.inset-0:not(.pointer-events-none)) {
         overflow: hidden;
     }
 
@@ -52,9 +52,9 @@
     }
 }
 
-/* Lock any scrollable container that contains a modal */
-.overflow-y-auto:has(.fixed.inset-0),
-.overflow-auto:has(.fixed.inset-0) {
+/* Lock any scrollable container that contains an interactive overlay */
+.overflow-y-auto:has(.fixed.inset-0:not(.pointer-events-none)),
+.overflow-auto:has(.fixed.inset-0:not(.pointer-events-none)) {
     overflow: hidden !important;
 }
 
