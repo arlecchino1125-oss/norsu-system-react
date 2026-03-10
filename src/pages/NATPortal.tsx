@@ -1335,10 +1335,11 @@ const NATPortal = () => {
                     )}
 
                     {pendingActivationConfirmation && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[210] overflow-y-auto p-4 animate-in fade-in duration-200">
-                            <div className="flex min-h-full items-start justify-center py-4 sm:items-center">
-                                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg border border-white/20 overflow-hidden">
-                                    <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-8 text-center relative overflow-hidden">
+                        <div className="fixed inset-0 z-[210] overflow-y-auto p-4 animate-in fade-in duration-200">
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !loading && setPendingActivationConfirmation(null)}></div>
+                            <div className="relative z-10 flex min-h-full items-start justify-center py-4 sm:items-center">
+                                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] border border-white/20 overflow-hidden flex flex-col">
+                                    <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-8 text-center relative overflow-hidden shrink-0">
                                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
                                         <div className="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center backdrop-blur-md shadow-inner relative z-10">
                                             <Info className="w-10 h-10 text-white" />
@@ -1347,7 +1348,7 @@ const NATPortal = () => {
                                         <p className="text-orange-50 text-sm relative z-10">Review your information before we continue your student account setup.</p>
                                     </div>
 
-                                    <div className="p-6 md:p-8 space-y-6">
+                                    <div className="p-6 md:p-8 space-y-6 overflow-y-auto overscroll-contain">
                                         <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-sm text-slate-700 leading-relaxed">
                                             We could not find a preloaded setup for this Student ID yet. This can happen if your enrollment details have not been added by the office yet.
                                         </div>

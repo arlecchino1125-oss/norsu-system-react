@@ -1,0 +1,4 @@
+coverage/** linguist-generated=true
+backups/** linguist-generated=true
+.vite/** linguist-generated=true
+dist/** linguist-generated=true
