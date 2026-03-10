@@ -1,38 +1,22 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import React from 'react';
 import { User, Lock, CheckCircle, AlertCircle, Heart, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRoleLogin } from '../hooks/auth/useRoleLogin';
+import { STAFF_LOGIN_CONFIGS } from './auth/staffLoginConfigs';
 
 export default function CareStaffLogin() {
-    const navigate = useNavigate();
-    const { login, loading: authLoading } = useAuth() as any;
-    const [username, setUsername] = useState<string>('');
-    const [password, setPassword] = useState<string>('');
-    const [showPassword, setShowPassword] = useState<boolean>(false);
-    const [loading, setLoading] = useState<boolean>(false);
-    const [toast, setToast] = useState<any>(null);
-
-    const showToast = (msg: string, type: string = 'success') => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 4000);
-    };
-
-    const handleLogin = async (e: any) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const result = await login(username, password, 'Care Staff');
-
-        if (result.success) {
-            showToast("Login Successful. Redirecting...", 'success');
-            setTimeout(() => navigate('/care-staff/dashboard'), 800);
-        } else {
-            showToast(result.error, 'error');
-        }
-
-        setLoading(false);
-    };
+    const {
+        username,
+        setUsername,
+        password,
+        setPassword,
+        showPassword,
+        setShowPassword,
+        loading,
+        authLoading,
+        toast,
+        handleSubmit
+    } = useRoleLogin(STAFF_LOGIN_CONFIGS.careStaff);
 
     const pageVariants = {
         initial: { opacity: 0, y: 15 },
@@ -117,7 +101,7 @@ export default function CareStaffLogin() {
                                 <p className="text-slate-500 text-sm font-medium">Log in to view your care dashboard</p>
                             </div>
 
-                            <form onSubmit={handleLogin} className="space-y-6">
+                            <form onSubmit={handleSubmit} className="space-y-6">
                                 {/* Username Input */}
                                 <div className="space-y-2 text-left">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-2">Username</label>

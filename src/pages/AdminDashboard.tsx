@@ -26,7 +26,18 @@ export default function AdminDashboard() {
         order: { column: 'name', ascending: true },
         subscribe: true
     });
+    const { data: coursesData, refetch: refetchCourses } = useSupabaseData({
+        table: 'courses',
+        select: 'id, name, department_id',
+        order: { column: 'name', ascending: true },
+        subscribe: true
+    });
     const departments = departmentsData.map(d => d.name);
+
+    const getDepartmentCourses = (departmentId: number | string) => {
+        const normalizedDepartmentId = Number(departmentId);
+        return coursesData.filter((course: any) => Number(course.department_id) === normalizedDepartmentId);
+    };
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -136,10 +147,36 @@ export default function AdminDashboard() {
     };
 
     const handleDeleteDepartment = async (dept: any) => {
+        const linkedCourses = getDepartmentCourses(dept.id);
+
+        if (linkedCourses.length > 0) {
+            const coursePreview = linkedCourses
+                .slice(0, 3)
+                .map((course: any) => course.name)
+                .join(', ');
+            const remainingCount = linkedCourses.length - Math.min(linkedCourses.length, 3);
+            const previewSuffix = remainingCount > 0 ? `, and ${remainingCount} more` : '';
+            showToast(
+                `Cannot delete college "${dept.name}" because ${linkedCourses.length} course(s) are still assigned to it: ${coursePreview}${previewSuffix}. Delete or reassign those courses first.`,
+                'error'
+            );
+            return;
+        }
+
         if (!confirm(`Remove college "${dept.name}"? This will NOT delete accounts or students linked to it.`)) return;
         const { error } = await supabase.from('departments').delete().eq('id', dept.id);
-        if (error) showToast(error.message, 'error');
-        else { showToast(`College "${dept.name}" removed.`); refetchDepartments(); }
+        if (error) {
+            if (String(error.message || '').includes('courses_department_id_fkey')) {
+                showToast(`Cannot delete college "${dept.name}" because it still has linked courses. Delete or reassign those courses first.`, 'error');
+                refetchCourses();
+                return;
+            }
+            showToast(error.message, 'error');
+        }
+        else {
+            showToast(`College "${dept.name}" removed.`);
+            refetchDepartments();
+        }
     };
 
     const handleLogout = () => {
@@ -213,12 +250,30 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-6 flex flex-wrap gap-2">
                         {departmentsData.length === 0 && <p className="text-gray-400 text-sm">No colleges yet. Add one above.</p>}
-                        {departmentsData.map((dept: any) => (
-                            <span key={dept.id} className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium">
-                                {dept.name}
-                                <button onClick={() => handleDeleteDepartment(dept)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
-                            </span>
-                        ))}
+                        {departmentsData.map((dept: any) => {
+                            const linkedCourseCount = getDepartmentCourses(dept.id).length;
+
+                            return (
+                                <span key={dept.id} className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium">
+                                    {dept.name}
+                                    {linkedCourseCount > 0 && (
+                                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                                            {linkedCourseCount} course{linkedCourseCount === 1 ? '' : 's'}
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => handleDeleteDepartment(dept)}
+                                        className="text-red-400 hover:text-red-600"
+                                        title={linkedCourseCount > 0
+                                            ? `Delete blocked: ${linkedCourseCount} course(s) still assigned`
+                                            : `Delete ${dept.name}`
+                                        }
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </span>
+                            );
+                        })}
                     </div>
                 </div>
 

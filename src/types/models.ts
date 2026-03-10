@@ -25,6 +25,12 @@ export interface Student {
     mobile?: string;
     email?: string;
     facebook_url?: string;
+    mother_last_name?: string;
+    mother_given_name?: string;
+    mother_middle_name?: string;
+    father_last_name?: string;
+    father_given_name?: string;
+    father_middle_name?: string;
     course?: string;
     year_level?: string;
     status?: 'Active' | 'Inactive' | 'Graduated' | 'Transferred';

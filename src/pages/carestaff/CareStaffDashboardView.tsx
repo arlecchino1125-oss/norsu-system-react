@@ -54,6 +54,27 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
         };
     };
 
+    const buildStudentNameMap = async (studentIds: string[]) => {
+        if (studentIds.length === 0) return new Map<string, string>();
+        const { data, error } = await supabase
+            .from('students')
+            .select('student_id, first_name, middle_name, last_name, suffix')
+            .in('student_id', studentIds);
+        if (error) throw error;
+
+        const nameMap = new Map<string, string>();
+        (data || []).forEach((student: any) => {
+            const fullName = [
+                student.first_name,
+                student.middle_name,
+                student.last_name,
+                student.suffix
+            ].filter(Boolean).join(' ');
+            nameMap.set(student.student_id, fullName || student.student_id);
+        });
+        return nameMap;
+    };
+
     useEffect(() => {
         let isMounted = true;
 
@@ -92,7 +113,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     supabase.from('events').select('id, title, type, created_at').order('created_at', { ascending: false }).limit(10),
                     supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', ['Scheduled', 'Completed']).order('created_at', { ascending: false }).limit(10),
                     supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
-                    supabase.from('scholarship_applications').select('id, student_name, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
+                    supabase.from('scholarship_applications').select('id, student_id, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
                     supabase
                         .from('audit_logs')
                         .select('id, user_name, action, details, created_at')
@@ -106,6 +127,12 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         .order('created_at', { ascending: false })
                         .limit(15)
                 ]);
+
+                if (!isMounted) return;
+
+                const scholarshipApplicantNameMap = await buildStudentNameMap(
+                    [...new Set((recentApps || []).map((app: any) => app.student_id).filter(Boolean))]
+                );
 
                 if (!isMounted) return;
 
@@ -143,7 +170,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         icon: <ClipboardList size={16} />,
                         color: a.status === 'Approved' ? 'from-green-400 to-emerald-500' : 'from-red-400 to-rose-500',
                         title: `Application ${a.status?.toLowerCase() || ''}`,
-                        detail: a.student_name || 'Unknown Applicant',
+                        detail: scholarshipApplicantNameMap.get(a.student_id) || a.student_id || 'Unknown Applicant',
                         date: new Date(a.created_at)
                     })),
                     ...(recentProfileUpdates || []).map((log: any) => mapProfileLogToActivity(log)),

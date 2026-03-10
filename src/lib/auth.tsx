@@ -7,6 +7,42 @@ export function AuthProvider({ children }: any) {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    const persistSession = useCallback((nextSession: any) => {
+        setSession(nextSession);
+        if (nextSession) {
+            localStorage.setItem('norsu_session', JSON.stringify(nextSession));
+            return;
+        }
+        localStorage.removeItem('norsu_session');
+    }, []);
+
+    const updateSession = useCallback((updates: any) => {
+        setSession((prev: any) => {
+            const nextSession = typeof updates === 'function'
+                ? updates(prev)
+                : { ...(prev || {}), ...(updates || {}) };
+
+            if (prev && nextSession) {
+                const prevKeys = Object.keys(prev);
+                const nextKeys = Object.keys(nextSession);
+                const unchanged = prevKeys.length === nextKeys.length
+                    && nextKeys.every((key) => Object.is(prev[key], nextSession[key]));
+
+                if (unchanged) {
+                    return prev;
+                }
+            }
+
+            if (nextSession) {
+                localStorage.setItem('norsu_session', JSON.stringify(nextSession));
+            } else {
+                localStorage.removeItem('norsu_session');
+            }
+
+            return nextSession;
+        });
+    }, []);
+
     /**
      * Login against staff_accounts table.
      * @param {string} username
@@ -52,11 +88,8 @@ export function AuthProvider({ children }: any) {
             if (staffError) throw staffError;
 
             const sessionData = { ...staff, userType: 'staff' };
-            setSession(sessionData);
+            persistSession(sessionData);
             setLoading(false);
-
-            // Persist to localStorage
-            localStorage.setItem('norsu_session', JSON.stringify(sessionData));
 
             return { success: true, data: sessionData };
 
@@ -97,11 +130,8 @@ export function AuthProvider({ children }: any) {
             }
 
             const sessionData = { ...student, role: 'Student', userType: 'student' };
-            setSession(sessionData);
+            persistSession(sessionData);
             setLoading(false);
-
-            // Persist to localStorage
-            localStorage.setItem('norsu_session', JSON.stringify(sessionData));
 
             return { success: true, data: sessionData };
         } catch (err) {
@@ -127,9 +157,8 @@ export function AuthProvider({ children }: any) {
     }, []);
 
     const logout = useCallback(() => {
-        setSession(null);
-        localStorage.removeItem('norsu_session');
-    }, []);
+        persistSession(null);
+    }, [persistSession]);
 
     const value = React.useMemo(() => ({
         session,
@@ -137,9 +166,10 @@ export function AuthProvider({ children }: any) {
         login,      // Alias for loginStaff
         loginStaff,
         loginStudent, // New student login
+        updateSession,
         logout,
         isAuthenticated: !!session,
-    }), [session, loading, login, loginStaff, loginStudent, logout]);
+    }), [session, loading, login, loginStaff, loginStudent, updateSession, logout]);
 
     return (
         <AuthContext.Provider value={value}>

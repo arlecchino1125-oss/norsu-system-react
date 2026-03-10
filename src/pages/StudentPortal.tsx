@@ -1,13 +1,29 @@
 ﻿
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import StudentDashboardView from './student/StudentDashboardView';
 import StudentEventsView from './student/StudentEventsView';
 import { renderRemainingViews, ServiceIntroModal } from './student/StudentPortalViews';
+import DatePicker from '../components/ui/DatePicker';
+import {
+    getAttendanceHistory,
+    getRatedEventIds
+} from '../services/studentPortalService';
+import { STUDENT_LIST_COLUMNS } from '../services/careStaffService';
+import { joinNameParts, splitFullName } from '../utils/nameUtils';
+import { useStudentProfileData } from '../hooks/student/useStudentProfileData';
+import { useStudentEventsData } from '../hooks/student/useStudentEventsData';
+import { useStudentFormsData } from '../hooks/student/useStudentFormsData';
+import { useStudentCounselingData } from '../hooks/student/useStudentCounselingData';
+import { useStudentSupportData } from '../hooks/student/useStudentSupportData';
 
 const supabaseClient = supabase;
+const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
+
+const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
 
 interface Student {
     firstName: string;
@@ -49,6 +65,12 @@ interface Student {
     pwdType?: string;
     isIndigenous?: boolean;
     indigenousGroup?: string;
+    motherLastName?: string;
+    motherGivenName?: string;
+    motherMiddleName?: string;
+    fatherLastName?: string;
+    fatherGivenName?: string;
+    fatherMiddleName?: string;
     witnessedConflict?: string;
     isSoloParent?: boolean;
     isChildOfSoloParent?: boolean;
@@ -141,7 +163,7 @@ const StudentHero = ({ firstName }: any) => {
 };
 
 export default function StudentPortal() {
-    const { session, loading } = useAuth() as any;
+    const { session, loading, updateSession } = useAuth() as any;
 
     const [activeView, setActiveView] = useState('dashboard');
     const [profileTab, setProfileTab] = useState('personal');
@@ -221,10 +243,27 @@ export default function StudentPortal() {
         supporter: "", supporterContact: "",
         isPwd: false, pwdType: "",
         isIndigenous: false, indigenousGroup: "",
+        motherLastName: "", motherGivenName: "", motherMiddleName: "",
+        fatherLastName: "", fatherGivenName: "", fatherMiddleName: "",
         witnessedConflict: "",
         isSoloParent: false, isChildOfSoloParent: false
     });
     const [showMoreProfile, setShowMoreProfile] = useState(false);
+    const [courseYearGate, setCourseYearGate] = useState<any>({
+        visible: false,
+        expired: false,
+        course: '',
+        year: '1st Year',
+        courseLocked: false,
+        yearLocked: false,
+        courseOptions: [] as string[],
+        windowStart: null as string | null,
+        windowEnd: null as string | null
+    });
+    const [isSubmittingCourseYearGate, setIsSubmittingCourseYearGate] = useState(false);
+    const archiveRpcStateRef = useRef<'unknown' | 'available' | 'missing'>(
+        sessionStorage.getItem(ARCHIVE_RPC_MISSING_CACHE_KEY) === '1' ? 'missing' : 'unknown'
+    );
 
     // Onboarding Tour State
     const [showTour, setShowTour] = useState(false);
@@ -252,8 +291,8 @@ export default function StudentPortal() {
         witnessedConflict: '', isSafeInCommunity: '',
         isSoloParent: '', isChildOfSoloParent: '',
         // Family
-        motherName: '', motherOccupation: '', motherContact: '',
-        fatherName: '', fatherOccupation: '', fatherContact: '',
+        motherLastName: '', motherGivenName: '', motherMiddleName: '', motherOccupation: '', motherContact: '',
+        fatherLastName: '', fatherGivenName: '', fatherMiddleName: '', fatherOccupation: '', fatherContact: '',
         parentAddress: '', numBrothers: '', numSisters: '', birthOrder: '',
         spouseName: '', spouseOccupation: '', numChildren: '',
         // Guardian
@@ -288,6 +327,23 @@ export default function StudentPortal() {
     const handleProfileNextStep = () => {
         setProfileStep(prev => Math.min(prev + 1, PROFILE_TOTAL_STEPS));
     };
+
+    const getStoredParentParts = React.useCallback((studentData: any, prefix: 'mother' | 'father') => {
+        const last = studentData?.[`${prefix}_last_name`] || '';
+        const given = studentData?.[`${prefix}_given_name`] || '';
+        const middle = studentData?.[`${prefix}_middle_name`] || '';
+
+        if (last || given || middle) {
+            return { last, given, middle };
+        }
+
+        const fallback = splitFullName(studentData?.[`${prefix}_name`]);
+        return {
+            last: fallback.last,
+            given: fallback.given,
+            middle: fallback.middle
+        };
+    }, []);
 
     const PROFILE_FIELD_LABELS: Record<string, string> = {
         first_name: 'First Name',
@@ -327,9 +383,15 @@ export default function StudentPortal() {
         is_solo_parent: 'Solo Parent Status',
         is_child_of_solo_parent: 'Child of Solo Parent Status',
         mother_name: 'Mother Name',
+        mother_last_name: 'Mother Last Name',
+        mother_given_name: 'Mother Given Name',
+        mother_middle_name: 'Mother Middle Name',
         mother_occupation: 'Mother Occupation',
         mother_contact: 'Mother Contact',
         father_name: 'Father Name',
+        father_last_name: 'Father Last Name',
+        father_given_name: 'Father Given Name',
+        father_middle_name: 'Father Middle Name',
         father_occupation: 'Father Occupation',
         father_contact: 'Father Contact',
         parent_address: 'Parent Address',
@@ -439,7 +501,7 @@ export default function StudentPortal() {
         try {
             const { data: beforeProfile } = await supabaseClient
                 .from('students')
-                .select('*')
+                .select(STUDENT_LIST_COLUMNS)
                 .eq('student_id', personalInfo.studentId)
                 .maybeSingle();
 
@@ -467,9 +529,25 @@ export default function StudentPortal() {
                 is_solo_parent: profileFormData.isSoloParent === 'Yes',
                 is_child_of_solo_parent: profileFormData.isChildOfSoloParent === 'Yes',
                 // Family
-                mother_name: profileFormData.motherName, mother_occupation: profileFormData.motherOccupation,
+                mother_name: joinNameParts({
+                    given: profileFormData.motherGivenName,
+                    middle: profileFormData.motherMiddleName,
+                    last: profileFormData.motherLastName
+                }) || null,
+                mother_last_name: profileFormData.motherLastName || null,
+                mother_given_name: profileFormData.motherGivenName || null,
+                mother_middle_name: profileFormData.motherMiddleName || null,
+                mother_occupation: profileFormData.motherOccupation,
                 mother_contact: profileFormData.motherContact,
-                father_name: profileFormData.fatherName, father_occupation: profileFormData.fatherOccupation,
+                father_name: joinNameParts({
+                    given: profileFormData.fatherGivenName,
+                    middle: profileFormData.fatherMiddleName,
+                    last: profileFormData.fatherLastName
+                }) || null,
+                father_last_name: profileFormData.fatherLastName || null,
+                father_given_name: profileFormData.fatherGivenName || null,
+                father_middle_name: profileFormData.fatherMiddleName || null,
+                father_occupation: profileFormData.fatherOccupation,
                 father_contact: profileFormData.fatherContact,
                 parent_address: profileFormData.parentAddress,
                 num_brothers: profileFormData.numBrothers, num_sisters: profileFormData.numSisters,
@@ -502,7 +580,8 @@ export default function StudentPortal() {
                 fallbackName: `${profileFormData.firstName || personalInfo.firstName || ''} ${profileFormData.lastName || personalInfo.lastName || ''}`.trim(),
                 fallbackStudentId: personalInfo.studentId
             });
-            setShowProfileCompletion(false);
+            await refreshStudentProfile();
+            setProfileStep(1);
             showToast('Profile completed successfully!');
         } catch (err: any) {
             console.error('Profile completion error:', err);
@@ -519,16 +598,39 @@ export default function StudentPortal() {
     const [scholarshipsList, setScholarshipsList] = useState<any[]>([]);
     const [myApplications, setMyApplications] = useState<any[]>([]);
 
+    const { refreshEvents } = useStudentEventsData({ setEventsList });
+    const { refreshForms } = useStudentFormsData({
+        studentId: personalInfo.studentId,
+        setFormsList,
+        setCompletedForms,
+        setLoadingForm
+    });
+    const { refreshCounselingRequests } = useStudentCounselingData({
+        studentId: personalInfo.studentId,
+        setCounselingRequests
+    });
+    const { refreshSupportRequests } = useStudentSupportData({
+        studentId: personalInfo.studentId,
+        setSupportRequests
+    });
+    const { refreshActiveVisit, refreshVisitReasons, refreshNotifications } = useStudentProfileData({
+        studentId: personalInfo.studentId,
+        setActiveVisit,
+        setVisitReasons,
+        setNotifications
+    });
+
     useEffect(() => {
         const checkSession = async () => {
             if (!session?.user?.id) return;
             try {
                 // Fetch student data
-                const { data: studentData, error: studentError } = await supabaseClient
+                const { data: studentDataRaw, error: studentError } = await supabaseClient
                     .from('students')
-                    .select('*')
+                    .select(STUDENT_LIST_COLUMNS)
                     .eq('student_id', session.user.id) // Assuming auth id maps to student_id or email
                     .single();
+                const studentData: any = studentDataRaw as any;
 
                 if (studentError) {
                     console.error('Error fetching student data:', studentError);
@@ -567,7 +669,10 @@ export default function StudentPortal() {
         if (!session) return;
 
         const fetchScholarships = async () => {
-            const { data } = await supabaseClient.from('scholarships').select('*').order('deadline', { ascending: true });
+            const { data } = await supabaseClient
+                .from('scholarships')
+                .select('id, title, description, requirements, deadline')
+                .order('deadline', { ascending: true });
             setScholarshipsList(data || []);
         };
         const fetchApplications = async () => {
@@ -598,17 +703,13 @@ export default function StudentPortal() {
         }
 
         try {
-            const { error } = await supabaseClient.from('scholarship_applications').insert([{
+            const payload = {
                 scholarship_id: scholarship.id,
                 student_id: personalInfo.studentId,
-                student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
-                course: personalInfo.course,
-                year_level: personalInfo.year,
-                contact_number: personalInfo.mobile,
-                email: personalInfo.email,
                 status: 'Pending'
-            }]);
+            } as any;
 
+            const { error } = await supabaseClient.from('scholarship_applications').insert([payload]);
             if (error) throw error;
             showToast("Application submitted successfully!");
             setMyApplications([...myApplications, { scholarship_id: scholarship.id, status: 'Pending' }]);
@@ -623,149 +724,406 @@ export default function StudentPortal() {
         setTimeout(() => setToast(null), 4000);
     };
 
+    const syncStudentSession = React.useCallback((studentPatch: any) => {
+        if (!studentPatch || session?.userType !== 'student') return;
+        updateSession?.((prev: any) => ({
+            ...(prev || {}),
+            ...studentPatch,
+            userType: 'student',
+            role: 'Student'
+        }));
+    }, [session?.userType, updateSession]);
+
+    const getCourseYearWindowRange = (startValue: string | null | undefined, endValue: string | null | undefined) => {
+        const startText = formatGateDate(startValue || null);
+        const endText = formatGateDate(endValue || null);
+        if (startText && endText) return `${startText} to ${endText}`;
+        if (startText) return `Starts ${startText}`;
+        if (endText) return `Until ${endText}`;
+        return null;
+    };
+
+    const formatGateDate = (value: string | null) => {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString();
+    };
+
+    const getSchoolYearLabel = (startValue: string | null | undefined, endValue: string | null | undefined) => {
+        const startDate = startValue ? new Date(startValue) : null;
+        const endDate = endValue ? new Date(endValue) : null;
+        const hasStart = Boolean(startDate && !Number.isNaN(startDate.getTime()));
+        const hasEnd = Boolean(endDate && !Number.isNaN(endDate.getTime()));
+
+        if (!hasStart && !hasEnd) return 'SY Unknown';
+        if (!hasStart && hasEnd) {
+            const endYear = (endDate as Date).getFullYear();
+            return `SY ${endYear - 1}-${endYear}`;
+        }
+        if (hasStart && !hasEnd) {
+            const startYear = (startDate as Date).getFullYear();
+            return `SY ${startYear}-${startYear + 1}`;
+        }
+
+        const startYear = (startDate as Date).getFullYear();
+        const endYear = (endDate as Date).getFullYear();
+        return `SY ${Math.min(startYear, endYear)}-${Math.max(startYear, endYear)}`;
+    };
+
+    const submitCourseYearConfirmation = async () => {
+        if (!personalInfo.studentId) return;
+        if (!courseYearGate.course) {
+            showToast('Course is required.', 'error');
+            return;
+        }
+        if (!isValidYearLevel(courseYearGate.year)) {
+            showToast('Select a valid year level.', 'error');
+            return;
+        }
+        if (courseYearGate.expired) {
+            showToast('Course/year update window has ended. Contact CARE staff.', 'error');
+            return;
+        }
+
+        setIsSubmittingCourseYearGate(true);
+        try {
+            const nowIso = new Date().toISOString();
+            const { error } = await supabaseClient
+                .from('students')
+                .update({
+                    course: courseYearGate.course,
+                    year_level: courseYearGate.year,
+                    status: 'Active',
+                    course_year_confirmed_at: nowIso,
+                    course_year_update_required: false
+                })
+                .eq('student_id', personalInfo.studentId);
+            if (error) throw error;
+
+            setPersonalInfo((prev: any) => ({
+                ...prev,
+                course: courseYearGate.course,
+                year: courseYearGate.year,
+                status: 'Active',
+                courseYearWindowStart: courseYearGate.windowStart || prev.courseYearWindowStart || null,
+                courseYearWindowEnd: courseYearGate.windowEnd || prev.courseYearWindowEnd || null
+            }));
+
+            syncStudentSession({
+                course: courseYearGate.course,
+                year_level: courseYearGate.year,
+                status: 'Active',
+                course_year_update_required: false,
+                course_year_window_start: courseYearGate.windowStart || session?.course_year_window_start || null,
+                course_year_window_end: courseYearGate.windowEnd || session?.course_year_window_end || null,
+                course_year_confirmed_at: nowIso
+            });
+
+            setCourseYearGate((prev: any) => ({
+                ...prev,
+                visible: false,
+                expired: false
+            }));
+            showToast('Course and year confirmed successfully.');
+        } catch (error: any) {
+            showToast('Failed to confirm course/year: ' + error.message, 'error');
+        } finally {
+            setIsSubmittingCourseYearGate(false);
+        }
+    };
+
     // Timer removed (handled by Clock component)
 
     // Helper to determine department from course
     // Removed hardcoded getDepartment in favor of dynamic fetch
 
-    // Sync session to personalInfo
-    useEffect(() => {
-        const fetchAndSyncProfile = async () => {
-            if (session && session.userType === 'student') {
-                const studentData = session;
-                const course = studentData.course || '';
+    const refreshStudentProfile = React.useCallback(async () => {
+        if (!session || session.userType !== 'student') return;
 
-                let matchedDepartment = studentData.department || 'Unassigned';
+        const studentId = session.student_id || session?.user?.id;
+        if (!studentId) return;
+        try {
+            let studentData: any = session;
+            const { data: latestStudent } = await supabaseClient
+                .from('students')
+                .select(STUDENT_LIST_COLUMNS)
+                .eq('student_id', studentId)
+                .maybeSingle();
+            if (latestStudent) {
+                studentData = latestStudent;
+            }
 
-                // If department is missing or generic, try to fetch it dynamically
-                if (!studentData.department && course) {
-                    const { data: courseData } = await supabaseClient
-                        .from('courses')
-                        .select('name, departments(name)')
-                        .eq('name', course)
-                        .maybeSingle();
+            let archiveError: any = null;
+            let archivedRows = 0;
+            if (archiveRpcStateRef.current !== 'missing') {
+                const rpcResult = await supabaseClient.rpc('archive_and_reset_expired_course_year');
+                archiveError = rpcResult.error;
+                archivedRows = Number(rpcResult.data || 0);
 
-                    if (courseData && courseData.departments && (courseData.departments as any).name) {
-                        matchedDepartment = (courseData.departments as any).name;
+                if (archiveError) {
+                    const errorText = String(archiveError.message || '').toLowerCase();
+                    const missingRpc = errorText.includes('archive_and_reset_expired_course_year');
+                    if (missingRpc) {
+                        archiveRpcStateRef.current = 'missing';
+                        sessionStorage.setItem(ARCHIVE_RPC_MISSING_CACHE_KEY, '1');
+                    } else {
+                        archiveRpcStateRef.current = 'available';
+                        console.warn('Failed to run expired course/year archive reset RPC.', archiveError);
+                    }
+                } else {
+                    archiveRpcStateRef.current = 'available';
+                    sessionStorage.removeItem(ARCHIVE_RPC_MISSING_CACHE_KEY);
+                }
+            }
+
+            if (archivedRows > 0) {
+                const { data: refreshedStudent } = await supabaseClient
+                    .from('students')
+                    .select(STUDENT_LIST_COLUMNS)
+                    .eq('student_id', studentId)
+                    .maybeSingle();
+                if (refreshedStudent) studentData = refreshedStudent;
+            }
+
+            if (archiveRpcStateRef.current === 'missing' || archiveError) {
+                const windowEnd = studentData.course_year_window_end || null;
+                const windowEndDate = windowEnd ? new Date(windowEnd) : null;
+                const expired = Boolean(windowEndDate && new Date() > windowEndDate);
+                const hasWindowState = Boolean(
+                    studentData.course
+                    || studentData.year_level
+                    || studentData.course_year_update_required
+                    || studentData.course_year_window_start
+                    || studentData.course_year_window_end
+                );
+                if (expired && hasWindowState) {
+                    const { error: fallbackResetError } = await supabaseClient
+                        .from('students')
+                        .update({
+                            course: null,
+                            year_level: null,
+                            status: 'Inactive',
+                            course_year_confirmed_at: null,
+                            course_year_update_required: false,
+                            course_year_window_start: null,
+                            course_year_window_end: null
+                        })
+                        .eq('student_id', studentData.student_id);
+                    if (!fallbackResetError) {
+                        studentData = {
+                            ...studentData,
+                            course: null,
+                            year_level: null,
+                            status: 'Inactive',
+                            course_year_confirmed_at: null,
+                            course_year_update_required: false,
+                            course_year_window_start: null,
+                            course_year_window_end: null
+                        };
                     }
                 }
+            }
+
+            const course = studentData.course || '';
+
+            let matchedDepartment = studentData.department || 'Unassigned';
+
+            // If department is missing or generic, try to fetch it dynamically
+            if (!studentData.department && course) {
+                const { data: courseData } = await supabaseClient
+                    .from('courses')
+                    .select('name, departments(name)')
+                    .eq('name', course)
+                    .maybeSingle();
+
+                if (courseData && courseData.departments && (courseData.departments as any).name) {
+                    matchedDepartment = (courseData.departments as any).name;
+                }
+            }
+
+            const motherParts = getStoredParentParts(studentData, 'mother');
+            const fatherParts = getStoredParentParts(studentData, 'father');
+
+            setPersonalInfo((prev: any) => ({
+                ...prev,
+                firstName: studentData.first_name || '',
+                lastName: studentData.last_name || '',
+                middleName: studentData.middle_name || '',
+                suffix: studentData.suffix || '',
+                studentId: studentData.student_id,
+                course: course,
+                year: studentData.year_level || '',
+                status: studentData.status || 'Active',
+                department: matchedDepartment,
+                section: studentData.section || '',
+                email: studentData.email || '',
+                mobile: studentData.mobile || '',
+                facebookUrl: studentData.facebook_url || '',
+                address: studentData.address || '',
+                street: studentData.street || '',
+                city: studentData.city || '',
+                province: studentData.province || '',
+                zipCode: studentData.zip_code || '',
+                emergencyContact: studentData.emergency_contact || '',
+                dob: studentData.dob || '',
+                age: studentData.age || '',
+                placeOfBirth: studentData.place_of_birth || '',
+                sex: studentData.sex || '',
+                gender: studentData.gender || '',
+                genderIdentity: studentData.gender_identity || '',
+                civilStatus: studentData.civil_status || '',
+                nationality: studentData.nationality || '',
+                priorityCourse: studentData.priority_course || '',
+                altCourse1: studentData.alt_course_1 || '',
+                altCourse2: studentData.alt_course_2 || '',
+                schoolLastAttended: studentData.school_last_attended || '',
+                isWorkingStudent: studentData.is_working_student || false,
+                workingStudentType: studentData.working_student_type || '',
+                supporter: studentData.supporter || '',
+                supporterContact: studentData.supporter_contact || '',
+                isPwd: studentData.is_pwd || false,
+                pwdType: studentData.pwd_type || '',
+                isIndigenous: studentData.is_indigenous || false,
+                indigenousGroup: studentData.indigenous_group || '',
+                witnessedConflict: studentData.witnessed_conflict || '',
+                isSoloParent: studentData.is_solo_parent || false,
+                isChildOfSoloParent: studentData.is_child_of_solo_parent || false,
+                religion: studentData.religion || '',
+                isSafeInCommunity: studentData.is_safe_in_community || false,
+                motherLastName: motherParts.last,
+                motherGivenName: motherParts.given,
+                motherMiddleName: motherParts.middle,
+                motherOccupation: studentData.mother_occupation || '',
+                motherContact: studentData.mother_contact || '',
+                fatherLastName: fatherParts.last,
+                fatherGivenName: fatherParts.given,
+                fatherMiddleName: fatherParts.middle,
+                fatherOccupation: studentData.father_occupation || '',
+                fatherContact: studentData.father_contact || '',
+                parentAddress: studentData.parent_address || '',
+                numBrothers: studentData.num_brothers || '',
+                numSisters: studentData.num_sisters || '',
+                birthOrder: studentData.birth_order || '',
+                spouseName: studentData.spouse_name || '',
+                spouseOccupation: studentData.spouse_occupation || '',
+                numChildren: studentData.num_children || '',
+                guardianName: studentData.guardian_name || '',
+                guardianAddress: studentData.guardian_address || '',
+                guardianContact: studentData.guardian_contact || '',
+                guardianRelation: studentData.guardian_relation || '',
+                emergencyName: studentData.emergency_name || '',
+                emergencyAddress: studentData.emergency_address || '',
+                emergencyRelationship: studentData.emergency_relationship || '',
+                emergencyNumber: studentData.emergency_number || '',
+                elemSchool: studentData.elem_school || '',
+                elemYearGraduated: studentData.elem_year_graduated || '',
+                juniorHighSchool: studentData.junior_high_school || '',
+                juniorHighYearGraduated: studentData.junior_high_year_graduated || '',
+                seniorHighSchool: studentData.senior_high_school || '',
+                seniorHighYearGraduated: studentData.senior_high_year_graduated || '',
+                collegeSchool: studentData.college_school || '',
+                collegeYearGraduated: studentData.college_year_graduated || '',
+                honorsAwards: studentData.honors_awards || '',
+                extracurricularActivities: studentData.extracurricular_activities || '',
+                scholarshipsAvailed: studentData.scholarships_availed || '',
+                courseYearWindowStart: studentData.course_year_window_start || null,
+                courseYearWindowEnd: studentData.course_year_window_end || null,
+            }));
+
+            if (studentData.course_year_update_required) {
+                const trustedCourse = course || '';
+                const trustedYear = isValidYearLevel(studentData.year_level || '') ? studentData.year_level : '1st Year';
+
+                const { data: courseRows } = await supabaseClient
+                    .from('courses')
+                    .select('name')
+                    .order('name');
+                const normalizedCourseOptions = [...new Set([trustedCourse, ...(courseRows || []).map((row: any) => row.name).filter(Boolean)].filter(Boolean))];
+
+                const now = new Date();
+                const windowStart = studentData.course_year_window_start || null;
+                const windowEnd = studentData.course_year_window_end || null;
+                const windowStartDate = windowStart ? new Date(windowStart) : null;
+                const windowEndDate = windowEnd ? new Date(windowEnd) : null;
+                const beforeWindow = Boolean(windowStartDate && now < windowStartDate);
+                const expired = Boolean(windowEndDate && now > windowEndDate);
 
                 setPersonalInfo((prev: any) => ({
+                    ...prev,
+                    course: trustedCourse || '',
+                    year: trustedYear || '1st Year'
+                }));
+
+                setCourseYearGate({
+                    visible: !beforeWindow && !expired,
+                    expired,
+                    course: trustedCourse || '',
+                    year: trustedYear || '1st Year',
+                    courseLocked: false,
+                    yearLocked: false,
+                    courseOptions: normalizedCourseOptions,
+                    windowStart,
+                    windowEnd
+                });
+            } else {
+                setCourseYearGate((prev: any) => ({
+                    ...prev,
+                    visible: false,
+                    expired: false
+                }));
+            }
+
+            syncStudentSession({
+                ...studentData,
+                department: matchedDepartment
+            });
+
+            const profileCompleted = studentData.profile_completed === true;
+            if (!profileCompleted) {
+                setProfileFormData((prev: any) => ({
                     ...prev,
                     firstName: studentData.first_name || '',
                     lastName: studentData.last_name || '',
                     middleName: studentData.middle_name || '',
                     suffix: studentData.suffix || '',
-                    studentId: studentData.student_id,
-                    course: course,
-                    year: studentData.year_level || '1st Year',
-                    status: studentData.status || 'Active',
-                    department: matchedDepartment,
-                    section: studentData.section || '',
-                    email: studentData.email || '',
-                    mobile: studentData.mobile || '',
-                    facebookUrl: studentData.facebook_url || '',
-                    address: studentData.address || '',
+                    dob: studentData.dob || '',
+                    age: studentData.age || '',
+                    placeOfBirth: studentData.place_of_birth || '',
+                    nationality: studentData.nationality || '',
+                    sex: studentData.sex || '',
+                    genderIdentity: studentData.gender_identity || '',
+                    civilStatus: studentData.civil_status || '',
                     street: studentData.street || '',
                     city: studentData.city || '',
                     province: studentData.province || '',
                     zipCode: studentData.zip_code || '',
-                    emergencyContact: studentData.emergency_contact || '',
-                    dob: studentData.dob || '',
-                    age: studentData.age || '',
-                    placeOfBirth: studentData.place_of_birth || '',
-                    sex: studentData.sex || '',
-                    gender: studentData.gender || '',
-                    genderIdentity: studentData.gender_identity || '',
-                    civilStatus: studentData.civil_status || '',
-                    nationality: studentData.nationality || '',
-                    priorityCourse: studentData.priority_course || '',
-                    altCourse1: studentData.alt_course_1 || '',
-                    altCourse2: studentData.alt_course_2 || '',
-                    schoolLastAttended: studentData.school_last_attended || '',
-                    isWorkingStudent: studentData.is_working_student || false,
-                    workingStudentType: studentData.working_student_type || '',
-                    supporter: studentData.supporter || '',
-                    supporterContact: studentData.supporter_contact || '',
-                    isPwd: studentData.is_pwd || false,
-                    pwdType: studentData.pwd_type || '',
-                    isIndigenous: studentData.is_indigenous || false,
-                    indigenousGroup: studentData.indigenous_group || '',
-                    witnessedConflict: studentData.witnessed_conflict || '',
-                    isSoloParent: studentData.is_solo_parent || false,
-                    isChildOfSoloParent: studentData.is_child_of_solo_parent || false,
-                    // New fields
-                    religion: studentData.religion || '',
-                    isSafeInCommunity: studentData.is_safe_in_community || false,
-                    motherName: studentData.mother_name || '',
+                    mobile: studentData.mobile || '',
+                    email: studentData.email || '',
+                    facebookUrl: studentData.facebook_url || '',
+                    motherLastName: motherParts.last,
+                    motherGivenName: motherParts.given,
+                    motherMiddleName: motherParts.middle,
                     motherOccupation: studentData.mother_occupation || '',
                     motherContact: studentData.mother_contact || '',
-                    fatherName: studentData.father_name || '',
+                    fatherLastName: fatherParts.last,
+                    fatherGivenName: fatherParts.given,
+                    fatherMiddleName: fatherParts.middle,
                     fatherOccupation: studentData.father_occupation || '',
                     fatherContact: studentData.father_contact || '',
-                    parentAddress: studentData.parent_address || '',
-                    numBrothers: studentData.num_brothers || '',
-                    numSisters: studentData.num_sisters || '',
-                    birthOrder: studentData.birth_order || '',
-                    spouseName: studentData.spouse_name || '',
-                    spouseOccupation: studentData.spouse_occupation || '',
-                    numChildren: studentData.num_children || '',
-                    guardianName: studentData.guardian_name || '',
-                    guardianAddress: studentData.guardian_address || '',
-                    guardianContact: studentData.guardian_contact || '',
-                    guardianRelation: studentData.guardian_relation || '',
-                    emergencyName: studentData.emergency_name || '',
-                    emergencyAddress: studentData.emergency_address || '',
-                    emergencyRelationship: studentData.emergency_relationship || '',
-                    emergencyNumber: studentData.emergency_number || '',
-                    elemSchool: studentData.elem_school || '',
-                    elemYearGraduated: studentData.elem_year_graduated || '',
-                    juniorHighSchool: studentData.junior_high_school || '',
-                    juniorHighYearGraduated: studentData.junior_high_year_graduated || '',
-                    seniorHighSchool: studentData.senior_high_school || '',
-                    seniorHighYearGraduated: studentData.senior_high_year_graduated || '',
-                    collegeSchool: studentData.college_school || '',
-                    collegeYearGraduated: studentData.college_year_graduated || '',
-                    honorsAwards: studentData.honors_awards || '',
-                    extracurricularActivities: studentData.extracurricular_activities || '',
-                    scholarshipsAvailed: studentData.scholarships_availed || '',
                 }));
-
-                // Check if profile completion is needed
-                console.log('[ProfileCompletion] session.profile_completed =', studentData.profile_completed);
-                if (!studentData.profile_completed) {
-                    console.log('[ProfileCompletion] Showing profile completion modal');
-                    setProfileFormData((prev: any) => ({
-                        ...prev,
-                        firstName: studentData.first_name || '',
-                        lastName: studentData.last_name || '',
-                        middleName: studentData.middle_name || '',
-                        suffix: studentData.suffix || '',
-                        dob: studentData.dob || '',
-                        age: studentData.age || '',
-                        placeOfBirth: studentData.place_of_birth || '',
-                        nationality: studentData.nationality || '',
-                        sex: studentData.sex || '',
-                        genderIdentity: studentData.gender_identity || '',
-                        civilStatus: studentData.civil_status || '',
-                        street: studentData.street || '',
-                        city: studentData.city || '',
-                        province: studentData.province || '',
-                        zipCode: studentData.zip_code || '',
-                        mobile: studentData.mobile || '',
-                        email: studentData.email || '',
-                        facebookUrl: studentData.facebook_url || '',
-                    }));
-                    setShowProfileCompletion(true);
-                }
-
-                // Set Onboarding Tour State
-                setHasSeenTourState(Boolean(studentData.has_seen_tour));
             }
-        };
+            setShowProfileCompletion(!profileCompleted);
+            setHasSeenTourState(Boolean(studentData.has_seen_tour));
+        } catch (error) {
+            console.error('Failed to refresh student profile.', error);
+        }
+    }, [session, syncStudentSession, getStoredParentParts]);
 
-        fetchAndSyncProfile();
-    }, [session]);
+    // Sync session to personalInfo
+    useEffect(() => {
+        refreshStudentProfile();
+    }, [refreshStudentProfile]);
 
     // Sequences the Tour to appear AFTER Profile Completion closes
     useEffect(() => {
@@ -780,7 +1138,7 @@ export default function StudentPortal() {
         try {
             const { data: beforeProfile } = await supabaseClient
                 .from('students')
-                .select('*')
+                .select(STUDENT_LIST_COLUMNS)
                 .eq('student_id', personalInfo.studentId)
                 .maybeSingle();
 
@@ -819,14 +1177,27 @@ export default function StudentPortal() {
                 is_solo_parent: Boolean(personalInfo.isSoloParent),
                 is_child_of_solo_parent: Boolean(personalInfo.isChildOfSoloParent),
                 section: personalInfo.section || null,
-                year_level: personalInfo.year || null,
                 // New fields
                 religion: personalInfo.religion || null,
                 is_safe_in_community: Boolean(personalInfo.isSafeInCommunity),
-                mother_name: personalInfo.motherName || null,
+                mother_name: joinNameParts({
+                    given: personalInfo.motherGivenName,
+                    middle: personalInfo.motherMiddleName,
+                    last: personalInfo.motherLastName
+                }) || null,
+                mother_last_name: personalInfo.motherLastName || null,
+                mother_given_name: personalInfo.motherGivenName || null,
+                mother_middle_name: personalInfo.motherMiddleName || null,
                 mother_occupation: personalInfo.motherOccupation || null,
                 mother_contact: personalInfo.motherContact || null,
-                father_name: personalInfo.fatherName || null,
+                father_name: joinNameParts({
+                    given: personalInfo.fatherGivenName,
+                    middle: personalInfo.fatherMiddleName,
+                    last: personalInfo.fatherLastName
+                }) || null,
+                father_last_name: personalInfo.fatherLastName || null,
+                father_given_name: personalInfo.fatherGivenName || null,
+                father_middle_name: personalInfo.fatherMiddleName || null,
                 father_occupation: personalInfo.fatherOccupation || null,
                 father_contact: personalInfo.fatherContact || null,
                 parent_address: personalInfo.parentAddress || null,
@@ -909,187 +1280,106 @@ export default function StudentPortal() {
         }
     };
 
-    // Fetch Events from Supabase
+    // Fetch Events from Supabase (service-backed)
     useEffect(() => {
-        const fetchEvents = async () => {
-            const { data } = await supabaseClient.from('events').select('*').order('created_at', { ascending: false });
-            if (data) setEventsList(data);
-        };
-        fetchEvents();
+        refreshEvents();
     }, [activeView]);
 
-    // Fetch All Active Forms
+    // Fetch All Active Forms (service-backed)
     useEffect(() => {
         if (activeView === 'assessment') {
-            const fetchForms = async () => {
-                setLoadingForm(true);
-                const { data: forms } = await supabaseClient
-                    .from('forms')
-                    .select('*')
-                    .eq('is_active', true)
-                    .order('created_at', { ascending: false });
-
-                if (forms) {
-                    setFormsList(forms);
-                }
-
-                // Fetch already-completed submissions for this student
-                if (personalInfo.studentId) {
-                    const { data: subs } = await supabaseClient
-                        .from('submissions')
-                        .select('form_id')
-                        .eq('student_id', personalInfo.studentId);
-                    if (subs) {
-                        setCompletedForms(new Set(subs.map((s: any) => s.form_id)));
-                    }
-                }
-
-                setLoadingForm(false);
-            };
-            fetchForms();
+            refreshForms();
         }
-    }, [activeView]);
+    }, [activeView, personalInfo.studentId]);
 
-    // Fetch Counseling Requests
+    // Fetch student lists + realtime subscriptions (service-backed)
     useEffect(() => {
+        if (!personalInfo.studentId) return;
+
         if (activeView === 'counseling') {
-            const fetchRequests = async () => {
-                const { data, error } = await supabaseClient
-                    .from('counseling_requests')
-                    .select('*')
-                    .eq('student_id', personalInfo.studentId)
-                    .order('created_at', { ascending: false });
-                if (data) setCounselingRequests(data);
-            };
-            fetchRequests();
+            refreshCounselingRequests();
         }
-        // Fetch Notifications
+
         if (activeView === 'dashboard' || activeView === 'counseling') {
-            const fetchNotifications = async () => {
-                const { data } = await supabaseClient.from('notifications')
-                    .select('*').eq('student_id', personalInfo.studentId).order('created_at', { ascending: false }).limit(5);
-                if (data) setNotifications(data);
-            };
-            fetchNotifications();
+            refreshNotifications();
         }
 
-        // Fetch Support Requests
         if (activeView === 'support') {
-            const fetchSupport = async () => {
-                const { data } = await supabaseClient.from('support_requests').select('*').eq('student_id', personalInfo.studentId).order('created_at', { ascending: false });
-                if (data) setSupportRequests(data);
-            };
-            fetchSupport();
+            refreshSupportRequests();
         }
 
-
-
-        // Real-time Subscriptions
-        const channel = supabaseClient
+        const counselingChannel = supabaseClient
             .channel('student_counseling')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
                 if (activeView === 'counseling') {
-                    const fetchRequests = async () => {
-                        const { data } = await supabaseClient.from('counseling_requests').select('*').eq('student_id', personalInfo.studentId).order('created_at', { ascending: false });
-                        if (data) setCounselingRequests(data);
-                    };
-                    fetchRequests();
+                    refreshCounselingRequests();
                 }
             })
             .subscribe();
 
         const supportChannel = supabaseClient
             .channel('student_support')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests', filter: `student_id=eq.${personalInfo?.studentId}` }, () => {
-                const fetchSupport = async () => {
-                    try {
-                        const { data, error } = await supabaseClient.from('support_requests').select('*').eq('student_id', personalInfo?.studentId).order('created_at', { ascending: false });
-                        if (error) console.error("Error fetching support:", error);
-                        if (data) setSupportRequests(data);
-                    } catch (err) {
-                        console.error("Unexpected error fetching support:", err);
-                    }
-                };
-                fetchSupport();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
+                refreshSupportRequests();
             })
             .subscribe();
 
         const notifChannel = supabaseClient
             .channel('student_notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `student_id=eq.${personalInfo.studentId}` }, (payload: any) => {
-                setNotifications((prev: any) => [payload.new, ...prev]);
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
+                refreshNotifications();
             })
             .subscribe();
 
         const eventsChannel = supabaseClient
             .channel('student_events')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
-                const refetchEvents = async () => {
-                    const { data } = await supabaseClient.from('events').select('*').order('created_at', { ascending: false });
-                    if (data) setEventsList(data);
-                };
-                refetchEvents();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, refreshEvents)
             .subscribe();
 
         const attendanceChannel = supabaseClient
             .channel('student_attendance')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'event_attendance', filter: `student_id=eq.${personalInfo?.studentId}` }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'event_attendance', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
                 fetchHistory();
             })
             .subscribe();
 
         const formsChannel = supabaseClient
             .channel('student_forms')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'forms', filter: 'is_active=eq.true' }, () => {
-                const fetchForms = async () => {
-                    const { data } = await supabaseClient.from('forms').select('*').eq('is_active', true).order('created_at', { ascending: false });
-                    if (data) setFormsList(data);
-                };
-                fetchForms();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'forms', filter: 'is_active=eq.true' }, refreshForms)
             .subscribe();
 
         const applicationsChannel = supabaseClient
             .channel('student_applications')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications', filter: `student_id=eq.${personalInfo?.studentId}` }, (payload: any) => {
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications', filter: `student_id=eq.${personalInfo.studentId}` }, (payload: any) => {
                 showToast(`Application Status Updated: ${payload.new.status}`, 'info');
             })
             .subscribe();
 
         const profileChannel = supabaseClient
             .channel('student_profile_update')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'students', filter: `student_id=eq.${personalInfo?.studentId}` }, (payload: any) => {
-                // Update personal info state locally
-                setPersonalInfo((prev: any) => ({ ...prev, ...payload.new })); // This might need mapping if column names differ from state names
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'students', filter: `student_id=eq.${personalInfo.studentId}` }, (payload: any) => {
+                setPersonalInfo((prev: any) => ({ ...prev, ...payload.new }));
                 showToast("Your profile has been updated by an administrator.", 'info');
-                // Ideally we should re-map the snake_case payload to camelCase state, but for now this alerts the user. 
-                // To be safe, let's trigger a re-fetch of the profile or just let the user know.
             })
             .subscribe();
 
         return () => {
-            const channels = [channel, supportChannel, notifChannel, eventsChannel, attendanceChannel, formsChannel, applicationsChannel, profileChannel];
-            channels.forEach(ch => {
+            const channels = [counselingChannel, supportChannel, notifChannel, eventsChannel, attendanceChannel, formsChannel, applicationsChannel, profileChannel];
+            channels.forEach((ch: any) => {
                 if (ch) supabaseClient.removeChannel(ch).catch(() => { });
             });
         };
     }, [activeView, personalInfo.studentId]);
 
-    // Real-time subscription for counseling requests with toast (Moved from nested effect)
+    // Real-time subscription for counseling requests with toast
     useEffect(() => {
         if (!personalInfo.studentId) return;
 
-        const fetchCounseling_Realtime = async () => {
-            const { data } = await supabaseClient.from('counseling_requests').select('*').eq('student_id', personalInfo.studentId).order('created_at', { ascending: false });
-            if (data) setCounselingRequests(data);
-        };
-
-        fetchCounseling_Realtime();
+        refreshCounselingRequests();
 
         const channel = supabaseClient.channel('student_counseling_updates')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counseling_requests', filter: `student_id=eq.${personalInfo.studentId}` }, (payload: any) => {
-                fetchCounseling_Realtime();
+                refreshCounselingRequests();
                 if (payload.new.status !== payload.old.status) {
                     showToast(`Counseling Request Status Updated: ${payload.new.status}`, 'info');
                 }
@@ -1099,23 +1389,15 @@ export default function StudentPortal() {
         return () => { supabaseClient.removeChannel(channel); };
     }, [personalInfo.studentId]);
 
-    // Fetch Active Office Visit
+    // Fetch Active Office Visit (service-backed)
     useEffect(() => {
-        const fetchVisit = async () => {
-            const { data } = await supabaseClient.from('office_visits').select('*').eq('student_id', personalInfo.studentId).eq('status', 'Ongoing').maybeSingle();
-            if (data) setActiveVisit(data);
-        };
-        if (personalInfo.studentId) fetchVisit();
-    }, [personalInfo.studentId]);
+        refreshActiveVisit();
+    }, [refreshActiveVisit]);
 
-    // Fetch Visit Reasons
+    // Fetch Visit Reasons (service-backed)
     useEffect(() => {
-        const fetchReasons = async () => {
-            const { data } = await supabaseClient.from('office_visit_reasons').select('*').eq('is_active', true).order('reason');
-            if (data) setVisitReasons(data);
-        };
-        fetchReasons();
-    }, []);
+        refreshVisitReasons();
+    }, [refreshVisitReasons]);
 
     const formatFullDate = (date: any) => date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const formatTime = (date: any) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
@@ -1124,11 +1406,7 @@ export default function StudentPortal() {
     const fetchHistory = async () => {
         if (!personalInfo.studentId) return;
 
-        // Attendance
-        const { data: attendanceData } = await supabaseClient
-            .from('event_attendance')
-            .select('*')
-            .eq('student_id', personalInfo.studentId);
+        const attendanceData = await getAttendanceHistory(personalInfo.studentId);
 
         if (attendanceData) {
             const map: Record<string, any> = {};
@@ -1136,21 +1414,38 @@ export default function StudentPortal() {
             setAttendanceMap(map);
         }
 
-        // Ratings
-        const { data: ratingData } = await supabaseClient
-            .from('event_feedback')
-            .select('event_id')
-            .eq('student_id', personalInfo.studentId);
+        const ratingData = await getRatedEventIds(personalInfo.studentId);
 
-        if (ratingData) {
-            setRatedEvents(ratingData.map((row: any) => row.event_id));
-        }
+        setRatedEvents(ratingData || []);
     };
 
     // Fetch on load AND when switching views (to keep sync)
     useEffect(() => {
         fetchHistory();
     }, [personalInfo.studentId, activeView]);
+
+    const syncEventAttendeeCount = async (eventId: any) => {
+        const { count, error: countError } = await supabaseClient
+            .from('event_attendance')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_id', eventId);
+
+        if (countError) throw countError;
+
+        const attendeeCount = count || 0;
+        const { error: updateError } = await supabaseClient
+            .from('events')
+            .update({ attendees: attendeeCount })
+            .eq('id', eventId);
+
+        if (updateError) throw updateError;
+
+        setEventsList((prev: any) => prev.map((item: any) => (
+            item.id === eventId
+                ? { ...item, attendees: attendeeCount }
+                : item
+        )));
+    };
 
     const handleTimeIn = async (event: any) => {
         if (isTimingIn) return;
@@ -1186,6 +1481,23 @@ export default function StudentPortal() {
             }
 
             try {
+                const { data: existingAttendance } = await supabaseClient
+                    .from('event_attendance')
+                    .select('id, event_id, student_id, checked_in_at, time_in, time_out, proof_url, latitude, longitude, department')
+                    .eq('event_id', event.id)
+                    .eq('student_id', personalInfo.studentId)
+                    .maybeSingle();
+
+                if (existingAttendance?.time_in) {
+                    setAttendanceMap((prev: any) => ({ ...prev, [event.id]: existingAttendance }));
+                    setProofFile(null);
+                    showToast(existingAttendance.time_out
+                        ? "Your attendance is already recorded for this event."
+                        : "You have already timed in for this event.", 'error');
+                    setIsTimingIn(false);
+                    return;
+                }
+
                 // Upload Proof
                 const fileName = `${personalInfo.studentId}_${event.id}_${Date.now()}.jpg`;
                 const { data: uploadData, error: uploadError } = await supabaseClient.storage.from('attendance_proofs').upload(fileName, proofFile, {
@@ -1211,27 +1523,28 @@ export default function StudentPortal() {
                 }]);
                 if (error) throw error;
 
-                // Increment Count using atomic RPC to prevent concurrency bugs
-                const { error: rpcError } = await supabaseClient.rpc('increment_event_attendees', { e_id: event.id });
-                if (rpcError) {
-                    console.error("RPC Error:", rpcError);
-                    // Fallback to manual if RPC doesn't exist yet, but note it's prone to concurrency issues
-                    const { data: countData } = await supabaseClient.from('events').select('attendees').eq('id', event.id).single();
-                    await supabaseClient.from('events').update({ attendees: (countData?.attendees || 0) + 1 }).eq('id', event.id);
+                try {
+                    await syncEventAttendeeCount(event.id);
+                } catch (countSyncError) {
+                    console.warn('Failed to sync event attendee count after time in.', countSyncError);
                 }
 
                 setAttendanceMap((prev: any) => ({ ...prev, [event.id]: { event_id: event.id, time_in: now, time_out: null } }));
-                setEventsList((prev: any) => prev.map((e: any) => e.id === event.id ? { ...e, attendees: (e.attendees || 0) + 1 } : e));
                 setProofFile(null);
                 showToast("Time In Successful! Location Verified.");
             } catch (err: any) {
-                console.error("Time In Error:", err);
                 if (err.code === '23505') {
                     showToast("You have already timed in for this event.", 'error');
                     // Refresh attendance to sync state
-                    const { data } = await supabaseClient.from('event_attendance').select('*').eq('event_id', event.id).eq('student_id', personalInfo.studentId).single();
+                    const { data } = await supabaseClient
+                        .from('event_attendance')
+                        .select('id, event_id, student_id, checked_in_at, time_in, time_out, proof_url, latitude, longitude, department')
+                        .eq('event_id', event.id)
+                        .eq('student_id', personalInfo.studentId)
+                        .single();
                     if (data) setAttendanceMap((prev: any) => ({ ...prev, [event.id]: data }));
                 } else {
+                    console.error("Time In Error:", err);
                     showToast("Error: " + (err.message || "Unknown error"), 'error');
                 }
             } finally {
@@ -1366,7 +1679,11 @@ export default function StudentPortal() {
         setAssessmentForm({ responses: {}, other: '' });
         setFormQuestions([]);
         setShowAssessmentModal(true);
-        const { data: qs } = await supabaseClient.from('questions').select('*').eq('form_id', form.id).order('order_index');
+        const { data: qs } = await supabaseClient
+            .from('questions')
+            .select('id, form_id, question_text, question_type, options, required, order_index')
+            .eq('form_id', form.id)
+            .order('order_index');
         setFormQuestions(qs || []);
     };
 
@@ -1397,10 +1714,15 @@ export default function StudentPortal() {
         if (!counselingForm.reason_for_referral.trim()) { showToast("Please provide your reason for requesting counseling.", 'error'); return; }
         setIsSubmitting(true);
         try {
-            const { error } = await supabaseClient.from('counseling_requests').insert([{
+            const windowRange = getCourseYearWindowRange(
+                personalInfo.courseYearWindowStart,
+                personalInfo.courseYearWindowEnd
+            );
+            const payload = {
                 student_id: personalInfo.studentId,
                 student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
                 course_year: `${personalInfo.course || ''} - ${personalInfo.year || ''}`,
+                year_window_range: windowRange,
                 contact_number: personalInfo.mobile || '',
                 request_type: 'Self-Referral',
                 description: counselingForm.reason_for_referral,
@@ -1409,7 +1731,14 @@ export default function StudentPortal() {
                 date_duration_of_concern: counselingForm.date_duration_of_concern,
                 department: personalInfo.department,
                 status: 'Submitted'
-            }]);
+            } as any;
+
+            let { error } = await supabaseClient.from('counseling_requests').insert([payload]);
+            if (error && String(error.message || '').toLowerCase().includes('year_window_range')) {
+                const fallbackPayload = { ...payload };
+                delete fallbackPayload.year_window_range;
+                ({ error } = await supabaseClient.from('counseling_requests').insert([fallbackPayload]));
+            }
             if (error) throw error;
             showToast("Counseling Request Submitted!");
             setShowCounselingForm(false);
@@ -1423,6 +1752,10 @@ export default function StudentPortal() {
         if (supportForm.categories.length === 0 && !supportForm.otherCategory) { showToast("Please select at least one category.", 'error'); return; }
         setIsSubmitting(true);
         try {
+            const windowRange = getCourseYearWindowRange(
+                personalInfo.courseYearWindowStart,
+                personalInfo.courseYearWindowEnd
+            );
             // Upload multiple files (up to 4)
             const docUrls: string[] = [];
             if (supportForm.files && supportForm.files.length > 0) {
@@ -1439,14 +1772,35 @@ export default function StudentPortal() {
             const finalCategories = [...supportForm.categories];
             if (supportForm.otherCategory) finalCategories.push(`Other: ${supportForm.otherCategory}`);
             const documentsValue = docUrls.length > 0 ? JSON.stringify(docUrls) : null;
-            const { error } = await supabaseClient.from('support_requests').insert([{ student_id: personalInfo.studentId, student_name: `${personalInfo.firstName} ${personalInfo.lastName}`, department: personalInfo.department, support_type: finalCategories.join(', '), description: description, documents_url: documentsValue, status: 'Submitted' }]);
+            const payload = {
+                student_id: personalInfo.studentId,
+                student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
+                department: personalInfo.department,
+                support_type: finalCategories.join(', '),
+                description: description,
+                documents_url: documentsValue,
+                course_year: `${personalInfo.course || ''} - ${personalInfo.year || ''}`,
+                year_window_range: windowRange,
+                status: 'Submitted'
+            } as any;
+            let { error } = await supabaseClient.from('support_requests').insert([payload]);
+            if (error && String(error.message || '').toLowerCase().includes('year_window_range')) {
+                const fallbackPayload = { ...payload };
+                delete fallbackPayload.year_window_range;
+                ({ error } = await supabaseClient.from('support_requests').insert([fallbackPayload]));
+            }
+            if (error && String(error.message || '').toLowerCase().includes('course_year')) {
+                const fallbackPayload = { ...payload };
+                delete fallbackPayload.course_year;
+                delete fallbackPayload.year_window_range;
+                ({ error } = await supabaseClient.from('support_requests').insert([fallbackPayload]));
+            }
             if (error) throw error;
             showToast("Support Request Submitted!");
             setShowSupportModal(false);
             setSupportForm({ categories: [], otherCategory: '', q1: '', q2: '', q3: '', q4: '', files: [] });
             // Immediately refresh support requests list for live update
-            const { data: updatedRequests } = await supabaseClient.from('support_requests').select('*').eq('student_id', personalInfo.studentId).order('created_at', { ascending: false });
-            if (updatedRequests) setSupportRequests(updatedRequests);
+            await refreshSupportRequests();
         } catch (error: any) {
             showToast("Error: " + error.message, 'error');
         } finally { setIsSubmitting(false); }
@@ -1564,6 +1918,7 @@ export default function StudentPortal() {
             setHasSeenTourState(true);
             try {
                 await supabaseClient.from('students').update({ has_seen_tour: true }).eq('student_id', personalInfo.studentId);
+                syncStudentSession({ has_seen_tour: true });
             } catch (err) {
                 console.error("Failed to save tour completion.", err);
             }
@@ -1686,7 +2041,7 @@ export default function StudentPortal() {
                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Email *</label><input name="email" value={profileFormData.email} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                     </div>
                                     <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Birthday *</label><input type="date" name="dob" value={profileFormData.dob} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Birthday *</label><DatePicker required name="dob" value={profileFormData.dob} onChange={(val) => { setProfileFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" /></div>
                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Age</label><input name="age" value={profileFormData.age} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" readOnly /></div>
                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Sex *</label><select name="sex" value={profileFormData.sex} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
                                     </div>
@@ -1745,12 +2100,20 @@ export default function StudentPortal() {
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Family Background</h3></div>
                                     <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Name</label><input name="motherName" placeholder="N/A if not applicable" value={profileFormData.motherName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Last Name</label><input name="motherLastName" placeholder="N/A if not applicable" value={profileFormData.motherLastName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Given Name</label><input name="motherGivenName" placeholder="N/A if not applicable" value={profileFormData.motherGivenName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Middle Name</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={profileFormData.motherMiddleName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Occupation</label><input name="motherOccupation" placeholder="N/A" value={profileFormData.motherOccupation} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Contact</label><input name="motherContact" placeholder="N/A" value={profileFormData.motherContact} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                     </div>
                                     <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Name</label><input name="fatherName" placeholder="N/A" value={profileFormData.fatherName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Last Name</label><input name="fatherLastName" placeholder="N/A" value={profileFormData.fatherLastName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Given Name</label><input name="fatherGivenName" placeholder="N/A" value={profileFormData.fatherGivenName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Middle Name</label><input name="fatherMiddleName" placeholder="N/A" value={profileFormData.fatherMiddleName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Occupation</label><input name="fatherOccupation" placeholder="N/A" value={profileFormData.fatherOccupation} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Contact</label><input name="fatherContact" placeholder="N/A" value={profileFormData.fatherContact} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                     </div>
@@ -1874,6 +2237,92 @@ export default function StudentPortal() {
                 document.body
             )}
 
+            {/* Forced Course/Year Confirmation Gate */}
+            {courseYearGate.visible && createPortal(
+                <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-extrabold text-slate-900">Course and Year Confirmation Required</h3>
+                        <p className="text-sm text-slate-600 mt-2">
+                            Please confirm your course and year level for the current enrollment cycle before continuing.
+                        </p>
+                        {getSchoolYearLabel(courseYearGate.windowStart, courseYearGate.windowEnd) && (
+                            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+                                <span>School Year: {getSchoolYearLabel(courseYearGate.windowStart, courseYearGate.windowEnd)}</span>
+                            </div>
+                        )}
+
+                        <div className="mt-4 space-y-3">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Course</label>
+                                {courseYearGate.courseLocked ? (
+                                    <input
+                                        readOnly
+                                        value={courseYearGate.course}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-sm text-slate-700"
+                                    />
+                                ) : (
+                                    <select
+                                        value={courseYearGate.course}
+                                        onChange={(e) => setCourseYearGate((prev: any) => ({ ...prev, course: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-sm"
+                                    >
+                                        <option value="">Select course</option>
+                                        {(courseYearGate.courseOptions || []).map((courseName: string) => (
+                                            <option key={courseName} value={courseName}>{courseName}</option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Year Level</label>
+                                {courseYearGate.yearLocked ? (
+                                    <input
+                                        readOnly
+                                        value={courseYearGate.year}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-sm text-slate-700"
+                                    />
+                                ) : (
+                                    <select
+                                        value={courseYearGate.year}
+                                        onChange={(e) => setCourseYearGate((prev: any) => ({ ...prev, year: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-sm"
+                                    >
+                                        {YEAR_LEVEL_OPTIONS.map((year) => <option key={year} value={year}>{year}</option>)}
+                                    </select>
+                                )}
+                            </div>
+                        </div>
+
+                        {courseYearGate.expired && (
+                            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                                The update window has ended. Contact CARE staff to reopen your confirmation window.
+                            </div>
+                        )}
+
+                        <div className="mt-5 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => { window.location.href = '/student/login'; }}
+                                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700"
+                            >
+                                Logout
+                            </button>
+                            {!courseYearGate.expired && (
+                                <button
+                                    type="button"
+                                    onClick={submitCourseYearConfirmation}
+                                    disabled={isSubmittingCourseYearGate}
+                                    className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                    {isSubmittingCourseYearGate ? 'Saving...' : 'Confirm'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
             {/* Mobile Overlay */}
             {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 lg:hidden animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
 
@@ -1927,7 +2376,11 @@ export default function StudentPortal() {
                     </div>
                 </header>
 
-                <div key={activeView} className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
+                <div
+                    key={activeView}
+                    className={`flex-1 overflow-y-auto p-6 lg:p-10 ${activeView === 'profile' ? '' : 'page-transition'}`}
+                    style={activeView === 'profile' ? { transform: 'none' } : undefined}
+                >
 
 
                     {/* DASHBOARD */}
@@ -2071,3 +2524,4 @@ export default function StudentPortal() {
         </div>
     );
 }
+

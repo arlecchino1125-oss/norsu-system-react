@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
@@ -6,12 +6,14 @@ import {
     Calendar, MapPin, Loader2, X, Clock, HelpCircle, LogOut, Mail, Phone, ArrowRight, ChevronDown
 } from 'lucide-react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
+import DatePicker from '../components/ui/DatePicker';
+import { isMissingNatAttendanceColumnsError } from '../services/natService';
 
 // --- ASSETS & CONSTANTS ---
 
 // --- REUSABLE LAYOUT COMPONENT ---
 const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false, onBack, rightAction }: any) => (
-    <div className="min-h-screen bg-slate-50 relative overflow-hidden font-inter selection:bg-blue-200">
+    <div className="nat-portal min-h-screen bg-slate-50 relative overflow-hidden font-inter selection:bg-blue-200">
         {/* Animated Background Blobs */}
         <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
             <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-blue-400/30 rounded-full mix-blend-multiply filter blur-[80px] opacity-50 animate-blob"></div>
@@ -24,7 +26,7 @@ const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false,
         <div className="relative z-10 flex flex-col min-h-screen">
             {/* Glass Header */}
             <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 border-b border-white/50 shadow-sm supports-[backdrop-filter]:bg-white/50">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div className="nat-layout-header max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-2.5 shadow-lg shadow-blue-500/20 ring-1 ring-white/50">
                             <GraduationCap className="w-6 h-6 text-white" />
@@ -50,12 +52,76 @@ const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false,
             </div>
 
             {/* Main Content Area */}
-            <main className="flex-grow p-4 md:p-8 flex flex-col justify-center">
+            <main className="nat-layout-main flex-grow p-4 md:p-8 flex flex-col justify-center">
                 {children}
             </main>
         </div>
     </div>
 );
+
+const parseTimeToMinutes = (value: string) => {
+    const [hour, minute] = String(value || '').split(':').map(Number);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return -1;
+    return (hour * 60) + minute;
+};
+
+const formatTimeLabel = (value: string) => {
+    const [hour, minute] = String(value || '').split(':').map(Number);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = ((hour + 11) % 12) + 1;
+    return `${displayHour}:${String(minute).padStart(2, '0')} ${suffix}`;
+};
+
+const formatTimeWindowLabel = (range: string) => {
+    if (!range) return '';
+    const [start, end] = String(range).split('-').map((part) => part.trim());
+    if (!start || !end) return range;
+    return `${formatTimeLabel(start)} - ${formatTimeLabel(end)}`;
+};
+
+const normalizeScheduleTimeWindows = (raw: any) => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((slot: any) => {
+            const start = String(slot?.start || '').trim();
+            const end = String(slot?.end || '').trim();
+            const slots = parseInt(String(slot?.slots ?? '0'), 10);
+            if (!start || !end || !Number.isFinite(slots) || slots <= 0) return null;
+            if (parseTimeToMinutes(start) >= parseTimeToMinutes(end)) return null;
+            return {
+                start,
+                end,
+                slots,
+                key: `${start}-${end}`,
+                label: `${formatTimeLabel(start)} - ${formatTimeLabel(end)}`
+            };
+        })
+        .filter(Boolean);
+};
+
+const isNatFinishedStatus = (status: unknown) => {
+    const value = String(status || '');
+    return value === 'Test Taken'
+        || value === 'Passed'
+        || value === 'Failed'
+        || value === 'Qualified for Interview (1st Choice)'
+        || value === 'Approved for Enrollment'
+        || value === 'Interview Scheduled'
+        || value.includes('Forwarded to')
+        || value.includes('Application Unsuccessful');
+};
+
+const hasNatStartedStatus = (status: unknown) => {
+    const value = String(status || '');
+    return value === 'Ongoing' || isNatFinishedStatus(value);
+};
+
+const hasNatAttendanceColumns = (record: any) => {
+    if (!record || typeof record !== 'object') return false;
+    return Object.prototype.hasOwnProperty.call(record, 'time_in')
+        || Object.prototype.hasOwnProperty.call(record, 'time_out');
+};
 
 const NATPortal = () => {
     const navigate = useNavigate();
@@ -73,6 +139,7 @@ const NATPortal = () => {
     // Options
     const [availableCourses, setAvailableCourses] = useState<any[]>([]);
     const [availableDates, setAvailableDates] = useState<any[]>([]);
+    const [supportsTestTime, setSupportsTestTime] = useState<boolean>(true);
 
     // Form State
     const [formData, setFormData] = useState<any>({
@@ -88,7 +155,7 @@ const NATPortal = () => {
         mobile: '', email: '', facebookUrl: '',
         schoolLastAttended: '', yearLevelApplying: '', reason: '',
         priorityCourse: '', altCourse1: '', altCourse2: '', altCourse3: '',
-        testDate: '',
+        testDate: '', testTime: '',
         isWorkingStudent: 'No', workingStudentType: '',
         supporter: [], supporterContact: '',
         isPwd: 'No', pwdType: '',
@@ -101,27 +168,6 @@ const NATPortal = () => {
     const [showTimeInConfirm, setShowTimeInConfirm] = useState(false);
     const [showTimeOutConfirm, setShowTimeOutConfirm] = useState(false);
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
-
-    // Timer Effect
-    useEffect(() => {
-        let interval: any;
-        if (currentUser?.time_in && !currentUser?.time_out) {
-            interval = setInterval(() => {
-                const start = new Date(currentUser.time_in).getTime();
-                const now = new Date().getTime();
-                const diff = now - start;
-
-                const hours = Math.floor(diff / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-                setElapsedTime(
-                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-                );
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [currentUser]);
 
     // Realtime: auto-update applicant status when dept head changes it
     useEffect(() => {
@@ -147,6 +193,50 @@ const NATPortal = () => {
         setTimeout(() => setToast(null), 3000);
     };
 
+    const supportsNatAttendance = hasNatAttendanceColumns(currentUser);
+    const hasStartedCurrentNat = supportsNatAttendance ? Boolean(currentUser?.time_in) : hasNatStartedStatus(currentUser?.status);
+    const hasFinishedCurrentNat = supportsNatAttendance ? Boolean(currentUser?.time_out) : isNatFinishedStatus(currentUser?.status);
+
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval> | null = null;
+
+        if (supportsNatAttendance && currentUser?.time_in && !currentUser?.time_out) {
+            const updateElapsed = () => {
+                const start = new Date(currentUser.time_in).getTime();
+                const diff = Date.now() - start;
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                setElapsedTime(
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+                );
+            };
+
+            updateElapsed();
+            interval = setInterval(updateElapsed, 1000);
+        } else {
+            setElapsedTime('00:00:00');
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [supportsNatAttendance, currentUser?.time_in, currentUser?.time_out]);
+
+    const selectedDateSchedule = availableDates.find((d: any) => d.date === formData.testDate);
+    const selectedDateTimeSlots = selectedDateSchedule?.timeSlots || [];
+
+    const isWithinAssignedTimeWindow = (timeWindow: string, now: Date) => {
+        if (!timeWindow) return null;
+        const [start, end] = String(timeWindow).split('-').map((part) => part.trim());
+        const startMin = parseTimeToMinutes(start);
+        const endMin = parseTimeToMinutes(end);
+        if (startMin < 0 || endMin < 0 || startMin >= endMin) return null;
+        const nowMin = (now.getHours() * 60) + now.getMinutes();
+        return nowMin >= startMin && nowMin < endMin;
+    };
+
     // Load Options
     useEffect(() => {
         const fetchOptions = async () => {
@@ -161,7 +251,16 @@ const NATPortal = () => {
                 .order('date');
 
             // Fetch Application Counts
-            const { data: appsData } = await supabase.from('applications').select('priority_course, test_date');
+            let appsData: any[] = [];
+            const withTime = await supabase.from('applications').select('priority_course, test_date, test_time');
+            if (withTime.error) {
+                setSupportsTestTime(false);
+                const fallback = await supabase.from('applications').select('priority_course, test_date');
+                appsData = fallback.data || [];
+            } else {
+                setSupportsTestTime(true);
+                appsData = withTime.data || [];
+            }
 
             if (coursesData && appsData) {
                 const courseCounts: Record<string, any> = {};
@@ -176,9 +275,34 @@ const NATPortal = () => {
 
             if (datesData) {
                 const dateCounts: Record<string, any> = {};
-                if (appsData) appsData.forEach((a: any) => { if (a.test_date) dateCounts[a.test_date] = (dateCounts[a.test_date] || 0) + 1; });
+                const dateTimeCounts: Record<string, number> = {};
 
-                const datesWithStats = datesData.map((d: any) => ({ ...d, applicantCount: dateCounts[d.date] || 0 }));
+                appsData.forEach((a: any) => {
+                    if (a.test_date) {
+                        dateCounts[a.test_date] = (dateCounts[a.test_date] || 0) + 1;
+                        if (a.test_time) {
+                            const key = `${a.test_date}|${a.test_time}`;
+                            dateTimeCounts[key] = (dateTimeCounts[key] || 0) + 1;
+                        }
+                    }
+                });
+
+                const datesWithStats = datesData.map((d: any) => {
+                    const normalizedWindows = normalizeScheduleTimeWindows(d.time_windows);
+                    const timeSlots = normalizedWindows.map((slot: any) => {
+                        const assigned = dateTimeCounts[`${d.date}|${slot.key}`] || 0;
+                        return {
+                            ...slot,
+                            applicantCount: assigned,
+                            remaining: Math.max(slot.slots - assigned, 0)
+                        };
+                    });
+                    return {
+                        ...d,
+                        applicantCount: dateCounts[d.date] || 0,
+                        timeSlots
+                    };
+                });
                 setAvailableDates(datesWithStats);
             }
         };
@@ -197,23 +321,23 @@ const NATPortal = () => {
                 const now = new Date(timeData.datetime);
 
                 const todayDate = timeData.datetime.split('T')[0];
-                const currentHour = now.getHours();
 
                 const isTestDate = currentUser.test_date === todayDate;
-                const isMorningSlot = currentHour >= 8 && currentHour < 12;
-                const isAfternoonSlot = currentHour >= 13 && currentHour < 17;
-                const isOpen = isMorningSlot || isAfternoonSlot;
+                const assignedWindowOpen = isWithinAssignedTimeWindow(currentUser.test_time, now);
+                const fallbackHour = now.getHours();
+                const fallbackOpen = (fallbackHour >= 8 && fallbackHour < 12) || (fallbackHour >= 13 && fallbackHour < 17);
+                const isOpen = assignedWindowOpen === null ? fallbackOpen : assignedWindowOpen;
                 setTimeState({ isTestDate, isOpen });
             } catch (err) {
                 // Fallback to local time if API is down
                 const now = new Date();
                 const todayDate = now.toISOString().split('T')[0];
-                const currentHour = now.getHours();
 
                 const isTestDate = currentUser.test_date === todayDate;
-                const isMorningSlot = currentHour >= 8 && currentHour < 12;
-                const isAfternoonSlot = currentHour >= 13 && currentHour < 17;
-                const isOpen = isMorningSlot || isAfternoonSlot;
+                const assignedWindowOpen = isWithinAssignedTimeWindow(currentUser.test_time, now);
+                const fallbackHour = now.getHours();
+                const fallbackOpen = (fallbackHour >= 8 && fallbackHour < 12) || (fallbackHour >= 13 && fallbackHour < 17);
+                const isOpen = assignedWindowOpen === null ? fallbackOpen : assignedWindowOpen;
                 setTimeState({ isTestDate, isOpen });
             }
         };
@@ -254,6 +378,8 @@ const NATPortal = () => {
                 age--;
             }
             setFormData({ ...formData, [name]: value, age: age >= 0 ? age : '' });
+        } else if (name === 'testDate') {
+            setFormData({ ...formData, testDate: value, testTime: '' });
         } else {
             setFormData({ ...formData, [name]: value });
         }
@@ -283,6 +409,10 @@ const NATPortal = () => {
             }
             if (!formData.testDate) {
                 showToast("Please select a test date.", 'error');
+                return;
+            }
+            if (supportsTestTime && selectedDateTimeSlots.length > 0 && !formData.testTime) {
+                showToast("Please select a test time.", 'error');
                 return;
             }
         }
@@ -327,7 +457,8 @@ const NATPortal = () => {
                 username: username,
                 password: password,
                 dob: formData.dob
-            };
+            } as any;
+            if (supportsTestTime) payload.test_time = formData.testTime || null;
 
             const { error } = await supabase.from('applications').insert([payload]);
             if (error) throw error;
@@ -342,6 +473,7 @@ const NATPortal = () => {
                         email: formData.email,
                         name: `${formData.firstName} ${formData.lastName}`,
                         testDate: formData.testDate,
+                        testTime: formData.testTime,
                         username: username,
                         password: password
                     }
@@ -396,16 +528,26 @@ const NATPortal = () => {
     const executeTimeIn = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const timestamp = new Date().toISOString();
+            let { data, error } = await supabase
                 .from('applications')
-                .update({ time_in: 'now', status: 'Ongoing' })
+                .update({ time_in: timestamp, status: 'Ongoing' })
                 .eq('id', currentUser.id)
                 .select()
                 .single();
 
+            if (error && isMissingNatAttendanceColumnsError(error)) {
+                ({ data, error } = await supabase
+                    .from('applications')
+                    .update({ status: 'Ongoing' })
+                    .eq('id', currentUser.id)
+                    .select()
+                    .single());
+            }
+
             if (error) throw error;
-            showToast("Time In recorded successfully. Good luck!");
-            setCurrentUser({ ...currentUser, time_in: data.time_in, status: 'Ongoing' });
+            showToast(data?.time_in ? "Time In recorded successfully. Good luck!" : "NAT started successfully. Good luck!");
+            setCurrentUser({ ...currentUser, ...data, status: data.status || 'Ongoing' });
             setShowTimeInConfirm(false);
         } catch (error: any) {
             showToast("Error recording Time In: " + error.message, 'error');
@@ -417,16 +559,26 @@ const NATPortal = () => {
     const executeTimeOut = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const timestamp = new Date().toISOString();
+            let { data, error } = await supabase
                 .from('applications')
-                .update({ time_out: 'now', status: 'Test Taken' })
+                .update({ time_out: timestamp, status: 'Test Taken' })
                 .eq('id', currentUser.id)
                 .select()
                 .single();
 
+            if (error && isMissingNatAttendanceColumnsError(error)) {
+                ({ data, error } = await supabase
+                    .from('applications')
+                    .update({ status: 'Test Taken' })
+                    .eq('id', currentUser.id)
+                    .select()
+                    .single());
+            }
+
             if (error) throw error;
-            showToast("Time Out recorded. You have completed the NAT.");
-            setCurrentUser({ ...currentUser, time_out: data.time_out, status: 'Test Taken' });
+            showToast(data?.time_out ? "Time Out recorded. You have completed the NAT." : "NAT completion recorded.");
+            setCurrentUser({ ...currentUser, ...data, status: data.status || 'Test Taken' });
             setShowTimeOutConfirm(false);
         } catch (error: any) {
             showToast("Error: " + error.message, 'error');
@@ -574,15 +726,25 @@ const NATPortal = () => {
             // 4. Upsert student
             const { data: existingStudent } = await supabase
                 .from('students')
-                .select('id')
+                .select('id, profile_completed, has_seen_tour')
                 .eq('student_id', studentId)
                 .maybeSingle();
 
             if (existingStudent) {
-                const { error: updateError } = await supabase.from('students').update(profileData).eq('student_id', studentId);
+                const studentUpdatePayload = {
+                    ...profileData,
+                    ...(existingStudent.profile_completed ? { profile_completed: true } : {}),
+                    ...(existingStudent.has_seen_tour ? { has_seen_tour: true } : {})
+                };
+                const { error: updateError } = await supabase.from('students').update(studentUpdatePayload).eq('student_id', studentId);
                 if (updateError) throw updateError;
             } else {
-                const { error: insertError } = await supabase.from('students').insert([{ ...profileData, student_id: studentId }]);
+                const { error: insertError } = await supabase.from('students').insert([{
+                    ...profileData,
+                    student_id: studentId,
+                    profile_completed: false,
+                    has_seen_tour: false
+                }]);
                 if (insertError) throw insertError;
             }
 
@@ -651,12 +813,12 @@ const NATPortal = () => {
                 </button>
             }
         >
-            <div className="max-w-5xl mx-auto w-full">
+            <div className="nat-page-shell nat-page-shell-lg max-w-5xl mx-auto w-full">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                    className="bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-white p-6 md:p-14 text-center relative overflow-hidden group"
+                    className="nat-screen-card nat-hero-card bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-white p-6 md:p-14 text-center relative overflow-hidden group"
                 >
                     <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none"></div>
 
@@ -670,10 +832,10 @@ const NATPortal = () => {
                             <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
                             <FileText className="w-10 h-10 md:w-14 md:h-14 text-blue-600 relative z-10 drop-shadow-sm" />
                         </motion.div>
-                        <motion.h2 variants={itemVariants} className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
+                        <motion.h2 variants={itemVariants} className="nat-hero-title text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
                             Welcome to NORSU
                         </motion.h2>
-                        <motion.p variants={itemVariants} className="text-lg md:text-2xl text-slate-600/90 font-medium mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
+                        <motion.p variants={itemVariants} className="nat-hero-lead text-lg md:text-2xl text-slate-600/90 font-medium mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                             Begin your academic journey with the Negros Oriental State University Admission Test.
                         </motion.p>
 
@@ -701,17 +863,17 @@ const NATPortal = () => {
                             </motion.div>
                         </motion.div>
 
-                        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
+                        <motion.div variants={itemVariants} className="nat-action-row flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
                             <button
                                 onClick={() => setCurrentScreen('form')}
-                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
+                                className="nat-primary-action flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
                             >
                                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
                                 <span className="relative z-10 flex items-center gap-2">Apply Now <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:translate-x-1 transition-transform" /></span>
                             </button>
                             <button
                                 onClick={() => setCurrentScreen('login')}
-                                className="flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95"
+                                className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95"
                             >
                                 Login to Portal
                             </button>
@@ -727,16 +889,16 @@ const NATPortal = () => {
     // --- RENDER SCREEN: STATUS ---
     if (currentScreen === 'status') return (
         <NATLayout title="Applicant Status" showBack={false}>
-            <div className="max-w-4xl mx-auto w-full">
+            <div className="nat-page-shell nat-page-shell-md max-w-4xl mx-auto w-full">
                 <motion.div
                     initial="initial" animate="in" variants={containerVariants}
-                    className="bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-900/10 border border-white p-6 md:p-12 overflow-hidden relative"
+                    className="nat-screen-card bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-900/10 border border-white p-6 md:p-12 overflow-hidden relative"
                 >
                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500"></div>
 
                     <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10 gap-4">
                         <div>
-                            <h1 className="text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Application Status</h1>
+                            <h1 className="nat-panel-title text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Application Status</h1>
                             <p className="text-slate-500 text-sm font-semibold mt-2 flex items-center gap-2">Ref ID: <span className="font-mono text-xs md:text-sm text-slate-700 bg-white/60 border border-slate-200 px-2 md:px-3 py-1 rounded-lg shadow-sm">{credentials?.referenceId}</span></p>
                         </div>
                         <span className="px-5 md:px-6 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 text-emerald-700 rounded-2xl text-xs md:text-sm font-bold flex items-center gap-3 shadow-md shadow-emerald-500/10 border border-emerald-200/50 w-full md:w-auto justify-center md:justify-start">
@@ -759,17 +921,17 @@ const NATPortal = () => {
                         </motion.div>
                     </div>
 
-                    <motion.div variants={itemVariants} className="bg-gradient-to-br from-blue-50/90 to-indigo-50/90 border border-blue-200/50 rounded-[1.5rem] p-8 mb-8 flex gap-5 shadow-inner">
+                    <motion.div variants={itemVariants} className="nat-callout bg-gradient-to-br from-blue-50/90 to-indigo-50/90 border border-blue-200/50 rounded-[1.5rem] p-8 mb-8 flex gap-5 shadow-inner">
                         <div className="bg-white p-3 rounded-2xl h-fit text-blue-600 shadow-md shadow-blue-500/10"><Clock className="w-7 h-7" /></div>
                         <div>
                             <h3 className="font-extrabold text-slate-800 mb-2 text-lg">Next Steps</h3>
                             <p className="text-slate-600 leading-relaxed font-medium">
-                                Your application is being processed. Please prepare for your admission test on <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{credentials?.testDate}</span>.
+                                Your application is being processed. Please prepare for your admission test on <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{credentials?.testDate}</span>{credentials?.testTime ? <> at <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{formatTimeWindowLabel(credentials?.testTime)}</span></> : ''}.
                             </p>
                         </div>
                     </motion.div>
 
-                    <motion.div variants={itemVariants} className="bg-gradient-to-br from-amber-50/90 to-orange-50/90 border border-amber-200/50 rounded-[2rem] p-8 mb-10 relative overflow-hidden shadow-sm">
+                    <motion.div variants={itemVariants} className="nat-section-card bg-gradient-to-br from-amber-50/90 to-orange-50/90 border border-amber-200/50 rounded-[2rem] p-8 mb-10 relative overflow-hidden shadow-sm">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
                         <div className="relative z-10">
                             <h3 className="text-lg font-black text-amber-900 mb-6 flex items-center gap-3">
@@ -791,10 +953,10 @@ const NATPortal = () => {
                         </div>
                     </motion.div>
 
-                    <motion.div variants={itemVariants} className="flex flex-col md:flex-row gap-4">
+                    <motion.div variants={itemVariants} className="nat-action-row flex flex-col md:flex-row gap-4">
                         <button
                             onClick={() => setCurrentScreen('login')}
-                            className="flex-1 bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 px-6 rounded-2xl font-black text-lg hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden"
+                            className="nat-primary-action flex-1 bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 px-6 rounded-2xl font-black text-lg hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
                             <LogOut className="w-5 h-5 relative z-10" /> <span className="relative z-10">Go to Login Portal</span>
@@ -802,7 +964,7 @@ const NATPortal = () => {
                         </button>
                         <button
                             onClick={() => setCurrentScreen('welcome')}
-                            className="flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                            className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
                         >
                             Back to Welcome
                         </button>
@@ -819,12 +981,12 @@ const NATPortal = () => {
             showBack={true}
             onBack={() => setCurrentScreen('welcome')}
         >
-            <div className="max-w-md mx-auto w-full">
+            <div className="nat-page-shell nat-page-shell-sm max-w-md mx-auto w-full">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                    className="bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-white p-8 md:p-10 relative overflow-hidden"
+                    className="nat-screen-card nat-login-card bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-white p-8 md:p-10 relative overflow-hidden"
                 >
                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
 
@@ -833,11 +995,11 @@ const NATPortal = () => {
                             <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
                             <Key className="w-10 h-10 text-blue-600 relative z-10 drop-shadow-sm" />
                         </div>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Access Your Portal</h1>
+                        <h1 className="nat-panel-title text-3xl font-black text-slate-800 tracking-tight mb-2">Access Your Portal</h1>
                         <p className="text-slate-600 font-medium">Enter the credentials sent to your email.</p>
                     </div>
 
-                    <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-sm border border-blue-100/50 rounded-2xl p-5 mb-8 flex gap-3 shadow-inner">
+                    <div className="nat-callout bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-sm border border-blue-100/50 rounded-2xl p-5 mb-8 flex gap-3 shadow-inner">
                         <Info className="text-blue-500 shrink-0 w-5 h-5 mt-0.5 drop-shadow-sm" />
                         <p className="text-xs text-blue-800/90 leading-relaxed font-bold">
                             First time here? Your username and password are temporarily assigned after you submit your application form.
@@ -854,7 +1016,7 @@ const NATPortal = () => {
                                 <input
                                     name="username"
                                     required
-                                    className="w-full pl-12 pr-4 py-4 bg-white/60 border-2 border-slate-200/50 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400 font-bold text-slate-800 z-10 relative shadow-sm"
+                                    className="nat-auth-input w-full pl-12 pr-4 py-4 bg-white/60 border-2 border-slate-200/50 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400 font-bold text-slate-800 z-10 relative shadow-sm"
                                     placeholder="e.g. user_123456"
                                 />
                             </div>
@@ -870,7 +1032,7 @@ const NATPortal = () => {
                                     name="password"
                                     type="password"
                                     required
-                                    className="w-full pl-12 pr-4 py-4 bg-white/60 border-2 border-slate-200/50 rounded-2xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white outline-none transition-all placeholder:text-slate-400 font-bold font-mono text-slate-800 shadow-sm tracking-wide"
+                                    className="nat-auth-input w-full pl-12 pr-4 py-4 bg-white/60 border-2 border-slate-200/50 rounded-2xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white outline-none transition-all placeholder:text-slate-400 font-bold font-mono text-slate-800 shadow-sm tracking-wide"
                                     placeholder="••••••••"
                                 />
                             </div>
@@ -878,7 +1040,7 @@ const NATPortal = () => {
 
                         <button
                             disabled={loading}
-                            className="w-full bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 rounded-2xl font-black mt-4 hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70 group relative overflow-hidden"
+                            className="nat-primary-action w-full bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 rounded-2xl font-black mt-4 hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70 group relative overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
                             {loading ? <Loader2 className="w-5 h-5 animate-spin relative z-10" /> : <LogOut className="w-5 h-5 relative z-10" />}
@@ -915,20 +1077,20 @@ const NATPortal = () => {
                     </button>
                 }
             >
-                <div className="max-w-6xl mx-auto w-full animate-slide-in-up pb-24">
+                <div className="nat-page-shell nat-page-shell-xl max-w-6xl mx-auto w-full animate-slide-in-up pb-24">
 
                     {/* Smart Action Bar (Time In/Out) */}
                     <div className="fixed bottom-0 left-0 w-full z-50 p-4 flex justify-center pointer-events-none">
-                        <div className={`pointer-events-auto bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-2 flex items-center gap-4 transition-all duration-500 max-w-lg w-full ${!currentUser.time_in ? 'translate-y-0 opacity-100' : ''}`}>
+                        <div className={`nat-action-bar pointer-events-auto bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-2 flex items-center gap-4 transition-all duration-500 max-w-lg w-full ${!hasStartedCurrentNat ? 'translate-y-0 opacity-100' : ''}`}>
 
                             {/* Status Display */}
                             <div className="flex-1 pl-4">
-                                {!currentUser.time_in ? (
+                                {!hasStartedCurrentNat ? (
                                     <div>
                                         <p className="text-xs text-white/80 font-bold uppercase tracking-wider">Ready</p>
                                         <p className="text-white font-bold">Good luck, {currentUser.first_name}!</p>
                                     </div>
-                                ) : !currentUser.time_out ? (
+                                ) : !hasFinishedCurrentNat ? (
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <span className="relative flex h-2 w-2">
@@ -937,7 +1099,11 @@ const NATPortal = () => {
                                             </span>
                                             <p className="text-xs text-white/80 font-bold uppercase tracking-wider">Ongoing</p>
                                         </div>
-                                        <p className="text-white font-mono font-bold text-lg">{elapsedTime}</p>
+                                        {supportsNatAttendance ? (
+                                            <p className="text-white font-mono font-bold text-lg">{elapsedTime}</p>
+                                        ) : (
+                                            <p className="text-white font-bold text-sm">Finish the exam when instructed by the proctor.</p>
+                                        )}
                                     </div>
                                 ) : (
                                     <div>
@@ -952,7 +1118,7 @@ const NATPortal = () => {
 
                             {/* Action Button */}
                             <div>
-                                {!currentUser.time_in ? (
+                                {!hasStartedCurrentNat ? (
                                     <button
                                         onClick={() => setShowTimeInConfirm(true)}
                                         disabled={!(timeState.isTestDate && timeState.isOpen)}
@@ -960,7 +1126,7 @@ const NATPortal = () => {
                                     >
                                         <Clock className="w-5 h-5" /> TIME IN
                                     </button>
-                                ) : !currentUser.time_out ? (
+                                ) : !hasFinishedCurrentNat ? (
                                     <button
                                         onClick={() => setShowTimeOutConfirm(true)}
                                         className="px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2 bg-gradient-to-r from-red-500 to-rose-600 hover:scale-105 hover:shadow-red-500/30"
@@ -996,7 +1162,7 @@ const NATPortal = () => {
                                         </div>
                                         <div className="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-xl">
                                             <Clock className="w-5 h-5 text-gray-400 shrink-0" />
-                                            <span>The timer will run until you clock out.</span>
+                                            <span>{supportsNatAttendance ? 'Your time-in record will be saved immediately.' : 'Your application status will switch to `Ongoing` once you start.'}</span>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
@@ -1022,7 +1188,7 @@ const NATPortal = () => {
                                 </div>
                                 <div className="p-6">
                                     <p className="text-center text-gray-600 text-sm mb-6">
-                                        Are you sure you want to clock out? This action cannot be undone.
+                                        {supportsNatAttendance ? 'Are you sure you want to clock out? This action cannot be undone.' : 'Are you sure you want to finish the NAT? This action cannot be undone.'}
                                     </p>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button onClick={() => setShowTimeOutConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
@@ -1049,7 +1215,7 @@ const NATPortal = () => {
                                 <form onSubmit={handleActivation} className="space-y-4">
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-gray-700 uppercase">Student ID</label>
-                                        <input required name="studentId" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="2026-XXXX" />
+                                        <input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="Ex: 202612345" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-gray-700 uppercase">Enrolled Course</label>
@@ -1070,7 +1236,7 @@ const NATPortal = () => {
                         {/* Left Column: Status Card + Actions */}
                         <div className="lg:col-span-2 space-y-4 md:space-y-6">
                             {/* Header Info */}
-                            <div className="bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-blue-900/5">
+                            <div className="nat-section-card bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-blue-900/5">
                                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-3 md:gap-4 mb-5 md:mb-6">
                                     <div>
                                         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Hello, {currentUser.first_name}!</h2>
@@ -1108,55 +1274,92 @@ const NATPortal = () => {
                                 )}
 
                                 {/* Attendance Widget */}
-                                {(currentUser.time_in || currentUser.time_out) && (
-                                    <div className={`border rounded-2xl p-4 md:p-6 transition-all duration-300 ${!currentUser.time_out ? 'bg-blue-50/50 border-blue-100 shadow-blue-500/5' : 'bg-gray-50 border-gray-100'}`}>
+                                {hasStartedCurrentNat && (
+                                    <div className={`border rounded-2xl p-4 md:p-6 transition-all duration-300 ${!hasFinishedCurrentNat ? 'bg-blue-50/50 border-blue-100 shadow-blue-500/5' : 'bg-gray-50 border-gray-100'}`}>
                                         <div className="flex justify-between items-center mb-4 md:mb-6">
-                                            <h3 className={`font-bold flex items-center gap-2 text-xs md:text-sm uppercase tracking-wider ${!currentUser.time_out ? 'text-blue-900' : 'text-gray-500'}`}>
-                                                <Clock className="w-4 h-4 md:w-5 md:h-5" /> Attendance Log
+                                            <h3 className={`font-bold flex items-center gap-2 text-xs md:text-sm uppercase tracking-wider ${!hasFinishedCurrentNat ? 'text-blue-900' : 'text-gray-500'}`}>
+                                                <Clock className="w-4 h-4 md:w-5 md:h-5" /> {supportsNatAttendance ? 'Attendance Log' : 'Exam Progress'}
                                             </h3>
-                                            {!currentUser.time_out && (
+                                            {!hasFinishedCurrentNat && (
                                                 <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] md:text-xs font-bold animate-pulse">Live</span>
                                             )}
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-3 md:gap-4">
-                                            <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
-                                                <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><Clock className="w-8 h-8 md:w-12 md:h-12 text-blue-100 transform rotate-12 group-hover:scale-110 transition-transform" /></div>
-                                                <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Started At</p>
-                                                <p className="font-mono text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
-                                                    {currentUser.time_in ? new Date(currentUser.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                                                </p>
-                                            </div>
-                                            <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
-                                                <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><LogOut className="w-8 h-8 md:w-12 md:h-12 text-gray-100 transform -rotate-12 group-hover:scale-110 transition-transform" /></div>
-                                                <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Finished At</p>
-                                                <p className="font-mono text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
-                                                    {currentUser.time_out ? new Date(currentUser.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        {supportsNatAttendance ? (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                                                    <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
+                                                        <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><Clock className="w-8 h-8 md:w-12 md:h-12 text-blue-100 transform rotate-12 group-hover:scale-110 transition-transform" /></div>
+                                                        <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Started At</p>
+                                                        <p className="font-mono text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
+                                                            {currentUser.time_in ? new Date(currentUser.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
+                                                        <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><LogOut className="w-8 h-8 md:w-12 md:h-12 text-gray-100 transform -rotate-12 group-hover:scale-110 transition-transform" /></div>
+                                                        <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Finished At</p>
+                                                        <p className="font-mono text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
+                                                            {currentUser.time_out ? new Date(currentUser.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                                                        </p>
+                                                    </div>
+                                                </div>
 
-                                        {!currentUser.time_out && (
-                                            <div className="mt-3 md:mt-4 p-3 md:p-4 bg-white rounded-xl border border-blue-100 flex items-center justify-between">
-                                                <span className="text-xs md:text-sm font-medium text-gray-500">Duration</span>
-                                                <span className="font-mono text-xl md:text-2xl font-bold text-blue-600 tabular-nums">{elapsedTime}</span>
-                                            </div>
+                                                {!hasFinishedCurrentNat && (
+                                                    <div className="mt-3 md:mt-4 p-3 md:p-4 bg-white rounded-xl border border-blue-100 flex items-center justify-between">
+                                                        <span className="text-xs md:text-sm font-medium text-gray-500">Duration</span>
+                                                        <span className="font-mono text-xl md:text-2xl font-bold text-blue-600 tabular-nums">{elapsedTime}</span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                                                    <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
+                                                        <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><Clock className="w-8 h-8 md:w-12 md:h-12 text-blue-100 transform rotate-12 group-hover:scale-110 transition-transform" /></div>
+                                                        <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Started</p>
+                                                        <p className="text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
+                                                            {hasStartedCurrentNat ? 'Yes' : 'Not yet'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="bg-white p-3 md:p-4 rounded-xl border border-blue-50/50 shadow-sm relative overflow-hidden group">
+                                                        <div className="absolute top-0 right-0 p-1 md:p-2 opacity-50"><LogOut className="w-8 h-8 md:w-12 md:h-12 text-gray-100 transform -rotate-12 group-hover:scale-110 transition-transform" /></div>
+                                                        <p className="text-[10px] md:text-xs text-blue-400 uppercase font-bold mb-1">Completed</p>
+                                                        <p className="text-lg md:text-xl text-gray-900 font-bold tracking-tight relative z-10">
+                                                            {hasFinishedCurrentNat ? 'Yes' : 'Pending'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {!hasFinishedCurrentNat && (
+                                                    <div className="mt-3 md:mt-4 p-3 md:p-4 bg-white rounded-xl border border-blue-100 flex items-center justify-between">
+                                                        <span className="text-xs md:text-sm font-medium text-gray-500">Current Status</span>
+                                                        <span className="text-sm md:text-base font-bold text-blue-600">{currentUser.status || 'Ongoing'}</span>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 )}
                             </div>
 
                             {/* Test Details */}
-                            <div className="bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-indigo-900/5">
+                            <div className="nat-section-card bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-indigo-900/5">
                                 <h3 className="font-bold text-gray-900 mb-5 md:mb-6 flex items-center gap-2 text-sm md:text-base">
                                     <FileText className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" /> Test Details
                                 </h3>
-                                <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+                                <div className="grid md:grid-cols-3 gap-4 md:gap-6">
                                     <div className="flex gap-3 items-start">
                                         <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0"><Calendar className="w-4 h-4 md:w-5 md:h-5" /></div>
                                         <div>
                                             <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase">Test Date</p>
                                             <p className="font-semibold text-gray-900 text-sm md:text-base">{currentUser.test_date}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3 items-start">
+                                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0"><Clock className="w-4 h-4 md:w-5 md:h-5" /></div>
+                                        <div>
+                                            <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase">Test Time</p>
+                                            <p className="font-semibold text-gray-900 text-sm md:text-base">{currentUser.test_time ? formatTimeWindowLabel(currentUser.test_time) : 'Assigned on test day'}</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-3 items-start">
@@ -1171,7 +1374,7 @@ const NATPortal = () => {
                         </div>
 
                         {/* Right Column: Profile Summary */}
-                        <div className="bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-blue-900/5 h-fit">
+                        <div className="nat-section-card bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-blue-900/5 h-fit">
                             <h3 className="font-bold text-gray-900 mb-5 md:mb-6 flex items-center gap-2 border-b border-gray-100 pb-4 text-sm md:text-base">
                                 <User className="w-4 h-4 md:w-5 md:h-5 text-gray-500" /> Profile Summary
                             </h3>
@@ -1232,12 +1435,12 @@ const NATPortal = () => {
             showBack={true}
             onBack={() => setCurrentScreen('welcome')}
         >
-            <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 max-w-6xl mx-auto w-full animate-slide-in-up pb-24">
+            <div className="nat-form-shell flex flex-col lg:flex-row gap-4 lg:gap-8 max-w-6xl mx-auto w-full animate-slide-in-up pb-24">
 
                 {/* ===== MOBILE: Compact Horizontal Stepper + Collapsible Disclaimer ===== */}
                 <div className="block lg:hidden">
                     {/* Horizontal Step Indicator */}
-                    <div className="bg-white/40 backdrop-blur-2xl rounded-2xl p-4 border border-white shadow-lg shadow-blue-900/5">
+                    <div className="nat-mobile-stepper bg-white/40 backdrop-blur-2xl rounded-2xl p-4 border border-white shadow-lg shadow-blue-900/5">
                         <div className="flex items-center justify-between gap-2">
                             {[
                                 { id: 1, title: 'Personal' },
@@ -1267,7 +1470,7 @@ const NATPortal = () => {
                     </div>
 
                     {/* Collapsible Data Privacy Disclaimer */}
-                    <div className="mt-3 bg-white/40 backdrop-blur-2xl rounded-2xl border border-white shadow-lg shadow-blue-900/5 overflow-hidden">
+                    <div className="nat-mobile-privacy mt-3 bg-white/40 backdrop-blur-2xl rounded-2xl border border-white shadow-lg shadow-blue-900/5 overflow-hidden">
                         <button
                             type="button"
                             onClick={() => setFormData((prev: any) => ({ ...prev, _disclaimerOpen: !prev._disclaimerOpen }))}
@@ -1298,10 +1501,10 @@ const NATPortal = () => {
                 </div>
 
                 {/* ===== DESKTOP: Original Sidebar Navigation (hidden on mobile) ===== */}
-                <div className="hidden lg:block lg:w-1/4 shrink-0">
+                <div className="nat-sidebar hidden lg:block shrink-0">
                     <div className="sticky top-24 space-y-4">
                         {/* Application Sections */}
-                        <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-6 border border-white shadow-xl shadow-blue-900/5">
+                        <div className="nat-section-card nat-sidebar-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-6 border border-white shadow-xl shadow-blue-900/5">
                             <h3 className="font-black text-slate-800 mb-6 uppercase tracking-widest text-xs">Application Sections</h3>
                             <div className="space-y-2">
                                 {[
@@ -1324,7 +1527,7 @@ const NATPortal = () => {
                         </div>
 
                         {/* Data Privacy Act Disclaimer — separate card */}
-                        <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-5 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden">
+                        <div className="nat-section-card nat-sidebar-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-5 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
                             <h4 className="text-[10px] font-black text-slate-800 mb-2 flex items-center gap-1.5 uppercase tracking-widest"><Info className="w-3 h-3 text-blue-500" /> Data Privacy Disclaimer</h4>
                             <p className="text-[11px] text-slate-600 mb-3 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
@@ -1340,8 +1543,8 @@ const NATPortal = () => {
                 </div>
 
                 {/* Form Area */}
-                <div className="lg:w-3/4">
-                    <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-xl border border-blue-200/50 rounded-2xl p-6 mb-8 flex gap-4 shadow-lg shadow-blue-500/5">
+                <div className="nat-form-main">
+                    <div className="nat-callout bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-xl border border-blue-200/50 rounded-2xl p-6 mb-8 flex gap-4 shadow-lg shadow-blue-500/5">
                         <Info className="text-blue-600 shrink-0 w-6 h-6 drop-shadow-sm" />
                         <div>
                             <h3 className="font-extrabold text-blue-900 mb-1 tracking-tight">Before you begin</h3>
@@ -1357,7 +1560,7 @@ const NATPortal = () => {
                                 <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
 
                                     {/* Personal Information */}
-                                    <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
+                                    <div className="nat-section-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
                                         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-blue-600"></div>
                                         <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
                                             <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-2.5 rounded-xl shadow-inner border border-blue-200/50"><User className="w-5 h-5 text-blue-700 drop-shadow-sm" /></div>
@@ -1389,7 +1592,7 @@ const NATPortal = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                             <div className="space-y-1.5">
                                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Date of Birth <span className="text-red-500">*</span></label>
-                                                <input type="date" name="dob" value={formData.dob} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all hover:bg-white" />
+                                                <DatePicker required name="dob" value={formData.dob} onChange={(val) => { setFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" />
                                             </div>
                                             <div className="space-y-1.5">
                                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Age <span className="text-red-500">*</span></label>
@@ -1448,7 +1651,7 @@ const NATPortal = () => {
                             {currentStep === 2 && (
                                 <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
                                     {/* Course & Schedule Selection */}
-                                    <div className="bg-white/60 backdrop-blur-md rounded-3xl p-8 border border-white/50 shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
+                                    <div className="nat-section-card bg-white/60 backdrop-blur-md rounded-3xl p-8 border border-white/50 shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
                                         <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500"></div>
                                         <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
                                             <div className="bg-orange-100 p-2 rounded-lg text-orange-600"><Calendar className="w-5 h-5" /></div>
@@ -1551,6 +1754,20 @@ const NATPortal = () => {
                                                     <Info className="w-5 h-5" /> No test schedules are currently available. Please check back later.
                                                 </div>
                                             )}
+
+                                            {supportsTestTime && formData.testDate && selectedDateTimeSlots.length > 0 && (
+                                                <div className="pt-2">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Preferred Test Time <span className="text-red-500">*</span></label>
+                                                    <select required name="testTime" value={formData.testTime} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-orange-50/50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white font-medium text-gray-900">
+                                                        <option value="">Select a time slot</option>
+                                                        {selectedDateTimeSlots.map((slot: any) => (
+                                                            <option key={slot.key} value={slot.key} disabled={(slot.remaining ?? 0) <= 0}>
+                                                                {slot.label} ({(slot.remaining ?? 0)} slots left)
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </motion.div>
@@ -1559,7 +1776,7 @@ const NATPortal = () => {
                             {currentStep === 3 && (
                                 <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
                                     {/* Contact Information */}
-                                    <div className="bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
+                                    <div className="nat-section-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
                                         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-teal-400 to-teal-600"></div>
                                         <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
                                             <div className="bg-gradient-to-br from-teal-100 to-teal-200 p-2.5 rounded-xl shadow-inner border border-teal-200/50"><MapPin className="w-5 h-5 text-teal-700 drop-shadow-sm" /></div>
@@ -1609,11 +1826,11 @@ const NATPortal = () => {
                         </AnimatePresence>
 
                         {/* Navigation / Submit Bar */}
-                        <div className="sticky bottom-6 z-50 bg-white/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white shadow-2xl shadow-blue-900/10 flex flex-col md:flex-row gap-6 items-center justify-between group mt-8">
+                        <div className="nat-action-bar sticky bottom-6 z-50 bg-white/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white shadow-2xl shadow-blue-900/10 flex flex-col md:flex-row gap-6 items-center justify-between group mt-8">
                             <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-[2rem] -z-10"></div>
 
                             {currentStep > 1 ? (
-                                <button type="button" onClick={() => { setCurrentStep(prev => prev - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="px-6 py-3 bg-white text-slate-700 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                <button type="button" onClick={() => { setCurrentStep(prev => prev - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="nat-secondary-action px-6 py-3 bg-white text-slate-700 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-colors flex items-center gap-2">
                                     <ArrowLeft className="w-4 h-4" /> Back
                                 </button>
                             ) : (
@@ -1621,11 +1838,11 @@ const NATPortal = () => {
                             )}
 
                             {currentStep < 3 ? (
-                                <button type="submit" disabled={loading} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
+                                <button type="submit" disabled={loading} className="nat-primary-action px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
                                     Next Step <ArrowRight className="w-4 h-4" />
                                 </button>
                             ) : (
-                                <button type="submit" disabled={loading} className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 relative overflow-hidden group/btn">
+                                <button type="submit" disabled={loading} className="nat-primary-action px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-black text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 relative overflow-hidden group/btn">
                                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
                                     <span className="relative z-10 flex items-center gap-2">
                                         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
@@ -1646,7 +1863,7 @@ const NATPortal = () => {
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-0 max-w-lg w-full relative z-10 shadow-2xl border border-white overflow-hidden"
+                        className="nat-success-modal bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-0 max-w-lg w-full relative z-10 shadow-2xl border border-white overflow-hidden"
                     >
                         <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-10 text-center relative overflow-hidden">
                             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
@@ -1668,12 +1885,13 @@ const NATPortal = () => {
                             <div className="bg-slate-50/80 backdrop-blur-sm border border-slate-100 rounded-2xl p-6 mb-8 text-left shadow-inner">
                                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your Reference ID</p>
                                 <p className="text-2xl font-mono font-black text-slate-800 tracking-tight">{credentials?.referenceId}</p>
-                                <div className="grid md:grid-cols-2 gap-4 mt-6">
+                                <div className="grid md:grid-cols-3 gap-4 mt-6">
                                     <div className="border border-purple-200/50 bg-purple-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-purple-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Calendar className="w-4 h-4" /> Test Date</h3><p className="text-lg font-black text-purple-700 relative z-10">{credentials?.testDate}</p></div>
+                                    <div className="border border-blue-200/50 bg-blue-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-blue-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Clock className="w-4 h-4" /> Test Time</h3><p className="text-sm font-bold text-blue-700 leading-tight relative z-10">{credentials?.testTime ? formatTimeWindowLabel(credentials?.testTime) : 'Assigned on test day'}</p></div>
                                     <div className="border border-indigo-200/50 bg-indigo-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-indigo-900 flex gap-2 items-center text-sm mb-1 relative z-10"><MapPin className="w-4 h-4" /> Venue</h3><p className="text-sm font-bold text-indigo-700 leading-tight relative z-10">NORSU Main Campus, Dumaguete City</p></div>
                                 </div>
                             </div>
-                            <button onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
+                            <button onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="nat-primary-action w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
                                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
                                 <span className="relative z-10 flex items-center justify-center gap-2">Continue to Status <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
                             </button>
