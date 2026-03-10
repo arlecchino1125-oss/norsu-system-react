@@ -1201,33 +1201,37 @@ const NATPortal = () => {
 
                     {/* Activation Modal */}
                     {showActivationModal && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in zoom-in duration-200">
-                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 border border-white/20 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900">Activate Student Account</h3>
-                                        <p className="text-sm text-gray-500 mt-1">Enter your details to sync with Student Portal</p>
-                                    </div>
-                                    <button onClick={() => setShowActivationModal(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
-                                </div>
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] overflow-y-auto p-4 animate-in fade-in zoom-in duration-200">
+                            <div className="flex min-h-full items-start justify-center py-4 sm:items-center">
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] border border-white/20 relative overflow-hidden flex flex-col">
+                                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                                    <div className="overflow-y-auto p-6 sm:p-8">
+                                        <div className="flex justify-between items-start mb-6 gap-4">
+                                            <div>
+                                                <h3 className="text-xl font-bold text-gray-900">Activate Student Account</h3>
+                                                <p className="text-sm text-gray-500 mt-1">Enter your details to sync with Student Portal</p>
+                                            </div>
+                                            <button onClick={() => setShowActivationModal(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors shrink-0"><X className="w-5 h-5 text-gray-500" /></button>
+                                        </div>
 
-                                <form onSubmit={handleActivation} className="space-y-4">
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-700 uppercase">Student ID</label>
-                                        <input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="Ex: 202612345" />
+                                        <form onSubmit={handleActivation} className="space-y-4">
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-700 uppercase">Student ID</label>
+                                                <input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="Ex: 202612345" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-700 uppercase">Enrolled Course</label>
+                                                <select required name="course" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                                    <option value="">Select Course</option>
+                                                    {availableCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <button disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:-translate-y-1">
+                                                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Activate Account'}
+                                            </button>
+                                        </form>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-700 uppercase">Enrolled Course</label>
-                                        <select required name="course" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                                            <option value="">Select Course</option>
-                                            {availableCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <button disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:-translate-y-1">
-                                        {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Activate Account'}
-                                    </button>
-                                </form>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1857,46 +1861,48 @@ const NATPortal = () => {
 
             {/* Success Modal */}
             {showSuccessModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] overflow-y-auto p-4">
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }}></div>
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                        className="nat-success-modal bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-0 max-w-lg w-full relative z-10 shadow-2xl border border-white overflow-hidden"
-                    >
-                        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-10 text-center relative overflow-hidden">
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
-                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 blur-2xl rounded-full"></div>
-                            <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ delay: 0.2, type: "spring", stiffness: 400, damping: 20 }}
-                                className="w-24 h-24 bg-white text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl relative z-10"
-                            >
-                                <Check className="w-12 h-12" />
-                            </motion.div>
-                            <h2 className="text-3xl font-black text-white tracking-tight relative z-10">Application Received!</h2>
-                        </div>
-                        <div className="p-8 md:p-10 text-center">
-                            <p className="text-slate-600 font-medium mb-8 text-lg leading-relaxed">
-                                Your application for the NORSU Admission Test has been successfully submitted. We've sent a confirmation to <span className="font-bold text-slate-900">{formData.email}</span>.
-                            </p>
-                            <div className="bg-slate-50/80 backdrop-blur-sm border border-slate-100 rounded-2xl p-6 mb-8 text-left shadow-inner">
-                                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your Reference ID</p>
-                                <p className="text-2xl font-mono font-black text-slate-800 tracking-tight">{credentials?.referenceId}</p>
-                                <div className="grid md:grid-cols-3 gap-4 mt-6">
-                                    <div className="border border-purple-200/50 bg-purple-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-purple-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Calendar className="w-4 h-4" /> Test Date</h3><p className="text-lg font-black text-purple-700 relative z-10">{credentials?.testDate}</p></div>
-                                    <div className="border border-blue-200/50 bg-blue-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-blue-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Clock className="w-4 h-4" /> Test Time</h3><p className="text-sm font-bold text-blue-700 leading-tight relative z-10">{credentials?.testTime ? formatTimeWindowLabel(credentials?.testTime) : 'Assigned on test day'}</p></div>
-                                    <div className="border border-indigo-200/50 bg-indigo-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-indigo-900 flex gap-2 items-center text-sm mb-1 relative z-10"><MapPin className="w-4 h-4" /> Venue</h3><p className="text-sm font-bold text-indigo-700 leading-tight relative z-10">NORSU Main Campus, Dumaguete City</p></div>
-                                </div>
+                    <div className="relative z-10 flex min-h-full items-start justify-center py-4 sm:items-center">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            className="nat-success-modal bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-0 max-w-lg w-full max-h-[calc(100dvh-2rem)] relative z-10 shadow-2xl border border-white overflow-hidden flex flex-col"
+                        >
+                            <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 md:p-10 text-center relative overflow-hidden shrink-0">
+                                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 blur-2xl rounded-full"></div>
+                                <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: 0.2, type: "spring", stiffness: 400, damping: 20 }}
+                                    className="w-24 h-24 bg-white text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl relative z-10"
+                                >
+                                    <Check className="w-12 h-12" />
+                                </motion.div>
+                                <h2 className="text-3xl font-black text-white tracking-tight relative z-10">Application Received!</h2>
                             </div>
-                            <button onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="nat-primary-action w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
-                                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-                                <span className="relative z-10 flex items-center justify-center gap-2">Continue to Status <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
-                            </button>
-                        </div>
-                    </motion.div>
+                            <div className="p-6 md:p-10 text-center overflow-y-auto">
+                                <p className="text-slate-600 font-medium mb-8 text-lg leading-relaxed">
+                                    Your application for the NORSU Admission Test has been successfully submitted. We've sent a confirmation to <span className="font-bold text-slate-900">{formData.email}</span>.
+                                </p>
+                                <div className="bg-slate-50/80 backdrop-blur-sm border border-slate-100 rounded-2xl p-6 mb-8 text-left shadow-inner">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your Reference ID</p>
+                                    <p className="text-2xl font-mono font-black text-slate-800 tracking-tight">{credentials?.referenceId}</p>
+                                    <div className="grid md:grid-cols-3 gap-4 mt-6">
+                                        <div className="border border-purple-200/50 bg-purple-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-purple-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Calendar className="w-4 h-4" /> Test Date</h3><p className="text-lg font-black text-purple-700 relative z-10">{credentials?.testDate}</p></div>
+                                        <div className="border border-blue-200/50 bg-blue-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-blue-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Clock className="w-4 h-4" /> Test Time</h3><p className="text-sm font-bold text-blue-700 leading-tight relative z-10">{credentials?.testTime ? formatTimeWindowLabel(credentials?.testTime) : 'Assigned on test day'}</p></div>
+                                        <div className="border border-indigo-200/50 bg-indigo-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-indigo-900 flex gap-2 items-center text-sm mb-1 relative z-10"><MapPin className="w-4 h-4" /> Venue</h3><p className="text-sm font-bold text-indigo-700 leading-tight relative z-10">NORSU Main Campus, Dumaguete City</p></div>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="nat-primary-action w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
+                                    <span className="relative z-10 flex items-center justify-center gap-2">Continue to Status <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
                 </div>
             )}
 
