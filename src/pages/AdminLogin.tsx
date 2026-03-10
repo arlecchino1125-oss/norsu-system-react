@@ -1,37 +1,22 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import React from 'react';
 import { Shield, AlertCircle, CheckCircle, Terminal, EyeOff, Eye, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRoleLogin } from '../hooks/auth/useRoleLogin';
+import { STAFF_LOGIN_CONFIGS } from './auth/staffLoginConfigs';
 
 export default function AdminLogin() {
-    const { login, loading: authLoading } = useAuth() as any;
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState<boolean>(false);
-    const [username, setUsername] = useState<string>('');
-    const [password, setPassword] = useState<string>('');
-    const [showPassword, setShowPassword] = useState<boolean>(false);
-    const [toast, setToast] = useState<any>(null);
-
-    const showToast = (msg: string, type: string = 'success') => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 4000);
-    };
-
-    const handleLogin = async (e: any) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const result = await login(username, password, 'Admin');
-
-        if (result.success) {
-            showToast("System Access Granted. Initializing...", 'success');
-            setTimeout(() => navigate('/admin/dashboard'), 800);
-        } else {
-            showToast(result.error, 'error');
-        }
-        setLoading(false);
-    };
+    const {
+        username,
+        setUsername,
+        password,
+        setPassword,
+        showPassword,
+        setShowPassword,
+        loading,
+        authLoading,
+        toast,
+        handleSubmit
+    } = useRoleLogin(STAFF_LOGIN_CONFIGS.admin);
 
     const pageVariants = {
         initial: { opacity: 0, scale: 0.98 },
@@ -133,7 +118,7 @@ export default function AdminLogin() {
                                     <p className="text-slate-500 text-xs tracking-widest uppercase">Awaiting credentials_</p>
                                 </div>
 
-                                <form onSubmit={handleLogin} className="space-y-6">
+                                <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Username Input */}
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-bold text-red-400 uppercase tracking-[0.2em] block">Admin_ID</label>

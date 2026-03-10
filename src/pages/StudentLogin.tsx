@@ -4,6 +4,8 @@ import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User, MapPin, Info, Loader2, X, Check, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import DatePicker from '../components/ui/DatePicker';
+import { joinNameParts } from '../utils/nameUtils';
 
 export default function StudentLogin() {
     const navigate = useNavigate();
@@ -52,8 +54,8 @@ export default function StudentLogin() {
         isSoloParent: 'No', isChildOfSoloParent: 'No',
 
         // Step 3: Family Background
-        motherName: '', motherOccupation: '', motherContact: '',
-        fatherName: '', fatherOccupation: '', fatherContact: '',
+        motherLastName: '', motherGivenName: '', motherMiddleName: '', motherOccupation: '', motherContact: '',
+        fatherLastName: '', fatherGivenName: '', fatherMiddleName: '', fatherOccupation: '', fatherContact: '',
         parentAddress: '',
         numBrothers: '', numSisters: '',
         birthOrder: '',
@@ -147,6 +149,10 @@ export default function StudentLogin() {
                 showToast('Please fill in required enrollment fields.', 'error');
                 return;
             }
+            if (!/^\d{9}$/.test(formData.studentId.trim())) {
+                showToast('Student ID must be exactly 9 digits (e.g. 202312345).', 'error');
+                return;
+            }
         } else if (activationStep === 2) {
             if (!formData.firstName || !formData.lastName || !formData.dob || !formData.sex || !formData.mobile || !formData.email) {
                 showToast('Please complete required personal information.', 'error');
@@ -173,6 +179,8 @@ export default function StudentLogin() {
 
         setLoading(true);
         try {
+            const normalize = (value: any) => String(value || '').trim().toLowerCase();
+
             // 0. Verify Application is Approved for Enrollment
             // We find the application using the enrollment key (studentId) since it matches their reference/future ID.
             // Actually, `enrolled_students` is generated manually right now. We must verify if the application that matches their name/details is approved.
@@ -193,7 +201,7 @@ export default function StudentLogin() {
             if (!keyData) {
                 throw new Error("Student ID not found in the enrollment list.");
             }
-            if (keyData.course && keyData.course.toLowerCase() !== formData.course.toLowerCase()) {
+            if (!keyData.course || normalize(keyData.course) !== normalize(formData.course)) {
                 throw new Error(`Course mismatch. This ID is enrolled in ${keyData.course}.`);
             }
             if (keyData.is_used) {
@@ -263,10 +271,24 @@ export default function StudentLogin() {
                 department: matchedDepartment,
                 status: 'Active',
                 // Family Background
-                mother_name: formData.motherName,
+                mother_name: joinNameParts({
+                    given: formData.motherGivenName,
+                    middle: formData.motherMiddleName,
+                    last: formData.motherLastName
+                }) || null,
+                mother_last_name: formData.motherLastName || null,
+                mother_given_name: formData.motherGivenName || null,
+                mother_middle_name: formData.motherMiddleName || null,
                 mother_occupation: formData.motherOccupation,
                 mother_contact: formData.motherContact,
-                father_name: formData.fatherName,
+                father_name: joinNameParts({
+                    given: formData.fatherGivenName,
+                    middle: formData.fatherMiddleName,
+                    last: formData.fatherLastName
+                }) || null,
+                father_last_name: formData.fatherLastName || null,
+                father_given_name: formData.fatherGivenName || null,
+                father_middle_name: formData.fatherMiddleName || null,
                 father_occupation: formData.fatherOccupation,
                 father_contact: formData.fatherContact,
                 parent_address: formData.parentAddress,
@@ -594,7 +616,7 @@ export default function StudentLogin() {
                                                     <div className="space-y-5">
                                                         <div className="space-y-2">
                                                             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Student ID <span className="text-rose-500">*</span></label>
-                                                            <input required name="studentId" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-medium" placeholder="Ex: 2023-12345" value={formData.studentId} onChange={handleChange} />
+                                                            <input required name="studentId" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-medium" placeholder="Ex: 202312345" value={formData.studentId} onChange={handleChange} />
                                                         </div>
                                                         <div className="space-y-2">
                                                             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Course <span className="text-rose-500">*</span></label>
@@ -631,7 +653,7 @@ export default function StudentLogin() {
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Email *</label><input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm" /></div>
                                                     </div>
                                                     <div className="grid grid-cols-3 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Birthday *</label><input required type="date" name="dob" value={formData.dob} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm" /></div>
+                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Birthday *</label><DatePicker required name="dob" value={formData.dob} onChange={(val) => { setFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" /></div>
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Age</label><input type="number" name="age" value={formData.age} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm" readOnly /></div>
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Sex *</label><select required name="sex" value={formData.sex} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
                                                     </div>
@@ -695,12 +717,20 @@ export default function StudentLogin() {
                                                 <motion.div key="step3" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
                                                     <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Family Background</h3></div>
                                                     <div className="grid grid-cols-3 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Name</label><input name="motherName" placeholder="N/A if not applicable" value={formData.motherName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Last Name</label><input name="motherLastName" placeholder="N/A if not applicable" value={formData.motherLastName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Given Name</label><input name="motherGivenName" placeholder="N/A if not applicable" value={formData.motherGivenName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Middle Name</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={formData.motherMiddleName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Occupation</label><input name="motherOccupation" placeholder="N/A if not applicable" value={formData.motherOccupation} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Contact</label><input name="motherContact" placeholder="N/A if not applicable" value={formData.motherContact} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                                     </div>
                                                     <div className="grid grid-cols-3 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Name</label><input name="fatherName" placeholder="N/A if not applicable" value={formData.fatherName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Last Name</label><input name="fatherLastName" placeholder="N/A if not applicable" value={formData.fatherLastName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Given Name</label><input name="fatherGivenName" placeholder="N/A if not applicable" value={formData.fatherGivenName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Middle Name</label><input name="fatherMiddleName" placeholder="N/A if not applicable" value={formData.fatherMiddleName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Occupation</label><input name="fatherOccupation" placeholder="N/A if not applicable" value={formData.fatherOccupation} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Contact</label><input name="fatherContact" placeholder="N/A if not applicable" value={formData.fatherContact} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
                                                     </div>

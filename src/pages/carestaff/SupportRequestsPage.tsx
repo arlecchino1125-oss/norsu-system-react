@@ -154,7 +154,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         drawFieldRow('Date Filed:', req.created_at ? new Date(req.created_at).toLocaleDateString() : '', rightX, halfW, y);
         y += 7;
         drawFieldRow('Date of Birth:', student?.dob || '', marginLeft, halfW, y);
-        drawFieldRow('Program-Year Level:', `${student?.course || ''} ${student?.year_level ? '- ' + student.year_level : ''}`.trim(), rightX, halfW, y);
+        drawFieldRow('Program-Year Level:', req.course_year || `${student?.course || ''} ${student?.year_level ? '- ' + student.year_level : ''}`.trim(), rightX, halfW, y);
         y += 7;
         drawFieldRow('Cell Phone Number:', student?.mobile || '', marginLeft, halfW, y);
         y += 7;
@@ -478,7 +478,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                     <div><label className="block text-xs font-bold text-gray-500">Full Name</label><div className="font-semibold text-gray-900">{selectedSupportReq.student_name}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Date Filed</label><div className="font-semibold text-gray-900">{formatDate(selectedSupportReq.created_at)}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Date of Birth</label><div className="font-semibold text-gray-900">{selectedStudent?.dob || '-'}</div></div>
-                                    <div><label className="block text-xs font-bold text-gray-500">Program — Year</label><div className="font-semibold text-gray-900">{selectedStudent?.course || '-'} - {selectedStudent?.year_level || '-'}</div></div>
+                                    <div><label className="block text-xs font-bold text-gray-500">Program — Year</label><div className="font-semibold text-gray-900">{selectedSupportReq.course_year || `${selectedStudent?.course || '-'} - ${selectedStudent?.year_level || '-'}`}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Mobile</label><div className="font-semibold text-gray-900">{selectedStudent?.mobile || '-'}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Email</label><div className="font-semibold text-gray-900">{selectedStudent?.email || '-'}</div></div>
                                     <div className="col-span-2"><label className="block text-xs font-bold text-gray-500">Home Address</label><div className="font-semibold text-gray-900">{selectedStudent?.address || '-'}</div></div>

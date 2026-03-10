@@ -139,7 +139,11 @@ export default function DeptDashboard() {
 
     const getFilteredData = () => {
         const dept = data.profile.department;
-        const filteredStudents = data.students.filter((s: any) => s.department === dept);
+        const filteredStudents = data.students.filter((s: any) =>
+            s.department === dept
+            && Boolean(s.course)
+            && Boolean(s.year)
+        );
 
         const activeStudents = filteredStudents.filter((s: any) => s.status === 'Active');
         const populationByYear = {
@@ -433,6 +437,9 @@ export default function DeptDashboard() {
                     student_id: studentObj?.id || 'UNKNOWN',
                     student_name: referralForm.student,
                     course_year: studentObj ? `${studentObj.course || ''} - ${studentObj.year || ''}` : '',
+                    year_window_range: studentObj && (studentObj.course_year_window_start || studentObj.course_year_window_end)
+                        ? `${studentObj.course_year_window_start ? new Date(studentObj.course_year_window_start).toLocaleString() : 'Start N/A'} to ${studentObj.course_year_window_end ? new Date(studentObj.course_year_window_end).toLocaleString() : 'End N/A'}`
+                        : null,
                     contact_number: studentObj?.mobile || '',
                     request_type: 'Dean Referral',
                     description: referralForm.reason_for_referral,

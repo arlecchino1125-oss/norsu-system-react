@@ -374,8 +374,8 @@ const FeedbackPage = ({ functions }: FeedbackPageProps) => {
 
             {/* View Evaluation Form Modal */}
             {viewingEval && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+                <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-20 lg:pt-24 pb-8">
+                    <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col max-h-[calc(100vh-7rem)] lg:max-h-[calc(100vh-8rem)]">
                         <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white flex-shrink-0">
                             <div className="flex justify-between items-start">
                                 <div>
@@ -453,8 +453,8 @@ const FeedbackPage = ({ functions }: FeedbackPageProps) => {
                     'SQD8. I got what I needed from the government office, or (if denied) denial of request was sufficiently explained to me.',
                 ];
                 return (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+                    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-20 lg:pt-24 pb-8">
+                        <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col max-h-[calc(100vh-7rem)] lg:max-h-[calc(100vh-8rem)]">
                             <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white flex-shrink-0">
                                 <div className="flex justify-between items-start">
                                     <div>

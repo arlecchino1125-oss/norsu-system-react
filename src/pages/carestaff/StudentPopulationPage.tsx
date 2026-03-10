@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import {
     Users, Search, Download, XCircle, Edit, Trash2, Plus, Key,
     PieChart, List, UploadCloud, Info, ArrowUpDown, Activity, TrendingUp,
@@ -9,6 +9,7 @@ import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import type { CareStaffDashboardFunctions } from './types';
+import { getAllStudentsForExport, getStudentByStudentId, getStudentsPage, STUDENT_LIST_COLUMNS } from '../../services/careStaffService';
 
 declare const XLSX: any;
 
@@ -16,7 +17,7 @@ declare const XLSX: any;
 // Fields with `db` read directly; fields with `compute` derive the value from the student object
 const PROFILE_CATEGORIES = [
     {
-        key: 'personal', label: 'Personal Information', icon: '👤', gradient: 'from-blue-500 to-sky-400', fields: [
+        key: 'personal', label: 'Personal Information', icon: '??', gradient: 'from-blue-500 to-sky-400', fields: [
             { label: "STUDENT'S I.D. NO.", db: 'student_id' },
             { label: 'FULL NAME', compute: (s: any) => [s.last_name, s.first_name, s.suffix, s.middle_name || 'N/A'].filter(Boolean).join(', ') },
             { label: 'ADDRESS', compute: (s: any) => [s.street, s.city, s.province, s.zip_code].filter(Boolean).join(', ') },
@@ -47,7 +48,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'family', label: 'Family Background', icon: '👨‍👩‍👧', gradient: 'from-amber-400 to-orange-500', fields: [
+        key: 'family', label: 'Family Background', icon: '????????', gradient: 'from-amber-400 to-orange-500', fields: [
             { label: "MOTHER'S NAME", db: 'mother_name' },
             { label: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
             { label: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
@@ -64,7 +65,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'guardian', label: 'Guardian', icon: '🛡️', gradient: 'from-indigo-400 to-violet-500', fields: [
+        key: 'guardian', label: 'Guardian', icon: '???', gradient: 'from-indigo-400 to-violet-500', fields: [
             { label: 'FULL NAME', db: 'guardian_name' },
             { label: 'ADDRESS', db: 'guardian_address' },
             { label: 'CONTACT NUMBER', db: 'guardian_contact' },
@@ -72,7 +73,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'emergency', label: 'Person to Contact (In Case of Emergency)', icon: '🚨', gradient: 'from-rose-400 to-red-500', fields: [
+        key: 'emergency', label: 'Person to Contact (In Case of Emergency)', icon: '??', gradient: 'from-rose-400 to-red-500', fields: [
             { label: 'FULL NAME', db: 'emergency_name' },
             { label: 'ADDRESS', db: 'emergency_address' },
             { label: 'RELATIONSHIP', db: 'emergency_relationship' },
@@ -80,7 +81,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'education', label: 'Educational Background', icon: '🎓', gradient: 'from-cyan-400 to-blue-500', fields: [
+        key: 'education', label: 'Educational Background', icon: '??', gradient: 'from-cyan-400 to-blue-500', fields: [
             { label: 'ELEMENTARY', db: 'elem_school' },
             { label: 'YEAR GRADUATED', db: 'elem_year_graduated' },
             { label: 'JUNIOR HIGH SCHOOL', db: 'junior_high_school' },
@@ -93,17 +94,17 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'extracurricular', label: 'Extra-Curricular Involvement', icon: '🎭', gradient: 'from-pink-400 to-rose-500', fields: [
+        key: 'extracurricular', label: 'Extra-Curricular Involvement', icon: '??', gradient: 'from-pink-400 to-rose-500', fields: [
             { label: 'NAME OF ACTIVITIES', db: 'extracurricular_activities' },
         ]
     },
     {
-        key: 'scholarships', label: 'Scholarships', icon: '🏆', gradient: 'from-yellow-400 to-amber-500', fields: [
+        key: 'scholarships', label: 'Scholarships', icon: '??', gradient: 'from-yellow-400 to-amber-500', fields: [
             { label: 'NAME OF SCHOLARSHIP AVAILED', db: 'scholarships_availed' },
         ]
     },
     {
-        key: 'additional', label: 'Additional Information', icon: '📝', gradient: 'from-slate-500 to-slate-700', fields: [
+        key: 'additional', label: 'Additional Information', icon: '??', gradient: 'from-slate-500 to-slate-700', fields: [
             { label: 'Department', db: 'department' },
             { label: 'Section', db: 'section' },
             { label: 'Status', db: 'status' },
@@ -120,6 +121,56 @@ const PROFILE_CATEGORIES = [
     },
 ];
 
+const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
+
+const toDateTimeLocal = (value?: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+};
+
+const parseArchiveEntries = (value: any) => {
+    if (!value) return [] as any[];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }
+    return [];
+};
+
+const deriveSchoolYearLabel = (entry: any) => {
+    if (entry?.school_year && String(entry.school_year).trim()) {
+        const raw = String(entry.school_year).trim();
+        return raw.replace(/^AY\b/, 'SY');
+    }
+    const start = entry?.window_start ? new Date(entry.window_start) : null;
+    const end = entry?.window_end ? new Date(entry.window_end) : null;
+    if (start && !Number.isNaN(start.getTime()) && end && !Number.isNaN(end.getTime())) {
+        return `SY ${Math.min(start.getFullYear(), end.getFullYear())}-${Math.max(start.getFullYear(), end.getFullYear())}`;
+    }
+    return '';
+};
+
+const getArchivedSnapshotForSchoolYear = (student: any, schoolYear: string) => {
+    if (!student || schoolYear === 'All') return null;
+    const entries = parseArchiveEntries(student.course_year_archive);
+    const matches = entries.filter((entry: any) => deriveSchoolYearLabel(entry) === schoolYear);
+    if (matches.length === 0) return null;
+    const sorted = [...matches].sort((a: any, b: any) => {
+        const aTime = a?.archived_at ? new Date(a.archived_at).getTime() : 0;
+        const bTime = b?.archived_at ? new Date(b.archived_at).getTime() : 0;
+        return bTime - aTime;
+    });
+    return sorted[0];
+};
+
 interface StudentPopulationPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
@@ -128,15 +179,18 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
     const { showToast } = functions || {};
 
     // Use custom hook for data fetching & real-time updates
-    const { data: studentsList, loading: loadingStudents, refetch: refetchStudents } = useSupabaseData({
+    const { data: studentsList, refetch: refetchStudents } = useSupabaseData({
         table: 'students',
+        select: STUDENT_LIST_COLUMNS,
         order: { column: 'created_at', ascending: false },
         subscribe: true
     });
 
-    const { data: allCourses } = useSupabaseData({
+    const { data: allCourses, refetch: refetchCourses } = useSupabaseData({
         table: 'courses',
-        order: { column: 'name', ascending: true }
+        select: 'id, name, application_limit, status, department_id, departments(name)',
+        order: { column: 'name', ascending: true },
+        subscribe: true
     });
 
     const { data: allDepartments } = useSupabaseData({
@@ -144,7 +198,11 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         order: { column: 'name', ascending: true }
     });
 
-    const loading = loadingStudents;
+    const { data: natApplications } = useSupabaseData({
+        table: 'applications',
+        select: 'id, priority_course',
+        subscribe: true
+    });
 
     // Modals
     const [showModal, setShowModal] = useState(false);
@@ -156,12 +214,32 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
     const [studentToDelete, setStudentToDelete] = useState<any>(null);
 
     const openEditModal = (student: any) => {
-        setEditForm({ ...student });
+        setEditForm({
+            ...student,
+            course_year_update_required: Boolean(student.course_year_update_required),
+            course_year_window_start: toDateTimeLocal(student.course_year_window_start),
+            course_year_window_end: toDateTimeLocal(student.course_year_window_end),
+        });
         setShowEditModal(true);
     };
 
     const handleUpdateStudent = async (e: any) => {
         e.preventDefault();
+        const requiresUpdate = Boolean(editForm.course_year_update_required);
+        const windowStart = editForm.course_year_window_start ? new Date(editForm.course_year_window_start) : null;
+        const windowEnd = editForm.course_year_window_end ? new Date(editForm.course_year_window_end) : null;
+
+        if (requiresUpdate) {
+            if (!windowStart || !windowEnd || Number.isNaN(windowStart.getTime()) || Number.isNaN(windowEnd.getTime())) {
+                if (showToast) showToast('Set both start and end for required course/year update window.', 'error');
+                return;
+            }
+            if (windowStart >= windowEnd) {
+                if (showToast) showToast('Update window end must be later than start.', 'error');
+                return;
+            }
+        }
+
         try {
             const { error } = await supabase.from('students').update({
                 first_name: editForm.first_name, last_name: editForm.last_name, middle_name: editForm.middle_name,
@@ -169,10 +247,15 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                 sex: editForm.sex, gender_identity: editForm.gender_identity, civil_status: editForm.civil_status,
                 nationality: editForm.nationality, street: editForm.street, city: editForm.city, province: editForm.province,
                 zip_code: editForm.zip_code, mobile: editForm.mobile, email: editForm.email, facebook_url: editForm.facebook_url,
-                course: editForm.course, year_level: editForm.year_level, status: editForm.status
+                course: editForm.course, year_level: editForm.year_level, status: requiresUpdate ? 'Inactive' : (editForm.status || 'Active'),
+                course_year_update_required: requiresUpdate,
+                course_year_window_start: requiresUpdate && windowStart ? windowStart.toISOString() : null,
+                course_year_window_end: requiresUpdate && windowEnd ? windowEnd.toISOString() : null,
+                course_year_confirmed_at: requiresUpdate ? null : editForm.course_year_confirmed_at || null,
             }).eq('id', editForm.id);
 
             if (error) throw error;
+
             if (showToast) showToast("Student updated successfully!");
             setShowEditModal(false);
             refetchStudents();
@@ -203,25 +286,39 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
     const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState('All');
     const [courseFilter, setCourseFilter] = useState('All');
     const [departmentFilter, setDepartmentFilter] = useState('All');
+    const [courseDeptFilter, setCourseDeptFilter] = useState('All');
     const [yearFilter, setYearFilter] = useState('All');
+    const [schoolYearFilter, setSchoolYearFilter] = useState('All');
     const [sectionFilter, setSectionFilter] = useState('All');
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'stats'
-    const itemsPerPage = 10;
+    const itemsPerPage = 25;
+    const [tableStudents, setTableStudents] = useState<any[]>([]);
+    const [tableStudentsTotal, setTableStudentsTotal] = useState(0);
+    const [tableLoading, setTableLoading] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
     const [enrollmentKeys, setEnrollmentKeys] = useState<any[]>([]);
+    const [courseForm, setCourseForm] = useState({ name: '', application_limit: 200, department_id: '' });
+    const [bulkWindowForm, setBulkWindowForm] = useState<any>({
+        start: '',
+        end: ''
+    });
+    const [isApplyingBulkWindow, setIsApplyingBulkWindow] = useState(false);
+    const [isSyncingBulkKeys, setIsSyncingBulkKeys] = useState(false);
     // Profile view modal state
     const [profileViewStudent, setProfileViewStudent] = useState<any>(null);
     const [profileCategoryIndex, setProfileCategoryIndex] = useState(0);
     const [profileLoading, setProfileLoading] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
+    const archiveRpcStateRef = useRef<'unknown' | 'available' | 'missing'>(
+        sessionStorage.getItem(ARCHIVE_RPC_MISSING_CACHE_KEY) === '1' ? 'missing' : 'unknown'
+    );
 
     const openProfileModal = async (student: any) => {
         setProfileLoading(true);
         setProfileCategoryIndex(0);
         try {
-            // Fetch full student data from DB to ensure all fields are present
-            const { data, error } = await supabase.from('students').select('*').eq('student_id', student.student_id).single();
-            if (error) throw error;
+            const data = await getStudentByStudentId(student.student_id);
+            if (!data) throw new Error('Student not found');
             setProfileViewStudent(data);
         } catch (err: any) {
             // Fallback to the student object we already have
@@ -239,7 +336,7 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         try {
             const { data, error } = await supabase
                 .from('enrolled_students')
-                .select('*')
+                .select('student_id, course, year_level, is_used, status, assigned_to_email, created_at')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -250,13 +347,115 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         }
     };
 
+    const cleanupExpiredCourseYearWindows = async (silent = true) => {
+        try {
+            if (archiveRpcStateRef.current !== 'missing') {
+                const { data, error } = await supabase.rpc('archive_and_reset_expired_course_year');
+                if (error) {
+                    const errorText = String(error.message || '').toLowerCase();
+                    const rpcMissing = errorText.includes('archive_and_reset_expired_course_year');
+                    if (!rpcMissing) throw error;
+                    archiveRpcStateRef.current = 'missing';
+                    sessionStorage.setItem(ARCHIVE_RPC_MISSING_CACHE_KEY, '1');
+                } else {
+                    archiveRpcStateRef.current = 'available';
+                    sessionStorage.removeItem(ARCHIVE_RPC_MISSING_CACHE_KEY);
+
+                    const cleanedCount = Number(data || 0);
+                    if (cleanedCount > 0) {
+                        if (!silent) {
+                            functions.showToast(`Expired school-year windows closed for ${cleanedCount} students. Course/year fields were archived and reset.`, 'info');
+                        }
+                        refetchStudents();
+                    }
+                    return;
+                }
+            }
+
+            // Fallback for environments where migration is not yet applied.
+            const nowIso = new Date().toISOString();
+            const { data: fallbackData, error: fallbackError } = await supabase
+                .from('students')
+                .update({
+                    course: null,
+                    year_level: null,
+                    status: 'Inactive',
+                    course_year_confirmed_at: null,
+                    course_year_update_required: false,
+                    course_year_window_start: null,
+                    course_year_window_end: null
+                })
+                .lt('course_year_window_end', nowIso)
+                .select('id');
+            if (fallbackError) throw fallbackError;
+
+            const fallbackCount = fallbackData?.length || 0;
+            if (fallbackCount > 0) {
+                if (!silent) {
+                    functions.showToast(`Expired windows processed for ${fallbackCount} students.`, 'info');
+                }
+                refetchStudents();
+            }
+        } catch (error: any) {
+            console.error('Error cleaning expired course/year windows:', error);
+            if (!silent) {
+                functions.showToast('Failed to process expired course/year windows: ' + error.message, 'error');
+            }
+        }
+    };
+
     useEffect(() => {
-        if (showEnrollmentModal) fetchEnrollmentKeys();
+        cleanupExpiredCourseYearWindows(true);
+    }, []);
+
+    useEffect(() => {
+        if (showEnrollmentModal) {
+            cleanupExpiredCourseYearWindows(false);
+            fetchEnrollmentKeys();
+        }
     }, [showEnrollmentModal]);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm]);
+    }, [searchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, schoolYearFilter]);
+
+    useEffect(() => {
+        const fetchPagedStudents = async () => {
+            setTableLoading(true);
+            try {
+                const sortColumnMap: Record<string, string> = {
+                    name: 'last_name',
+                    student_id: 'student_id',
+                    course: 'course',
+                    status: 'status',
+                    created_at: 'created_at'
+                };
+
+                const result = await getStudentsPage(
+                    {
+                        search: searchTerm,
+                        department: departmentFilter,
+                        course: courseFilter,
+                        yearLevel: yearFilter,
+                        section: sectionFilter
+                    },
+                    { page: currentPage, pageSize: itemsPerPage },
+                    {
+                        column: sortColumnMap[sortConfig.key] || 'created_at',
+                        ascending: sortConfig.direction === 'asc'
+                    }
+                );
+                setTableStudents(result.rows);
+                setTableStudentsTotal(result.total);
+            } catch (error: any) {
+                if (showToast) showToast('Error loading students list: ' + error.message, 'error');
+            } finally {
+                setTableLoading(false);
+            }
+        };
+
+        fetchPagedStudents();
+    }, [searchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, currentPage, sortConfig.key, sortConfig.direction]);
 
     const [studentForm, setStudentForm] = useState<any>({
         firstName: '', lastName: '', studentId: '', course: '', year: '1st Year', status: 'Active'
@@ -272,7 +471,8 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         setIsSubmitting(true);
 
         const selectedCourseData = allCourses.find(c => c.name === studentForm.course);
-        const departmentName = selectedCourseData?.departments?.name || 'Unassigned';
+        const selectedDepartment = allDepartments.find((d: any) => d.id === selectedCourseData?.department_id);
+        const departmentName = selectedCourseData?.departments?.name || selectedDepartment?.name || 'Unassigned';
 
         try {
             const { error } = await supabase
@@ -290,7 +490,12 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
             if (error) throw error;
 
             await supabase.from('enrolled_students').upsert([
-                { student_id: studentForm.studentId, course: studentForm.course, is_used: false }
+                {
+                    student_id: studentForm.studentId,
+                    course: studentForm.course,
+                    year_level: studentForm.year,
+                    is_used: false
+                }
             ], { onConflict: 'student_id' });
 
             functions.showToast("Student saved successfully!");
@@ -322,10 +527,16 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         e.preventDefault();
         const id = e.target.enrollmentId.value;
         const course = e.target.enrollmentCourse.value;
+        const year = e.target.enrollmentYear.value;
         try {
             const { error } = await supabase
                 .from('enrolled_students')
-                .upsert([{ student_id: id, course: course, is_used: false }], { onConflict: 'student_id' });
+                .upsert([{
+                    student_id: id,
+                    course: course,
+                    year_level: year,
+                    is_used: false
+                }], { onConflict: 'student_id' });
 
             if (error) throw error;
             functions.showToast(`Enrollment Key Added/Updated: ${id} (${course})`);
@@ -333,6 +544,209 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
             fetchEnrollmentKeys();
         } catch (error) {
             functions.showToast("Error: " + error.message, 'error');
+        }
+    };
+
+    const getBulkTargetStudents = () => {
+        return studentsList;
+    };
+
+    const updateStudentsByIds = async (targetIds: Array<string | number>, payload: any) => {
+        let updatedCount = 0;
+        for (let i = 0; i < targetIds.length; i += 500) {
+            const batchIds = targetIds.slice(i, i + 500);
+            const { data, error } = await supabase
+                .from('students')
+                .update(payload)
+                .in('id', batchIds)
+                .select('id');
+            if (error) throw error;
+            updatedCount += data?.length || 0;
+        }
+        return updatedCount;
+    };
+
+    const applyBulkCourseYearWindow = async () => {
+        const start = bulkWindowForm.start ? new Date(bulkWindowForm.start) : null;
+        const end = bulkWindowForm.end ? new Date(bulkWindowForm.end) : null;
+        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            functions.showToast('Please set both start and end date-time.', 'error');
+            return;
+        }
+        if (start >= end) {
+            functions.showToast('End date-time must be later than start date-time.', 'error');
+            return;
+        }
+
+        const targets = getBulkTargetStudents();
+        if (targets.length === 0) {
+            functions.showToast('No students match the selected filter.', 'info');
+            return;
+        }
+        const targetIds = targets.map((student: any) => student.id).filter(Boolean);
+        if (targetIds.length === 0) {
+            functions.showToast('No valid student IDs found for the selected filter.', 'error');
+            return;
+        }
+        if (!window.confirm(`Apply course/year update window to ${targets.length} students?`)) return;
+
+        setIsApplyingBulkWindow(true);
+        try {
+            const updatedCount = await updateStudentsByIds(targetIds, {
+                course_year_update_required: true,
+                course_year_window_start: start.toISOString(),
+                course_year_window_end: end.toISOString(),
+                course_year_confirmed_at: null,
+                status: 'Inactive'
+            });
+            functions.showToast(`Window applied to ${updatedCount || targets.length} students.`);
+            refetchStudents();
+        } catch (error: any) {
+            functions.showToast('Error applying window: ' + error.message, 'error');
+        } finally {
+            setIsApplyingBulkWindow(false);
+        }
+    };
+
+    const clearBulkCourseYearWindow = async () => {
+        const targets = getBulkTargetStudents();
+        if (targets.length === 0) {
+            functions.showToast('No students match the selected filter.', 'info');
+            return;
+        }
+        const targetIds = targets.map((student: any) => student.id).filter(Boolean);
+        if (targetIds.length === 0) {
+            functions.showToast('No valid student IDs found for the selected filter.', 'error');
+            return;
+        }
+        if (!window.confirm(`Clear course/year update window for ${targets.length} students?`)) return;
+
+        setIsApplyingBulkWindow(true);
+        try {
+            const updatedCount = await updateStudentsByIds(targetIds, {
+                course_year_update_required: false,
+                course_year_window_start: null,
+                course_year_window_end: null,
+                course_year_confirmed_at: null
+            });
+            functions.showToast(`Window cleared for ${updatedCount || targets.length} students.`);
+            refetchStudents();
+        } catch (error: any) {
+            functions.showToast('Error clearing window: ' + error.message, 'error');
+        } finally {
+            setIsApplyingBulkWindow(false);
+        }
+    };
+
+    const syncEnrollmentKeysFromStudents = async () => {
+        const targets = getBulkTargetStudents().filter((student: any) => student.student_id && student.course);
+        if (targets.length === 0) {
+            functions.showToast('No students with valid Student ID and Course in the selected filter.', 'info');
+            return;
+        }
+        if (!window.confirm(`Sync enrollment keys from ${targets.length} student records?`)) return;
+
+        setIsSyncingBulkKeys(true);
+        try {
+            const targetIds = targets.map((student: any) => student.student_id);
+            const existingMap = new Map<string, any>();
+            for (let i = 0; i < targetIds.length; i += 500) {
+                const batchIds = targetIds.slice(i, i + 500);
+                const { data: existingKeys, error: existingError } = await supabase
+                    .from('enrolled_students')
+                    .select('student_id, is_used, status, assigned_to_email')
+                    .in('student_id', batchIds);
+                if (existingError) throw existingError;
+                (existingKeys || []).forEach((row: any) => existingMap.set(row.student_id, row));
+            }
+
+            const rows = targets.map((student: any) => {
+                const existing = existingMap.get(student.student_id);
+                const row: any = {
+                    student_id: student.student_id,
+                    course: student.course,
+                    year_level: student.year_level
+                };
+                if (existing) {
+                    row.is_used = Boolean(existing.is_used);
+                    row.status = existing.status || (existing.is_used ? 'Activated' : 'Pending');
+                    if (existing.assigned_to_email) row.assigned_to_email = existing.assigned_to_email;
+                } else {
+                    row.is_used = false;
+                    row.status = 'Pending';
+                }
+                return row;
+            });
+
+            for (let i = 0; i < rows.length; i += 500) {
+                const batch = rows.slice(i, i + 500);
+                const { error } = await supabase
+                    .from('enrolled_students')
+                    .upsert(batch, { onConflict: 'student_id' });
+                if (error) throw error;
+            }
+
+            functions.showToast(`Enrollment keys synced for ${rows.length} students.`);
+            fetchEnrollmentKeys();
+        } catch (error: any) {
+            functions.showToast('Error syncing enrollment keys: ' + error.message, 'error');
+        } finally {
+            setIsSyncingBulkKeys(false);
+        }
+    };
+
+    const handleAddCourse = async (e: any) => {
+        e.preventDefault();
+        const limit = parseInt(String(courseForm.application_limit), 10);
+
+        if (!courseForm.department_id) {
+            functions.showToast('Please select a department.', 'error');
+            return;
+        }
+        if (!courseForm.name.trim()) {
+            functions.showToast('Please enter a course name.', 'error');
+            return;
+        }
+        if (!Number.isFinite(limit) || limit < 0) {
+            functions.showToast('Please provide a valid applicant limit.', 'error');
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('courses').insert({
+                name: courseForm.name.trim(),
+                application_limit: limit,
+                status: 'Open',
+                department_id: parseInt(courseForm.department_id, 10)
+            });
+
+            if (error) throw error;
+            functions.showToast('Course added successfully!');
+            setCourseForm({ name: '', application_limit: 200, department_id: '' });
+            refetchCourses();
+        } catch (error: any) {
+            functions.showToast('Error adding course: ' + error.message, 'error');
+        }
+    };
+
+    const handleUpdateCourseLimit = async (courseId: number, value: string) => {
+        const parsed = parseInt(String(value), 10);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            functions.showToast('Applicant limit must be 0 or higher.', 'error');
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('courses')
+                .update({ application_limit: parsed })
+                .eq('id', courseId);
+
+            if (error) throw error;
+            functions.showToast('Applicant limit updated!');
+            refetchCourses();
+        } catch (error: any) {
+            functions.showToast('Error updating limit: ' + error.message, 'error');
         }
     };
 
@@ -370,6 +784,7 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                 const updates = rows.filter(r => newIds.includes(r.id)).map(r => ({
                     student_id: r.id,
                     course: validCourses.has(r.course) ? r.course : null,
+                    year_level: YEAR_LEVEL_OPTIONS.includes(String(r.year || '').trim()) ? String(r.year).trim() : null,
                     is_used: false
                 })).filter(r => r.course);
                 const { error } = await supabase.from('enrolled_students').insert(updates);
@@ -393,7 +808,11 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
 
                     // Skip header row, parse remaining
                     const rows = jsonData.slice(1)
-                        .map(row => ({ id: String(row[0] || '').trim(), course: String(row[1] || '').trim() }))
+                        .map(row => ({
+                            id: String(row[0] || '').trim(),
+                            course: String(row[1] || '').trim(),
+                            year: String(row[2] || '').trim()
+                        }))
                         .filter(row => row.id && row.id.toLowerCase() !== 'student_id');
 
                     await processRows(rows);
@@ -410,8 +829,8 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                 const text = event.target.result as string;
                 const rows = text.split(/\r?\n/)
                     .map(line => {
-                        const [id, course] = line.split(',');
-                        return { id: id?.trim(), course: course?.trim() };
+                        const [id, course, year] = line.split(',');
+                        return { id: id?.trim(), course: course?.trim(), year: year?.trim() };
                     })
                     .filter(row => row.id && row.id.toLowerCase() !== 'student_id');
 
@@ -422,7 +841,7 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
     };
 
     const handleDownloadTemplate = () => {
-        const csvContent = "Student ID,Course\n2026-1001,BS Information Technology\n2026-1002,BS Civil Engineering\n2026-1003,BS Nursing";
+        const csvContent = "Student ID,Course,Year Level\n2026-1001,BS Information Technology,1st Year\n2026-1002,BS Civil Engineering,2nd Year\n2026-1003,BS Nursing,1st Year";
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -444,30 +863,76 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
             return dept && dept.name === departmentFilter;
         });
 
+    const bulkTargetCount = getBulkTargetStudents().length;
+
+    const schoolYearOptions = [...new Set(
+        studentsList.flatMap((student: any) =>
+            parseArchiveEntries(student.course_year_archive)
+                .map((entry: any) => deriveSchoolYearLabel(entry))
+                .filter(Boolean)
+        )
+    )].sort().reverse() as string[];
+
+    const getStudentCourseYearForFilter = (student: any) => {
+        if (schoolYearFilter === 'All') {
+            return {
+                course: student.course || '',
+                yearLevel: student.year_level || '',
+                snapshot: null
+            };
+        }
+        const snapshot = getArchivedSnapshotForSchoolYear(student, schoolYearFilter);
+        return {
+            course: snapshot?.course || '',
+            yearLevel: snapshot?.year_level || '',
+            snapshot
+        };
+    };
+
+    const courseApplicantCounts = (natApplications || []).reduce((acc: Record<string, number>, app: any) => {
+        if (app.priority_course) {
+            acc[app.priority_course] = (acc[app.priority_course] || 0) + 1;
+        }
+        return acc;
+    }, {});
+
+    const courseRowsForManagement = (courseDeptFilter === 'All'
+        ? allCourses
+        : allCourses.filter((course: any) => {
+            const department = (allDepartments || []).find((d: any) => d.id === course.department_id);
+            return department?.name === courseDeptFilter;
+        })
+    ) as any[];
+
     // Derive unique sections from filtered students (scoped by course + year)
     const availableSections = [...new Set(
         studentsList
-            .filter(s => (courseFilter === 'All' || s.course === courseFilter) && (yearFilter === 'All' || s.year_level === yearFilter))
+            .filter((s: any) => {
+                const values = getStudentCourseYearForFilter(s);
+                const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
+                const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
+                return matchesCourse && matchesYear;
+            })
             .map(s => s.section)
             .filter(Boolean)
     )].sort() as string[];
 
-    const filteredStudents = studentsList.filter(s => {
+    const filteredStudents = studentsList.filter((s: any) => {
+        const values = getStudentCourseYearForFilter(s);
         const matchesSearch = (s.first_name + ' ' + s.last_name + ' ' + s.student_id).toLowerCase().includes(searchTerm.toLowerCase());
         const matchesDept = departmentFilter === 'All' || s.department === departmentFilter;
-        const matchesCourse = courseFilter === 'All' || s.course === courseFilter;
-        const matchesYear = yearFilter === 'All' || s.year_level === yearFilter;
+        const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
+        const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
         const matchesSection = sectionFilter === 'All' || s.section === sectionFilter;
-        return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesSection;
+        const matchesSchoolYear = schoolYearFilter === 'All' || Boolean(values.snapshot);
+        return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesSection && matchesSchoolYear;
     });
 
     const handleExportExcel = async () => {
         if (typeof XLSX === 'undefined') { functions.showToast('Excel library not loaded. Please refresh the page.', 'error'); return; }
         functions.showToast('Preparing Excel export...', 'info');
         try {
-            // Fetch ALL students from DB to ensure complete data
-            const { data: allStudents, error } = await supabase.from('students').select('*').order('last_name', { ascending: true });
-            if (error) throw error;
+            const allStudents = await getAllStudentsForExport();
             if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); return; }
 
             // STRICT sdaf.txt fields — exact headers and order
@@ -567,7 +1032,11 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         setSortConfig({ key, direction });
     };
 
-    const sortedStudents = [...filteredStudents].sort((a, b) => {
+    const visibleTableStudents = schoolYearFilter === 'All'
+        ? tableStudents
+        : tableStudents.filter((student: any) => Boolean(getArchivedSnapshotForSchoolYear(student, schoolYearFilter)));
+
+    const sortedStudents = [...visibleTableStudents].sort((a, b) => {
         let aVal = a[sortConfig.key];
         let bVal = b[sortConfig.key];
         if (sortConfig.key === 'name') {
@@ -582,9 +1051,10 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         return 0;
     });
 
-    const totalPages = Math.ceil(sortedStudents.length / itemsPerPage);
+    const effectiveTotal = schoolYearFilter === 'All' ? tableStudentsTotal : sortedStudents.length;
+    const totalPages = Math.max(1, Math.ceil(effectiveTotal / itemsPerPage));
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedStudents = sortedStudents.slice(startIndex, startIndex + itemsPerPage);
+    const paginatedStudents = sortedStudents;
 
     return (
         <div className="space-y-6 relative min-h-screen">
@@ -651,12 +1121,16 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                             <option value="4th Year">4th Year</option>
                             <option value="5th Year">5th Year</option>
                         </select>
+                        <select value={schoolYearFilter} onChange={(e) => { setSchoolYearFilter(e.target.value); setSectionFilter('All'); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-600 bg-white text-slate-700 w-[150px] truncate">
+                            <option value="All">All School Years</option>
+                            {schoolYearOptions.map((sy: string) => <option key={sy} value={sy}>{sy}</option>)}
+                        </select>
                         <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-600 bg-white text-slate-700 w-[120px]">
                             <option value="All">All Sections</option>
                             {availableSections.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        {(searchTerm || departmentFilter !== 'All' || courseFilter !== 'All' || yearFilter !== 'All' || sectionFilter !== 'All') && (
-                            <button onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setSectionFilter('All'); }} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100 font-medium">Reset</button>
+                        {(searchTerm || departmentFilter !== 'All' || courseFilter !== 'All' || yearFilter !== 'All' || schoolYearFilter !== 'All' || sectionFilter !== 'All') && (
+                            <button onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setSchoolYearFilter('All'); setSectionFilter('All'); }} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100 font-medium">Reset</button>
                         )}
                     </div>
                 </div>
@@ -701,8 +1175,8 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                     </div>
                 </div>
             ) : (
-                loading ? <div className="p-12 text-center text-slate-500">Loading students...</div> :
-                    studentsList.length === 0 ? <div className="p-12 text-center text-slate-500">No students found.</div> :
+                tableLoading ? <div className="p-12 text-center text-slate-500">Loading students...</div> :
+                    effectiveTotal === 0 ? <div className="p-12 text-center text-slate-500">No students found.</div> :
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase text-slate-500 font-semibold">
@@ -719,7 +1193,24 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                                         <tr key={student.id} onClick={() => openProfileModal(student)} className="hover:bg-slate-50 cursor-pointer">
                                             <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.first_name} {student.last_name}</span></td>
                                             <td className="px-6 py-4 font-mono text-slate-600">{student.student_id}</td>
-                                            <td className="px-6 py-4"><div>{student.course}</div><div className="text-xs text-slate-500">{student.year_level}{student.section ? ` — Sec ${student.section}` : ''}</div></td>
+                                            <td className="px-6 py-4">
+                                                {(() => {
+                                                    const filteredSnapshot = schoolYearFilter === 'All'
+                                                        ? null
+                                                        : getArchivedSnapshotForSchoolYear(student, schoolYearFilter);
+                                                    const displayCourse = filteredSnapshot?.course || student.course || '-';
+                                                    const displayYear = filteredSnapshot?.year_level || student.year_level || '-';
+                                                    return (
+                                                        <>
+                                                            <div>{displayCourse}</div>
+                                                            <div className="text-xs text-slate-500">
+                                                                {displayYear}{student.section ? ` — Sec ${student.section}` : ''}
+                                                                {filteredSnapshot && <span className="ml-1 text-[10px] text-indigo-600">({schoolYearFilter})</span>}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </td>
                                             <td className="px-6 py-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{student.status}</span></td>
                                             <td className="px-6 py-4 text-right">
                                                 <button onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-600 hover:text-blue-800 p-2"><Edit size={16} /></button>
@@ -730,9 +1221,9 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                                 </tbody>
                             </table>
                             {/* Pagination Controls */}
-                            {filteredStudents.length > 0 && (
+                            {effectiveTotal > 0 && (
                                 <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-                                    <span className="text-xs text-slate-500">Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredStudents.length)} of {filteredStudents.length}</span>
+                                    <span className="text-xs text-slate-500">Showing {startIndex + 1} to {Math.min(startIndex + paginatedStudents.length, effectiveTotal)} of {effectiveTotal}</span>
                                     <div className="flex gap-2">
                                         <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 rounded border border-slate-300 bg-white text-xs disabled:opacity-50">Previous</button>
                                         <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 rounded border border-slate-300 bg-white text-xs disabled:opacity-50">Next</button>
@@ -740,6 +1231,151 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                                 </div>
                             )}
                         </div>
+            )}
+
+            {/* Edit Student Modal */}
+            {showEditModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+                        <div className="px-6 py-4 border-b flex justify-between items-center">
+                            <h3 className="font-bold text-lg">Edit Student</h3>
+                            <button onClick={() => setShowEditModal(false)}>
+                                <XCircle size={24} className="text-slate-400" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleUpdateStudent} className="p-6 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold mb-1">First Name</label>
+                                    <input
+                                        required
+                                        value={editForm.first_name || ''}
+                                        onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold mb-1">Last Name</label>
+                                    <input
+                                        required
+                                        value={editForm.last_name || ''}
+                                        onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold mb-1">Course</label>
+                                <select
+                                    required
+                                    value={editForm.course || ''}
+                                    onChange={(e) => setEditForm({ ...editForm, course: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                                >
+                                    <option value="">Select...</option>
+                                    {allCourses.map((course: any) => (
+                                        <option key={course.id} value={course.name}>{course.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold mb-1">Year Level</label>
+                                    <select
+                                        value={editForm.year_level || '1st Year'}
+                                        onChange={(e) => setEditForm({ ...editForm, year_level: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                    >
+                                        {YEAR_LEVEL_OPTIONS.map((year) => <option key={year} value={year}>{year}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold mb-1">Status</label>
+                                    <select
+                                        value={editForm.status || 'Active'}
+                                        onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                    >
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                        <option value="Probation">Probation</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
+                                <label className="flex items-start gap-2 text-sm text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(editForm.course_year_update_required)}
+                                        onChange={(e) => setEditForm({
+                                            ...editForm,
+                                            course_year_update_required: e.target.checked,
+                                            course_year_window_start: e.target.checked ? editForm.course_year_window_start || '' : '',
+                                            course_year_window_end: e.target.checked ? editForm.course_year_window_end || '' : '',
+                                        })}
+                                        className="mt-0.5"
+                                    />
+                                    <span>
+                                        <span className="font-semibold">Require course/year confirmation</span>
+                                        <span className="block text-xs text-slate-500">Student must confirm course and year within the window below.</span>
+                                    </span>
+                                </label>
+                                {Boolean(editForm.course_year_update_required) && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Window Start</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={editForm.course_year_window_start || ''}
+                                                onChange={(e) => setEditForm({ ...editForm, course_year_window_start: e.target.value })}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Window End</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={editForm.course_year_window_end || ''}
+                                                onChange={(e) => setEditForm({ ...editForm, course_year_window_end: e.target.value })}
+                                                className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
+                                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Update Student</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Student Modal */}
+            {showDeleteModal && studentToDelete && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="px-6 py-4 border-b flex justify-between items-center">
+                            <h3 className="font-bold text-lg">Delete Student</h3>
+                            <button onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }}>
+                                <XCircle size={24} className="text-slate-400" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-slate-700">
+                                Delete <span className="font-semibold">{studentToDelete.first_name} {studentToDelete.last_name}</span> and their enrollment key?
+                            </p>
+                            <p className="text-xs text-slate-500">This action cannot be undone.</p>
+                            <div className="pt-2 flex gap-3">
+                                <button type="button" onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
+                                <button type="button" onClick={confirmDeleteStudent} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Add Student Modal */}
@@ -752,10 +1388,15 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
                                 <div><label className="block text-xs font-bold mb-1">First Name</label><input required name="firstName" value={studentForm.firstName} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
                                 <div><label className="block text-xs font-bold mb-1">Last Name</label><input required name="lastName" value={studentForm.lastName} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
                             </div>
-                            <div><label className="block text-xs font-bold mb-1">Student ID</label><input required name="studentId" value={studentForm.studentId} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+                            <div><label className="block text-xs font-bold mb-1">Student ID</label><input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" placeholder="Ex: 202612345" value={studentForm.studentId} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
                             <div><label className="block text-xs font-bold mb-1">Course</label><select required name="course" value={studentForm.course} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm"><option value="">Select...</option>{allCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-xs font-bold mb-1">Year Level</label><select name="year" value={studentForm.year} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm"><option>1st Year</option><option>2nd Year</option><option>3rd Year</option><option>4th Year</option></select></div>
+                                <div>
+                                    <label className="block text-xs font-bold mb-1">Year Level</label>
+                                    <select name="year" value={studentForm.year} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm">
+                                        {YEAR_LEVEL_OPTIONS.map((year) => <option key={year} value={year}>{year}</option>)}
+                                    </select>
+                                </div>
                                 <div><label className="block text-xs font-bold mb-1">Status</label><select name="status" value={studentForm.status} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm"><option>Active</option><option>Inactive</option><option>Probation</option></select></div>
                             </div>
                             <div className="pt-4 flex gap-3">
@@ -770,67 +1411,218 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
             {/* Enrollment Keys Modal */}
             {showEnrollmentModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto animate-fade-in">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg text-slate-900">Manage Enrollment Keys</h3>
                             <button onClick={() => setShowEnrollmentModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle size={24} /></button>
                         </div>
-                        <div className="p-6">
+                        <div className="p-6 space-y-6">
                             <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-6 text-xs text-blue-800">
                                 <p className="font-bold mb-1"><Info size={12} className="inline mr-1" /> How this works:</p>
                                 <p>This list acts as a <strong>whitelist of valid IDs</strong>. Student profiles will only appear in the main list <strong>after</strong> the student successfully activates their account using one of these IDs.</p>
                             </div>
 
-                            <div className="mb-6 border-b border-slate-100 pb-6">
-                                <label className="block text-xs font-bold text-slate-700 mb-2">Option 1: Manual Entry</label>
-                                <form onSubmit={handleGenerateKey} className="flex gap-2">
-                                    <input required name="enrollmentId" className="w-1/3 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600" placeholder="ID (2026-XXXX)" />
-                                    <select required name="enrollmentCourse" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white">
-                                        <option value="">Select Course</option>
-                                        {allCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                    </select>
-                                    <button type="submit" className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition shadow-md"><Plus size={16} /></button>
-                                </form>
-                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="space-y-6">
+                                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+                                        <h4 className="font-bold text-sm text-slate-800">Global Course/Year Update Window</h4>
+                                        <p className="text-xs text-slate-500 mt-1">Apply one start/end window to many students at once. When the end time passes, course/year values are auto-reset while Student IDs stay active.</p>
+                                        <p className="text-xs text-slate-500 mt-3">This applies to all students.</p>
 
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-xs font-bold text-slate-700">Option 2: Bulk Upload (CSV / Excel)</label>
-                                    <button onClick={handleDownloadTemplate} className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
-                                        <Download size={12} /> Download Template
-                                    </button>
-                                </div>
-                                <div className="relative border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition group cursor-pointer">
-                                    <input type="file" accept=".csv,.txt,.xlsx,.xls" onChange={handleBulkUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                    <div className="group-hover:scale-110 transition-transform duration-200"><UploadCloud size={32} className="text-purple-600 mb-2 mx-auto" /></div>
-                                    <p className="text-sm text-slate-700 font-medium">Click to upload CSV or Excel file</p>
-                                    <p className="text-xs text-slate-400 mt-1">Format: Student ID, Course</p>
-                                </div>
-                            </div>
-
-                            <div className="mb-3 mt-6">
-                                <label className="block text-xs font-bold text-slate-700 mb-1">Filter by Status</label>
-                                <select value={enrollmentStatusFilter} onChange={e => setEnrollmentStatusFilter(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"><option value="All">All Statuses</option><option value="Pending">Pending</option><option value="Activated">Activated</option></select>
-                            </div>
-
-                            <div className="mt-4 border-t border-slate-100 pt-4">
-                                <h4 className="font-bold text-sm text-slate-700 mb-3">Existing Keys ({enrollmentKeys.length})</h4>
-                                <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-                                    {enrollmentKeys.filter(key => enrollmentStatusFilter === 'All' || (key.status || 'Pending') === enrollmentStatusFilter).map(key => (
-                                        <div key={key.student_id} className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-100 text-xs">
-                                            <div>
-                                                <span className="font-mono font-bold text-slate-700">{key.student_id}</span>
-                                                <span className="block text-slate-500 truncate max-w-[150px]" title={key.course}>{key.course}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`px-2 py-1 rounded font-bold ${key.is_used ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{key.is_used ? 'Activated' : 'Pending'}</span>
-                                                <button onClick={() => handleDeleteKey(key.student_id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete Key">
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                                            <input
+                                                type="datetime-local"
+                                                value={bulkWindowForm.start}
+                                                onChange={(e) => setBulkWindowForm((prev: any) => ({ ...prev, start: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                                            />
+                                            <input
+                                                type="datetime-local"
+                                                value={bulkWindowForm.end}
+                                                onChange={(e) => setBulkWindowForm((prev: any) => ({ ...prev, end: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                                            />
                                         </div>
-                                    ))}
-                                    {enrollmentKeys.length === 0 && <p className="text-center text-slate-400 text-xs py-4">No keys generated yet.</p>}
+
+                                        <p className="text-xs text-slate-500 mt-2">Target students: <span className="font-bold text-slate-700">{bulkTargetCount}</span></p>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+                                            <button
+                                                type="button"
+                                                onClick={applyBulkCourseYearWindow}
+                                                disabled={isApplyingBulkWindow}
+                                                className="px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                                            >
+                                                {isApplyingBulkWindow ? 'Applying...' : 'Apply Window'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={clearBulkCourseYearWindow}
+                                                disabled={isApplyingBulkWindow}
+                                                className="px-3 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-100 disabled:opacity-60"
+                                            >
+                                                Clear Window
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={syncEnrollmentKeysFromStudents}
+                                                disabled={isSyncingBulkKeys}
+                                                className="px-3 py-2 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 disabled:opacity-60"
+                                            >
+                                                {isSyncingBulkKeys ? 'Syncing...' : 'Sync Keys (Optional)'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-b border-slate-100 pb-6">
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Option 1: Manual Entry</label>
+                                        <form onSubmit={handleGenerateKey} className="flex flex-wrap gap-2">
+                                            <input required name="enrollmentId" className="w-1/3 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600" placeholder="Ex: 202612345" pattern="\d{9}" title="Student ID must be exactly 9 digits" />
+                                            <select required name="enrollmentCourse" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white">
+                                                <option value="">Select Course</option>
+                                                {allCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                            </select>
+                                            <select required name="enrollmentYear" defaultValue="1st Year" className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white">
+                                                {YEAR_LEVEL_OPTIONS.map((year) => <option key={year} value={year}>{year}</option>)}
+                                            </select>
+                                            <button type="submit" className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition shadow-md"><Plus size={16} /></button>
+                                        </form>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="block text-xs font-bold text-slate-700">Option 2: Bulk Upload (CSV / Excel)</label>
+                                            <button onClick={handleDownloadTemplate} className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+                                                <Download size={12} /> Download Template
+                                            </button>
+                                        </div>
+                                        <div className="relative border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition group cursor-pointer">
+                                            <input type="file" accept=".csv,.txt,.xlsx,.xls" onChange={handleBulkUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                            <div className="group-hover:scale-110 transition-transform duration-200"><UploadCloud size={32} className="text-purple-600 mb-2 mx-auto" /></div>
+                                            <p className="text-sm text-slate-700 font-medium">Click to upload CSV or Excel file</p>
+                                            <p className="text-xs text-slate-400 mt-1">Format: Student ID, Course, Year Level</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-3 mt-6">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Filter by Status</label>
+                                        <select value={enrollmentStatusFilter} onChange={e => setEnrollmentStatusFilter(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"><option value="All">All Statuses</option><option value="Pending">Pending</option><option value="Activated">Activated</option></select>
+                                    </div>
+
+                                    <div className="mt-4 border-t border-slate-100 pt-4">
+                                        <h4 className="font-bold text-sm text-slate-700 mb-3">Existing Keys ({enrollmentKeys.length})</h4>
+                                        <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                                            {enrollmentKeys.filter(key => enrollmentStatusFilter === 'All' || (key.status || 'Pending') === enrollmentStatusFilter).map(key => (
+                                                <div key={key.student_id} className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-100 text-xs">
+                                                    <div>
+                                                        <span className="font-mono font-bold text-slate-700">{key.student_id}</span>
+                                                        <span className="block text-slate-500 truncate max-w-[150px]" title={key.course}>{key.course}</span>
+                                                        <span className="block text-slate-400">{key.year_level || 'Year not set'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`px-2 py-1 rounded font-bold ${key.is_used ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{key.is_used ? 'Activated' : 'Pending'}</span>
+                                                        <button onClick={() => handleDeleteKey(key.student_id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete Key">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {enrollmentKeys.length === 0 && <p className="text-center text-slate-400 text-xs py-4">No keys generated yet.</p>}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+                                    <div className="mb-4">
+                                        <h4 className="font-bold text-sm text-slate-800">Course &amp; Applicant Limits</h4>
+                                        <p className="text-xs text-slate-500 mt-1">Add courses here and maintain per-course NAT applicant limits, grouped by department.</p>
+                                    </div>
+
+                                    <form onSubmit={handleAddCourse} className="grid grid-cols-1 md:grid-cols-8 gap-2 mb-4">
+                                        <input
+                                            type="text"
+                                            className="md:col-span-3 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"
+                                            placeholder="Course name"
+                                            value={courseForm.name}
+                                            onChange={e => setCourseForm({ ...courseForm, name: e.target.value })}
+                                            required
+                                        />
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"
+                                            placeholder="Applicant limit"
+                                            value={courseForm.application_limit}
+                                            onChange={e => setCourseForm({ ...courseForm, application_limit: parseInt(e.target.value || '0', 10) })}
+                                            required
+                                        />
+                                        <select
+                                            className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"
+                                            value={courseForm.department_id}
+                                            onChange={e => setCourseForm({ ...courseForm, department_id: e.target.value })}
+                                            required
+                                        >
+                                            <option value="" disabled>Select department</option>
+                                            {allDepartments.map((dept: any) => (
+                                                <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                            ))}
+                                        </select>
+                                        <button type="submit" className="md:col-span-1 px-3 py-2 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition">
+                                            Add
+                                        </button>
+                                    </form>
+
+                                    <div className="mb-3">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Filter Courses by Department</label>
+                                        <select
+                                            value={courseDeptFilter}
+                                            onChange={e => setCourseDeptFilter(e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"
+                                        >
+                                            <option value="All">All Departments</option>
+                                            {departmentNames.map((deptName: string) => (
+                                                <option key={deptName} value={deptName}>{deptName}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
+                                        <table className="w-full text-left text-xs">
+                                            <thead className="bg-slate-100 text-slate-600 uppercase">
+                                                <tr>
+                                                    <th className="px-3 py-2">Course</th>
+                                                    <th className="px-3 py-2">Department</th>
+                                                    <th className="px-3 py-2 text-center">Applicants</th>
+                                                    <th className="px-3 py-2 text-center">Limit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {courseRowsForManagement.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={4} className="px-3 py-4 text-center text-slate-400">No courses found for this department.</td>
+                                                    </tr>
+                                                ) : courseRowsForManagement.map((course: any) => {
+                                                    const department = allDepartments.find((d: any) => d.id === course.department_id);
+                                                    return (
+                                                        <tr key={course.id}>
+                                                            <td className="px-3 py-2 font-semibold text-slate-800">{course.name}</td>
+                                                            <td className="px-3 py-2 text-slate-600">{department?.name || 'Unassigned'}</td>
+                                                            <td className="px-3 py-2 text-center font-mono text-blue-700">{courseApplicantCounts[course.name] || 0}</td>
+                                                            <td className="px-3 py-2 text-center">
+                                                                <input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    className="w-20 px-2 py-1 border border-slate-300 rounded text-center text-xs focus:outline-none focus:border-purple-600"
+                                                                    defaultValue={course.application_limit ?? 200}
+                                                                    onBlur={e => handleUpdateCourseLimit(course.id, e.target.value)}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -995,3 +1787,6 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
 };
 
 export default StudentPopulationPage;
+
+
+

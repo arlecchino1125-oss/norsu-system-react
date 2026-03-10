@@ -392,15 +392,11 @@ const DeptSupportApprovalsPage = ({
 
                         <div className="flex-1 overflow-y-auto p-8 space-y-8">
                             {/* Endorsement Letter Button */}
-                            {viewReq.care_notes && (() => {
-                                let letterUrl = null;
-                                try { const parsed = JSON.parse(viewReq.care_notes); letterUrl = parsed?.letter_url; } catch { }
-                                return letterUrl ? (
-                                    <button onClick={() => setShowLetterModal(true)} className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 text-yellow-800 rounded-xl font-bold text-sm hover:from-yellow-100 hover:to-amber-100 hover:border-yellow-300 transition-all shadow-sm">
-                                        <FileText size={16} /> View CARE Staff Endorsement Letter
-                                    </button>
-                                ) : null;
-                            })()}
+                            {viewReq.care_notes && (
+                                <button onClick={() => setShowLetterModal(true)} className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 text-yellow-800 rounded-xl font-bold text-sm hover:from-yellow-100 hover:to-amber-100 hover:border-yellow-300 transition-all shadow-sm">
+                                    <FileText size={16} /> View CARE Staff Endorsement Letter
+                                </button>
+                            )}
 
                             <section className="bg-gray-50 p-5 rounded-xl border border-gray-200">
                                 <h4 className="font-bold text-sm text-purple-600 mb-4 uppercase tracking-wider border-b border-gray-200 pb-2">Student Information</h4>
@@ -455,8 +451,6 @@ const DeptSupportApprovalsPage = ({
                                 })()}
                             </section>
 
-
-
                             {viewReq.status === 'Visit Scheduled' && (
                                 <section className="bg-blue-50 p-5 rounded-xl border border-blue-200">
                                     <h4 className="font-bold text-sm text-blue-700 mb-2 uppercase tracking-wider">Scheduled Visit</h4>
@@ -510,8 +504,9 @@ const DeptSupportApprovalsPage = ({
                     const parsed = JSON.parse(viewReq.care_notes);
                     letterUrl = parsed?.letter_url;
                     notesText = parsed?.notes || '';
-                } catch { }
-                if (!letterUrl) return null;
+                } catch {
+                    notesText = viewReq.care_notes;
+                }
                 return (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
@@ -545,10 +540,11 @@ const DeptSupportApprovalsPage = ({
                                     </div>
                                 </div>
 
-                                {/* Download Link */}
-                                <a href={letterUrl} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-bold text-sm rounded-xl hover:shadow-lg shadow-yellow-200/50 transition-all">
-                                    <Download size={16} /> Download Original Letter
-                                </a>
+                                {letterUrl && (
+                                    <a href={letterUrl} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-bold text-sm rounded-xl hover:shadow-lg shadow-yellow-200/50 transition-all">
+                                        <Download size={16} /> Download Original Letter
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>

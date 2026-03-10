@@ -712,9 +712,250 @@ textarea {
         background-color 0.2s ease;
 }
 
+/* Keep the student profile editor plain so native dropdowns stay stable */
+.student-profile-edit input,
+.student-profile-edit select,
+.student-profile-edit textarea {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+    background: #ffffff !important;
+    color: #334155 !important;
+    -webkit-text-fill-color: #334155;
+}
+
+.student-profile-edit select,
+.student-profile-edit option {
+    color-scheme: light;
+    background: #ffffff;
+    color: #334155;
+}
+
+.student-profile-edit .card-hover,
+.student-profile-edit .card-hover:hover,
+.student-profile-edit .card-hover:active,
+.student-profile-edit .animate-fade-in-up,
+.student-profile-edit .animate-fade-in {
+    animation: none !important;
+    transform: none !important;
+}
+
 /* ─── Modal smooth entrance for inner content ─── */
 .modal-content {
     animation: scaleIn 0.35s var(--ease-smooth) both;
+}
+
+/* NAT portal sizing overrides */
+.nat-portal .nat-layout-header {
+    max-width: 72rem;
+    padding: 0.875rem 1rem;
+}
+
+.nat-portal .nat-layout-main {
+    padding: 0.875rem;
+}
+
+.nat-portal .nat-page-shell {
+    width: 100%;
+}
+
+.nat-portal .nat-page-shell-sm {
+    max-width: 24rem;
+}
+
+.nat-portal .nat-page-shell-md {
+    max-width: 48rem;
+}
+
+.nat-portal .nat-page-shell-lg {
+    max-width: 56rem;
+}
+
+.nat-portal .nat-page-shell-xl,
+.nat-portal .nat-form-shell {
+    max-width: 64rem;
+}
+
+.nat-portal .nat-screen-card {
+    padding: clamp(1rem, 2vw, 2rem) !important;
+    border-radius: 1.75rem !important;
+}
+
+.nat-portal .nat-hero-card {
+    padding: clamp(1.25rem, 2.5vw, 2.75rem) !important;
+}
+
+.nat-portal .nat-section-card,
+.nat-portal .nat-sidebar-card {
+    padding: clamp(1rem, 1.8vw, 1.5rem) !important;
+    border-radius: 1.5rem !important;
+}
+
+.nat-portal .nat-callout {
+    padding: 1rem 1.125rem !important;
+    border-radius: 1.25rem !important;
+}
+
+.nat-portal .nat-hero-title {
+    font-size: clamp(2rem, 4vw, 4rem) !important;
+    line-height: 1.05;
+}
+
+.nat-portal .nat-hero-lead {
+    font-size: clamp(1rem, 1.7vw, 1.3rem) !important;
+    max-width: 40rem;
+}
+
+.nat-portal .nat-panel-title {
+    font-size: clamp(1.5rem, 2.3vw, 2.5rem) !important;
+    line-height: 1.1;
+}
+
+.nat-portal .nat-action-row {
+    width: 100%;
+    max-width: 36rem;
+}
+
+.nat-portal .nat-primary-action,
+.nat-portal .nat-secondary-action {
+    min-height: 2.875rem;
+    padding: 0.875rem 1.25rem !important;
+    font-size: 0.95rem !important;
+    border-radius: 1rem !important;
+}
+
+.nat-portal .nat-auth-input {
+    padding-top: 0.875rem !important;
+    padding-bottom: 0.875rem !important;
+}
+
+.nat-portal .nat-form-shell {
+    gap: 1rem;
+    padding-bottom: 5rem;
+}
+
+.nat-portal .nat-sidebar {
+    width: 17rem;
+    flex: 0 0 17rem;
+}
+
+.nat-portal .nat-form-main {
+    min-width: 0;
+    flex: 1 1 0%;
+}
+
+.nat-portal .nat-action-bar {
+    padding: 0.875rem 1rem !important;
+    gap: 0.875rem !important;
+    border-radius: 1.5rem !important;
+}
+
+.nat-portal .nat-success-modal {
+    max-width: 32rem !important;
+}
+
+@media (min-width: 768px) {
+    .nat-portal .nat-layout-header {
+        padding: 1rem 1.5rem;
+    }
+
+    .nat-portal .nat-layout-main {
+        padding: 1rem 1.5rem 1.75rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .nat-portal .nat-layout-main {
+        padding: 1.25rem 2rem 2rem;
+    }
+
+    .nat-portal .nat-page-shell-sm {
+        max-width: 25rem;
+    }
+
+    .nat-portal .nat-page-shell-md {
+        max-width: 50rem;
+    }
+
+    .nat-portal .nat-page-shell-lg {
+        max-width: 58rem;
+    }
+
+    .nat-portal .nat-page-shell-xl,
+    .nat-portal .nat-form-shell {
+        max-width: 66rem;
+    }
+
+    .nat-portal .nat-primary-action,
+    .nat-portal .nat-secondary-action {
+        padding: 0.95rem 1.4rem !important;
+        font-size: 1rem !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .nat-portal .nat-layout-header {
+        padding: 0.75rem 0.875rem;
+    }
+
+    .nat-portal .nat-layout-main {
+        padding: 0.75rem 0.75rem 1.25rem;
+    }
+
+    .nat-portal .nat-screen-card,
+    .nat-portal .nat-section-card,
+    .nat-portal .nat-sidebar-card {
+        padding: 1rem !important;
+        border-radius: 1.25rem !important;
+    }
+
+    .nat-portal .nat-hero-card {
+        padding: 1.125rem !important;
+    }
+
+    .nat-portal .nat-hero-title {
+        font-size: 1.85rem !important;
+    }
+
+    .nat-portal .nat-hero-lead {
+        font-size: 0.95rem !important;
+        max-width: 100%;
+    }
+
+    .nat-portal .nat-panel-title {
+        font-size: 1.6rem !important;
+    }
+
+    .nat-portal .nat-callout,
+    .nat-portal .nat-action-bar,
+    .nat-portal .nat-mobile-stepper {
+        padding: 0.875rem !important;
+    }
+
+    .nat-portal .nat-mobile-privacy {
+        margin-top: 0.75rem !important;
+    }
+
+    .nat-portal .nat-primary-action,
+    .nat-portal .nat-secondary-action {
+        width: 100%;
+        padding: 0.8rem 1rem !important;
+        font-size: 0.95rem !important;
+    }
+
+    .nat-portal .nat-action-row {
+        max-width: none;
+    }
+
+    .nat-portal .nat-form-shell {
+        gap: 0.75rem;
+        padding-bottom: 4rem;
+    }
+
+    .nat-portal .nat-success-modal {
+        max-width: 100% !important;
+        border-radius: 1.5rem !important;
+    }
 }
 
 /* ─── Reduce motion for accessibility ─── */

@@ -1,14 +1,58 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
+import {
+    getApplicationsPage,
+    getCounselingRequestsPage,
+    getCourseDepartmentMap,
+    getEventsPage,
+    getStudentsPage,
+    getSupportRequestsPage
+} from '../../services/deptService';
 
 export function useDeptData(session: any, isAuthenticated: boolean) {
     const [data, setData] = useState<any>(null);
+    const [courseMap, setCourseMap] = useState<Record<string, string>>({});
     const [eventsList, setEventsList] = useState<any[]>([]);
     const [counselingRequests, setCounselingRequests] = useState<any[]>([]);
     const [supportRequests, setSupportRequests] = useState<any[]>([]);
     const [admissionApplicants, setAdmissionApplicants] = useState<any[]>([]);
     const [lastSeenSupportCount, setLastSeenSupportCount] = useState<number>(0);
     const [toast, setToast] = useState<any>(null);
+
+    const [studentsPage, setStudentsPage] = useState(1);
+    const [studentsPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [studentsTotal, setStudentsTotal] = useState(0);
+    const [studentsError, setStudentsError] = useState<string | null>(null);
+    const [studentsLoading, setStudentsLoading] = useState(false);
+    const [studentFilters, setStudentFilters] = useState<any>({});
+
+    const [counselingPage, setCounselingPage] = useState(1);
+    const [counselingPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [counselingTotal, setCounselingTotal] = useState(0);
+    const [counselingError, setCounselingError] = useState<string | null>(null);
+    const [counselingLoading, setCounselingLoading] = useState(false);
+    const [counselingFilters, setCounselingFilters] = useState<any>({});
+
+    const [supportPage, setSupportPage] = useState(1);
+    const [supportPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [supportTotal, setSupportTotal] = useState(0);
+    const [supportError, setSupportError] = useState<string | null>(null);
+    const [supportLoading, setSupportLoading] = useState(false);
+    const [supportFilters, setSupportFilters] = useState<any>({});
+
+    const [admissionsPage, setAdmissionsPage] = useState(1);
+    const [admissionsPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [admissionsTotal, setAdmissionsTotal] = useState(0);
+    const [admissionsError, setAdmissionsError] = useState<string | null>(null);
+    const [admissionsLoading, setAdmissionsLoading] = useState(false);
+    const [admissionsFilters, setAdmissionsFilters] = useState<any>({});
+
+    const [eventsPage, setEventsPage] = useState(1);
+    const [eventsPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [eventsTotal, setEventsTotal] = useState(0);
+    const [eventsError, setEventsError] = useState<string | null>(null);
+    const [eventsLoading, setEventsLoading] = useState(false);
 
     const showToastMessage = (msg: string, type: string = 'success') => {
         setToast({ msg, type });
@@ -32,50 +76,144 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                     darkMode: false
                 }
             });
+
+            setStudentFilters({ department: session.department || 'Unassigned' });
+            setCounselingFilters({ department: session.department || 'Unassigned' });
+            setSupportFilters({ department: session.department || 'Unassigned' });
+            setAdmissionsFilters({});
         }
     }, [isAuthenticated, session]);
 
-    // Fetch Real Students, Courses, and Departments
+    const refreshStudents = async () => {
+        if (!data?.profile?.department) return;
+        setStudentsLoading(true);
+        setStudentsError(null);
+        try {
+            const map = await getCourseDepartmentMap();
+            setCourseMap(map);
+
+            const result = await getStudentsPage(
+                { ...studentFilters, department: data.profile.department },
+                { page: studentsPage, pageSize: studentsPageSize }
+            );
+
+            const mappedStudents = result.rows.map((student: any) => ({
+                id: student.student_id,
+                name: `${student.first_name} ${student.last_name}`.trim(),
+                email: student.email || 'No Email',
+                year: student.year_level,
+                status: student.status,
+                section: student.section,
+                department: student.department || map[String(student.course || '').trim().toLowerCase()] || 'Unassigned',
+                course: student.course,
+                ...student
+            }));
+
+            setStudentsTotal(result.total);
+            setData((prev: any) => ({ ...prev, students: mappedStudents, courseMap: map }));
+        } catch (error: any) {
+            setStudentsError(error.message || 'Failed to load students');
+        } finally {
+            setStudentsLoading(false);
+        }
+    };
+
+    const refreshEvents = async () => {
+        setEventsLoading(true);
+        setEventsError(null);
+        try {
+            const result = await getEventsPage(
+                { page: eventsPage, pageSize: eventsPageSize },
+                { column: 'created_at', ascending: false }
+            );
+            setEventsList(result.rows);
+            setEventsTotal(result.total);
+        } catch (error: any) {
+            setEventsError(error.message || 'Failed to load events');
+        } finally {
+            setEventsLoading(false);
+        }
+    };
+
+    const refreshCounseling = async () => {
+        if (!data?.profile?.department) return;
+        setCounselingLoading(true);
+        setCounselingError(null);
+        try {
+            const result = await getCounselingRequestsPage(
+                { ...counselingFilters, department: data.profile.department },
+                { page: counselingPage, pageSize: counselingPageSize },
+                { column: 'created_at', ascending: false }
+            );
+            setCounselingRequests(result.rows);
+            setCounselingTotal(result.total);
+        } catch (error: any) {
+            setCounselingError(error.message || 'Failed to load counseling requests');
+        } finally {
+            setCounselingLoading(false);
+        }
+    };
+
+    const refreshSupport = async () => {
+        if (!data?.profile?.department) return;
+        setSupportLoading(true);
+        setSupportError(null);
+        try {
+            const result = await getSupportRequestsPage(
+                {
+                    ...supportFilters,
+                    department: data.profile.department,
+                    status: ['Forwarded to Dept', 'Visit Scheduled', 'Resolved by Dept', 'Referred to CARE']
+                },
+                { page: supportPage, pageSize: supportPageSize },
+                { column: 'created_at', ascending: false }
+            );
+            setSupportRequests(result.rows);
+            setSupportTotal(result.total);
+        } catch (error: any) {
+            setSupportError(error.message || 'Failed to load support requests');
+        } finally {
+            setSupportLoading(false);
+        }
+    };
+
+    const refreshAdmissions = async () => {
+        if (!data?.profile?.department) return;
+        setAdmissionsLoading(true);
+        setAdmissionsError(null);
+        try {
+            const result = await getApplicationsPage(
+                admissionsFilters,
+                { page: admissionsPage, pageSize: admissionsPageSize },
+                { column: 'created_at', ascending: false }
+            );
+
+            const deptApps = result.rows.filter((app: any) => {
+                const choice = app.current_choice || 1;
+                const activeCourse = choice === 1 ? app.priority_course : choice === 2 ? app.alt_course_1 : app.alt_course_2;
+                const mappedDept = courseMap[String(activeCourse || '').trim().toLowerCase()];
+                return mappedDept === data.profile.department;
+            });
+
+            setAdmissionApplicants(deptApps);
+            setAdmissionsTotal(result.total);
+        } catch (error: any) {
+            setAdmissionsError(error.message || 'Failed to load admissions');
+        } finally {
+            setAdmissionsLoading(false);
+        }
+    };
+
+    // Fetch paginated students (server-side)
     useEffect(() => {
-        const fetchStudents = async () => {
-            if (!data?.profile) return;
-            // 1. Fetch Students
-            const { data: studentsData } = await supabase.from('students').select('*');
-
-            // 2. Fetch Courses and Departments to map dynamically
-            const { data: coursesData } = await supabase.from('courses').select('id, name, department_id');
-            const { data: deptsData } = await supabase.from('departments').select('id, name');
-
-            const courseMap: any = {};
-            if (coursesData && deptsData) {
-                const deptMap: any = {};
-                deptsData.forEach(d => deptMap[d.id] = d.name);
-                coursesData.forEach(c => courseMap[c.name.trim().toLowerCase()] = deptMap[c.department_id] || 'Unassigned');
-            }
-
-            if (studentsData) {
-                const mappedStudents = studentsData.map(s => ({
-                    id: s.student_id,
-                    name: `${s.first_name} ${s.last_name}`,
-                    email: s.email || 'No Email',
-                    year: s.year_level,
-                    status: s.status,
-                    department: s.department || courseMap[s.course?.trim().toLowerCase()] || 'Unassigned',
-                    course: s.course,
-                    ...s
-                }));
-                setData((prev: any) => ({ ...prev, students: mappedStudents, courseMap }));
-            }
-        };
-
         if (data?.profile) {
-            fetchStudents();
+            refreshStudents();
             const channel = supabase.channel('dept_students_realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, fetchStudents)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, refreshStudents)
                 .subscribe();
             return () => { supabase.removeChannel(channel); };
         }
-    }, [data?.profile]);
+    }, [data?.profile, studentsPage, studentsPageSize, JSON.stringify(studentFilters)]);
 
     // Dark Mode Effect
     useEffect(() => {
@@ -86,96 +224,45 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         }
     }, [data?.settings?.darkMode]);
 
-    // Fetch Events (Always Active)
+    // Fetch Events (paginated)
     useEffect(() => {
-        const fetchEvents = async () => {
-            const { data: eventsData } = await supabase
-                .from('events').select('*').order('created_at', { ascending: false });
-            if (eventsData) setEventsList(eventsData);
-        };
-
-        fetchEvents();
+        refreshEvents();
         const channel = supabase.channel('dept_events_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, refreshEvents)
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [eventsPage, eventsPageSize]);
 
-    // Fetch Counseling Requests
+    // Fetch Counseling Requests (paginated)
     useEffect(() => {
         if (!data?.profile?.department) return;
-
-        const fetchRequests = async () => {
-            const { data: reqs, error } = await supabase
-                .from('counseling_requests')
-                .select('*')
-                .eq('department', data.profile.department)
-                .order('created_at', { ascending: false });
-
-            if (error) console.error("DeptDashboard: Error fetching requests:", error);
-            if (reqs) {
-                setCounselingRequests(reqs);
-            }
-        };
-
-        fetchRequests();
+        refreshCounseling();
         const channel = supabase
             .channel('dept_counseling')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests', filter: `department=eq.${data.profile.department}` }, (payload: any) => {
-                fetchRequests();
+                refreshCounseling();
                 if (payload.eventType === 'INSERT') {
                     showToastMessage(`New Counseling Request Received`, 'info');
                 }
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    }, [data?.profile?.department]);
+    }, [data?.profile?.department, counselingPage, counselingPageSize, JSON.stringify(counselingFilters)]);
 
-    // Fetch Admissions Applicants
+    // Fetch Admissions Applicants (paginated)
     useEffect(() => {
-        if (!data?.profile?.department || !data?.courseMap) return;
-
-        const fetchAdmissions = async () => {
-            const { data: apps, error } = await supabase
-                .from('applications')
-                .select('*')
-                .in('status', ['Qualified for Interview (1st Choice)', 'Forwarded to 2nd Choice for Interview', 'Forwarded to 3rd Choice for Interview', 'Interview Scheduled'])
-                .order('created_at', { ascending: false });
-
-            if (apps) {
-                const myDeptApps = apps.filter((app: any) => {
-                    const activeChoice = app.current_choice || 1;
-                    const activeCourse = activeChoice === 1 ? app.priority_course : activeChoice === 2 ? app.alt_course_1 : app.alt_course_2;
-
-                    const mappedDept = data.courseMap[activeCourse?.trim().toLowerCase()];
-                    return mappedDept === data.profile.department;
-                });
-                setAdmissionApplicants(myDeptApps);
-            }
-        };
-
-        fetchAdmissions();
+        if (!data?.profile?.department || !courseMap) return;
+        refreshAdmissions();
         const channel = supabase.channel('dept_admissions_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, fetchAdmissions)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, refreshAdmissions)
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    }, [data?.profile?.department, data?.courseMap]);
+    }, [data?.profile?.department, admissionsPage, admissionsPageSize, JSON.stringify(admissionsFilters), JSON.stringify(courseMap)]);
 
-    // Fetch Support Requests
+    // Fetch Support Requests (paginated)
     useEffect(() => {
         if (!data?.profile?.department) return;
-
-        const fetchSupport = async () => {
-            const { data: reqs } = await supabase
-                .from('support_requests')
-                .select('*')
-                .eq('department', data.profile.department)
-                .in('status', ['Forwarded to Dept', 'Visit Scheduled', 'Resolved by Dept', 'Referred to CARE'])
-                .order('created_at', { ascending: false });
-            if (reqs) setSupportRequests(reqs);
-        };
-
-        fetchSupport();
+        refreshSupport();
         const channel = supabase
             .channel('dept_support_realtime')
             .on('postgres_changes', {
@@ -187,11 +274,11 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                 if (payload.new && payload.new.status === 'Forwarded to Dept') {
                     showToastMessage("New Support Request Received", "success");
                 }
-                fetchSupport();
+                refreshSupport();
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    }, [data?.profile?.department]);
+    }, [data?.profile?.department, supportPage, supportPageSize, JSON.stringify(supportFilters)]);
 
     return {
         data,
@@ -205,6 +292,61 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         setLastSeenSupportCount,
         toast,
         setToast,
-        showToastMessage
+        showToastMessage,
+        studentsState: {
+            rows: data?.students || [],
+            total: studentsTotal,
+            page: studentsPage,
+            pageSize: studentsPageSize,
+            isLoading: studentsLoading,
+            error: studentsError,
+            setPage: setStudentsPage,
+            setFilters: setStudentFilters,
+            refresh: refreshStudents
+        },
+        counselingState: {
+            rows: counselingRequests,
+            total: counselingTotal,
+            page: counselingPage,
+            pageSize: counselingPageSize,
+            isLoading: counselingLoading,
+            error: counselingError,
+            setPage: setCounselingPage,
+            setFilters: setCounselingFilters,
+            refresh: refreshCounseling
+        },
+        supportState: {
+            rows: supportRequests,
+            total: supportTotal,
+            page: supportPage,
+            pageSize: supportPageSize,
+            isLoading: supportLoading,
+            error: supportError,
+            setPage: setSupportPage,
+            setFilters: setSupportFilters,
+            refresh: refreshSupport
+        },
+        admissionsState: {
+            rows: admissionApplicants,
+            total: admissionsTotal,
+            page: admissionsPage,
+            pageSize: admissionsPageSize,
+            isLoading: admissionsLoading,
+            error: admissionsError,
+            setPage: setAdmissionsPage,
+            setFilters: setAdmissionsFilters,
+            refresh: refreshAdmissions
+        },
+        eventsState: {
+            rows: eventsList,
+            total: eventsTotal,
+            page: eventsPage,
+            pageSize: eventsPageSize,
+            isLoading: eventsLoading,
+            error: eventsError,
+            setPage: setEventsPage,
+            setFilters: () => undefined,
+            refresh: refreshEvents
+        }
     };
 }
