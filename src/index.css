@@ -63,6 +63,45 @@
     overscroll-behavior: contain;
 }
 
+@media (max-width: 639px) {
+    .student-mobile-modal-overlay {
+        align-items: center !important;
+        justify-content: center !important;
+        overflow-y: auto !important;
+        padding: 0.75rem !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .student-mobile-modal-shell {
+        min-height: 100%;
+        display: flex;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .student-mobile-modal-panel {
+        width: 100% !important;
+        max-height: calc(100dvh - 1.5rem) !important;
+        margin-top: auto;
+        margin-bottom: auto;
+    }
+
+    .student-mobile-modal-scroll-panel {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .student-mobile-modal-drawer-panel {
+        width: 100% !important;
+        height: auto !important;
+        max-height: calc(100dvh - 1.5rem) !important;
+        margin-top: auto;
+        margin-bottom: auto;
+        border-radius: 1.5rem !important;
+        overflow: hidden;
+    }
+}
+
 /* ─── CUSTOM SCROLLBAR ─── */
 ::-webkit-scrollbar {
     width: 6px;
