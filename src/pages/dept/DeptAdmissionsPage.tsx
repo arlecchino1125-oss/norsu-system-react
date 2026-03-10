@@ -1,16 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle, Calendar, User, Mail, Phone, CalendarDays } from 'lucide-react';
 
-// Mock applicants for testing the course filter
-const MOCK_APPLICANTS = [
-    { id: 'mock-1', first_name: 'Juan', last_name: 'Dela Cruz', reference_id: 'NAT-2026-001', email: 'juan@email.com', mobile: '09171234567', priority_course: 'Bronny', alt_course_1: 'Awra', alt_course_2: 'Atoy', current_choice: 1, status: 'Qualified for Interview (1st Choice)' },
-    { id: 'mock-2', first_name: 'Maria', last_name: 'Santos', reference_id: 'NAT-2026-002', email: 'maria@email.com', mobile: '09181234567', priority_course: 'Awra', alt_course_1: 'Bronny', alt_course_2: 'Atoy', current_choice: 1, status: 'Qualified for Interview (1st Choice)' },
-    { id: 'mock-3', first_name: 'Pedro', last_name: 'Reyes', reference_id: 'NAT-2026-003', email: 'pedro@email.com', mobile: '09191234567', priority_course: 'Atoy', alt_course_1: 'Bronny', alt_course_2: 'Awra', current_choice: 1, status: 'Interview Scheduled', interview_date: '2026-03-15 10:00 AM' },
-    { id: 'mock-4', first_name: 'Ana', last_name: 'Garcia', reference_id: 'NAT-2026-004', email: 'ana@email.com', mobile: '09201234567', priority_course: 'Atoy', alt_course_1: 'Awra', alt_course_2: 'Bronny', current_choice: 2, status: 'Forwarded to 2nd Choice for Interview' },
-    { id: 'mock-5', first_name: 'Carlos', last_name: 'Mendoza', reference_id: 'NAT-2026-005', email: 'carlos@email.com', mobile: '09211234567', priority_course: 'Bronny', alt_course_1: 'Atoy', alt_course_2: 'Awra', current_choice: 1, status: 'Interview Scheduled', interview_date: '2026-03-16 2:00 PM' },
-    { id: 'mock-6', first_name: 'Sofia', last_name: 'Villanueva', reference_id: 'NAT-2026-006', email: 'sofia@email.com', mobile: '09221234567', priority_course: 'Awra', alt_course_1: 'Bronny', alt_course_2: 'Atoy', current_choice: 3, status: 'Forwarded to 3rd Choice for Interview' },
-];
-
 const DeptAdmissionsPage = ({
     applicants,
     handleApproveApplicant,
@@ -21,8 +11,7 @@ const DeptAdmissionsPage = ({
     const [statusFilter, setStatusFilter] = useState('All');
     const [courseFilter, setCourseFilter] = useState('All');
 
-    // Merge real applicants with mock data for demonstration
-    const allApplicants = [...applicants, ...MOCK_APPLICANTS];
+    const allApplicants = Array.isArray(applicants) ? applicants : [];
 
     // Extract unique courses from applicants' active course choices
     const uniqueCourses = [...new Set(allApplicants.map((app: any) => {
@@ -82,7 +71,7 @@ const DeptAdmissionsPage = ({
                 {filteredApplicants.map((app: any) => (
                     <div key={app.id} className="bg-white border text-left flex flex-col justify-between border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
                         {app.status.includes('Interview Scheduled') && (
-                            <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl-xl shadow-sm">Interviewed Scheduled</div>
+                            <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl-xl shadow-sm">Interview Scheduled</div>
                         )}
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex gap-4">

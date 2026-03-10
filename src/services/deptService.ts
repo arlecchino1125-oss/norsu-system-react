@@ -25,17 +25,22 @@ const DEPT_REQUEST_COLUMNS = [
     'created_at',
     'scheduled_date',
     'resolution_notes',
-    'type',
+    'request_type',
+    'description',
     'reason_for_referral',
+    'personal_actions_taken',
+    'date_duration_of_concern',
     'actions_made',
     'date_duration_of_observations',
-    'date_acted',
-    'actions_taken',
-    'comments',
     'referrer_contact_number',
     'relationship_with_student',
     'rating',
-    'feedback'
+    'feedback',
+    'course_year',
+    'contact_number',
+    'referred_by',
+    'confidential_notes',
+    'referrer_signature'
 ].join(', ');
 
 const DEPT_SUPPORT_COLUMNS = [
@@ -59,10 +64,14 @@ const DEPT_EVENT_COLUMNS = [
     'title',
     'description',
     'type',
-    'date',
-    'venue',
+    'location',
+    'event_date',
+    'event_time',
+    'end_time',
     'created_at',
-    'is_active'
+    'attendees',
+    'latitude',
+    'longitude'
 ].join(', ');
 
 const DEPT_ADMISSION_COLUMNS = [

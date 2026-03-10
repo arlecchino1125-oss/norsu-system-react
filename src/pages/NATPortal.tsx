@@ -131,6 +131,7 @@ const NATPortal = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
+    const [pendingActivationConfirmation, setPendingActivationConfirmation] = useState<any>(null);
 
     // Auth & User State
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -622,6 +623,8 @@ const NATPortal = () => {
                     const { data: newKey } = await supabase.from('enrolled_students').insert([{ student_id: studentId, course: course, is_used: false }]).select().single();
                     keyData = newKey;
                 } else if (currentUser.status === 'Approved for Enrollment') {
+                    setPendingActivationConfirmation({ studentId, course });
+                    return;
                     // No enrollment key found — ask user to confirm their details before auto-creating
                     const confirmed = window.confirm(
                         `⚠️ No enrollment record found for Student ID "${studentId}".\n\n` +
@@ -778,6 +781,138 @@ const NATPortal = () => {
     };
 
 
+
+    const confirmActivationWithoutPreloadedSetup = async () => {
+        if (!pendingActivationConfirmation) return;
+        setLoading(true);
+
+        const { studentId, course } = pendingActivationConfirmation;
+
+        try {
+            const { data: newKey, error: createError } = await supabase
+                .from('enrolled_students')
+                .insert([{ student_id: studentId, course, is_used: false }])
+                .select()
+                .single();
+
+            if (createError) {
+                throw new Error("We couldn't continue account setup right now. Please try again or contact the office.");
+            }
+
+            const { error: updateKeyError } = await supabase
+                .from('enrolled_students')
+                .update({ is_used: true, status: 'Activated', assigned_to_email: currentUser.email })
+                .eq('student_id', studentId);
+            if (updateKeyError) throw updateKeyError;
+
+            let matchedDepartment = 'Unassigned';
+            if (course) {
+                const { data: courseData } = await supabase
+                    .from('courses')
+                    .select('name, departments(name)')
+                    .eq('name', course)
+                    .maybeSingle();
+
+                if (courseData && courseData.departments && (courseData.departments as any).name) {
+                    matchedDepartment = (courseData.departments as any).name;
+                }
+            }
+
+            const profileData = {
+                password: currentUser.password,
+                first_name: currentUser.first_name,
+                last_name: currentUser.last_name,
+                middle_name: currentUser.middle_name,
+                suffix: currentUser.suffix,
+                dob: currentUser.dob,
+                age: currentUser.age,
+                place_of_birth: currentUser.place_of_birth,
+                sex: currentUser.sex,
+                gender_identity: currentUser.gender_identity,
+                civil_status: currentUser.civil_status,
+                nationality: currentUser.nationality,
+                email: currentUser.email,
+                mobile: currentUser.mobile,
+                facebook_url: currentUser.facebook_url,
+                street: currentUser.street,
+                city: currentUser.city,
+                province: currentUser.province,
+                zip_code: currentUser.zip_code,
+                emergency_contact: currentUser.supporter_contact || '',
+                address: `${currentUser.street}, ${currentUser.city}, ${currentUser.province}`,
+                gender: currentUser.sex,
+                course,
+                year_level: '1st Year',
+                status: 'Active',
+                department: matchedDepartment,
+                school_last_attended: currentUser.school_last_attended,
+                is_working_student: currentUser.is_working_student,
+                working_student_type: currentUser.working_student_type,
+                supporter: currentUser.supporter,
+                supporter_contact: currentUser.supporter_contact,
+                is_pwd: currentUser.is_pwd,
+                pwd_type: currentUser.pwd_type,
+                is_indigenous: currentUser.is_indigenous,
+                indigenous_group: currentUser.indigenous_group,
+                witnessed_conflict: currentUser.witnessed_conflict,
+                is_solo_parent: currentUser.is_solo_parent,
+                is_child_of_solo_parent: currentUser.is_child_of_solo_parent,
+                priority_course: currentUser.priority_course,
+                alt_course_1: currentUser.alt_course_1,
+                alt_course_2: currentUser.alt_course_2
+            };
+
+            const { data: existingStudent } = await supabase
+                .from('students')
+                .select('id, profile_completed, has_seen_tour')
+                .eq('student_id', studentId)
+                .maybeSingle();
+
+            if (existingStudent) {
+                const studentUpdatePayload = {
+                    ...profileData,
+                    ...(existingStudent.profile_completed ? { profile_completed: true } : {}),
+                    ...(existingStudent.has_seen_tour ? { has_seen_tour: true } : {})
+                };
+                const { error: updateError } = await supabase.from('students').update(studentUpdatePayload).eq('student_id', studentId);
+                if (updateError) throw updateError;
+            } else {
+                const { error: insertError } = await supabase.from('students').insert([{
+                    ...profileData,
+                    student_id: studentId,
+                    profile_completed: false,
+                    has_seen_tour: false
+                }]);
+                if (insertError) throw insertError;
+            }
+
+            await supabase.from('applications').delete().eq('id', currentUser.id);
+
+            try {
+                await supabase.functions.invoke('send-email', {
+                    body: {
+                        type: 'STUDENT_ACTIVATION',
+                        email: currentUser.email,
+                        name: `${currentUser.first_name} ${currentUser.last_name}`,
+                        studentId,
+                        password: currentUser.password
+                    }
+                });
+            } catch (emailErr: any) {
+                console.error("Activation email failed:", emailErr);
+            }
+
+            setPendingActivationConfirmation(null);
+            showToast("Account Activated Successfully! A confirmation email has been sent. Your application details have been transferred to your Student Profile.");
+            setShowActivationModal(false);
+            setCurrentUser(null);
+            navigate('/student/login');
+        } catch (error: any) {
+            showToast("Activation Failed: " + error.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Render Views
     // Page transition variants
@@ -1193,6 +1328,63 @@ const NATPortal = () => {
                                     <div className="grid grid-cols-2 gap-3">
                                         <button onClick={() => setShowTimeOutConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
                                         <button onClick={executeTimeOut} className="py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 hover:-translate-y-1 transition-all">Confirm Time Out</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {pendingActivationConfirmation && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[210] overflow-y-auto p-4 animate-in fade-in duration-200">
+                            <div className="flex min-h-full items-start justify-center py-4 sm:items-center">
+                                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg border border-white/20 overflow-hidden">
+                                    <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-8 text-center relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                                        <div className="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center backdrop-blur-md shadow-inner relative z-10">
+                                            <Info className="w-10 h-10 text-white" />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-white mb-2 relative z-10">Confirm Your Details</h3>
+                                        <p className="text-orange-50 text-sm relative z-10">Review your information before we continue your student account setup.</p>
+                                    </div>
+
+                                    <div className="p-6 md:p-8 space-y-6">
+                                        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-sm text-slate-700 leading-relaxed">
+                                            We could not find a preloaded setup for this Student ID yet. This can happen if your enrollment details have not been added by the office yet.
+                                        </div>
+
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Student ID</p>
+                                                <p className="text-lg font-mono font-black text-slate-900">{pendingActivationConfirmation.studentId}</p>
+                                            </div>
+                                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Course</p>
+                                                <p className="text-sm font-bold text-slate-900 leading-relaxed">{pendingActivationConfirmation.course}</p>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-sm text-slate-600 leading-relaxed">
+                                            Your application is already approved for enrollment. If these details are correct, we can continue setting up your student account now.
+                                        </p>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                disabled={loading}
+                                                onClick={() => setPendingActivationConfirmation(null)}
+                                                className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-60"
+                                            >
+                                                Go Back
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={loading}
+                                                onClick={confirmActivationWithoutPreloadedSetup}
+                                                className="py-3 rounded-xl font-bold text-white bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-200 hover:-translate-y-1 transition-all disabled:opacity-60"
+                                            >
+                                                {loading ? 'Continuing...' : 'Continue'}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

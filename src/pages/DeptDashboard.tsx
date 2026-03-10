@@ -65,7 +65,8 @@ export default function DeptDashboard() {
     const {
         data, setData, eventsList, counselingRequests,
         supportRequests, setSupportRequests, admissionApplicants,
-        lastSeenSupportCount, setLastSeenSupportCount, toast, setToast, showToastMessage
+        lastSeenSupportCount, setLastSeenSupportCount, toast, setToast, showToastMessage,
+        admissionsState
     } = useDeptData(session, isAuthenticated);
 
     // Modals
@@ -323,9 +324,11 @@ export default function DeptDashboard() {
                 return;
             }
             console.log('[DEPT] Interview scheduled successfully');
+            await admissionsState.refresh();
             showToastMessage('Interview scheduled successfully.', 'success');
             setShowApplicantScheduleModal(false);
             setApplicantScheduleData({ date: '', time: '', notes: '' });
+            setSelectedApplicant(null);
         } catch (err: any) {
             console.error('[DEPT] Schedule exception:', err);
             showToastMessage(err.message, 'error');
@@ -342,6 +345,7 @@ export default function DeptDashboard() {
                 showToastMessage('Failed to approve: ' + error.message, 'error');
                 return;
             }
+            await admissionsState.refresh();
             showToastMessage(`Applicant approved for enrollment.`, 'success');
         } catch (err: any) {
             console.error('[DEPT] Approve exception:', err);
@@ -375,6 +379,7 @@ export default function DeptDashboard() {
                 return;
             }
 
+            await admissionsState.refresh();
             showToastMessage(`Applicant forwarded to next choice.`, 'success');
         } catch (err: any) {
             console.error('[DEPT] Reject exception:', err);
