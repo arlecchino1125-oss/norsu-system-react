@@ -275,6 +275,13 @@ export default function StudentPortal() {
     const [profileStep, setProfileStep] = useState(1);
     const PROFILE_TOTAL_STEPS = 8;
     const PROFILE_STEP_LABELS = ['Personal', 'Family', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
+    const profileCompletionInputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[16px] leading-5 text-slate-700 outline-none placeholder:text-slate-300 sm:py-2.5 sm:text-sm';
+    const profileCompletionTextareaClass = `${profileCompletionInputClass} min-h-[8rem] resize-none`;
+    const profileCompletionLabelClass = 'text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500';
+    const profileCompletionGridTwoClass = 'grid grid-cols-1 gap-3 sm:grid-cols-2';
+    const profileCompletionGridThreeClass = 'grid grid-cols-1 gap-3 sm:grid-cols-3';
+    const profileCompletionRadioGroupClass = 'flex flex-col gap-3 sm:flex-row sm:gap-4';
+    const profileCompletionCheckboxGridClass = 'grid grid-cols-1 gap-2 sm:grid-cols-2';
     const [profileFormData, setProfileFormData] = useState<any>({
         // Auto-filled from NAT
         firstName: '', lastName: '', middleName: '', suffix: '',
@@ -1999,17 +2006,26 @@ export default function StudentPortal() {
 
             {/* Profile Completion Modal */}
             {showProfileCompletion && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="fixed inset-0 z-[9999] overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+                    <div className="flex min-h-full items-start justify-center sm:items-center">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col">
                         {/* Header */}
-                        <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 text-center">
-                            <h2 className="text-2xl font-black text-slate-800">Complete Your Profile</h2>
-                            <p className="text-sm text-slate-500 mt-1">Please fill in the remaining information to complete your student profile.</p>
+                        <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
+                            <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Complete Your Profile</h2>
+                            <p className="mt-1 text-sm text-slate-500">Please fill in the remaining information to complete your student profile.</p>
                             <div className="mt-4">
-                                <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-1.5 px-1">
-                                    {PROFILE_STEP_LABELS.map((label, i) => (
-                                        <span key={label} className={profileStep >= i + 1 ? 'text-indigo-600' : ''}>{label}</span>
-                                    ))}
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                    <div className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600 shadow-sm sm:hidden">
+                                        {PROFILE_STEP_LABELS[profileStep - 1]}
+                                    </div>
+                                    <div className="text-[11px] font-semibold text-slate-400 sm:hidden">
+                                        Step {profileStep} of {PROFILE_TOTAL_STEPS}
+                                    </div>
+                                    <div className="hidden w-full justify-between px-1 text-[10px] font-bold text-slate-400 sm:flex">
+                                        {PROFILE_STEP_LABELS.map((label, i) => (
+                                            <span key={label} className={profileStep >= i + 1 ? 'text-indigo-600' : ''}>{label}</span>
+                                        ))}
+                                    </div>
                                 </div>
                                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-indigo-500 to-sky-400 transition-all duration-300" style={{ width: `${(profileStep / PROFILE_TOTAL_STEPS) * 100}%` }} />
@@ -2018,79 +2034,79 @@ export default function StudentPortal() {
                         </div>
 
                         {/* Body */}
-                        <div className="p-6 overflow-y-auto flex-1">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
 
                             {/* STEP 1: PERSONAL INFO (NAT auto-filled + remaining) */}
                             {profileStep === 1 && (
                                 <div className="space-y-4">
-                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Personal Information</h3><p className="text-xs text-slate-400">Fields from your application are pre-filled. You may edit them.</p></div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Last Name *</label><input name="lastName" value={profileFormData.lastName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">First Name *</label><input name="firstName" value={profileFormData.firstName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Suffix</label><input name="suffix" value={profileFormData.suffix} onChange={handleProfileFormChange} placeholder="Jr., II" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm placeholder:text-slate-300" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Middle Name</label><input name="middleName" value={profileFormData.middleName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Personal Information</h3><p className="text-sm leading-relaxed text-slate-400">Fields from your application are pre-filled. You may edit them.</p></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Last Name *</label><input name="lastName" value={profileFormData.lastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>First Name *</label><input name="firstName" value={profileFormData.firstName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Suffix</label><input name="suffix" value={profileFormData.suffix} onChange={handleProfileFormChange} placeholder="Jr., II" className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Middle Name</label><input name="middleName" value={profileFormData.middleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Address</label><input name="street" value={profileFormData.street} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">City</label><input name="city" value={profileFormData.city} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Province</label><input name="province" value={profileFormData.province} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Zip</label><input name="zipCode" value={profileFormData.zipCode} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address</label><input name="street" value={profileFormData.street} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className={profileCompletionGridThreeClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>City</label><input name="city" value={profileFormData.city} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Province</label><input name="province" value={profileFormData.province} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Zip</label><input name="zipCode" value={profileFormData.zipCode} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Contact *</label><input name="mobile" value={profileFormData.mobile} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Email *</label><input name="email" value={profileFormData.email} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact *</label><input name="mobile" value={profileFormData.mobile} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Email *</label><input name="email" value={profileFormData.email} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Birthday *</label><DatePicker required name="dob" value={profileFormData.dob} onChange={(val) => { setProfileFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Age</label><input name="age" value={profileFormData.age} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" readOnly /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Sex *</label><select name="sex" value={profileFormData.sex} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                                    <div className={profileCompletionGridThreeClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Birthday *</label><DatePicker required name="dob" value={profileFormData.dob} onChange={(val) => { setProfileFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" className="[&>button]:min-h-[3rem] [&>button]:rounded-xl [&>button]:border-slate-200 [&>button]:bg-slate-50 [&>button]:px-4 [&>button]:py-3 [&>button]:text-[16px] sm:[&>button]:py-2.5 sm:[&>button]:text-sm" /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Age</label><input name="age" value={profileFormData.age} onChange={handleProfileFormChange} className={profileCompletionInputClass} readOnly /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Sex *</label><select name="sex" value={profileFormData.sex} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Gender</label><select name="genderIdentity" value={profileFormData.genderIdentity} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Cis-gender">Cis-gender</option><option value="Transgender">Transgender</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Civil Status</label><select name="civilStatus" value={profileFormData.civilStatus} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Single">Single</option><option value="Married">Married</option><option value="Separated Legally">Separated Legally</option><option value="Separated Physically">Separated Physically</option><option value="With Live-In Partner">With Live-In Partner</option><option value="Divorced">Divorced</option><option value="Widow/er">Widow/er</option></select></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Gender</label><select name="genderIdentity" value={profileFormData.genderIdentity} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Cis-gender">Cis-gender</option><option value="Transgender">Transgender</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Civil Status</label><select name="civilStatus" value={profileFormData.civilStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Single">Single</option><option value="Married">Married</option><option value="Separated Legally">Separated Legally</option><option value="Separated Physically">Separated Physically</option><option value="With Live-In Partner">With Live-In Partner</option><option value="Divorced">Divorced</option><option value="Widow/er">Widow/er</option></select></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Nationality</label><input name="nationality" value={profileFormData.nationality} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">FB Account Link</label><input name="facebookUrl" value={profileFormData.facebookUrl} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Nationality</label><input name="nationality" value={profileFormData.nationality} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>FB Account Link</label><input name="facebookUrl" value={profileFormData.facebookUrl} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Place of Birth</label><input name="placeOfBirth" value={profileFormData.placeOfBirth} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Religion</label><input name="religion" value={profileFormData.religion} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Place of Birth</label><input name="placeOfBirth" value={profileFormData.placeOfBirth} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Religion</label><input name="religion" value={profileFormData.religion} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">School Last Attended</label><input name="schoolLastAttended" value={profileFormData.schoolLastAttended} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Level</label><select name="yearLevelApplying" value={profileFormData.yearLevelApplying} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="1st Year">I</option><option value="2nd Year">II</option><option value="3rd Year">III</option><option value="4th Year">IV</option></select></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>School Last Attended</label><input name="schoolLastAttended" value={profileFormData.schoolLastAttended} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Level</label><select name="yearLevelApplying" value={profileFormData.yearLevelApplying} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="1st Year">I</option><option value="2nd Year">II</option><option value="3rd Year">III</option><option value="4th Year">IV</option></select></div>
                                     </div>
                                     {/* Supporter */}
                                     <div className="pt-3 border-t border-slate-100 space-y-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase block">Person who supported your studies aside from parents</label>
-                                        <div className="grid grid-cols-2 gap-2">{['Uncle', 'Aunt', 'Grandfather', 'Grandmother', 'Brother', 'Sister', 'Partner', 'Scholarship Grants'].map(opt => (<label key={opt} className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" value={opt} checked={(profileFormData.supporter || []).includes(opt)} onChange={e => handleProfileCheckboxGroup(e, 'supporter')} className="w-4 h-4 text-indigo-600" />{opt}</label>))}</div>
-                                        <input name="supporterContact" placeholder="Supporter Contact Info" value={profileFormData.supporterContact} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm mt-2" />
+                                        <label className={`${profileCompletionLabelClass} block`}>Person who supported your studies aside from parents</label>
+                                        <div className={profileCompletionCheckboxGridClass}>{['Uncle', 'Aunt', 'Grandfather', 'Grandmother', 'Brother', 'Sister', 'Partner', 'Scholarship Grants'].map(opt => (<label key={opt} className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" value={opt} checked={(profileFormData.supporter || []).includes(opt)} onChange={e => handleProfileCheckboxGroup(e, 'supporter')} className="h-4 w-4 text-indigo-600" />{opt}</label>))}</div>
+                                        <input name="supporterContact" placeholder="Supporter Contact Info" value={profileFormData.supporterContact} onChange={handleProfileFormChange} className={`${profileCompletionInputClass} mt-2`} />
                                     </div>
                                     {/* Working Student */}
                                     <div className="pt-3 border-t border-slate-100 space-y-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase block">Are you a Working Student?</label>
-                                        <div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isWorkingStudent" value={o} checked={profileFormData.isWorkingStudent === o} onChange={handleProfileFormChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div>
-                                        {profileFormData.isWorkingStudent === 'Yes' && <select name="workingStudentType" value={profileFormData.workingStudentType} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select Type</option><option value="House help">House help</option><option value="Call Center Agent/BPO employee">Call Center Agent/BPO</option><option value="Fast food/Restaurant">Fast food/Restaurant</option><option value="Online employee/Freelancer">Online/Freelancer</option><option value="Self-employed">Self-employed</option></select>}
+                                        <label className={`${profileCompletionLabelClass} block`}>Are you a Working Student?</label>
+                                        <div className={profileCompletionRadioGroupClass}>{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isWorkingStudent" value={o} checked={profileFormData.isWorkingStudent === o} onChange={handleProfileFormChange} className="h-4 w-4" /><span className="text-sm">{o}</span></label>)}</div>
+                                        {profileFormData.isWorkingStudent === 'Yes' && <select name="workingStudentType" value={profileFormData.workingStudentType} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select Type</option><option value="House help">House help</option><option value="Call Center Agent/BPO employee">Call Center Agent/BPO</option><option value="Fast food/Restaurant">Fast food/Restaurant</option><option value="Online employee/Freelancer">Online/Freelancer</option><option value="Self-employed">Self-employed</option></select>}
                                     </div>
                                     {/* PWD */}
                                     <div className="pt-3 border-t border-slate-100 space-y-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase block">Are you a Person with a Disability (PWD)?</label>
-                                        <div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isPwd" value={o} checked={profileFormData.isPwd === o} onChange={handleProfileFormChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div>
-                                        {profileFormData.isPwd === 'Yes' && <select name="pwdType" value={profileFormData.pwdType} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Visual impairment">Visual</option><option value="Hearing impairment">Hearing</option><option value="Physical/Orthopedic disability">Physical/Orthopedic</option><option value="Chronic illness">Chronic illness</option><option value="Psychosocial disability">Psychosocial</option><option value="Communication disability">Communication</option></select>}
+                                        <label className={`${profileCompletionLabelClass} block`}>Are you a Person with a Disability (PWD)?</label>
+                                        <div className={profileCompletionRadioGroupClass}>{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isPwd" value={o} checked={profileFormData.isPwd === o} onChange={handleProfileFormChange} className="h-4 w-4" /><span className="text-sm">{o}</span></label>)}</div>
+                                        {profileFormData.isPwd === 'Yes' && <select name="pwdType" value={profileFormData.pwdType} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Visual impairment">Visual</option><option value="Hearing impairment">Hearing</option><option value="Physical/Orthopedic disability">Physical/Orthopedic</option><option value="Chronic illness">Chronic illness</option><option value="Psychosocial disability">Psychosocial</option><option value="Communication disability">Communication</option></select>}
                                     </div>
                                     {/* Indigenous */}
                                     <div className="pt-3 border-t border-slate-100 space-y-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase block">Member of any Indigenous Group?</label>
-                                        <div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isIndigenous" value={o} checked={profileFormData.isIndigenous === o} onChange={handleProfileFormChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div>
-                                        {profileFormData.isIndigenous === 'Yes' && <select name="indigenousGroup" value={profileFormData.indigenousGroup} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Bukidnon">Bukidnon</option><option value="Tabihanon Group">Tabihanon</option><option value="ATA">ATA</option><option value="IFUGAO">IFUGAO</option><option value="Kalahing Kulot">Kalahing Kulot</option><option value="Lumad">Lumad</option></select>}
+                                        <label className={`${profileCompletionLabelClass} block`}>Member of any Indigenous Group?</label>
+                                        <div className={profileCompletionRadioGroupClass}>{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isIndigenous" value={o} checked={profileFormData.isIndigenous === o} onChange={handleProfileFormChange} className="h-4 w-4" /><span className="text-sm">{o}</span></label>)}</div>
+                                        {profileFormData.isIndigenous === 'Yes' && <select name="indigenousGroup" value={profileFormData.indigenousGroup} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Bukidnon">Bukidnon</option><option value="Tabihanon Group">Tabihanon</option><option value="ATA">ATA</option><option value="IFUGAO">IFUGAO</option><option value="Kalahing Kulot">Kalahing Kulot</option><option value="Lumad">Lumad</option></select>}
                                     </div>
                                     {/* Conflict & Solo Parent */}
                                     <div className="pt-3 border-t border-slate-100 space-y-3">
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Witnessed armed conflict in your community?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="witnessedConflict" value={o} checked={profileFormData.witnessedConflict === o} onChange={handleProfileFormChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Feel safe in your community?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isSafeInCommunity" value={o} checked={profileFormData.isSafeInCommunity === o} onChange={handleProfileFormChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Are you a Solo Parent?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isSoloParent" value={o} checked={profileFormData.isSoloParent === o} onChange={handleProfileFormChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
-                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Son/daughter of a solo parent?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isChildOfSoloParent" value={o} checked={profileFormData.isChildOfSoloParent === o} onChange={handleProfileFormChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
+                                        <div><label className={`${profileCompletionLabelClass} block mb-1.5`}>Witnessed armed conflict in your community?</label><div className={profileCompletionRadioGroupClass}>{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="witnessedConflict" value={o} checked={profileFormData.witnessedConflict === o} onChange={handleProfileFormChange} className="h-4 w-4" /><span className="text-sm">{o}</span></label>)}</div></div>
+                                        <div><label className={`${profileCompletionLabelClass} block mb-1.5`}>Feel safe in your community?</label><div className={profileCompletionRadioGroupClass}>{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isSafeInCommunity" value={o} checked={profileFormData.isSafeInCommunity === o} onChange={handleProfileFormChange} className="h-4 w-4" /><span className="text-sm">{o}</span></label>)}</div></div>
+                                        <div><label className={`${profileCompletionLabelClass} block mb-1.5`}>Are you a Solo Parent?</label><div className={profileCompletionRadioGroupClass}>{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isSoloParent" value={o} checked={profileFormData.isSoloParent === o} onChange={handleProfileFormChange} className="h-4 w-4" /><span className="text-sm">{o}</span></label>)}</div></div>
+                                        <div><label className={`${profileCompletionLabelClass} block mb-1.5`}>Son/daughter of a solo parent?</label><div className={profileCompletionRadioGroupClass}>{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isChildOfSoloParent" value={o} checked={profileFormData.isChildOfSoloParent === o} onChange={handleProfileFormChange} className="h-4 w-4" /><span className="text-sm">{o}</span></label>)}</div></div>
                                     </div>
                                 </div>
                             )}
@@ -2099,35 +2115,35 @@ export default function StudentPortal() {
                             {profileStep === 2 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Family Background</h3></div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Last Name</label><input name="motherLastName" placeholder="N/A if not applicable" value={profileFormData.motherLastName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Given Name</label><input name="motherGivenName" placeholder="N/A if not applicable" value={profileFormData.motherGivenName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Middle Name</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={profileFormData.motherMiddleName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridThreeClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Last Name</label><input name="motherLastName" placeholder="N/A if not applicable" value={profileFormData.motherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Given Name</label><input name="motherGivenName" placeholder="N/A if not applicable" value={profileFormData.motherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Middle Name</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={profileFormData.motherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Occupation</label><input name="motherOccupation" placeholder="N/A" value={profileFormData.motherOccupation} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Contact</label><input name="motherContact" placeholder="N/A" value={profileFormData.motherContact} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Occupation</label><input name="motherOccupation" placeholder="N/A" value={profileFormData.motherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Contact</label><input name="motherContact" placeholder="N/A" value={profileFormData.motherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Last Name</label><input name="fatherLastName" placeholder="N/A" value={profileFormData.fatherLastName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Given Name</label><input name="fatherGivenName" placeholder="N/A" value={profileFormData.fatherGivenName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Middle Name</label><input name="fatherMiddleName" placeholder="N/A" value={profileFormData.fatherMiddleName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridThreeClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Last Name</label><input name="fatherLastName" placeholder="N/A" value={profileFormData.fatherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Given Name</label><input name="fatherGivenName" placeholder="N/A" value={profileFormData.fatherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Middle Name</label><input name="fatherMiddleName" placeholder="N/A" value={profileFormData.fatherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Occupation</label><input name="fatherOccupation" placeholder="N/A" value={profileFormData.fatherOccupation} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Contact</label><input name="fatherContact" placeholder="N/A" value={profileFormData.fatherContact} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Occupation</label><input name="fatherOccupation" placeholder="N/A" value={profileFormData.fatherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Contact</label><input name="fatherContact" placeholder="N/A" value={profileFormData.fatherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Parent's Address</label><input name="parentAddress" placeholder="N/A" value={profileFormData.parentAddress} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">No. of Brothers</label><input name="numBrothers" placeholder="N/A" value={profileFormData.numBrothers} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">No. of Sisters</label><input name="numSisters" placeholder="N/A" value={profileFormData.numSisters} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Birth Order</label><select name="birthOrder" value={profileFormData.birthOrder} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option>{['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Only child', 'Legally adopted', 'Simulated', 'Foster child'].map(v => <option key={v} value={v}>{v}</option>)}</select></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Parent's Address</label><input name="parentAddress" placeholder="N/A" value={profileFormData.parentAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className={profileCompletionGridThreeClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>No. of Brothers</label><input name="numBrothers" placeholder="N/A" value={profileFormData.numBrothers} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>No. of Sisters</label><input name="numSisters" placeholder="N/A" value={profileFormData.numSisters} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Birth Order</label><select name="birthOrder" value={profileFormData.birthOrder} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Only child', 'Legally adopted', 'Simulated', 'Foster child'].map(v => <option key={v} value={v}>{v}</option>)}</select></div>
                                     </div>
                                     <div className="pt-3 border-t border-slate-100"><p className="text-xs text-slate-400 mb-2 italic">If married, fill the fields below. Type N/A if not applicable.</p>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Spouse Name</label><input name="spouseName" placeholder="N/A" value={profileFormData.spouseName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Spouse Occupation</label><input name="spouseOccupation" placeholder="N/A" value={profileFormData.spouseOccupation} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">No. of Children</label><input name="numChildren" placeholder="N/A" value={profileFormData.numChildren} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                        <div className={profileCompletionGridThreeClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse Name</label><input name="spouseName" placeholder="N/A" value={profileFormData.spouseName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse Occupation</label><input name="spouseOccupation" placeholder="N/A" value={profileFormData.spouseOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>No. of Children</label><input name="numChildren" placeholder="N/A" value={profileFormData.numChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                         </div>
                                     </div>
                                 </div>
@@ -2137,11 +2153,11 @@ export default function StudentPortal() {
                             {profileStep === 3 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Guardian</h3></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Full Name</label><input name="guardianName" value={profileFormData.guardianName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Address</label><input name="guardianAddress" value={profileFormData.guardianAddress} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Contact</label><input name="guardianContact" value={profileFormData.guardianContact} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Relation</label><select name="guardianRelation" value={profileFormData.guardianRelation} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Relative">Relative</option><option value="Not relative">Not relative</option><option value="Landlord">Landlord</option><option value="Landlady">Landlady</option></select></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Full Name</label><input name="guardianName" value={profileFormData.guardianName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address</label><input name="guardianAddress" value={profileFormData.guardianAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact</label><input name="guardianContact" value={profileFormData.guardianContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relation</label><select name="guardianRelation" value={profileFormData.guardianRelation} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Relative">Relative</option><option value="Not relative">Not relative</option><option value="Landlord">Landlord</option><option value="Landlady">Landlady</option></select></div>
                                     </div>
                                 </div>
                             )}
@@ -2150,11 +2166,11 @@ export default function StudentPortal() {
                             {profileStep === 4 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Person to Contact (Emergency)</h3></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Full Name</label><input name="emergencyName" value={profileFormData.emergencyName} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Address</label><input name="emergencyAddress" value={profileFormData.emergencyAddress} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Relationship</label><input name="emergencyRelationship" value={profileFormData.emergencyRelationship} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Contact Number</label><input name="emergencyNumber" value={profileFormData.emergencyNumber} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Full Name</label><input name="emergencyName" value={profileFormData.emergencyName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address</label><input name="emergencyAddress" value={profileFormData.emergencyAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relationship</label><input name="emergencyRelationship" value={profileFormData.emergencyRelationship} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact Number</label><input name="emergencyNumber" value={profileFormData.emergencyNumber} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
                                 </div>
                             )}
@@ -2163,23 +2179,23 @@ export default function StudentPortal() {
                             {profileStep === 5 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Educational Background</h3></div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Elementary</label><input name="elemSchool" value={profileFormData.elemSchool} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated</label><input name="elemYearGraduated" value={profileFormData.elemYearGraduated} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Elementary</label><input name="elemSchool" value={profileFormData.elemSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated</label><input name="elemYearGraduated" value={profileFormData.elemYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Junior High School</label><input name="juniorHighSchool" value={profileFormData.juniorHighSchool} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated</label><input name="juniorHighYearGraduated" value={profileFormData.juniorHighYearGraduated} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Junior High School</label><input name="juniorHighSchool" value={profileFormData.juniorHighSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated</label><input name="juniorHighYearGraduated" value={profileFormData.juniorHighYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Senior High School</label><input name="seniorHighSchool" value={profileFormData.seniorHighSchool} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated</label><input name="seniorHighYearGraduated" value={profileFormData.seniorHighYearGraduated} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Senior High School</label><input name="seniorHighSchool" value={profileFormData.seniorHighSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated</label><input name="seniorHighYearGraduated" value={profileFormData.seniorHighYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">College</label><input name="collegeSchool" value={profileFormData.collegeSchool} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated / Continuing</label><input name="collegeYearGraduated" value={profileFormData.collegeYearGraduated} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>College</label><input name="collegeSchool" value={profileFormData.collegeSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated / Continuing</label><input name="collegeYearGraduated" value={profileFormData.collegeYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Honor/Award Received</label><input name="honorsAwards" placeholder="N/A if not applicable" value={profileFormData.honorsAwards} onChange={handleProfileFormChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Honor/Award Received</label><input name="honorsAwards" placeholder="N/A if not applicable" value={profileFormData.honorsAwards} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                 </div>
                             )}
 
@@ -2187,7 +2203,7 @@ export default function StudentPortal() {
                             {profileStep === 6 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Extra-Curricular Involvement</h3></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Name of Activities</label><textarea name="extracurricularActivities" placeholder="N/A if not applicable" value={profileFormData.extracurricularActivities} onChange={handleProfileFormChange} rows={5} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm resize-none" /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Activities</label><textarea name="extracurricularActivities" placeholder="N/A if not applicable" value={profileFormData.extracurricularActivities} onChange={handleProfileFormChange} rows={5} className={profileCompletionTextareaClass} /></div>
                                 </div>
                             )}
 
@@ -2195,7 +2211,7 @@ export default function StudentPortal() {
                             {profileStep === 7 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Scholarships</h3></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Name of Scholarship Availed</label><textarea name="scholarshipsAvailed" placeholder="N/A if not applicable" value={profileFormData.scholarshipsAvailed} onChange={handleProfileFormChange} rows={5} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm resize-none" /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Scholarship Availed</label><textarea name="scholarshipsAvailed" placeholder="N/A if not applicable" value={profileFormData.scholarshipsAvailed} onChange={handleProfileFormChange} rows={5} className={profileCompletionTextareaClass} /></div>
                                 </div>
                             )}
 
@@ -2203,9 +2219,9 @@ export default function StudentPortal() {
                             {profileStep === 8 && (
                                 <div className="space-y-6 text-center">
                                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto border-2 border-slate-200"><svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></div>
-                                    <h3 className="text-2xl font-bold text-slate-800">Final Step</h3>
+                                    <h3 className="text-xl font-bold text-slate-800 sm:text-2xl">Final Step</h3>
                                     <p className="text-slate-500 text-sm">Please agree to the data privacy terms to complete your profile.</p>
-                                    <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 text-left">
+                                    <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 text-left sm:p-6">
                                         <h4 className="text-sm font-bold text-indigo-900 mb-2">DATA PRIVACY ACT DISCLAIMER</h4>
                                         <p className="text-xs text-indigo-800/80 mb-5 leading-relaxed">By submitting this form, I hereby authorize Negros Oriental State University (NORSU) to collect, process, and retain my personal and sensitive information for purposes of academic administration, student services, and university records in strict accordance with the Data Privacy Act of 2012 (RA 10173).</p>
                                         <label className="flex items-center gap-3 cursor-pointer group">
@@ -2220,18 +2236,21 @@ export default function StudentPortal() {
                         </div>
 
                         {/* Footer */}
-                        <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-between items-center rounded-b-3xl">
+                        <div className="rounded-b-[2rem] border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
+                            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                             {profileStep > 1 ? (
-                                <button type="button" onClick={() => setProfileStep(p => p - 1)} className="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors">Back</button>
+                                <button type="button" onClick={() => setProfileStep(p => p - 1)} className="w-full rounded-xl px-6 py-3 font-bold text-slate-500 transition-colors hover:bg-slate-200 sm:w-auto sm:py-2.5">Back</button>
                             ) : (
-                                <div />
+                                <div className="hidden sm:block" />
                             )}
                             {profileStep < PROFILE_TOTAL_STEPS ? (
-                                <button type="button" onClick={handleProfileNextStep} className="px-8 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md">Next Step</button>
+                                <button type="button" onClick={handleProfileNextStep} className="w-full rounded-xl bg-slate-900 px-8 py-3 font-bold text-white shadow-md transition-all hover:bg-slate-800 sm:w-auto sm:py-2.5">Next Step</button>
                             ) : (
-                                <button disabled={profileSaving || !profileFormData.agreedToPrivacy} onClick={handleProfileCompletion} className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-sky-500 text-white rounded-xl font-bold shadow-lg disabled:opacity-50 flex items-center gap-2 transition-all">{profileSaving ? 'Saving...' : 'Complete Profile'}</button>
+                                <button disabled={profileSaving || !profileFormData.agreedToPrivacy} onClick={handleProfileCompletion} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-8 py-3 font-bold text-white shadow-lg transition-all disabled:opacity-50 sm:w-auto sm:py-2.5">{profileSaving ? 'Saving...' : 'Complete Profile'}</button>
                             )}
+                            </div>
                         </div>
+                    </div>
                     </div>
                 </div>,
                 document.body
