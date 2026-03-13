@@ -5,7 +5,7 @@ import SignatureCanvas from 'react-signature-canvas';
 export function renderDeptModals(props: any) {
     const {
         data,
-        filteredData,
+        counselingRequests,
         showProfileModal, setShowProfileModal, profileForm, setProfileForm, handleProfileSubmit,
         showReferralModal, setShowReferralModal, forwardingToStaff, setForwardingToStaff,
         referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq,
@@ -16,7 +16,9 @@ export function renderDeptModals(props: any) {
         yearLevelFilter, setYearLevelFilter, deptCourseFilter, setDeptCourseFilter,
         deptSectionFilter, setDeptSectionFilter, exportToExcel,
         showDecisionModal, setShowDecisionModal, decisionData, setDecisionData, submitDecision,
-        showApplicantScheduleModal, setShowApplicantScheduleModal, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule
+        showApplicantScheduleModal, setShowApplicantScheduleModal, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule,
+        viewFormRecord, setViewFormRecord,
+        viewFormMode, setViewFormMode
     } = props;
 
     return (
@@ -84,7 +86,7 @@ export function renderDeptModals(props: any) {
                                             <input type="text" value={referralSearchQuery} onChange={(e) => { setReferralSearchQuery(e.target.value); if (referralForm.student) setReferralForm({ ...referralForm, student: '' }); }} placeholder="Search student name..." className="w-full px-4 py-2.5 border rounded-xl text-sm" />
                                             {referralSearchQuery && !referralForm.student && (
                                                 <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-48 overflow-y-auto z-20">
-                                                    {filteredData.students.filter((s: any) => s.name.toLowerCase().includes(referralSearchQuery.toLowerCase())).slice(0, 8).map((s: any) => (
+                                                    {(data?.students || []).filter((s: any) => s.name.toLowerCase().includes(referralSearchQuery.toLowerCase())).slice(0, 8).map((s: any) => (
                                                         <button key={s.id} type="button" onClick={() => { setReferralForm({ ...referralForm, student: s.name }); setReferralSearchQuery(s.name); }} className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-sm border-b border-gray-50 last:border-0">
                                                             <span className="font-bold">{s.name}</span><span className="text-gray-400 ml-2 text-xs">{s.course} - {s.year}</span>
                                                         </button>
@@ -99,8 +101,8 @@ export function renderDeptModals(props: any) {
                                 {(forwardingToStaff || referralForm.student) && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <div><p className="text-[10px] font-bold text-gray-400 uppercase">Name of Student</p><p className="text-sm font-semibold text-gray-900">{referralForm.student}</p></div>
-                                        <div><p className="text-[10px] font-bold text-gray-400 uppercase">Course & Year</p><p className="text-sm font-semibold text-gray-900">{(() => { const s = filteredData.students.find((st: any) => st.name === referralForm.student); return s ? `${s.course || ''} - ${s.year || ''}` : (selectedCounselingReq?.course_year || 'N/A'); })()}</p></div>
-                                        <div><p className="text-[10px] font-bold text-gray-400 uppercase">Contact Number</p><p className="text-sm font-semibold text-gray-900">{(() => { const s = filteredData.students.find((st: any) => st.name === referralForm.student); return s?.mobile || selectedCounselingReq?.contact_number || 'N/A'; })()}</p></div>
+                                        <div><p className="text-[10px] font-bold text-gray-400 uppercase">Course & Year</p><p className="text-sm font-semibold text-gray-900">{(() => { const s = (data?.students || []).find((st: any) => st.name === referralForm.student); return s ? `${s.course || ''} - ${s.year || ''}` : (selectedCounselingReq?.course_year || 'N/A'); })()}</p></div>
+                                        <div><p className="text-[10px] font-bold text-gray-400 uppercase">Contact Number</p><p className="text-sm font-semibold text-gray-900">{(() => { const s = (data?.students || []).find((st: any) => st.name === referralForm.student); return s?.mobile || selectedCounselingReq?.contact_number || 'N/A'; })()}</p></div>
                                     </div>
                                 )}
 
@@ -154,31 +156,151 @@ export function renderDeptModals(props: any) {
 
             {/* History Modal */}
             {
-                showHistoryModal && selectedHistoryStudent && (
-                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl dark:bg-gray-800">
-                            <div className="p-6 border-b border-gray-100 flex justify-between items-center dark:border-gray-700">
-                                <div>
-                                    <h3 className="font-bold text-lg dark:text-white">Case History: {selectedHistoryStudent.student_name}</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedHistoryStudent.student_id}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => exportPDF(selectedHistoryStudent.student_name)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300">Export PDF</button>
+                showHistoryModal && selectedHistoryStudent && (() => {
+                    const studentRecords = (counselingRequests || []).filter((r: any) => r.student_name === selectedHistoryStudent.student_name);
+                    return (
+                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl dark:bg-gray-800">
+                                <div className="p-6 border-b border-gray-100 flex justify-between items-center dark:border-gray-700">
+                                    <div>
+                                        <h3 className="font-bold text-lg dark:text-white">Case History: {selectedHistoryStudent.student_name}</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedHistoryStudent.student_id}</p>
+                                    </div>
                                     <button onClick={() => setShowHistoryModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>
                                 </div>
-                            </div>
-                            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
-                                {filteredData.requests.filter((r: any) => r.student_name === selectedHistoryStudent.student_name).map((record: any, i: any) => (
-                                    <div key={i} className="relative pl-8 border-l-2 border-gray-200 dark:border-gray-700">
-                                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-500 border-4 border-white dark:border-gray-800"></div>
-                                        <div className="mb-1 flex justify-between">
-                                            <span className="font-bold text-gray-900 dark:text-white">{record.request_type}</span>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(record.created_at).toLocaleDateString()}</span>
+                                <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
+                                    {studentRecords.map((record: any, i: any) => (
+                                        <div key={i} className="relative pl-8 border-l-2 border-gray-200 dark:border-gray-700">
+                                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-500 border-4 border-white dark:border-gray-800"></div>
+                                            <div className="mb-1 flex justify-between">
+                                                <span className="font-bold text-gray-900 dark:text-white">{record.request_type}</span>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(record.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                            <p className="text-sm text-gray-600 mb-2 dark:text-gray-300">{record.reason_for_referral || record.description}</p>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${record.status === 'Completed' ? 'bg-green-100 text-green-700' : record.status === 'Referred' ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>{record.status}</span>
+                                            {/* Per-record action buttons */}
+                                            <div className="flex flex-wrap gap-2 mt-3">
+                                                <button onClick={() => { setViewFormRecord(record); setViewFormMode('student'); }} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors border border-indigo-200">View Student Form</button>
+                                                {record.referred_by && (
+                                                        <button onClick={() => { setViewFormRecord(record); setViewFormMode('referral'); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors border border-purple-200">View Forwarded Form</button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-gray-600 mb-2 dark:text-gray-300">{record.description}</p>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${record.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{record.status}</span>
-                                    </div>
-                                ))}
+                                    ))}
+                                    {studentRecords.length === 0 && <p className="text-center text-gray-400 py-4">No records found.</p>}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()
+            }
+
+            {/* View Form Modal — Same as Care Staff: Student Form or Referral Form */}
+            {
+                viewFormRecord && (
+                    <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
+                            <div className="p-8">
+                                {/* Referral Form View */}
+                                {viewFormRecord.referred_by && viewFormMode === 'referral' ? (
+                                    <>
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div>
+                                                <h3 className="font-extrabold text-lg">DEAN'S REFERRAL FORM</h3>
+                                                <p className="text-xs text-gray-400 mt-1">Referral submitted for counseling intervention</p>
+                                                <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(viewFormRecord.created_at).toLocaleString()}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === 'Referred' ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{viewFormRecord.status === 'Referred' ? 'Forwarded' : viewFormRecord.status}</span>
+                                                <button onClick={() => { setViewFormRecord(null); setViewFormMode('student'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                                            </div>
+                                        </div>
+                                        {/* Student info */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input readOnly value={viewFormRecord.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input readOnly value={viewFormRecord.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                        </div>
+                                        {/* Referral details */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Referred by</label><input readOnly value={viewFormRecord.referred_by || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Referrer Contact Number</label><input readOnly value={viewFormRecord.referrer_contact_number || 'N/A'} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Relationship with Student</label><input readOnly value={viewFormRecord.relationship_with_student || 'N/A'} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Referral</label>
+                                            <textarea readOnly rows={4} value={viewFormRecord.reason_for_referral || viewFormRecord.description || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Actions Made by Referrer</label>
+                                            <textarea readOnly rows={3} value={viewFormRecord.actions_made || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Observations</label>
+                                            <textarea readOnly rows={2} value={viewFormRecord.date_duration_of_observations || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                        </div>
+                                        {viewFormRecord.referrer_signature && (
+                                            <div className="mb-4">
+                                                <label className="block text-xs font-bold text-gray-500 mb-1">Name and Signature of the Referring Person</label>
+                                                <div className="bg-white border-2 border-dashed border-purple-200 rounded-xl p-4 flex flex-col items-center">
+                                                    <img src={viewFormRecord.referrer_signature} alt="Referrer Signature" className="max-h-24 object-contain" />
+                                                    <div className="w-48 border-t border-gray-400 mt-2 pt-1 text-center">
+                                                        <p className="text-sm font-bold text-gray-800">{viewFormRecord.referred_by}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {viewFormRecord.resolution_notes && (
+                                            <div className="bg-green-50 p-4 rounded-xl border border-green-100 mb-3"><p className="text-xs font-bold text-green-800 uppercase mb-1">Resolution Notes</p><p className="text-sm text-green-900">{viewFormRecord.resolution_notes}</p></div>
+                                        )}
+                                        <div className="flex gap-3 mt-4">
+                                            <button onClick={() => setViewFormMode('student')} className="flex-1 py-3 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-all flex items-center justify-center gap-2">View Student Form</button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    /* Student Self-Referral Form view */
+                                    <>
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h3 className="font-extrabold text-lg">STUDENT SELF-REFERRAL FOR COUNSELING FORM</h3>
+                                                <p className="text-xs text-gray-400 mt-1">Office of the Director, Counseling, Assessment, Resources, and Enhancement Center</p>
+                                                <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(viewFormRecord.created_at).toLocaleString()}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === 'Completed' ? 'bg-green-100 text-green-700' : viewFormRecord.status === 'Referred' ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : viewFormRecord.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{viewFormRecord.status === 'Submitted' ? 'Pending Review' : viewFormRecord.status === 'Referred' ? 'Forwarded' : viewFormRecord.status}</span>
+                                                <button onClick={() => { setViewFormRecord(null); setViewFormMode('student'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input readOnly value={viewFormRecord.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input readOnly value={viewFormRecord.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input readOnly value={viewFormRecord.contact_number || 'Not set'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Requesting Counseling</label>
+                                            <textarea readOnly rows={4} value={viewFormRecord.reason_for_referral || viewFormRecord.description || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Personal Actions Taken</label>
+                                            <textarea readOnly rows={3} value={viewFormRecord.personal_actions_taken || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Concern</label>
+                                            <textarea readOnly rows={2} value={viewFormRecord.date_duration_of_concern || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                        </div>
+                                        {viewFormRecord.scheduled_date && (
+                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(viewFormRecord.scheduled_date).toLocaleString()}</p></div>
+                                        )}
+                                        {viewFormRecord.resolution_notes && (
+                                            <div className="bg-green-50 p-4 rounded-xl border border-green-100 mb-3"><p className="text-xs font-bold text-green-800 uppercase mb-1">Resolution Notes</p><p className="text-sm text-green-900">{viewFormRecord.resolution_notes}</p></div>
+                                        )}
+                                        {viewFormRecord.referred_by && (
+                                            <button onClick={() => setViewFormMode('referral')} className="w-full mt-2 py-3 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all flex items-center justify-center gap-2">View Referral Form</button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                            <div className="p-6 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white rounded-b-2xl">
+                                <button onClick={() => { setViewFormRecord(null); setViewFormMode('student'); }} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all">Close</button>
                             </div>
                         </div>
                     </div>

@@ -1,5 +1,6 @@
-﻿
+
 import React, { useState, useEffect, useRef } from 'react';
+import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
@@ -261,6 +262,8 @@ export default function StudentPortal() {
         windowEnd: null as string | null
     });
     const [isSubmittingCourseYearGate, setIsSubmittingCourseYearGate] = useState(false);
+    const courseYearGateVisibleRef = useRef(false);
+    const courseYearGateConfirmedRef = useRef(false);
     const archiveRpcStateRef = useRef<'unknown' | 'available' | 'missing'>(
         sessionStorage.getItem(ARCHIVE_RPC_MISSING_CACHE_KEY) === '1' ? 'missing' : 'unknown'
     );
@@ -532,7 +535,7 @@ export default function StudentPortal() {
                 working_student_type: profileFormData.workingStudentType,
                 is_pwd: profileFormData.isPwd === 'Yes', pwd_type: profileFormData.pwdType,
                 is_indigenous: profileFormData.isIndigenous === 'Yes', indigenous_group: profileFormData.indigenousGroup,
-                witnessed_conflict: profileFormData.witnessedConflict, is_safe_in_community: profileFormData.isSafeInCommunity,
+                witnessed_conflict: profileFormData.witnessedConflict === 'Yes', is_safe_in_community: profileFormData.isSafeInCommunity === 'Yes',
                 is_solo_parent: profileFormData.isSoloParent === 'Yes',
                 is_child_of_solo_parent: profileFormData.isChildOfSoloParent === 'Yes',
                 // Family
@@ -827,6 +830,8 @@ export default function StudentPortal() {
                 course_year_confirmed_at: nowIso
             });
 
+            courseYearGateVisibleRef.current = false;
+            courseYearGateConfirmedRef.current = true;
             setCourseYearGate((prev: any) => ({
                 ...prev,
                 visible: false,
@@ -993,11 +998,11 @@ export default function StudentPortal() {
                 pwdType: studentData.pwd_type || '',
                 isIndigenous: studentData.is_indigenous || false,
                 indigenousGroup: studentData.indigenous_group || '',
-                witnessedConflict: studentData.witnessed_conflict || '',
+                witnessedConflict: studentData.witnessed_conflict ? 'Yes' : 'No',
                 isSoloParent: studentData.is_solo_parent || false,
                 isChildOfSoloParent: studentData.is_child_of_solo_parent || false,
                 religion: studentData.religion || '',
-                isSafeInCommunity: studentData.is_safe_in_community || false,
+                isSafeInCommunity: studentData.is_safe_in_community ? 'Yes' : 'No',
                 motherLastName: motherParts.last,
                 motherGivenName: motherParts.given,
                 motherMiddleName: motherParts.middle,
@@ -1062,23 +1067,31 @@ export default function StudentPortal() {
                     year: trustedYear || '1st Year'
                 }));
 
-                setCourseYearGate({
-                    visible: !beforeWindow && !expired,
-                    expired,
-                    course: trustedCourse || '',
-                    year: trustedYear || '1st Year',
-                    courseLocked: false,
-                    yearLocked: false,
-                    courseOptions: normalizedCourseOptions,
-                    windowStart,
-                    windowEnd
-                });
+                // Only set the gate if it's not already visible (user may be mid-interaction)
+                // and hasn't already been confirmed in this session
+                if (!courseYearGateVisibleRef.current && !courseYearGateConfirmedRef.current) {
+                    const shouldShow = !beforeWindow && !expired;
+                    courseYearGateVisibleRef.current = shouldShow;
+                    setCourseYearGate({
+                        visible: shouldShow,
+                        expired,
+                        course: trustedCourse || '',
+                        year: trustedYear || '1st Year',
+                        courseLocked: false,
+                        yearLocked: false,
+                        courseOptions: normalizedCourseOptions,
+                        windowStart,
+                        windowEnd
+                    });
+                }
             } else {
-                setCourseYearGate((prev: any) => ({
-                    ...prev,
-                    visible: false,
-                    expired: false
-                }));
+                if (!courseYearGateVisibleRef.current) {
+                    setCourseYearGate((prev: any) => ({
+                        ...prev,
+                        visible: false,
+                        expired: false
+                    }));
+                }
             }
 
             syncStudentSession({
@@ -1688,7 +1701,7 @@ export default function StudentPortal() {
         setShowAssessmentModal(true);
         const { data: qs } = await supabaseClient
             .from('questions')
-            .select('id, form_id, question_text, question_type, options, required, order_index')
+            .select('id, form_id, question_text, question_type, scale_min, scale_max, order_index')
             .eq('form_id', form.id)
             .order('order_index');
         setFormQuestions(qs || []);
@@ -2388,10 +2401,7 @@ export default function StudentPortal() {
                         <h2 className="text-xl font-bold gradient-text-blue">{(viewLabels as any)[activeView] || activeView}</h2>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:shadow-md transition-all relative border border-gray-100">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-                            {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse-glow" />}
-                        </button>
+                        <NotificationBell notifications={notifications} accentColor="blue" />
                     </div>
                 </header>
 

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Users, Search, Download, XCircle, Edit, Trash2, Plus, Key,
     PieChart, List, UploadCloud, Info, ArrowUpDown, Activity, TrendingUp,
@@ -17,7 +17,7 @@ declare const XLSX: any;
 // Fields with `db` read directly; fields with `compute` derive the value from the student object
 const PROFILE_CATEGORIES = [
     {
-        key: 'personal', label: 'Personal Information', icon: '??', gradient: 'from-blue-500 to-sky-400', fields: [
+        key: 'personal', label: 'Personal Information', icon: '\u{1F464}', gradient: 'from-blue-500 to-sky-400', fields: [
             { label: "STUDENT'S I.D. NO.", db: 'student_id' },
             { label: 'FULL NAME', compute: (s: any) => [s.last_name, s.first_name, s.suffix, s.middle_name || 'N/A'].filter(Boolean).join(', ') },
             { label: 'ADDRESS', compute: (s: any) => [s.street, s.city, s.province, s.zip_code].filter(Boolean).join(', ') },
@@ -48,7 +48,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'family', label: 'Family Background', icon: '????????', gradient: 'from-amber-400 to-orange-500', fields: [
+        key: 'family', label: 'Family Background', icon: '👨‍👩‍👧', gradient: 'from-amber-400 to-orange-500', fields: [
             { label: "MOTHER'S NAME", db: 'mother_name' },
             { label: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
             { label: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
@@ -65,7 +65,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'guardian', label: 'Guardian', icon: '???', gradient: 'from-indigo-400 to-violet-500', fields: [
+        key: 'guardian', label: 'Guardian', icon: '🛡️', gradient: 'from-indigo-400 to-violet-500', fields: [
             { label: 'FULL NAME', db: 'guardian_name' },
             { label: 'ADDRESS', db: 'guardian_address' },
             { label: 'CONTACT NUMBER', db: 'guardian_contact' },
@@ -73,7 +73,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'emergency', label: 'Person to Contact (In Case of Emergency)', icon: '??', gradient: 'from-rose-400 to-red-500', fields: [
+        key: 'emergency', label: 'Person to Contact (In Case of Emergency)', icon: '🚨', gradient: 'from-rose-400 to-red-500', fields: [
             { label: 'FULL NAME', db: 'emergency_name' },
             { label: 'ADDRESS', db: 'emergency_address' },
             { label: 'RELATIONSHIP', db: 'emergency_relationship' },
@@ -81,7 +81,7 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'education', label: 'Educational Background', icon: '??', gradient: 'from-cyan-400 to-blue-500', fields: [
+        key: 'education', label: 'Educational Background', icon: '🎓', gradient: 'from-cyan-400 to-blue-500', fields: [
             { label: 'ELEMENTARY', db: 'elem_school' },
             { label: 'YEAR GRADUATED', db: 'elem_year_graduated' },
             { label: 'JUNIOR HIGH SCHOOL', db: 'junior_high_school' },
@@ -94,17 +94,17 @@ const PROFILE_CATEGORIES = [
         ]
     },
     {
-        key: 'extracurricular', label: 'Extra-Curricular Involvement', icon: '??', gradient: 'from-pink-400 to-rose-500', fields: [
+        key: 'extracurricular', label: 'Extra-Curricular Involvement', icon: '⚽', gradient: 'from-pink-400 to-rose-500', fields: [
             { label: 'NAME OF ACTIVITIES', db: 'extracurricular_activities' },
         ]
     },
     {
-        key: 'scholarships', label: 'Scholarships', icon: '??', gradient: 'from-yellow-400 to-amber-500', fields: [
+        key: 'scholarships', label: 'Scholarships', icon: '🏆', gradient: 'from-yellow-400 to-amber-500', fields: [
             { label: 'NAME OF SCHOLARSHIP AVAILED', db: 'scholarships_availed' },
         ]
     },
     {
-        key: 'additional', label: 'Additional Information', icon: '??', gradient: 'from-slate-500 to-slate-700', fields: [
+        key: 'additional', label: 'Additional Information', icon: 'ℹ️', gradient: 'from-slate-500 to-slate-700', fields: [
             { label: 'Department', db: 'department' },
             { label: 'Section', db: 'section' },
             { label: 'Status', db: 'status' },
@@ -173,9 +173,11 @@ const getArchivedSnapshotForSchoolYear = (student: any, schoolYear: string) => {
 
 interface StudentPopulationPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
+    pendingProfileId?: string | null;
+    onProfileOpened?: () => void;
 }
 
-const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
+const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }: StudentPopulationPageProps) => {
     const { showToast } = functions || {};
 
     // Use custom hook for data fetching & real-time updates
@@ -317,12 +319,12 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
         setProfileLoading(true);
         setProfileCategoryIndex(0);
         try {
-            const data = await getStudentByStudentId(student.student_id);
+            const data = await getStudentByStudentId(student.student_id || student);
             if (!data) throw new Error('Student not found');
             setProfileViewStudent(data);
         } catch (err: any) {
-            // Fallback to the student object we already have
-            setProfileViewStudent(student);
+            // Fallback to the student object we already have (if it's an object)
+            if (typeof student === 'object') setProfileViewStudent(student);
         }
         setProfileLoading(false);
     };
@@ -407,6 +409,14 @@ const StudentPopulationPage = ({ functions }: StudentPopulationPageProps) => {
     useEffect(() => {
         cleanupExpiredCourseYearWindows(true);
     }, []);
+
+    // Handle pending profile view from other pages
+    useEffect(() => {
+        if (pendingProfileId) {
+            openProfileModal(pendingProfileId);
+            onProfileOpened?.();
+        }
+    }, [pendingProfileId]);
 
     useEffect(() => {
         if (showEnrollmentModal) {

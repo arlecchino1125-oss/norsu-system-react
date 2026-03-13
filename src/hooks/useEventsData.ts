@@ -1,9 +1,39 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { SystemEvent } from '../types/models';
 
+/**
+ * Returns true if the event's date (and optional end_time) have passed.
+ * An event is "expired" when:
+ *  - event_date is before today, OR
+ *  - event_date is today AND end_time has passed (if set), OR
+ *  - event_date is today AND no end_time is set AND the day is over (23:59)
+ */
+function isEventExpired(event: SystemEvent): boolean {
+    if (!event.event_date) return false;
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // Past date → expired
+    if (event.event_date < todayStr) return true;
+
+    // Future date → not expired
+    if (event.event_date > todayStr) return false;
+
+    // Same day — check end_time
+    if (event.end_time) {
+        const [h, m] = event.end_time.split(':').map(Number);
+        if (now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 export function useEventsData() {
-    const [events, setEvents] = useState<SystemEvent[]>([]);
+    const [allEvents, setAllEvents] = useState<SystemEvent[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -47,9 +77,9 @@ export function useEventsData() {
                     };
                 });
 
-                setEvents(enrichedEvents);
+                setAllEvents(enrichedEvents);
             } else {
-                setEvents([]);
+                setAllEvents([]);
             }
         } catch (err: any) {
             console.error("Error fetching events:", err);
@@ -74,5 +104,9 @@ export function useEventsData() {
         };
     }, []);
 
-    return { events, loading, error, refetchEvents: fetchEvents };
+    // Split into active (upcoming/ongoing) and archived (expired)
+    const events = useMemo(() => allEvents.filter(ev => !isEventExpired(ev)), [allEvents]);
+    const archivedEvents = useMemo(() => allEvents.filter(ev => isEventExpired(ev)), [allEvents]);
+
+    return { events, archivedEvents, allEvents, loading, error, refetchEvents: fetchEvents };
 }

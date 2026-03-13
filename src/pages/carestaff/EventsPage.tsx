@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Trash2
+    Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Trash2, Archive
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
@@ -19,7 +19,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
     const [eventFilter, setEventFilter] = useState('All Items');
 
     // Data States from Custom Hook
-    const { events, loading, refetchEvents: fetchEvents } = useEventsData();
+    const { events, archivedEvents, loading, refetchEvents: fetchEvents } = useEventsData();
 
     // UI/Modal States
     const [showEventModal, setShowEventModal] = useState(false);
@@ -197,15 +197,24 @@ const EventsPage = ({ functions }: EventsPageProps) => {
                 {/* Filter Tabs */}
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                        {['All Items', 'Events', 'Announcements'].map(tab => (
-                            <button key={tab} onClick={() => setEventFilter(tab)} className={`px-4 py-2 rounded-md text-sm font-medium transition ${eventFilter === tab ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-700'}`}>{tab}</button>
+                        {['All Items', 'Events', 'Announcements', 'Archived'].map(tab => (
+                            <button key={tab} onClick={() => setEventFilter(tab)} className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5 ${eventFilter === tab ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-700'}`}>
+                                {tab === 'Archived' && <Archive size={14} />}
+                                {tab}
+                                {tab === 'Archived' && archivedEvents.length > 0 && (
+                                    <span className="ml-1 bg-gray-200 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{archivedEvents.length}</span>
+                                )}
+                            </button>
                         ))}
                     </div>
-                    <span className="text-xs font-bold text-gray-400 bg-white px-3 py-1 rounded-md border border-gray-200">Total: {events.length}</span>
+                    <span className="text-xs font-bold text-gray-400 bg-white px-3 py-1 rounded-md border border-gray-200">
+                        {eventFilter === 'Archived' ? `Archived: ${archivedEvents.length}` : `Active: ${events.length}`}
+                    </span>
                 </div>
 
                 <div className="space-y-4">
-                    {events
+                    {/* Active Events */}
+                    {eventFilter !== 'Archived' && events
                         .filter(i => eventFilter === 'All Items' || (eventFilter === 'Events' && i.type === 'Event') || (eventFilter === 'Announcements' && i.type === 'Announcement'))
                         .map(item => (
                             <div key={item.id} className="card-hover bg-white/80 backdrop-blur-sm border border-gray-100/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden group">
@@ -237,7 +246,40 @@ const EventsPage = ({ functions }: EventsPageProps) => {
                                 </div>
                             </div>
                         ))}
-                    {events.length === 0 && <div className="text-center py-8 text-gray-400">No events or announcements found.</div>}
+
+                    {/* Archived Events */}
+                    {eventFilter === 'Archived' && archivedEvents.map(item => (
+                        <div key={item.id} className="bg-gray-50/80 backdrop-blur-sm border border-gray-200/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-gray-300 to-gray-400" />
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${item.type === 'Event' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>{item.type}</span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1"><Archive size={10} /> Archived</span>
+                                </div>
+                                <h3 className="font-bold text-gray-600 text-lg">{item.title}</h3>
+                                <p className="text-sm text-gray-500 mt-1">{item.description}</p>
+                                <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-400">
+                                    {item.location && <span className="flex items-center gap-1"><MapPin size={12} />{item.location}</span>}
+                                    {item.event_date && <span className="flex items-center gap-1"><Calendar size={12} />{item.event_date}</span>}
+                                    {item.event_time && <span className="flex items-center gap-1"><Clock size={12} />{item.event_time}</span>}
+                                    {item.end_time && <span className="text-gray-300 text-[10px] ml-1">- {item.end_time}</span>}
+                                    {item.type === 'Event' && <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Users size={12} />{item.attendees || 0} Attendees</span>}
+                                    {item.type === 'Event' && item.avgRating && <span className="bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Star size={12} />{item.avgRating} <span className="font-normal opacity-75">({item.feedbackCount})</span></span>}
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                {item.type === 'Event' && (
+                                    <>
+                                        <button onClick={() => item.id && handleViewFeedback(item)} className="p-2 border border-gray-200 rounded text-xs flex items-center gap-1 hover:bg-gray-100 flex-1 justify-center text-gray-500"><Star size={14} className="text-yellow-400" /> Reviews ({item.feedbackCount || 0})</button>
+                                        <button onClick={() => item.id && handleViewAttendees(item)} className="p-2 border border-gray-200 rounded text-xs flex items-center gap-1 hover:bg-gray-100 flex-1 justify-center text-gray-500"><Users size={14} className="text-blue-400" /> Attendees ({item.attendees || 0})</button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    {eventFilter !== 'Archived' && events.filter(i => eventFilter === 'All Items' || (eventFilter === 'Events' && i.type === 'Event') || (eventFilter === 'Announcements' && i.type === 'Announcement')).length === 0 && <div className="text-center py-8 text-gray-400">No active events or announcements found.</div>}
+                    {eventFilter === 'Archived' && archivedEvents.length === 0 && <div className="text-center py-8 text-gray-400">No archived events yet.</div>}
                 </div>
             </div>
 

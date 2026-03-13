@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { supabase } from '../../lib/supabase';
 import { createPortal } from 'react-dom';
 import { renderProfileView } from './views/ProfileView';
@@ -408,7 +408,7 @@ export function renderRemainingViews(p: any) {
                                     <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <div>
                                             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Current Status</p>
-                                            <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${selectedSupportRequest.status === 'Resolved by Dept' ? 'bg-green-100 text-green-700' : selectedSupportRequest.status === 'Referred to CARE' ? 'bg-orange-100 text-orange-700' : selectedSupportRequest.status === 'Visit Scheduled' ? 'bg-blue-100 text-blue-700' : selectedSupportRequest.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${selectedSupportRequest.status === 'Completed' ? 'bg-green-100 text-green-700' : selectedSupportRequest.status === 'Resolved by Dept' ? 'bg-green-100 text-green-700' : selectedSupportRequest.status === 'Referred to CARE' ? 'bg-orange-100 text-orange-700' : selectedSupportRequest.status === 'Visit Scheduled' ? 'bg-blue-100 text-blue-700' : selectedSupportRequest.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                                 {selectedSupportRequest.status}
                                             </span>
                                         </div>
@@ -418,50 +418,62 @@ export function renderRemainingViews(p: any) {
                                         </div>
                                     </div>
 
-                                    {/* Department & Resolution Notes */}
-                                    {selectedSupportRequest.dept_notes && (
-                                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                                            <p className="text-xs text-blue-800 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-                                                <Icons.Dashboard /> Department Updates
-                                            </p>
-                                            <div className="space-y-2">
-                                                {(() => {
-                                                    try {
-                                                        const notes = JSON.parse(selectedSupportRequest.dept_notes);
-                                                        if (selectedSupportRequest.status === 'Visit Scheduled' && notes.scheduled_date) {
-                                                            return (
-                                                                <>
-                                                                    <p className="text-sm font-bold text-gray-800 bg-white p-2 rounded border border-blue-200 shadow-sm">Scheduled Visit: <span className="text-blue-600">{notes.scheduled_date}</span></p>
-                                                                    {notes.approval_notes && <p className="text-xs text-gray-600 bg-white p-2 rounded border border-blue-100 shadow-sm mt-1">{notes.approval_notes}</p>}
-                                                                </>
-                                                            );
-                                                        } else if (selectedSupportRequest.status === 'Referred to CARE' && notes.referred_by) {
-                                                            return (
-                                                                <>
-                                                                    <p className="text-xs text-gray-700 bg-white p-2 rounded shadow-sm border border-orange-100"><span className="font-semibold text-gray-900">Referred by:</span> {notes.referred_by}</p>
-                                                                    {notes.actions_taken && <p className="text-xs text-gray-700 bg-white p-2 rounded shadow-sm border border-orange-100"><span className="font-semibold text-gray-900">Actions Taken:</span> {notes.actions_taken}</p>}
-                                                                    {notes.comments && <p className="text-xs text-gray-700 bg-white p-2 rounded shadow-sm border border-orange-100"><span className="font-semibold text-gray-900">Comments:</span> {notes.comments}</p>}
-                                                                    {notes.date_acted && <p className="text-xs text-gray-500 mt-1">Date: {notes.date_acted}</p>}
-                                                                </>
-                                                            );
-                                                        }
-                                                        return <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedSupportRequest.dept_notes}</p>;
-                                                    } catch (e) {
-                                                        return <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedSupportRequest.dept_notes}</p>;
-                                                    }
-                                                })()}
-                                            </div>
-                                        </div>
-                                    )}
+                                    {/* Resolution Letter — shows who resolved and their message */}
+                                    {(() => {
+                                        // Determine if there's a resolution and who it came from
+                                        const isDeptResolved = selectedSupportRequest.status === 'Resolved by Dept';
+                                        const isCompleted = selectedSupportRequest.status === 'Completed';
+                                        let resolutionText = '';
+                                        let resolvedBy = '';
 
-                                    {selectedSupportRequest.resolution_notes && (
-                                        <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
-                                            <p className="text-xs text-green-800 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-                                                <Icons.CheckCircle /> Resolution Details
-                                            </p>
-                                            <p className="text-sm text-green-900 whitespace-pre-wrap">{selectedSupportRequest.resolution_notes}</p>
-                                        </div>
-                                    )}
+                                        if (isDeptResolved && selectedSupportRequest.dept_notes) {
+                                            // Dean resolved it — dept_notes is plain text
+                                            try {
+                                                const parsed = JSON.parse(selectedSupportRequest.dept_notes);
+                                                // If it's JSON (referral data), it's not a direct resolution
+                                                if (parsed.referred_by) {
+                                                    resolutionText = '';
+                                                } else {
+                                                    resolutionText = selectedSupportRequest.dept_notes;
+                                                }
+                                            } catch {
+                                                resolutionText = selectedSupportRequest.dept_notes;
+                                            }
+                                            resolvedBy = 'Department Head / Dean';
+                                        } else if (isCompleted && selectedSupportRequest.resolution_notes) {
+                                            resolutionText = selectedSupportRequest.resolution_notes;
+                                            resolvedBy = 'CARE Staff';
+                                        }
+
+                                        if (!resolutionText) return null;
+
+                                        return (
+                                            <details className="rounded-xl overflow-hidden border border-emerald-200 shadow-sm group">
+                                                <summary className="bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-3 flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none">
+                                                    <div className="flex items-center gap-2 text-white">
+                                                        <Icons.CheckCircle />
+                                                        <span className="font-bold text-sm">Resolution Letter</span>
+                                                        <svg className="w-4 h-4 text-white/70 transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M19 9l-7 7-7-7" /></svg>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-emerald-100 bg-white/15 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                                        {isDeptResolved ? 'Resolved' : 'Completed'}
+                                                    </span>
+                                                </summary>
+                                                <div className="bg-emerald-50/50 p-5 space-y-3">
+                                                    <div className="flex items-center gap-2 text-xs text-emerald-800">
+                                                        <span className="font-bold uppercase tracking-wider">From:</span>
+                                                        <span className="font-semibold bg-white px-2.5 py-1 rounded-lg border border-emerald-100">{resolvedBy}</span>
+                                                    </div>
+                                                    <div className="bg-white rounded-xl p-5 border border-emerald-100 shadow-sm">
+                                                        <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{resolutionText}</p>
+                                                    </div>
+                                                    <p className="text-[10px] text-emerald-600 font-medium text-right italic">
+                                                        Your support request has been addressed. Contact the office if you have further concerns.
+                                                    </p>
+                                                </div>
+                                            </details>
+                                        );
+                                    })()}
 
                                     <hr className="border-gray-200" />
                                     <h4 className="font-bold text-sm text-blue-800 uppercase tracking-wider opacity-80">Original Request Form</h4>
