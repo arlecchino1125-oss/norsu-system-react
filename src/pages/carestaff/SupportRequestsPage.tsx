@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
     FileText, CheckCircle, Send, AlertTriangle,
@@ -527,6 +527,49 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                 })()}
                             </section>
 
+
+                            {/* Section A: Studies */}
+                            <section>
+                                <h4 className="font-bold text-sm text-purple-600 mb-3 uppercase tracking-wider border-b pb-1">A. Your Studies</h4>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between border-b border-gray-50 pb-1"><span className="text-gray-500">1st Priority:</span><span className="font-medium text-gray-900">{selectedStudent?.priority_course || 'N/A'}</span></div>
+                                    <div className="flex justify-between border-b border-gray-50 pb-1"><span className="text-gray-500">2nd Priority:</span><span className="font-medium text-gray-900">{selectedStudent?.alt_course_1 || 'N/A'}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-500">3rd Priority:</span><span className="font-medium text-gray-900">{selectedStudent?.alt_course_2 || 'N/A'}</span></div>
+                                </div>
+                            </section>
+
+                            {/* Categories & Particulars */}
+                            <section>
+                                <h4 className="font-bold text-sm text-purple-600 mb-3 uppercase tracking-wider border-b pb-1">B. Particulars of Need</h4>
+                                <div className="mb-4">
+                                    <p className="text-xs font-bold text-gray-600 mb-1">Categories:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {selectedSupportReq.support_type ? selectedSupportReq.support_type.split(', ').map((cat: string, i: number) => (
+                                            <span key={i} className="bg-white border border-gray-200 px-2 py-1 rounded text-xs text-gray-700">{cat}</span>
+                                        )) : <span className="text-xs text-gray-400">None</span>}
+                                    </div>
+                                </div>
+                                {renderDetailedDescription(selectedSupportReq.description)}
+                                {selectedSupportReq.documents_url && (() => {
+                                    let urls: string[] = [];
+                                    try {
+                                        const parsed = JSON.parse(selectedSupportReq.documents_url);
+                                        urls = Array.isArray(parsed) ? parsed : [selectedSupportReq.documents_url];
+                                    } catch { urls = [selectedSupportReq.documents_url]; }
+                                    return urls.length > 0 ? (
+                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-2">
+                                            <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1"><Paperclip size={12} /> Supporting Documents ({urls.length})</p>
+                                            {urls.map((url: string, idx: number) => (
+                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline font-medium py-1">
+                                                    <Download size={14} className="flex-shrink-0" />
+                                                    <span className="truncate">Document {idx + 1} — {decodeURIComponent(url.split('/').pop() || 'file')}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : null;
+                                })()}
+                            </section>
+
                             {/* Action Section */}
                             <section className="bg-gray-50 p-5 rounded-xl border border-gray-200">
                                 <h4 className="font-bold text-sm text-gray-700 mb-4 uppercase tracking-wider">Staff Actions</h4>
@@ -565,6 +608,57 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                         <button onClick={handleFinalizeSupport} className="w-full mt-2 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700">Notify Student & Complete</button>
                                     </div>
                                 )}
+
+                                {(selectedSupportReq.status === 'Referred to CARE' || selectedSupportReq.status === 'Visit Scheduled' || selectedSupportReq.status === 'Resolved by Dept') && (() => {
+                                    let referral: any = null;
+                                    try { referral = JSON.parse(selectedSupportReq.dept_notes); } catch { /* not JSON */ }
+                                    return (
+                                        <div>
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-4">
+                                                <h5 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                    <Send size={14} /> Department Referral Report
+                                                </h5>
+                                                {referral ? (
+                                                    <div className="space-y-3">
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-gray-500 uppercase">Referred By</p>
+                                                                <p className="text-sm font-semibold text-gray-900">{referral.referred_by || '-'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-gray-500 uppercase">Date Acted / Visit Date</p>
+                                                                <p className="text-sm font-semibold text-gray-900">{referral.date_acted || '-'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Actions Taken During Visit</p>
+                                                            <p className="text-sm text-gray-800 bg-white p-3 rounded-lg border border-gray-100 whitespace-pre-wrap">{referral.actions_taken || 'None provided'}</p>
+                                                        </div>
+                                                        {referral.comments && (
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Other Comments / Observations</p>
+                                                                <p className="text-sm text-gray-800 bg-white p-3 rounded-lg border border-gray-100 whitespace-pre-wrap">{referral.comments}</p>
+                                                            </div>
+                                                        )}
+                                                        {referral.signature && (
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Signature</p>
+                                                                <div className="bg-white p-2 rounded-lg border border-gray-200 inline-block">
+                                                                    <img src={referral.signature} alt="Referrer Signature" className="max-h-20" />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-gray-600">{selectedSupportReq.dept_notes || 'No referral details provided.'}</p>
+                                                )}
+                                            </div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Final Resolution / Ideas for Student</label>
+                                            <textarea rows={3} value={supportForm.resolution_notes} onChange={e => setSupportForm({ ...supportForm, resolution_notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Provide solution or next steps..."></textarea>
+                                            <button onClick={handleFinalizeSupport} className="w-full mt-2 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700">Notify Student & Complete</button>
+                                        </div>
+                                    );
+                                })()}
 
                                 {selectedSupportReq.status === 'Completed' && (
                                     <p className="text-xs text-green-600 font-bold bg-green-50 p-2 rounded"><CheckCircle size={12} className="inline mr-1" /> Request Resolved</p>

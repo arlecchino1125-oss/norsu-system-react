@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
     Activity,
@@ -37,6 +37,7 @@ import StudentAnalyticsPage from './carestaff/StudentAnalyticsPage';
 import StudentPopulationPage from './carestaff/StudentPopulationPage';
 import SupportRequestsPage from './carestaff/SupportRequestsPage';
 import { renderCareStaffModals } from './carestaff/modals/CareStaffModals';
+import NotificationBell from '../components/NotificationBell';
 import type { CareStaffDashboardFunctions, ToastHandler, ToastType } from './carestaff/types';
 
 const PROFILE_NOTIFICATION_ACTIONS = [
@@ -163,6 +164,7 @@ const CareStaffDashboard = () => {
 
     const [activeTab, setActiveTab] = useState<ActiveTab>('home');
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+    const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
 
     // Data States
     const [toast, setToast] = useState<ToastState | null>(null);
@@ -365,6 +367,10 @@ const CareStaffDashboard = () => {
             if (tab) {
                 setActiveTab(tab);
             }
+        },
+        handleViewProfile: (studentId: string) => {
+            setPendingProfileId(studentId);
+            setActiveTab('population');
         }
     }), [handleResetSystem, logAudit, showToastMessage]);
 
@@ -377,7 +383,7 @@ const CareStaffDashboard = () => {
             case 'home':
                 return <HomePage functions={functions} />;
             case 'population':
-                return <StudentPopulationPage functions={functions} />;
+                return <StudentPopulationPage functions={functions} pendingProfileId={pendingProfileId} onProfileOpened={() => setPendingProfileId(null)} />;
             case 'dashboard':
                 return <CareStaffDashboardView setActiveTab={setActiveTabFromString} />;
             case 'analytics':
@@ -470,10 +476,7 @@ const CareStaffDashboard = () => {
                         <button onClick={refreshAll} disabled={isRefreshing} title="Refresh Dashboard" className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 hover:text-purple-600 hover:shadow-md transition-all border border-gray-100 disabled:opacity-50">
                             <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                         </button>
-                        <button className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 hover:text-purple-600 hover:shadow-md transition-all relative border border-gray-100">
-                            <Bell size={20} />
-                            {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse-glow" />}
-                        </button>
+                        <NotificationBell notifications={notifications} accentColor="purple" />
                     </div>
                 </header>
 

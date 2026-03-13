@@ -126,8 +126,22 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                 { page: eventsPage, pageSize: eventsPageSize },
                 { column: 'created_at', ascending: false }
             );
-            setEventsList(result.rows);
-            setEventsTotal(result.total);
+            // Filter out expired events for dept view
+            const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10);
+            const activeEvents = (result.rows || []).filter((ev: any) => {
+                if (!ev.event_date) return true;
+                if (ev.event_date < todayStr) return false;
+                if (ev.event_date > todayStr) return true;
+                // Same day — check end_time
+                if (ev.end_time) {
+                    const [h, m] = ev.end_time.split(':').map(Number);
+                    if (now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m)) return false;
+                }
+                return true;
+            });
+            setEventsList(activeEvents);
+            setEventsTotal(activeEvents.length);
         } catch (error: any) {
             setEventsError(error.message || 'Failed to load events');
         } finally {
