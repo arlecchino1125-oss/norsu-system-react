@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Calendar, ChevronRight } from 'lucide-react';
+import { getCounselingScheduledDate, isCounselingCalendarVisible } from '../utils/workflow';
 
 // Helper Component for Counseling Calendar
 const CalendarView = ({ requests }: any) => {
@@ -18,8 +19,9 @@ const CalendarView = ({ requests }: any) => {
 
     const getEventsForDay = (day: any) => {
         return requests.filter(r => {
-            if (r.status !== 'Scheduled' || !r.schedule_date) return false;
-            const d = new Date(r.schedule_date);
+            const scheduledDate = getCounselingScheduledDate(r);
+            if (!isCounselingCalendarVisible(r.status) || !scheduledDate) return false;
+            const d = new Date(scheduledDate);
             return d.getDate() === day && d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
         });
     };
@@ -48,9 +50,15 @@ const CalendarView = ({ requests }: any) => {
                             <div className={`text-xs font-bold mb-2 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-purple-600 text-white' : 'text-gray-700'}`}>{day}</div>
                             <div className="flex-1 overflow-y-auto space-y-1">
                                 {events.map(ev => (
-                                    <div key={ev.id} className="text-[10px] bg-purple-50 text-purple-700 p-1.5 rounded border border-purple-100 truncate cursor-pointer hover:bg-purple-100 transition" title={`${ev.student_name} - ${new Date(ev.schedule_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}>
-                                        <span className="font-bold block">{new Date(ev.schedule_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{ev.student_name}
-                                    </div>
+                                    (() => {
+                                        const scheduledDate = getCounselingScheduledDate(ev);
+                                        if (!scheduledDate) return null;
+                                        return (
+                                            <div key={ev.id} className="text-[10px] bg-purple-50 text-purple-700 p-1.5 rounded border border-purple-100 truncate cursor-pointer hover:bg-purple-100 transition" title={`${ev.student_name} - ${new Date(scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}>
+                                                <span className="font-bold block">{new Date(scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{ev.student_name}
+                                            </div>
+                                        );
+                                    })()
                                 ))}
                             </div>
                         </div>

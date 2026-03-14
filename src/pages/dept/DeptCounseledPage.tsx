@@ -1,3 +1,8 @@
+import {
+    COUNSELING_STATUS,
+    isWithCareStaffCounseling
+} from '../../utils/workflow';
+
 const DeptCounseledPage = ({
     filteredData,
     counseledSearch,
@@ -32,16 +37,16 @@ const DeptCounseledPage = ({
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                         {filteredData.requests
-                            .filter(r => (r.status === 'Completed' || r.status === 'Referred') &&
+                            .filter(r => ((r.status === COUNSELING_STATUS.COMPLETED || isWithCareStaffCounseling(r.status)) &&
                                 r.student_name.toLowerCase().includes(counseledSearch.toLowerCase()) &&
                                 (!counseledDate || r.created_at?.startsWith(counseledDate)) &&
-                                matchesCascadeFilters(getStudentForRequest(r)))
+                                matchesCascadeFilters(getStudentForRequest(r))))
                             .map(r => (
                                 <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                     <td className="p-4 font-medium text-gray-900 dark:text-white">{r.student_name}</td>
                                     <td className="p-4 text-sm text-gray-500 dark:text-gray-400">{new Date(r.created_at).toLocaleDateString()}</td>
                                     <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">{r.request_type}</span></td>
-                                    <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${r.status === 'Completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}`}>{r.status}</span></td>
+                                    <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${r.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}`}>{r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : r.status}</span></td>
                                     <td className="p-4">
                                         <button onClick={() => { setSelectedHistoryStudent(r); setShowHistoryModal(true); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium dark:text-blue-400 dark:hover:text-blue-300">View History</button>
                                     </td>
@@ -49,7 +54,7 @@ const DeptCounseledPage = ({
                             ))}
                     </tbody>
                 </table>
-                {filteredData.requests.filter(r => r.status === 'Completed' || r.status === 'Referred').length === 0 && (
+                {filteredData.requests.filter((r: any) => r.status === COUNSELING_STATUS.COMPLETED || isWithCareStaffCounseling(r.status)).length === 0 && (
                     <div className="p-8 text-center text-gray-500 dark:text-gray-400">No counseled students found.</div>
                 )}
             </div>

@@ -2,6 +2,11 @@ import {
     Users, CalendarDays, ClipboardList, UserPlus, BarChart3, FileText,
     Info, CheckCircle, GraduationCap, Settings
 } from 'lucide-react';
+import {
+    COUNSELING_STATUS,
+    isCounselingAwaitingDept,
+    isWithCareStaffCounseling
+} from '../../utils/workflow';
 
 const DeptHomePage = ({
     clock,
@@ -65,8 +70,8 @@ const DeptHomePage = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
                 {[
                     { label: 'Total Requests', value: filteredData.requests.length, icon: <FileText size={20} />, gradient: 'from-blue-400 to-indigo-500', bg: 'bg-blue-50' },
-                    { label: 'Pending Approval', value: filteredData.requests.filter(r => r.status === 'Submitted' || r.status === 'Pending').length, icon: <Info size={20} />, gradient: 'from-amber-400 to-orange-500', bg: 'bg-amber-50' },
-                    { label: 'Referred', value: filteredData.requests.filter(r => r.status === 'Referred' || r.status === 'Scheduled').length, icon: <CheckCircle size={20} />, gradient: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50' },
+                    { label: 'Pending Approval', value: filteredData.requests.filter((r: any) => isCounselingAwaitingDept(r.status)).length, icon: <Info size={20} />, gradient: 'from-amber-400 to-orange-500', bg: 'bg-amber-50' },
+                    { label: 'With CARE Staff', value: filteredData.requests.filter((r: any) => isWithCareStaffCounseling(r.status)).length, icon: <CheckCircle size={20} />, gradient: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50' },
                     { label: 'Total Students', value: filteredData.students.length, icon: <Users size={20} />, gradient: 'from-purple-400 to-violet-500', bg: 'bg-purple-50' }
                 ].map((card, idx) => (
                     <div key={idx} className="card-hover bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-between h-32 animate-fade-in-up">
@@ -99,7 +104,7 @@ const DeptHomePage = ({
                     <h3 className="font-bold text-gray-900 px-1 flex items-center gap-2"><Settings size={16} className="text-emerald-500" /> Quick Actions</h3>
                     <button onClick={() => setActiveModule('counseling_queue')} className="card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 flex items-start gap-4 group">
                         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200/50 group-hover:scale-105 transition-transform"><ClipboardList size={18} /></div>
-                        <div><h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors">Counseling Requests</h4><p className="text-xs text-gray-500">{counselingRequests.filter(r => r.status === 'Submitted').length} pending review</p></div>
+                        <div><h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors">Counseling Requests</h4><p className="text-xs text-gray-500">{counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length} pending review</p></div>
                     </button>
                     <button onClick={() => { setForwardingToStaff(false); setReferralForm({ student: '', type: '', notes: '', referrer_contact_number: '', relationship_with_student: '', reason_for_referral: '', actions_made: '', date_duration_of_observations: '' }); setShowReferralModal(true); }} className="card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 flex items-start gap-4 group">
                         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-200/50 group-hover:scale-105 transition-transform"><UserPlus size={18} /></div>
@@ -122,7 +127,7 @@ const DeptHomePage = ({
                                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-xs font-bold shadow-sm">{req.student_name.charAt(0)}</div>
                                 <div><p className="text-sm font-bold text-gray-900">{req.student_name}</p><p className="text-xs text-gray-500 line-clamp-1">{req.reason_for_referral || req.description || req.request_type}</p></div>
                             </div>
-                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${req.status === 'Submitted' ? 'bg-amber-100 text-amber-700' : req.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : req.status === 'Referred' ? 'bg-purple-100 text-purple-700' : req.status === 'Completed' ? 'bg-green-100 text-green-700' : req.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{req.status === 'Submitted' ? 'Pending Review' : req.status}</span>
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isCounselingAwaitingDept(req.status) ? 'bg-amber-100 text-amber-700' : req.status === COUNSELING_STATUS.SCHEDULED ? 'bg-blue-100 text-blue-700' : req.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : req.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-700' : req.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : req.status === COUNSELING_STATUS.REJECTED ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{isCounselingAwaitingDept(req.status) ? 'Pending Review' : req.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : req.status}</span>
                         </div>
                     ))}
                 </div>

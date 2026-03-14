@@ -4,11 +4,50 @@ import { createPortal } from 'react-dom';
 import { renderProfileView } from './views/ProfileView';
 import { FeedbackView } from './views/FeedbackView';
 import { ServiceIntroModal } from './views/ServiceIntroModal';
+import {
+    CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
+    COUNSELING_STATUS,
+    SUPPORT_STATUS,
+    getCounselingScheduledDate,
+    isCounselingAwaitingDept
+} from '../../utils/workflow';
 export { ServiceIntroModal } from './views/ServiceIntroModal';
 
 // Helper: renders assessment, counseling, support, scholarship, feedback, profile views
 export function renderRemainingViews(p: any) {
     const { activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, setActiveView, feedbackPrefill, setFeedbackPrefill } = p;
+    const getCounselingStatusTone = (status: string) => {
+        if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
+        if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
+        if (status === COUNSELING_STATUS.REFERRED) return 'bg-purple-100 text-purple-700';
+        if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'bg-indigo-100 text-indigo-700';
+        if (status === COUNSELING_STATUS.SCHEDULED) return 'bg-blue-100 text-blue-700';
+        if (status === COUNSELING_STATUS.COMPLETED) return 'bg-green-100 text-green-700';
+        return 'bg-gray-100 text-gray-600';
+    };
+    const getCounselingStatusLabel = (status: string, forwardedLabel = 'Forwarded') => {
+        if (isCounselingAwaitingDept(status)) return 'Pending Review';
+        if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'With CARE Staff';
+        if (status === COUNSELING_STATUS.REFERRED) return forwardedLabel;
+        return status;
+    };
+    const getSupportStatusTone = (status: string) => {
+        if (status === SUPPORT_STATUS.COMPLETED || status === SUPPORT_STATUS.RESOLVED_BY_DEPT) return 'bg-green-100 text-green-700';
+        if (status === SUPPORT_STATUS.REFERRED_TO_CARE) return 'bg-orange-100 text-orange-700';
+        if (status === SUPPORT_STATUS.VISIT_SCHEDULED) return 'bg-blue-100 text-blue-700';
+        if (status === SUPPORT_STATUS.REJECTED) return 'bg-red-100 text-red-700';
+        if (status === SUPPORT_STATUS.FORWARDED_TO_DEPT) return 'bg-orange-100 text-orange-700';
+        return 'bg-yellow-100 text-yellow-700';
+    };
+    const getSupportScheduledDate = (request: any) => {
+        if (!request?.dept_notes) return null;
+        try {
+            const parsed = JSON.parse(request.dept_notes);
+            return parsed?.scheduled_date || null;
+        } catch {
+            return null;
+        }
+    };
     return (
         <>
             {/* SERVICE INTRO MODALS */}
@@ -163,8 +202,8 @@ export function renderRemainingViews(p: any) {
                     {/* Stat Cards */}
                     <div className="grid grid-cols-3 gap-6">
                         <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '80ms' }}><div className="p-3 bg-gradient-to-br from-blue-500 to-sky-400 text-white rounded-xl shadow-lg shadow-blue-500/20"><Icons.Counseling /></div><div><p className="text-2xl font-black">{counselingRequests.length}</p><p className="text-xs text-gray-400 font-bold uppercase">Total Requests</p></div></div>
-                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '160ms' }}><div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/20"><Icons.Clock /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => ['Referred', 'Scheduled'].includes(r.status)).length}</p><p className="text-xs text-gray-400 font-bold uppercase">Pending</p></div></div>
-                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '240ms' }}><div className="p-3 bg-gradient-to-br from-emerald-400 to-green-500 text-white rounded-xl shadow-lg shadow-emerald-500/20"><Icons.CheckCircle /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => r.status === 'Completed').length}</p><p className="text-xs text-gray-400 font-bold uppercase">Completed</p></div></div>
+                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '160ms' }}><div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/20"><Icons.Clock /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => CARE_STAFF_ACTIVE_COUNSELING_STATUSES.includes(r.status)).length}</p><p className="text-xs text-gray-400 font-bold uppercase">In Progress</p></div></div>
+                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '240ms' }}><div className="p-3 bg-gradient-to-br from-emerald-400 to-green-500 text-white rounded-xl shadow-lg shadow-emerald-500/20"><Icons.CheckCircle /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => r.status === COUNSELING_STATUS.COMPLETED).length}</p><p className="text-xs text-gray-400 font-bold uppercase">Completed</p></div></div>
                     </div>
                     {/* CTA Card — always visible */}
                     <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-12 text-center shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '300ms' }}>
@@ -230,7 +269,7 @@ export function renderRemainingViews(p: any) {
                                                     <span className="text-lg">📝</span>
                                                     <span className="text-sm font-bold text-gray-900">{req.request_type || 'Self-Referral'}</span>
                                                 </div>
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${req.status === 'Submitted' ? 'bg-gray-100 text-gray-600' : req.status === 'Rejected' ? 'bg-red-100 text-red-700' : req.status === 'Referred' ? 'bg-purple-100 text-purple-700' : req.status === 'Staff_Scheduled' ? 'bg-indigo-100 text-indigo-700' : req.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : req.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{req.status === 'Submitted' ? 'Pending Review' : req.status === 'Staff_Scheduled' ? 'With CARE Staff' : req.status === 'Referred' ? 'Forwarded' : req.status}</span>
+                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getCounselingStatusTone(req.status)}`}>{getCounselingStatusLabel(req.status)}</span>
                                             </div>
                                             <p className="text-[10px] text-gray-400">{formatFullDate(new Date(req.created_at))}</p>
                                             <p className="text-[10px] text-purple-500 font-bold mt-2">Click to view full form →</p>
@@ -251,7 +290,7 @@ export function renderRemainingViews(p: any) {
                                         <p className="text-[10px] text-gray-400 mt-1">Submitted: {formatFullDate(new Date(selectedRequest.created_at))}</p>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${selectedRequest.status === 'Submitted' ? 'bg-gray-100 text-gray-600' : selectedRequest.status === 'Rejected' ? 'bg-red-100 text-red-700' : selectedRequest.status === 'Referred' ? 'bg-purple-100 text-purple-700' : selectedRequest.status === 'Staff_Scheduled' ? 'bg-indigo-100 text-indigo-700' : selectedRequest.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{selectedRequest.status === 'Submitted' ? 'Pending Review' : selectedRequest.status === 'Staff_Scheduled' ? 'With CARE Staff' : selectedRequest.status === 'Referred' ? 'Forwarded to CARE Staff' : selectedRequest.status}</span>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(selectedRequest.status)}`}>{getCounselingStatusLabel(selectedRequest.status, 'Forwarded to CARE Staff')}</span>
                                         <button onClick={() => setSelectedRequest(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                     </div>
                                 </div>
@@ -278,16 +317,16 @@ export function renderRemainingViews(p: any) {
                                     {selectedRequest.referred_by && (
                                         <div className="bg-purple-50 p-4 rounded-xl border border-purple-100"><p className="text-xs font-bold text-purple-800 uppercase mb-1">Forwarded to CARE Staff by</p><p className="text-sm text-purple-900">{selectedRequest.referred_by}</p></div>
                                     )}
-                                    {selectedRequest.scheduled_date && (
-                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3 items-center"><Icons.Clock className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(selectedRequest.scheduled_date).toLocaleString()}</p></div></div>
+                                    {getCounselingScheduledDate(selectedRequest) && (
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3 items-center"><Icons.Clock className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(getCounselingScheduledDate(selectedRequest) as string).toLocaleString()}</p></div></div>
                                     )}
-                                    {selectedRequest.status === 'Rejected' && (
+                                    {selectedRequest.status === COUNSELING_STATUS.REJECTED && (
                                         <div className="bg-red-50 p-4 rounded-xl border border-red-100"><p className="text-xs font-bold text-red-800 uppercase mb-1">Request Rejected</p><p className="text-sm text-red-900 leading-relaxed">{selectedRequest.resolution_notes || 'Your request has been reviewed and was not approved at this time.'}</p></div>
                                     )}
-                                    {selectedRequest.status === 'Completed' && selectedRequest.resolution_notes && (
+                                    {selectedRequest.status === COUNSELING_STATUS.COMPLETED && selectedRequest.resolution_notes && (
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-100"><p className="text-xs font-bold text-green-800 uppercase mb-1">Counselor's Advice</p><p className="text-sm text-green-900 leading-relaxed">{selectedRequest.resolution_notes}</p></div>
                                     )}
-                                    {selectedRequest.status === 'Completed' && (
+                                    {selectedRequest.status === COUNSELING_STATUS.COMPLETED && (
                                         <div className="border-t pt-6">
                                             <h4 className="font-bold text-sm mb-4">Counseling Feedback</h4>
                                             {(selectedRequest.rating || (typeof selectedRequest.feedback === 'string' && selectedRequest.feedback.startsWith('[CSM]'))) ? (
@@ -386,7 +425,7 @@ export function renderRemainingViews(p: any) {
                                         <div key={req.id} onClick={() => setSelectedSupportRequest(req)} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer" style={{ animationDelay: `${idx * 60}ms` }}>
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="text-sm font-bold bg-teal-50 text-teal-700 px-2.5 py-1 rounded-lg">{req.support_type}</span>
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${req.status === 'Resolved by Dept' ? 'bg-green-100 text-green-700' : req.status === 'Referred to CARE' ? 'bg-orange-100 text-orange-700' : req.status === 'Visit Scheduled' ? 'bg-blue-100 text-blue-700' : req.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{req.status}</span>
+                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getSupportStatusTone(req.status)}`}>{req.status}</span>
                                             </div>
                                             <p className="text-[10px] text-gray-400">{formatFullDate(new Date(req.created_at))}</p>
                                         </div>
@@ -408,7 +447,7 @@ export function renderRemainingViews(p: any) {
                                     <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <div>
                                             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Current Status</p>
-                                            <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${selectedSupportRequest.status === 'Completed' ? 'bg-green-100 text-green-700' : selectedSupportRequest.status === 'Resolved by Dept' ? 'bg-green-100 text-green-700' : selectedSupportRequest.status === 'Referred to CARE' ? 'bg-orange-100 text-orange-700' : selectedSupportRequest.status === 'Visit Scheduled' ? 'bg-blue-100 text-blue-700' : selectedSupportRequest.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getSupportStatusTone(selectedSupportRequest.status)}`}>
                                                 {selectedSupportRequest.status}
                                             </span>
                                         </div>
@@ -421,8 +460,8 @@ export function renderRemainingViews(p: any) {
                                     {/* Resolution Letter — shows who resolved and their message */}
                                     {(() => {
                                         // Determine if there's a resolution and who it came from
-                                        const isDeptResolved = selectedSupportRequest.status === 'Resolved by Dept';
-                                        const isCompleted = selectedSupportRequest.status === 'Completed';
+                                        const isDeptResolved = selectedSupportRequest.status === SUPPORT_STATUS.RESOLVED_BY_DEPT;
+                                        const isCompleted = selectedSupportRequest.status === SUPPORT_STATUS.COMPLETED;
                                         let resolutionText = '';
                                         let resolvedBy = '';
 
@@ -440,10 +479,10 @@ export function renderRemainingViews(p: any) {
                                                 resolutionText = selectedSupportRequest.dept_notes;
                                             }
                                             resolvedBy = 'Department Head / Dean';
-                                        } else if (isCompleted && selectedSupportRequest.resolution_notes) {
-                                            resolutionText = selectedSupportRequest.resolution_notes;
-                                            resolvedBy = 'CARE Staff';
-                                        }
+                                            } else if (isCompleted && selectedSupportRequest.resolution_notes) {
+                                                resolutionText = selectedSupportRequest.resolution_notes;
+                                                resolvedBy = 'CARE Staff';
+                                            }
 
                                         if (!resolutionText) return null;
 
@@ -474,6 +513,12 @@ export function renderRemainingViews(p: any) {
                                             </details>
                                         );
                                     })()}
+                                    {getSupportScheduledDate(selectedSupportRequest) && (
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                            <p className="text-xs font-bold text-blue-800 uppercase mb-1">Department Visit Schedule</p>
+                                            <p className="text-sm text-blue-900">{getSupportScheduledDate(selectedSupportRequest)}</p>
+                                        </div>
+                                    )}
 
                                     <hr className="border-gray-200" />
                                     <h4 className="font-bold text-sm text-blue-800 uppercase tracking-wider opacity-80">Original Request Form</h4>

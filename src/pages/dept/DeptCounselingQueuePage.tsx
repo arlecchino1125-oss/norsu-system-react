@@ -1,4 +1,10 @@
 import { XCircle } from 'lucide-react';
+import {
+    COUNSELING_STATUS,
+    getCounselingScheduledDate,
+    isCounselingAwaitingDept,
+    isWithCareStaffCounseling
+} from '../../utils/workflow';
 
 const DeptCounselingQueuePage = ({
     counselingRequests,
@@ -24,6 +30,16 @@ const DeptCounselingQueuePage = ({
     handleCompleteRequest,
     handleStartForward
 }: any) => {
+    const matchesCounselingTab = (request: any) => {
+        if (counselingTab === 'WithCare') return isWithCareStaffCounseling(request.status);
+        if (counselingTab === COUNSELING_STATUS.SUBMITTED) return isCounselingAwaitingDept(request.status);
+        return request.status === counselingTab;
+    };
+
+    const filteredRequests = counselingRequests
+        .filter(matchesCounselingTab)
+        .filter((request: any) => matchesCascadeFilters(getStudentForRequest(request)));
+
     return (
         <>
             {/* COUNSELING QUEUE */}
@@ -36,11 +52,11 @@ const DeptCounselingQueuePage = ({
                 {/* Stats bar */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {[
-                        { label: 'Pending Review', count: counselingRequests.filter(r => r.status === 'Submitted').length, color: 'amber', tab: 'Submitted' },
-                        { label: 'Scheduled', count: counselingRequests.filter(r => r.status === 'Scheduled').length, color: 'blue', tab: 'Scheduled' },
-                        { label: 'Completed', count: counselingRequests.filter(r => r.status === 'Completed').length, color: 'green', tab: 'Completed' },
-                        { label: 'Forwarded', count: counselingRequests.filter(r => r.status === 'Referred').length, color: 'purple', tab: 'Referred' },
-                        { label: 'Rejected', count: counselingRequests.filter(r => r.status === 'Rejected').length, color: 'red', tab: 'Rejected' }
+                        { label: 'Pending Review', count: counselingRequests.filter((request: any) => isCounselingAwaitingDept(request.status)).length, color: 'amber', tab: COUNSELING_STATUS.SUBMITTED },
+                        { label: 'Scheduled', count: counselingRequests.filter((request: any) => request.status === COUNSELING_STATUS.SCHEDULED).length, color: 'blue', tab: COUNSELING_STATUS.SCHEDULED },
+                        { label: 'Completed', count: counselingRequests.filter((request: any) => request.status === COUNSELING_STATUS.COMPLETED).length, color: 'green', tab: COUNSELING_STATUS.COMPLETED },
+                        { label: 'With CARE Staff', count: counselingRequests.filter((request: any) => isWithCareStaffCounseling(request.status)).length, color: 'purple', tab: 'WithCare' },
+                        { label: 'Rejected', count: counselingRequests.filter((request: any) => request.status === COUNSELING_STATUS.REJECTED).length, color: 'red', tab: COUNSELING_STATUS.REJECTED }
                     ].map(stat => (
                         <button key={stat.tab} onClick={() => setCounselingTab(stat.tab)} className={`p-4 rounded-xl border text-left transition-all ${counselingTab === stat.tab ? `bg-${stat.color}-50 border-${stat.color}-200 shadow-sm` : 'bg-white/80 border-gray-100 hover:border-gray-200'}`}>
                             <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
@@ -51,11 +67,11 @@ const DeptCounselingQueuePage = ({
 
                 {/* Request Cards */}
                 <div className="space-y-3">
-                    {counselingRequests.filter(r => r.status === counselingTab).length === 0 ? (
+                    {filteredRequests.length === 0 ? (
                         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-12 text-center">
-                            <p className="text-gray-400 text-sm">No {counselingTab.toLowerCase()} requests found.</p>
+                            <p className="text-gray-400 text-sm">No requests found in this stage.</p>
                         </div>
-                    ) : counselingRequests.filter(r => r.status === counselingTab).filter(r => matchesCascadeFilters(getStudentForRequest(r))).map((req, idx) => (
+                    ) : filteredRequests.map((req: any, idx: number) => (
                         <div key={req.id} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all animate-fade-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
                             <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-4">
@@ -68,19 +84,19 @@ const DeptCounselingQueuePage = ({
                                     </div>
                                 </div>
                                 <div className="flex gap-2 ml-4 flex-shrink-0">
-                                    {req.status === 'Submitted' && (
+                                    {isCounselingAwaitingDept(req.status) && (
                                         <>
-                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowScheduleModal(true); }} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors" title="Approve & Schedule">✓ Schedule</button>
-                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowRejectModal(true); }} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors" title="Reject">✗ Reject</button>
+                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowScheduleModal(true); }} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors" title="Approve & Schedule">Approve</button>
+                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowRejectModal(true); }} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors" title="Reject">Reject</button>
                                         </>
                                     )}
-                                    {req.status === 'Scheduled' && (
+                                    {req.status === COUNSELING_STATUS.SCHEDULED && (
                                         <>
-                                            <button onClick={(e) => { e.stopPropagation(); handleCompleteRequest(req); }} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors">✓ Complete</button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleStartForward(req); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors">→ Forward</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleCompleteRequest(req); }} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors">Complete</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleStartForward(req); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors">Forward</button>
                                         </>
                                     )}
-                                    {req.scheduled_date && <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-semibold">{new Date(req.scheduled_date).toLocaleDateString()}</span>}
+                                    {getCounselingScheduledDate(req) && <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-semibold">{new Date(getCounselingScheduledDate(req) as string).toLocaleDateString()}</span>}
                                 </div>
                             </div>
                         </div>
@@ -88,7 +104,7 @@ const DeptCounselingQueuePage = ({
                 </div>
             </div>
 
-            {/* Counseling View Modal — Read-only Self-Referral Form */}
+            {/* Counseling View Modal - Read-only Self-Referral Form */}
             {showCounselingViewModal && selectedCounselingReq && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
@@ -100,7 +116,7 @@ const DeptCounselingQueuePage = ({
                                     <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(selectedCounselingReq.created_at).toLocaleString()}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${selectedCounselingReq.status === 'Submitted' ? 'bg-amber-100 text-amber-700' : selectedCounselingReq.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : selectedCounselingReq.status === 'Referred' ? 'bg-purple-100 text-purple-700' : selectedCounselingReq.status === 'Completed' ? 'bg-green-100 text-green-700' : selectedCounselingReq.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{selectedCounselingReq.status === 'Submitted' ? 'Pending Review' : selectedCounselingReq.status}</span>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isCounselingAwaitingDept(selectedCounselingReq.status) ? 'bg-amber-100 text-amber-700' : selectedCounselingReq.status === COUNSELING_STATUS.SCHEDULED ? 'bg-blue-100 text-blue-700' : selectedCounselingReq.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : selectedCounselingReq.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-700' : selectedCounselingReq.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : selectedCounselingReq.status === COUNSELING_STATUS.REJECTED ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{isCounselingAwaitingDept(selectedCounselingReq.status) ? 'Pending Review' : selectedCounselingReq.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : selectedCounselingReq.status}</span>
                                     <button onClick={() => setShowCounselingViewModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                                 </div>
                             </div>
@@ -135,8 +151,8 @@ const DeptCounselingQueuePage = ({
                                 </div>
                             )}
                             {/* Status-specific info */}
-                            {selectedCounselingReq.scheduled_date && (
-                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(selectedCounselingReq.scheduled_date).toLocaleString()}</p></div>
+                            {getCounselingScheduledDate(selectedCounselingReq) && (
+                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(getCounselingScheduledDate(selectedCounselingReq) as string).toLocaleString()}</p></div>
                             )}
                             {selectedCounselingReq.referred_by && (
                                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-3"><p className="text-xs font-bold text-purple-800 uppercase mb-1">Forwarded by</p><p className="text-sm font-semibold text-purple-900">{selectedCounselingReq.referred_by}</p></div>
@@ -144,13 +160,13 @@ const DeptCounselingQueuePage = ({
                         </div>
                         {/* Action buttons */}
                         <div className="p-6 border-t border-gray-100 flex flex-wrap gap-3 sticky bottom-0 bg-white rounded-b-2xl">
-                            {selectedCounselingReq.status === 'Submitted' && (
+                            {isCounselingAwaitingDept(selectedCounselingReq.status) && (
                                 <>
                                     <button onClick={() => { setShowCounselingViewModal(false); setShowScheduleModal(true); }} className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200/50 hover:shadow-xl transition-all">Approve & Schedule</button>
                                     <button onClick={() => { setShowCounselingViewModal(false); setShowRejectModal(true); }} className="flex-1 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-all">Reject</button>
                                 </>
                             )}
-                            {selectedCounselingReq.status === 'Scheduled' && (
+                            {selectedCounselingReq.status === COUNSELING_STATUS.SCHEDULED && (
                                 <>
                                     <button onClick={() => handleCompleteRequest(selectedCounselingReq)} className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200/50 hover:shadow-xl transition-all">Mark as Completed</button>
                                     <button onClick={() => handleStartForward(selectedCounselingReq)} className="flex-1 py-2.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all">Forward to CARE Staff</button>

@@ -457,7 +457,7 @@ const StudentEventsView = ({
                                 </div>
                                 <div>
                                     <label className="mb-1 block text-[10px] font-bold uppercase text-gray-400">Sex</label>
-                                    <p className="text-sm font-bold text-gray-800">{personalInfo.sex || personalInfo.gender || '-'}</p>
+                                    <p className="text-sm font-bold text-gray-800">{personalInfo.sex || '-'}</p>
                                 </div>
                                 <div>
                                     <label className="mb-1 block text-[10px] font-bold uppercase text-gray-400">College / Campus</label>

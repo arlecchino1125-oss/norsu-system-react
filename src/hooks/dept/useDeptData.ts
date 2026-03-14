@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
+import { DEPT_SUPPORT_VISIBLE_STATUSES, SUPPORT_STATUS } from '../../utils/workflow';
 import {
     getApplicationsPage,
     getCounselingRequestsPage,
@@ -177,7 +178,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                 {
                     ...supportFilters,
                     department: data.profile.department,
-                    status: ['Forwarded to Dept', 'Visit Scheduled', 'Resolved by Dept', 'Referred to CARE']
+                    status: [...DEPT_SUPPORT_VISIBLE_STATUSES]
                 },
                 { page: supportPage, pageSize: supportPageSize },
                 { column: 'created_at', ascending: false }
@@ -285,7 +286,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                 table: 'support_requests',
                 filter: `department=eq.${data.profile.department}`
             }, (payload: any) => {
-                if (payload.new && payload.new.status === 'Forwarded to Dept') {
+                if (payload.new && payload.new.status === SUPPORT_STATUS.FORWARDED_TO_DEPT) {
                     showToastMessage("New Support Request Received", "success");
                 }
                 refreshSupport();

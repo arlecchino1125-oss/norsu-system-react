@@ -1,26 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
-import { Download, FileText, Plus, Trash2, XCircle } from 'lucide-react';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import { ArrowRightLeft, CheckCircle2, Download, FileText, Plus, Trash2, Upload, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { savePdf } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, formatTime, generateExportFilename } from '../../utils/formatters';
 import StatusBadge from '../../components/StatusBadge';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
 import { getAdmissionSchedules, getApplicationsPage, getCoursesForNat, getNatAttendanceSupport, isMissingNatAttendanceColumnsError } from '../../services/natService';
 
 const PASS_STATUS = 'Qualified for Interview (1st Choice)';
 const FAIL_STATUS = 'Failed';
+const APPROVED_STATUS = 'Approved for Enrollment';
+const INTERVIEW_STATUS = 'Interview Scheduled';
+const UNSUCCESSFUL_STATUS = 'Application Unsuccessful';
+const BULK_PASS_TEMPLATE_HEADERS = ['reference_id', 'applicant_name'];
 
 const isNatFinalizedStatus = (status: unknown) => {
     const value = String(status || '');
     return value === 'Passed'
         || value === FAIL_STATUS
         || value === PASS_STATUS
-        || value === 'Approved for Enrollment'
-        || value === 'Interview Scheduled'
+        || value === APPROVED_STATUS
+        || value === INTERVIEW_STATUS
         || value.includes('Forwarded to')
-        || value.includes('Application Unsuccessful');
+        || value.includes(UNSUCCESSFUL_STATUS);
 };
 
 const hasTakenNatStatus = (status: unknown) => {
@@ -28,13 +33,45 @@ const hasTakenNatStatus = (status: unknown) => {
     return value === 'Test Taken' || isNatFinalizedStatus(value);
 };
 
-const hasPassedNatStatus = (status: unknown) => {
-    const value = String(status || '');
-    return value === 'Passed'
-        || value === PASS_STATUS
-        || value === 'Approved for Enrollment'
-        || value === 'Interview Scheduled'
-        || value.includes('Forwarded to');
+const isNatForwardedStatus = (status: unknown) => String(status || '').includes('Forwarded to');
+const isNatRejectedStatus = (status: unknown) => String(status || '') === FAIL_STATUS || String(status || '').includes(UNSUCCESSFUL_STATUS);
+
+const normalizeReferenceId = (value: unknown) => String(value || '').trim();
+
+const normalizeApplicantName = (value: unknown) => String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const buildApplicantName = (app: any) => [
+    app?.first_name,
+    app?.middle_name,
+    app?.last_name,
+    app?.suffix
+]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(' ');
+
+const getApplicantRouteLabel = (app: any) => {
+    const currentChoice = Number(app?.current_choice || 1);
+    if (currentChoice >= 3) {
+        return `3rd Choice - ${app?.alt_course_2 || 'Not assigned'}`;
+    }
+    if (currentChoice === 2) {
+        return `2nd Choice - ${app?.alt_course_1 || 'Not assigned'}`;
+    }
+    return `1st Choice - ${app?.priority_course || 'Not assigned'}`;
+};
+
+const getSheetColumnValue = (row: Record<string, unknown>, aliases: string[]) => {
+    const matchKey = Object.keys(row).find((key) => aliases.includes(
+        String(key || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '_')
+    ));
+    return matchKey ? row[matchKey] : '';
 };
 
 // PAGE 5: NAT Management
@@ -62,12 +99,18 @@ const NATManagementPage = ({ showToast }: any) => {
     const [showModal, setShowModal] = useState(false);
     const [selectedApp, setSelectedApp] = useState(null);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [showBulkPassModal, setShowBulkPassModal] = useState(false);
+    const [bulkPassRows, setBulkPassRows] = useState<any[]>([]);
+    const [bulkPassFileName, setBulkPassFileName] = useState('');
+    const [bulkPassApplying, setBulkPassApplying] = useState(false);
+    const [statusBoardFilter, setStatusBoardFilter] = useState('awaiting_results');
     const [scheduleForm, setScheduleForm] = useState({
         date: '',
         venue: '',
         timeSlots: [{ start: '08:00', end: '09:00', slots: '' }]
     });
     const fetchDataRef = useRef<() => Promise<void>>(async () => { });
+    const bulkPassInputRef = useRef<HTMLInputElement | null>(null);
 
     const normalizeTimeSlots = (rawSlots: any[] = []) => {
         return rawSlots
@@ -86,8 +129,26 @@ const NATManagementPage = ({ showToast }: any) => {
     };
 
     const getSummaryRows = async (attendanceEnabled: boolean) => {
-        const attendanceSelect = 'id, status, priority_course, test_date, test_time, time_in, time_out';
-        const fallbackSelect = 'id, status, priority_course, test_date, test_time';
+        const summaryBaseSelect = [
+            'id',
+            'created_at',
+            'reference_id',
+            'status',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'suffix',
+            'student_id',
+            'priority_course',
+            'alt_course_1',
+            'alt_course_2',
+            'current_choice',
+            'test_date',
+            'test_time',
+            'interview_date'
+        ].join(', ');
+        const attendanceSelect = `${summaryBaseSelect}, time_in, time_out`;
+        const fallbackSelect = summaryBaseSelect;
         const result = await supabase
             .from('applications')
             .select(attendanceEnabled ? attendanceSelect : fallbackSelect);
@@ -469,6 +530,252 @@ const NATManagementPage = ({ showToast }: any) => {
         document.body.removeChild(link);
     };
 
+    const handleDownloadBulkPassTemplate = () => {
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.aoa_to_sheet([BULK_PASS_TEMPLATE_HEADERS]);
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'bulk_pass');
+        XLSX.writeFile(workbook, generateExportFilename('nat_bulk_pass_template', 'xlsx'));
+    };
+
+    const closeBulkPassModal = () => {
+        setShowBulkPassModal(false);
+        setBulkPassRows([]);
+        setBulkPassFileName('');
+        setBulkPassApplying(false);
+        if (bulkPassInputRef.current) {
+            bulkPassInputRef.current.value = '';
+        }
+    };
+
+    const handleBulkPassFileChange = async (event: any) => {
+        const file = event?.target?.files?.[0];
+        if (!file) return;
+
+        try {
+            const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+            const firstSheet = workbook.SheetNames[0];
+            if (!firstSheet) {
+                throw new Error('The uploaded file does not contain any worksheet.');
+            }
+
+            const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[firstSheet], {
+                defval: '',
+                raw: false
+            });
+
+            if (rawRows.length === 0) {
+                throw new Error('The uploaded file has no data rows.');
+            }
+
+            const extractedRows = rawRows
+                .map((row, index) => ({
+                    rowNumber: index + 2,
+                    referenceId: normalizeReferenceId(getSheetColumnValue(row, ['reference_id', 'referenceid', 'ref_id', 'refid', 'reference'])),
+                    applicantName: String(getSheetColumnValue(row, ['applicant_name', 'applicant', 'full_name', 'fullname', 'name']) || '').trim()
+                }))
+                .filter((row) => row.referenceId || row.applicantName);
+
+            if (extractedRows.length === 0) {
+                throw new Error('No usable rows were found. Include at least a reference_id column.');
+            }
+
+            const seenReferenceIds = new Set<string>();
+            const duplicateReferenceIds = new Set<string>();
+            extractedRows.forEach((row) => {
+                if (!row.referenceId) return;
+                if (seenReferenceIds.has(row.referenceId)) {
+                    duplicateReferenceIds.add(row.referenceId);
+                    return;
+                }
+                seenReferenceIds.add(row.referenceId);
+            });
+
+            const uniqueReferenceIds = [...new Set(extractedRows.map((row) => row.referenceId).filter(Boolean))];
+            if (uniqueReferenceIds.length === 0) {
+                throw new Error('No reference IDs were found in the upload.');
+            }
+
+            const selectColumns = supportsAttendance
+                ? 'id, reference_id, status, first_name, middle_name, last_name, suffix, priority_course, alt_course_1, alt_course_2, current_choice, test_date, interview_date, time_in, time_out'
+                : 'id, reference_id, status, first_name, middle_name, last_name, suffix, priority_course, alt_course_1, alt_course_2, current_choice, test_date, interview_date';
+
+            const { data: matchedApplications, error } = await supabase
+                .from('applications')
+                .select(selectColumns)
+                .in('reference_id', uniqueReferenceIds);
+
+            if (error) throw error;
+
+            const applicationMap = new Map(
+                (matchedApplications || []).map((application: any) => [normalizeReferenceId(application.reference_id), application])
+            );
+
+            const previewRows = extractedRows.map((row) => {
+                if (!row.referenceId) {
+                    return {
+                        ...row,
+                        matchStatus: 'missing_reference',
+                        note: 'Missing reference_id in this row.'
+                    };
+                }
+
+                if (duplicateReferenceIds.has(row.referenceId)) {
+                    return {
+                        ...row,
+                        matchStatus: 'duplicate_reference',
+                        note: 'Duplicate reference_id found in the uploaded file.'
+                    };
+                }
+
+                const matchedApplication = applicationMap.get(row.referenceId);
+                if (!matchedApplication) {
+                    return {
+                        ...row,
+                        matchStatus: 'not_found',
+                        note: 'Reference ID was not found in the applications table.'
+                    };
+                }
+
+                const systemName = buildApplicantName(matchedApplication);
+                const nameMismatch = Boolean(
+                    row.applicantName
+                    && systemName
+                    && normalizeApplicantName(row.applicantName) !== normalizeApplicantName(systemName)
+                );
+
+                const readyForRelease = supportsAttendance
+                    ? hasCompletedAttendance(matchedApplication)
+                    : String(matchedApplication.status || '') === 'Test Taken';
+
+                if (isNatFinalizedStatus(matchedApplication.status)) {
+                    return {
+                        ...row,
+                        appId: matchedApplication.id,
+                        systemName,
+                        currentStatus: matchedApplication.status,
+                        routeLabel: getApplicantRouteLabel(matchedApplication),
+                        matchStatus: 'already_finalized',
+                        note: `Already tagged as ${matchedApplication.status}.${nameMismatch ? ' Uploaded name differs from the system record.' : ''}`
+                    };
+                }
+
+                if (!readyForRelease) {
+                    return {
+                        ...row,
+                        appId: matchedApplication.id,
+                        systemName,
+                        currentStatus: matchedApplication.status || 'Submitted',
+                        routeLabel: getApplicantRouteLabel(matchedApplication),
+                        matchStatus: 'not_ready',
+                        note: `Applicant is still ${matchedApplication.status || 'Submitted'} and cannot be released yet.${nameMismatch ? ' Uploaded name differs from the system record.' : ''}`
+                    };
+                }
+
+                return {
+                    ...row,
+                    appId: matchedApplication.id,
+                    systemName,
+                    currentStatus: matchedApplication.status || 'Test Taken',
+                    routeLabel: getApplicantRouteLabel(matchedApplication),
+                    matchStatus: 'ready',
+                    note: nameMismatch
+                        ? 'Reference ID matched. Uploaded name differs from the system record.'
+                        : 'Ready to mark as passed.'
+                };
+            });
+
+            const readyCount = previewRows.filter((row) => row.matchStatus === 'ready').length;
+            setBulkPassRows(previewRows);
+            setBulkPassFileName(file.name);
+            setShowBulkPassModal(true);
+            showToast(`${readyCount} applicant${readyCount !== 1 ? 's are' : ' is'} ready for bulk pass.`, readyCount > 0 ? 'success' : 'info');
+        } catch (error: any) {
+            showToast(error.message || 'Failed to parse the bulk pass file.', 'error');
+        } finally {
+            if (event?.target) {
+                event.target.value = '';
+            }
+        }
+    };
+
+    const applyBulkPassList = async () => {
+        const readyRows = bulkPassRows.filter((row) => row.matchStatus === 'ready' && row.appId);
+        if (readyRows.length === 0) {
+            showToast('No matched applicants are ready to be marked as passed.', 'info');
+            return;
+        }
+
+        setBulkPassApplying(true);
+        try {
+            const applicationIds = [...new Set(readyRows.map((row) => row.appId).filter(Boolean))];
+            for (let index = 0; index < applicationIds.length; index += 100) {
+                const chunk = applicationIds.slice(index, index + 100);
+                const { error } = await supabase
+                    .from('applications')
+                    .update({ status: PASS_STATUS })
+                    .in('id', chunk);
+                if (error) throw error;
+            }
+
+            showToast(`${applicationIds.length} applicant${applicationIds.length !== 1 ? 's were' : ' was'} marked as ${PASS_STATUS}.`, 'success');
+            closeBulkPassModal();
+            fetchData();
+        } catch (error: any) {
+            showToast(error.message || 'Bulk pass update failed.', 'error');
+        } finally {
+            setBulkPassApplying(false);
+        }
+    };
+
+    const bulkPassSummary = useMemo(() => bulkPassRows.reduce((acc: Record<string, number>, row: any) => {
+        acc[row.matchStatus] = (acc[row.matchStatus] || 0) + 1;
+        return acc;
+    }, {}), [bulkPassRows]);
+
+    const statusSections = useMemo(() => {
+        const rows = summaryApplications || [];
+        return [
+            {
+                id: 'awaiting_results',
+                label: 'Awaiting Result Tagging',
+                description: 'Applicants who finished the NAT and still need a release decision.',
+                rows: rows.filter((app: any) => isCompletedNatRecord(app) && !isNatFinalizedStatus(app.status))
+            },
+            {
+                id: 'passed_nat',
+                label: 'Passed NAT',
+                description: 'Applicants released as qualified for interview.',
+                rows: rows.filter((app: any) => String(app.status || '') === PASS_STATUS || String(app.status || '') === 'Passed')
+            },
+            {
+                id: 'interview_scheduled',
+                label: 'Interview Scheduled',
+                description: 'Applicants already endorsed to the department interview schedule.',
+                rows: rows.filter((app: any) => String(app.status || '') === INTERVIEW_STATUS)
+            },
+            {
+                id: 'approved_enrollment',
+                label: 'Approved for Enrollment',
+                description: 'Applicants fully cleared by the department for student activation.',
+                rows: rows.filter((app: any) => String(app.status || '') === APPROVED_STATUS)
+            },
+            {
+                id: 'forwarded_alternatives',
+                label: 'Forwarded to Alternatives',
+                description: 'Applicants redirected to 2nd or 3rd choice interviews.',
+                rows: rows.filter((app: any) => isNatForwardedStatus(app.status))
+            },
+            {
+                id: 'rejected_unsuccessful',
+                label: 'Rejected / Unsuccessful',
+                description: 'Applicants who failed the NAT or exhausted all course choices.',
+                rows: rows.filter((app: any) => isNatRejectedStatus(app.status))
+            }
+        ];
+    }, [summaryApplications, supportsAttendance]);
+
+    const activeStatusSection = statusSections.find((section) => section.id === statusBoardFilter) || statusSections[0];
+
     return (
         <div className="space-y-6">
             <div className="mb-6">
@@ -476,15 +783,23 @@ const NATManagementPage = ({ showToast }: any) => {
                 <p className="text-gray-500 text-sm">Manage NAT applications and course quotas.</p>
             </div>
 
+            <input
+                ref={bulkPassInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleBulkPassFileChange}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><p className="text-xs text-gray-500">Total Applications</p><p className="text-xl font-bold">{summaryApplications.length}</p></div>
                 <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><p className="text-xs text-gray-500">Submitted</p><p className="text-xl font-bold">{summaryApplications.filter(a => a.status === 'Scheduled' || a.status === 'Submitted').length}</p></div>
                 <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><p className="text-xs text-gray-500">Test Takers</p><p className="text-xl font-bold">{summaryApplications.filter(isCompletedNatRecord).length}</p></div>
-                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><p className="text-xs text-gray-500">Passed</p><p className="text-xl font-bold">{summaryApplications.filter(a => hasPassedNatStatus(a.status)).length}</p></div>
+                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><p className="text-xs text-gray-500">Processed Results</p><p className="text-xl font-bold">{summaryApplications.filter(a => isNatFinalizedStatus(a.status)).length}</p></div>
             </div>
 
             <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-6">
-                {['applications', 'test takers', 'completed', 'schedules', 'limits'].map(t => (
+                {['applications', 'test takers', 'status board', 'completed', 'schedules', 'limits'].map(t => (
                     <button key={t} onClick={() => setActiveTab(t)} className={`px-4 py-2 rounded-md text-sm font-bold capitalize transition ${activeTab === t ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>{t === 'completed' ? 'Completed Logs' : t}</button>
                 ))}
             </div>
@@ -550,9 +865,23 @@ const NATManagementPage = ({ showToast }: any) => {
                                 <h3 className="font-bold">Test Takers</h3>
                                 <p className="text-xs text-gray-400">{supportsAttendance ? 'Applicants who timed in and timed out on their assigned test day.' : 'Applicants who finished the NAT and are awaiting result tagging.'}</p>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-wrap items-center justify-end gap-3">
                                 <span className="text-xs text-gray-500 font-bold">{filteredResults.length} applicant{filteredResults.length !== 1 ? 's' : ''}</span>
                                 <select value={testTakersCourseFilter} onChange={e => setTestTakersCourseFilter(e.target.value)} className="border rounded-lg px-2 py-1 text-sm"><option value="All">All Courses</option>{courseLimits.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadBulkPassTemplate}
+                                    className="text-emerald-700 text-sm font-bold flex items-center gap-1 hover:bg-emerald-50 px-2 py-1 rounded"
+                                >
+                                    <FileText size={14} /> Template
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => bulkPassInputRef.current?.click()}
+                                    className="text-purple-700 text-sm font-bold flex items-center gap-1 hover:bg-purple-50 px-2 py-1 rounded"
+                                >
+                                    <Upload size={14} /> Bulk Pass
+                                </button>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
@@ -627,19 +956,90 @@ const NATManagementPage = ({ showToast }: any) => {
                             </div>
                         </div>
                     </div>
+                ) : activeTab === 'status board' ? (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {statusSections.map((section) => (
+                                <button
+                                    key={section.id}
+                                    type="button"
+                                    onClick={() => setStatusBoardFilter(section.id)}
+                                    className={`text-left rounded-xl border p-4 shadow-sm transition ${activeStatusSection?.id === section.id
+                                        ? 'border-purple-200 bg-purple-50 shadow-purple-100'
+                                        : 'border-gray-100 bg-white hover:border-purple-100 hover:bg-purple-50/40'
+                                        }`}
+                                >
+                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">{section.label}</p>
+                                    <p className="mt-2 text-2xl font-extrabold text-gray-900">{section.rows.length}</p>
+                                    <p className="mt-2 text-xs text-gray-500 leading-relaxed">{section.description}</p>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+                            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                                <div>
+                                    <h3 className="font-bold">{activeStatusSection?.label || 'Status Board'}</h3>
+                                    <p className="text-xs text-gray-400">{activeStatusSection?.description || 'Review released NAT outcomes and admissions routing.'}</p>
+                                </div>
+                                <span className="text-xs text-gray-500 font-bold">{activeStatusSection?.rows.length || 0} applicant{(activeStatusSection?.rows.length || 0) !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                                        <tr>
+                                            <th className="p-4">Applicant</th>
+                                            <th className="p-4">Ref ID</th>
+                                            <th className="p-4">Current Route</th>
+                                            <th className="p-4">Status</th>
+                                            <th className="p-4">Schedule / Test Date</th>
+                                            <th className="p-4">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {(activeStatusSection?.rows || []).length === 0 ? (
+                                            <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-sm">No applicants are in this NAT status yet.</td></tr>
+                                        ) : (activeStatusSection?.rows || []).map((app: any) => (
+                                            <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setSelectedApp(app); setShowModal(true); }}>
+                                                <td className="p-4 font-bold">
+                                                    {buildApplicantName(app)}
+                                                    <div className="text-xs text-gray-400 font-normal">{app.student_id || 'Student ID pending'}</div>
+                                                </td>
+                                                <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
+                                                <td className="p-4 text-gray-700">{getApplicantRouteLabel(app)}</td>
+                                                <td className="p-4"><StatusBadge status={app.status} /></td>
+                                                <td className="p-4 text-gray-600 text-xs">
+                                                    {String(app.status || '') === INTERVIEW_STATUS
+                                                        ? (app.interview_date || 'Interview date pending')
+                                                        : formatDate(app.test_date)}
+                                                </td>
+                                                <td className="p-4">
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 ) : activeTab === 'completed' ? (
                     <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
                         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                             <div>
                                 <h3 className="font-bold">Completed Logs</h3>
-                                <p className="text-xs text-gray-400">Archived applications (Passed &amp; Failed)</p>
+                                <p className="text-xs text-gray-400">Released NAT results and department admissions outcomes.</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <span className="text-xs text-gray-500 font-bold">{completedApplications.length} record{completedApplications.length !== 1 ? 's' : ''}</span>
                                 <select value={completedFilter} onChange={e => setCompletedFilter(e.target.value)} className="border rounded-lg px-2 py-1 text-sm">
                                     <option value="All">All Status</option>
+                                    <option value="Passed">Passed NAT (Legacy)</option>
                                     <option value="Qualified for Interview (1st Choice)">Passed NAT (Interview Prep)</option>
+                                    <option value="Interview Scheduled">Interview Scheduled</option>
                                     <option value="Approved for Enrollment">Approved for Enrollment</option>
+                                    <option value="Forwarded to 2nd Choice for Interview">Forwarded to 2nd Choice</option>
+                                    <option value="Forwarded to 3rd Choice for Interview">Forwarded to 3rd Choice</option>
                                     <option value="Application Unsuccessful">Unsuccessful</option>
                                     <option value="Failed">Failed NAT</option>
                                 </select>
@@ -870,6 +1270,117 @@ const NATManagementPage = ({ showToast }: any) => {
                                     </>
                                 )}
                                 <button onClick={() => setShowModal(false)} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                showBulkPassModal && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-purple-100">
+                            <div className="p-6 border-b bg-gray-50 flex justify-between items-start gap-4">
+                                <div>
+                                    <h3 className="font-extrabold text-lg text-gray-900">Bulk Pass Preview</h3>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        File: <span className="font-semibold text-gray-700">{bulkPassFileName || 'Uploaded list'}</span>
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">Matching uses <span className="font-bold">reference_id</span> only. Applicant name is shown only for checking.</p>
+                                </div>
+                                <button type="button" onClick={closeBulkPassModal} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                            </div>
+
+                            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-148px)]">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="rounded-xl border border-green-100 bg-green-50 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-green-700">Ready to Pass</p>
+                                        <p className="mt-2 text-2xl font-extrabold text-green-900">{bulkPassSummary.ready || 0}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Already Finalized</p>
+                                        <p className="mt-2 text-2xl font-extrabold text-amber-900">{bulkPassSummary.already_finalized || 0}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Not Ready Yet</p>
+                                        <p className="mt-2 text-2xl font-extrabold text-blue-900">{bulkPassSummary.not_ready || 0}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-rose-100 bg-rose-50 p-4">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-rose-700">Missing / Invalid</p>
+                                        <p className="mt-2 text-2xl font-extrabold text-rose-900">{(bulkPassSummary.missing_reference || 0) + (bulkPassSummary.duplicate_reference || 0) + (bulkPassSummary.not_found || 0)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-xs text-purple-900 flex items-start gap-2">
+                                    <ArrowRightLeft size={14} className="mt-0.5 shrink-0" />
+                                    <p>
+                                        Uploaded names will never override the system record. They are displayed only to help staff confirm that the uploaded reference list matches the intended applicants.
+                                    </p>
+                                </div>
+
+                                <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                                            <tr>
+                                                <th className="p-4">Row</th>
+                                                <th className="p-4">Reference ID</th>
+                                                <th className="p-4">Uploaded Name</th>
+                                                <th className="p-4">Matched Applicant</th>
+                                                <th className="p-4">Current Route</th>
+                                                <th className="p-4">Current Status</th>
+                                                <th className="p-4">Preview</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {bulkPassRows.length === 0 ? (
+                                                <tr><td colSpan={7} className="p-8 text-center text-gray-400 text-sm">No parsed rows found in the uploaded file.</td></tr>
+                                            ) : bulkPassRows.map((row: any) => (
+                                                <tr key={`${row.referenceId || 'row'}-${row.rowNumber}`} className="hover:bg-gray-50">
+                                                    <td className="p-4 text-xs text-gray-500 font-mono">{row.rowNumber}</td>
+                                                    <td className="p-4 font-mono text-xs text-gray-700">{row.referenceId || '—'}</td>
+                                                    <td className="p-4 text-gray-700">{row.applicantName || '—'}</td>
+                                                    <td className="p-4 text-gray-800 font-medium">{row.systemName || 'No match found'}</td>
+                                                    <td className="p-4 text-gray-600">{row.routeLabel || '—'}</td>
+                                                    <td className="p-4">{row.currentStatus ? <StatusBadge status={row.currentStatus} /> : '—'}</td>
+                                                    <td className="p-4">
+                                                        <div className="space-y-1">
+                                                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${row.matchStatus === 'ready'
+                                                                ? 'bg-green-100 text-green-700'
+                                                                : row.matchStatus === 'already_finalized'
+                                                                    ? 'bg-amber-100 text-amber-700'
+                                                                    : row.matchStatus === 'not_ready'
+                                                                        ? 'bg-blue-100 text-blue-700'
+                                                                        : 'bg-rose-100 text-rose-700'
+                                                                }`}>
+                                                                {row.matchStatus === 'ready' ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                                                                {row.matchStatus === 'ready'
+                                                                    ? 'Ready'
+                                                                    : row.matchStatus === 'already_finalized'
+                                                                        ? 'Finalized'
+                                                                        : row.matchStatus === 'not_ready'
+                                                                            ? 'Not Ready'
+                                                                            : 'Needs Review'}
+                                                            </span>
+                                                            <p className="text-xs text-gray-500 leading-relaxed">{row.note}</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="px-6 py-4 border-t bg-gray-50 flex flex-col sm:flex-row justify-end gap-3">
+                                <button type="button" onClick={closeBulkPassModal} className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-bold text-gray-700 hover:bg-white">Close</button>
+                                <button
+                                    type="button"
+                                    onClick={applyBulkPassList}
+                                    disabled={bulkPassApplying || !(bulkPassSummary.ready > 0)}
+                                    className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 disabled:opacity-60"
+                                >
+                                    {bulkPassApplying ? 'Applying...' : `Apply Bulk Pass (${bulkPassSummary.ready || 0})`}
+                                </button>
                             </div>
                         </div>
                     </div>

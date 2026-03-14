@@ -26,7 +26,7 @@ const SQD_COLUMNS = [
 ];
 
 function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showToast }: any) {
-    const profileSex = personalInfo?.sex || personalInfo?.gender || '';
+    const profileSex = personalInfo?.sex || '';
     const profileAge = personalInfo?.age || '';
 
     const [form, setForm] = React.useState<any>({

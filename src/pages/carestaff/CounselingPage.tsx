@@ -9,6 +9,12 @@ import {
     User, Eye, Send, Download, XCircle
 } from 'lucide-react';
 import type { CareStaffDashboardFunctions } from './types';
+import {
+    COUNSELING_STATUS,
+    getCounselingScheduledDate,
+    isCareStaffCounselingSchedulable,
+    isCounselingAwaitingDept
+} from '../../utils/workflow';
 
 interface CounselingPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToastMessage' | 'handleViewProfile'>;
@@ -16,11 +22,27 @@ interface CounselingPageProps {
 
 const CounselingPage = ({ functions }: CounselingPageProps) => {
     const { handleViewProfile, showToastMessage } = functions;
+    const getCounselingStatusTone = (status: string) => {
+        if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
+        if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
+        if (status === COUNSELING_STATUS.REFERRED) return 'bg-purple-100 text-purple-700';
+        if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'bg-indigo-100 text-indigo-700';
+        if (status === COUNSELING_STATUS.SCHEDULED) return 'bg-blue-100 text-blue-700';
+        if (status === COUNSELING_STATUS.COMPLETED) return 'bg-green-100 text-green-700';
+        return 'bg-gray-100 text-gray-600';
+    };
+
+    const getCounselingStatusLabel = (status: string) => {
+        if (isCounselingAwaitingDept(status)) return 'Pending Review';
+        if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'With CARE Staff';
+        if (status === COUNSELING_STATUS.REFERRED) return 'Forwarded';
+        return status;
+    };
 
     // Data State
     const [counselingReqs, setCounselingReqs] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
-    const [counselingTab, setCounselingTab] = useState<string>('Referred');
+    const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.REFERRED);
 
     // Modals & form state
     const [viewFormReq, setViewFormReq] = useState<any>(null);
@@ -70,7 +92,9 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
         if (!selectedApp) return;
 
         try {
-            const newStatus = selectedApp.status === 'Referred' ? 'Staff_Scheduled' : 'Scheduled';
+            const newStatus = selectedApp.status === COUNSELING_STATUS.REFERRED
+                ? COUNSELING_STATUS.STAFF_SCHEDULED
+                : COUNSELING_STATUS.SCHEDULED;
             const { error } = await supabase.from('counseling_requests').update({
                 status: newStatus,
                 scheduled_date: `${scheduleData.date} ${scheduleData.time}`,
@@ -97,7 +121,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
         e.preventDefault();
         try {
             await supabase.from('counseling_requests').update({
-                status: 'Completed',
+                status: COUNSELING_STATUS.COMPLETED,
                 resolution_notes: completionForm.publicNotes,
                 confidential_notes: completionForm.privateNotes
             }).eq('id', completionForm.id);
@@ -160,7 +184,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
         drawField('Name of Student:', req.student_name || '', margin, contentW / 2 - 5, y);
         drawField('Course & Year:', req.course_year || '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 10;
-        drawField('Schedule of Appointment:', req.scheduled_date ? new Date(req.scheduled_date).toLocaleString() : '', margin, contentW / 2 - 5, y);
+        drawField('Schedule of Appointment:', getCounselingScheduledDate(req) ? new Date(getCounselingScheduledDate(req) as string).toLocaleString() : '', margin, contentW / 2 - 5, y);
         drawField('Contact Number:', req.referrer_contact_number || '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 10;
         drawField('Referred by:', req.referred_by || '', margin, contentW / 2 - 5, y);
@@ -253,10 +277,10 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
                     {[
                         { label: 'Total Requests', value: counselingReqs.length, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-                        { label: 'Awaiting Dept', value: counselingReqs.filter(r => r.status === 'Submitted').length, icon: <Clock size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-                        { label: 'Referred', value: counselingReqs.filter(r => r.status === 'Referred').length, icon: <Send size={20} />, color: 'text-purple-500', bg: 'bg-purple-50' },
-                        { label: 'Scheduled', value: counselingReqs.filter(r => r.status === 'Scheduled' || r.status === 'Staff_Scheduled').length, icon: <Calendar size={20} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-                        { label: 'Completed', value: counselingReqs.filter(r => r.status === 'Completed').length, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
+                        { label: 'Awaiting Dept', value: counselingReqs.filter(r => isCounselingAwaitingDept(r.status)).length, icon: <Clock size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+                        { label: 'Referred', value: counselingReqs.filter(r => r.status === COUNSELING_STATUS.REFERRED).length, icon: <Send size={20} />, color: 'text-purple-500', bg: 'bg-purple-50' },
+                        { label: 'Scheduled', value: counselingReqs.filter(r => r.status === COUNSELING_STATUS.SCHEDULED || r.status === COUNSELING_STATUS.STAFF_SCHEDULED).length, icon: <Calendar size={20} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                        { label: 'Completed', value: counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).length, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
                     ].map((stat, idx) => (
                         <div key={idx} className="card-hover bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-gray-100/80 shadow-sm animate-fade-in-up" style={{ animationDelay: `${idx * 80}ms` }}>
                             <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-3 ${stat.color} shadow-sm`}>{stat.icon}</div>
@@ -269,11 +293,12 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                 {/* Tab Bar */}
                 <div className="flex flex-wrap items-center gap-2 mb-8">
                     {[
-                        { id: 'Referred', label: `Forwarded (${counselingReqs.filter(r => r.status === 'Referred').length})` },
-                        { id: 'Staff_Scheduled', label: `Staff Scheduled (${counselingReqs.filter(r => r.status === 'Staff_Scheduled').length})` },
-                        { id: 'Submitted', label: `Awaiting Dept (${counselingReqs.filter(r => r.status === 'Submitted').length})` },
-                        { id: 'Scheduled', label: `Dept Scheduled (${counselingReqs.filter(r => r.status === 'Scheduled').length})` },
-                        { id: 'Completed', label: `Completed (${counselingReqs.filter(r => r.status === 'Completed').length})` },
+                        { id: COUNSELING_STATUS.REFERRED, label: `Forwarded (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.REFERRED).length})` },
+                        { id: COUNSELING_STATUS.STAFF_SCHEDULED, label: `Staff Scheduled (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.STAFF_SCHEDULED).length})` },
+                        { id: COUNSELING_STATUS.SUBMITTED, label: `Awaiting Dept (${counselingReqs.filter(r => isCounselingAwaitingDept(r.status)).length})` },
+                        { id: COUNSELING_STATUS.SCHEDULED, label: `Dept Scheduled (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.SCHEDULED).length})` },
+                        { id: COUNSELING_STATUS.COMPLETED, label: `Completed (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).length})` },
+                        { id: COUNSELING_STATUS.REJECTED, label: `Rejected (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.REJECTED).length})` },
                         { id: 'Calendar', label: 'Calendar View' },
                     ].map(tab => (
                         <button key={tab.id} onClick={() => setCounselingTab(tab.id)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${counselingTab === tab.id ? 'bg-white text-purple-700 shadow-md shadow-purple-100 border border-purple-200' : 'bg-gray-100 text-gray-600 hover:text-purple-600 hover:bg-white/80 border border-transparent'}`}>
@@ -286,12 +311,12 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                     <CalendarView requests={counselingReqs} />
                 ) : loading ? (
                     <div className="text-center py-8 text-gray-500">Loading requests...</div>
-                ) : counselingTab === 'Completed' ? (
+                ) : counselingTab === COUNSELING_STATUS.COMPLETED ? (
                     <div className="space-y-4 animate-fade-in">
-                        {counselingReqs.filter(r => r.status === 'Completed').length === 0 ? (
+                        {counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).length === 0 ? (
                             <div className="text-center py-8 text-gray-400">No completed requests found.</div>
                         ) : (
-                            counselingReqs.filter(r => r.status === 'Completed').map(req => (
+                            counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).map(req => (
                                 <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-4">
@@ -316,20 +341,20 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                             ))
                         )}
                     </div>
-                ) : counselingReqs.filter(r => r.status === counselingTab).length === 0 ? (
+                ) : counselingReqs.filter(r => counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingDept(r.status) : r.status === counselingTab).length === 0 ? (
                     <div className="text-center py-8 text-gray-400">No requests in this category.</div>
                 ) : (
                     <div className="space-y-4">
-                        {counselingReqs.filter(r => r.status === counselingTab).map(req => (
+                        {counselingReqs.filter(r => counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingDept(r.status) : r.status === counselingTab).map(req => (
                             <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${req.status === 'Referred' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${req.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-600' : req.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'}`}>
                                             <Users size={18} />
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-gray-900">{req.student_name}</h3>
-                                            <p className="text-xs text-gray-500">{req.request_type} • {formatDate(req.created_at)}{req.scheduled_date ? ` • Scheduled: ${formatDate(req.scheduled_date)}` : ''}</p>
+                                            <p className="text-xs text-gray-500">{req.request_type} • {formatDate(req.created_at)}{getCounselingScheduledDate(req) ? ` • Scheduled: ${formatDate(getCounselingScheduledDate(req) as string)}` : ''}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -339,12 +364,12 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                         <button onClick={() => { setViewFormReq(req); setShowCounselingFormModal(true); setFormModalView('referral'); }} className="px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition flex items-center gap-1">
                                             <Eye size={12} /> View Form
                                         </button>
-                                        {(req.status === 'Referred' || req.status === 'Pending') && (
+                                        {isCareStaffCounselingSchedulable(req.status) && (
                                             <button onClick={() => { setSelectedApp(req); setShowScheduleModal(true); }} className="px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition flex items-center gap-1">
                                                 <Calendar size={12} /> Schedule
                                             </button>
                                         )}
-                                        {(req.status === 'Scheduled' || req.status === 'Staff_Scheduled') && (
+                                        {(req.status === COUNSELING_STATUS.SCHEDULED || req.status === COUNSELING_STATUS.STAFF_SCHEDULED) && (
                                             <button onClick={() => { setCompletionForm({ id: req.id, student_id: req.student_id, publicNotes: '', privateNotes: '' }); setShowCompleteModal(true); }} className="px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition flex items-center gap-1">
                                                 <CheckCircle size={12} /> Complete
                                             </button>
@@ -372,7 +397,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                             <p className="text-[10px] text-gray-400 mt-1">Submitted: {formatDateTime(viewFormReq.created_at)}</p>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormReq.status === 'Referred' ? 'bg-purple-100 text-purple-700' : viewFormReq.status === 'Staff_Scheduled' ? 'bg-indigo-100 text-indigo-700' : viewFormReq.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : viewFormReq.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{viewFormReq.status === 'Referred' ? 'Forwarded' : viewFormReq.status === 'Staff_Scheduled' ? 'Staff Scheduled' : viewFormReq.status}</span>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(viewFormReq.status)}`}>{getCounselingStatusLabel(viewFormReq.status)}</span>
                                             <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                         </div>
                                     </div>
@@ -412,8 +437,8 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                         </div>
                                     )}
                                     {/* Scheduled info */}
-                                    {viewFormReq.scheduled_date && (
-                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3 flex gap-3 items-center"><Calendar size={16} className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(viewFormReq.scheduled_date).toLocaleString()}</p></div></div>
+                                    {getCounselingScheduledDate(viewFormReq) && (
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3 flex gap-3 items-center"><Calendar size={16} className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(getCounselingScheduledDate(viewFormReq) as string).toLocaleString()}</p></div></div>
                                     )}
                                     {viewFormReq.resolution_notes && (
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-100 mb-3"><p className="text-xs font-bold text-green-800 uppercase mb-1">Resolution Notes</p><p className="text-sm text-green-900">{viewFormReq.resolution_notes}</p></div>
@@ -438,7 +463,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                             <p className="text-[10px] text-gray-400 mt-1">Submitted: {formatDateTime(viewFormReq.created_at)}</p>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormReq.status === 'Submitted' ? 'bg-gray-100 text-gray-600' : viewFormReq.status === 'Rejected' ? 'bg-red-100 text-red-700' : viewFormReq.status === 'Referred' ? 'bg-purple-100 text-purple-700' : viewFormReq.status === 'Staff_Scheduled' ? 'bg-indigo-100 text-indigo-700' : viewFormReq.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{viewFormReq.status === 'Submitted' ? 'Pending Review' : viewFormReq.status === 'Staff_Scheduled' ? 'Staff Scheduled' : viewFormReq.status === 'Referred' ? 'Forwarded' : viewFormReq.status}</span>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(viewFormReq.status)}`}>{getCounselingStatusLabel(viewFormReq.status)}</span>
                                             <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                         </div>
                                     </div>
@@ -459,8 +484,8 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                         <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Concern</label>
                                         <textarea readOnly rows={2} value={viewFormReq.date_duration_of_concern || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                     </div>
-                                    {viewFormReq.scheduled_date && (
-                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3 flex gap-3 items-center"><Calendar size={16} className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(viewFormReq.scheduled_date).toLocaleString()}</p></div></div>
+                                    {getCounselingScheduledDate(viewFormReq) && (
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3 flex gap-3 items-center"><Calendar size={16} className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(getCounselingScheduledDate(viewFormReq) as string).toLocaleString()}</p></div></div>
                                     )}
                                     {viewFormReq.resolution_notes && (
                                         <div className="bg-green-50 p-4 rounded-xl border border-green-100 mb-3"><p className="text-xs font-bold text-green-800 uppercase mb-1">Resolution Notes</p><p className="text-sm text-green-900">{viewFormReq.resolution_notes}</p></div>
@@ -476,10 +501,10 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                         </div>
                         {/* Action buttons */}
                         <div className="p-6 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white rounded-b-2xl">
-                            {(viewFormReq.status === 'Referred' || viewFormReq.status === 'Pending') && (
+                            {isCareStaffCounselingSchedulable(viewFormReq.status) && (
                                 <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); setSelectedApp(viewFormReq); setShowScheduleModal(true); }} className="flex-1 py-2.5 bg-purple-600 text-white rounded-xl font-bold text-sm hover:bg-purple-700 transition-all">Schedule Session</button>
                             )}
-                            {(viewFormReq.status === 'Scheduled' || viewFormReq.status === 'Staff_Scheduled') && (
+                            {(viewFormReq.status === COUNSELING_STATUS.SCHEDULED || viewFormReq.status === COUNSELING_STATUS.STAFF_SCHEDULED) && (
                                 <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); setCompletionForm({ ...completionForm, id: viewFormReq.id, student_id: viewFormReq.student_id }); setShowCompleteModal(true); }} className="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition-all">Mark as Complete</button>
                             )}
                             <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all">Close</button>

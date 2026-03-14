@@ -1,6 +1,12 @@
 import React from 'react';
 import { XCircle, MapPin } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
+import {
+    COUNSELING_STATUS,
+    getCounselingScheduledDate,
+    isCounselingAwaitingDept,
+    isWithCareStaffCounseling
+} from '../../../utils/workflow';
 
 export function renderDeptModals(props: any) {
     const {
@@ -177,7 +183,7 @@ export function renderDeptModals(props: any) {
                                                 <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(record.created_at).toLocaleDateString()}</span>
                                             </div>
                                             <p className="text-sm text-gray-600 mb-2 dark:text-gray-300">{record.reason_for_referral || record.description}</p>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${record.status === 'Completed' ? 'bg-green-100 text-green-700' : record.status === 'Referred' ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>{record.status}</span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${record.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : record.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : isWithCareStaffCounseling(record.status) ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>{record.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : record.status}</span>
                                             {/* Per-record action buttons */}
                                             <div className="flex flex-wrap gap-2 mt-3">
                                                 <button onClick={() => { setViewFormRecord(record); setViewFormMode('student'); }} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors border border-indigo-200">View Student Form</button>
@@ -197,6 +203,66 @@ export function renderDeptModals(props: any) {
 
             {/* View Form Modal — Same as Care Staff: Student Form or Referral Form */}
             {
+                showStudentModal && selectedStudent && (
+                    <div className="fixed inset-0 bg-black/50 z-[105] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold text-lg text-gray-900">Student Basic Information</h3>
+                                    <p className="text-sm text-gray-500">Read-only student profile for department viewing</p>
+                                </div>
+                                <button onClick={() => setShowStudentModal(false)} className="text-gray-400 hover:text-gray-600">
+                                    <XCircle size={24} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-lg">
+                                        {(selectedStudent.name || selectedStudent.first_name || 'S').charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xl font-bold text-gray-900">
+                                            {selectedStudent.name || [
+                                                selectedStudent.first_name,
+                                                selectedStudent.middle_name,
+                                                selectedStudent.last_name,
+                                                selectedStudent.suffix
+                                            ].filter(Boolean).join(' ')}
+                                        </h4>
+                                        <p className="text-sm text-gray-500">{selectedStudent.email || 'No email provided'}</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Student ID</label><input readOnly value={selectedStudent.student_id || selectedStudent.id || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Status</label><input readOnly value={selectedStudent.status || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Department</label><input readOnly value={selectedStudent.department || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Course</label><input readOnly value={selectedStudent.course || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Year Level</label><input readOnly value={selectedStudent.year_level || selectedStudent.year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Section</label><input readOnly value={selectedStudent.section || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Mobile</label><input readOnly value={selectedStudent.mobile || selectedStudent.contact_number || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Sex</label><input readOnly value={selectedStudent.sex || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Address</label>
+                                    <textarea
+                                        readOnly
+                                        rows={3}
+                                        value={selectedStudent.address || [selectedStudent.street, selectedStudent.city, selectedStudent.province, selectedStudent.zip_code].filter(Boolean).join(', ')}
+                                        className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed resize-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-gray-100 bg-gray-50">
+                                <button onClick={() => setShowStudentModal(false)} className="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
                 viewFormRecord && (
                     <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
                         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
@@ -211,7 +277,7 @@ export function renderDeptModals(props: any) {
                                                 <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(viewFormRecord.created_at).toLocaleString()}</p>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === 'Referred' ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{viewFormRecord.status === 'Referred' ? 'Forwarded' : viewFormRecord.status}</span>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : isWithCareStaffCounseling(viewFormRecord.status) ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{viewFormRecord.status === COUNSELING_STATUS.REFERRED ? 'Forwarded' : viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : viewFormRecord.status}</span>
                                                 <button onClick={() => { setViewFormRecord(null); setViewFormMode('student'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                             </div>
                                         </div>
@@ -266,7 +332,7 @@ export function renderDeptModals(props: any) {
                                                 <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(viewFormRecord.created_at).toLocaleString()}</p>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === 'Completed' ? 'bg-green-100 text-green-700' : viewFormRecord.status === 'Referred' ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : viewFormRecord.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{viewFormRecord.status === 'Submitted' ? 'Pending Review' : viewFormRecord.status === 'Referred' ? 'Forwarded' : viewFormRecord.status}</span>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : viewFormRecord.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === COUNSELING_STATUS.SCHEDULED ? 'bg-blue-100 text-blue-700' : viewFormRecord.status === COUNSELING_STATUS.REJECTED ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{isCounselingAwaitingDept(viewFormRecord.status) ? 'Pending Review' : viewFormRecord.status === COUNSELING_STATUS.REFERRED ? 'Forwarded' : viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : viewFormRecord.status}</span>
                                                 <button onClick={() => { setViewFormRecord(null); setViewFormMode('student'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                             </div>
                                         </div>
@@ -287,8 +353,8 @@ export function renderDeptModals(props: any) {
                                             <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Concern</label>
                                             <textarea readOnly rows={2} value={viewFormRecord.date_duration_of_concern || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                         </div>
-                                        {viewFormRecord.scheduled_date && (
-                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(viewFormRecord.scheduled_date).toLocaleString()}</p></div>
+                                        {getCounselingScheduledDate(viewFormRecord) && (
+                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(getCounselingScheduledDate(viewFormRecord) as string).toLocaleString()}</p></div>
                                         )}
                                         {viewFormRecord.resolution_notes && (
                                             <div className="bg-green-50 p-4 rounded-xl border border-green-100 mb-3"><p className="text-xs font-bold text-green-800 uppercase mb-1">Resolution Notes</p><p className="text-sm text-green-900">{viewFormRecord.resolution_notes}</p></div>
