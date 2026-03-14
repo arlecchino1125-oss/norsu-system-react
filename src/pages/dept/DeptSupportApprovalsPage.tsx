@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { XCircle, Eye, Paperclip, Calendar, CheckCircle, Send, Clock, AlertTriangle, MessageSquare, FileText, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import SignatureCanvas from 'react-signature-canvas';
+import { buildStudentAddress } from '../../utils/studentFields';
+import { SUPPORT_STATUS, isDeptSupportCompleted } from '../../utils/workflow';
 
 const DeptSupportApprovalsPage = ({
     data,
@@ -42,9 +44,13 @@ const DeptSupportApprovalsPage = ({
         }
     };
 
-    const queueRequests = supportRequests.filter((r: any) => r.status === 'Forwarded to Dept');
-    const scheduledRequests = supportRequests.filter((r: any) => r.status === 'Visit Scheduled');
-    const completedRequests = supportRequests.filter((r: any) => r.status === 'Resolved by Dept' || r.status === 'Referred to CARE');
+    const queueRequests = supportRequests.filter((r: any) => r.status === SUPPORT_STATUS.FORWARDED_TO_DEPT);
+    const scheduledRequests = supportRequests.filter((r: any) => r.status === SUPPORT_STATUS.VISIT_SCHEDULED);
+    const completedRequests = supportRequests.filter((r: any) => isDeptSupportCompleted(r.status));
+    const findStudentForRequest = (req: any) =>
+        filteredData.students.find((student: any) =>
+            String(student.student_id || student.id || '') === String(req.student_id || '')
+        );
 
     const renderDetailedDescription = (desc: any) => {
         if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
@@ -80,6 +86,96 @@ const DeptSupportApprovalsPage = ({
             const parsed = JSON.parse(req.dept_notes);
             return parsed?.scheduled_date || null;
         } catch { return null; }
+    };
+
+    const parseDeptNotes = (notes: string | null | undefined) => {
+        if (!notes) return null;
+        try {
+            return JSON.parse(notes);
+        } catch {
+            return null;
+        }
+    };
+
+    const renderDeptArchiveDetails = (req: any) => {
+        if (req.status === SUPPORT_STATUS.REFERRED_TO_CARE) {
+            const referral = parseDeptNotes(req.dept_notes);
+            return (
+                <section className="bg-orange-50 p-5 rounded-xl border border-orange-200">
+                    <h4 className="font-bold text-sm text-orange-700 mb-4 uppercase tracking-wider border-b border-orange-200 pb-2">
+                        Department Referral to CARE Staff
+                    </h4>
+                    {referral ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500">Referred By</label>
+                                    <div className="font-semibold text-gray-900">{referral.referred_by || data.profile.name || '-'}</div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500">Date Acted / Visit Date</label>
+                                    <div className="font-semibold text-gray-900">{referral.date_acted || '-'}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Actions Taken During Visit</label>
+                                <div className="bg-white border border-orange-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                                    {referral.actions_taken || 'No actions recorded.'}
+                                </div>
+                            </div>
+                            {referral.comments && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Other Comments / Observations</label>
+                                    <div className="bg-white border border-orange-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                                        {referral.comments}
+                                    </div>
+                                </div>
+                            )}
+                            {referral.signature && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Name and Signature</label>
+                                    <div className="bg-white border border-orange-100 rounded-lg p-3 inline-block">
+                                        <img src={referral.signature} alt="Department referrer signature" className="max-h-24" />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-white border border-orange-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                            {req.dept_notes || 'No referral details recorded.'}
+                        </div>
+                    )}
+                </section>
+            );
+        }
+
+        if (req.status === SUPPORT_STATUS.RESOLVED_BY_DEPT) {
+            return (
+                <section className="bg-emerald-50 p-5 rounded-xl border border-emerald-200">
+                    <h4 className="font-bold text-sm text-emerald-700 mb-3 uppercase tracking-wider border-b border-emerald-200 pb-2">
+                        Department Resolution Notes
+                    </h4>
+                    <div className="bg-white border border-emerald-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                        {req.dept_notes || 'No resolution notes recorded.'}
+                    </div>
+                </section>
+            );
+        }
+
+        if (req.status === SUPPORT_STATUS.REJECTED) {
+            return (
+                <section className="bg-red-50 p-5 rounded-xl border border-red-200">
+                    <h4 className="font-bold text-sm text-red-700 mb-3 uppercase tracking-wider border-b border-red-200 pb-2">
+                        Department Rejection Notes
+                    </h4>
+                    <div className="bg-white border border-red-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                        {req.dept_notes || 'No rejection reason recorded.'}
+                    </div>
+                </section>
+            );
+        }
+
+        return null;
     };
 
     const tabs = [
@@ -142,7 +238,7 @@ const DeptSupportApprovalsPage = ({
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {queueRequests.filter(req => {
-                                const stu = filteredData.students.find(s => s.id === req.student_id);
+                                const stu = findStudentForRequest(req);
                                 return matchesCascadeFilters(stu);
                             }).map(req => (
                                 <tr key={req.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openViewModal(req)}>
@@ -162,7 +258,7 @@ const DeptSupportApprovalsPage = ({
                                     </td>
                                     <td className="p-4 flex gap-2" onClick={e => e.stopPropagation()}>
                                         <button onClick={() => openViewModal(req)} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200"><Eye size={12} className="inline mr-1" />View</button>
-                                        <button onClick={() => { setApproveScheduleData({ id: req.id, date: '', time: '', notes: '' }); setShowApproveScheduleModal(true); }} className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-200"><Calendar size={12} className="inline mr-1" />Approve & Schedule</button>
+                                        <button onClick={() => { setApproveScheduleData({ id: req.id, student_id: req.student_id, date: '', time: '', notes: '' }); setShowApproveScheduleModal(true); }} className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-200"><Calendar size={12} className="inline mr-1" />Approve & Schedule</button>
                                         <button onClick={() => { setRejectingId(req.id); setRejectNotes(''); }} className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200">Reject</button>
                                     </td>
                                 </tr>
@@ -177,7 +273,7 @@ const DeptSupportApprovalsPage = ({
             {activeTab === 'scheduled' && (
                 <div className="space-y-4">
                     {scheduledRequests.filter(req => {
-                        const stu = filteredData.students.find(s => s.id === req.student_id);
+                        const stu = findStudentForRequest(req);
                         return matchesCascadeFilters(stu);
                     }).map(req => {
                         const visitDate = getScheduledDate(req);
@@ -202,8 +298,8 @@ const DeptSupportApprovalsPage = ({
                                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">{req.description}</p>
                                 <div className="flex gap-2">
                                     <button onClick={() => openViewModal(req)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-200 transition"><Eye size={14} className="inline mr-1" />View Details</button>
-                                    <button onClick={() => { setResolveData({ id: req.id, notes: '' }); setShowResolveModal(true); }} className="px-4 py-2 bg-green-100 text-green-700 rounded-xl text-sm font-bold hover:bg-green-200 transition"><CheckCircle size={14} className="inline mr-1" />Mark Resolved</button>
-                                    <button onClick={() => { setReferCareForm({ id: req.id, student_name: req.student_name, date_acted: '', actions_taken: '', comments: '' }); setShowReferCareModal(true); }} className="px-4 py-2 bg-orange-100 text-orange-700 rounded-xl text-sm font-bold hover:bg-orange-200 transition"><Send size={14} className="inline mr-1" />Refer to CARE</button>
+                                    <button onClick={() => { setResolveData({ id: req.id, student_id: req.student_id, notes: '' }); setShowResolveModal(true); }} className="px-4 py-2 bg-green-100 text-green-700 rounded-xl text-sm font-bold hover:bg-green-200 transition"><CheckCircle size={14} className="inline mr-1" />Mark Resolved</button>
+                                    <button onClick={() => { setReferCareForm({ id: req.id, student_id: req.student_id, student_name: req.student_name, date_acted: '', actions_taken: '', comments: '' }); setShowReferCareModal(true); }} className="px-4 py-2 bg-orange-100 text-orange-700 rounded-xl text-sm font-bold hover:bg-orange-200 transition"><Send size={14} className="inline mr-1" />Refer to CARE</button>
                                 </div>
                             </div>
                         );
@@ -221,10 +317,12 @@ const DeptSupportApprovalsPage = ({
             {activeTab === 'completed' && (
                 <div className="space-y-4">
                     {completedRequests.filter(req => {
-                        const stu = filteredData.students.find(s => s.id === req.student_id);
+                        const stu = findStudentForRequest(req);
                         return matchesCascadeFilters(stu);
                     }).map(req => {
-                        const isResolved = req.status === 'Resolved by Dept';
+                        const isResolved = req.status === SUPPORT_STATUS.RESOLVED_BY_DEPT || req.status === SUPPORT_STATUS.COMPLETED;
+                        const isRejected = req.status === SUPPORT_STATUS.REJECTED;
+                        const isReferredBack = req.status === SUPPORT_STATUS.REFERRED_TO_CARE;
                         return (
                             <div key={req.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow opacity-90">
                                 <div className="flex justify-between items-start mb-4">
@@ -233,8 +331,8 @@ const DeptSupportApprovalsPage = ({
                                         <p className="text-xs text-gray-400">{req.student_id}</p>
                                         <div className="flex gap-2 mt-2">
                                             <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-bold">{req.support_type}</span>
-                                            <span className={`px-2 py-1 rounded text-xs font-bold flex items-center gap-1 ${isResolved ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
-                                                {isResolved ? <CheckCircle size={12} /> : <Send size={12} />}
+                                            <span className={`px-2 py-1 rounded text-xs font-bold flex items-center gap-1 ${isRejected ? 'bg-red-50 text-red-700' : isResolved ? 'bg-green-50 text-green-700' : isReferredBack ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'}`}>
+                                                {isRejected ? <AlertTriangle size={12} /> : isResolved ? <CheckCircle size={12} /> : isReferredBack ? <Send size={12} /> : <CheckCircle size={12} />}
                                                 {req.status}
                                             </span>
                                         </div>
@@ -384,7 +482,17 @@ const DeptSupportApprovalsPage = ({
                             <div>
                                 <h3 className="font-bold text-xl text-gray-900">Support Application</h3>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    {viewReq.status === 'Visit Scheduled' ? 'Visit scheduled — awaiting resolution' : 'Forwarded by CARE Staff for your review'}
+                                    {viewReq.status === SUPPORT_STATUS.VISIT_SCHEDULED
+                                        ? 'Visit scheduled — awaiting resolution'
+                                        : viewReq.status === SUPPORT_STATUS.FORWARDED_TO_DEPT
+                                            ? 'Forwarded by CARE Staff for your review'
+                                            : viewReq.status === SUPPORT_STATUS.RESOLVED_BY_DEPT
+                                                ? 'Resolved by the department'
+                                                : viewReq.status === SUPPORT_STATUS.REFERRED_TO_CARE
+                                                    ? 'Referred back to CARE Staff by the department'
+                                                    : viewReq.status === SUPPORT_STATUS.REJECTED
+                                                        ? 'Rejected by the department'
+                                                        : 'Finalized support record'}
                                 </p>
                             </div>
                             <button onClick={() => setShowViewModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"><XCircle size={18} /></button>
@@ -407,7 +515,7 @@ const DeptSupportApprovalsPage = ({
                                     <div><label className="block text-xs font-bold text-gray-500">Program — Year</label><div className="font-semibold text-gray-900">{viewStudent?.course || '-'} - {viewStudent?.year_level || '-'}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Mobile</label><div className="font-semibold text-gray-900">{viewStudent?.mobile || '-'}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Email</label><div className="font-semibold text-gray-900">{viewStudent?.email || '-'}</div></div>
-                                    <div className="col-span-2"><label className="block text-xs font-bold text-gray-500">Home Address</label><div className="font-semibold text-gray-900">{viewStudent?.address || '-'}</div></div>
+                                    <div className="col-span-2"><label className="block text-xs font-bold text-gray-500">Home Address</label><div className="font-semibold text-gray-900">{buildStudentAddress(viewStudent) || '-'}</div></div>
                                 </div>
                             </section>
 
@@ -451,7 +559,9 @@ const DeptSupportApprovalsPage = ({
                                 })()}
                             </section>
 
-                            {viewReq.status === 'Visit Scheduled' && (
+                            {renderDeptArchiveDetails(viewReq)}
+
+                            {viewReq.status === SUPPORT_STATUS.VISIT_SCHEDULED && (
                                 <section className="bg-blue-50 p-5 rounded-xl border border-blue-200">
                                     <h4 className="font-bold text-sm text-blue-700 mb-2 uppercase tracking-wider">Scheduled Visit</h4>
                                     <p className="text-sm font-bold text-blue-900">{getScheduledDate(viewReq) || 'Date pending'}</p>
@@ -461,13 +571,13 @@ const DeptSupportApprovalsPage = ({
 
                         {/* Footer Actions — context-aware */}
                         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex gap-3">
-                            {viewReq.status === 'Forwarded to Dept' && (
+                            {viewReq.status === SUPPORT_STATUS.FORWARDED_TO_DEPT && (
                                 <>
                                     <button onClick={() => { setShowViewModal(false); setApproveScheduleData({ id: viewReq.id, student_id: viewReq.student_id, date: '', time: '', notes: '' }); setShowApproveScheduleModal(true); }} className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition">Approve & Schedule</button>
                                     <button onClick={() => { setShowViewModal(false); setRejectingId(viewReq.id); setRejectNotes(''); }} className="flex-1 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 transition">Reject</button>
                                 </>
                             )}
-                            {viewReq.status === 'Visit Scheduled' && (
+                            {viewReq.status === SUPPORT_STATUS.VISIT_SCHEDULED && (
                                 <>
                                     <button onClick={() => { setShowViewModal(false); setResolveData({ id: viewReq.id, student_id: viewReq.student_id, notes: '' }); setShowResolveModal(true); }} className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition"><CheckCircle size={14} className="inline mr-1" /> Mark Resolved</button>
                                     <button onClick={() => { setShowViewModal(false); setReferCareForm({ id: viewReq.id, student_id: viewReq.student_id, student_name: viewReq.student_name, date_acted: '', actions_taken: '', comments: '' }); setShowReferCareModal(true); }} className="flex-1 py-2.5 bg-orange-500 text-white font-bold text-sm rounded-xl hover:bg-orange-600 transition"><Send size={14} className="inline mr-1" /> Refer to CARE</button>

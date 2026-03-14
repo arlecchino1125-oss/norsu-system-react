@@ -7,7 +7,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
     const [myFeedbacks, setMyFeedbacks] = React.useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = React.useState(true);
     const [viewingFeedback, setViewingFeedback] = React.useState<any>(null);
-    const profileSex = personalInfo?.sex || personalInfo?.gender || '';
+    const profileSex = personalInfo?.sex || '';
     const profileAge = personalInfo?.age || '';
     const profileEmail = personalInfo?.email || '';
 

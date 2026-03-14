@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import type { CareStaffDashboardFunctions } from './types';
 import { getAllStudentsForExport, getStudentByStudentId, getStudentsPage, STUDENT_LIST_COLUMNS } from '../../services/careStaffService';
+import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
 
 declare const XLSX: any;
 
@@ -243,13 +244,19 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         }
 
         try {
+            const nextDepartment = getDepartmentNameFromCourseRecords(
+                editForm.course || '',
+                allCourses || [],
+                allDepartments || [],
+                editForm.department || 'Unassigned'
+            );
             const { error } = await supabase.from('students').update({
                 first_name: editForm.first_name, last_name: editForm.last_name, middle_name: editForm.middle_name,
                 suffix: editForm.suffix, dob: editForm.dob, place_of_birth: editForm.place_of_birth,
                 sex: editForm.sex, gender_identity: editForm.gender_identity, civil_status: editForm.civil_status,
                 nationality: editForm.nationality, street: editForm.street, city: editForm.city, province: editForm.province,
                 zip_code: editForm.zip_code, mobile: editForm.mobile, email: editForm.email, facebook_url: editForm.facebook_url,
-                course: editForm.course, year_level: editForm.year_level, status: requiresUpdate ? 'Inactive' : (editForm.status || 'Active'),
+                course: editForm.course, year_level: editForm.year_level, department: nextDepartment, status: requiresUpdate ? 'Inactive' : (editForm.status || 'Active'),
                 course_year_update_required: requiresUpdate,
                 course_year_window_start: requiresUpdate && windowStart ? windowStart.toISOString() : null,
                 course_year_window_end: requiresUpdate && windowEnd ? windowEnd.toISOString() : null,
@@ -257,6 +264,17 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             }).eq('id', editForm.id);
 
             if (error) throw error;
+
+            const { error: enrollmentSyncError } = await supabase
+                .from('enrolled_students')
+                .update({
+                    course: editForm.course,
+                    year_level: editForm.year_level
+                })
+                .eq('student_id', editForm.student_id);
+            if (enrollmentSyncError) {
+                console.warn('Failed to sync enrollment record after student edit.', enrollmentSyncError);
+            }
 
             if (showToast) showToast("Student updated successfully!");
             setShowEditModal(false);
@@ -1797,6 +1815,5 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 };
 
 export default StudentPopulationPage;
-
 
 

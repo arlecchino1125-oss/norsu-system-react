@@ -49,5 +49,9 @@ describe('careStaffService.getStudentsPage', () => {
     it('includes profile completion flags in the shared student select list', () => {
         expect(STUDENT_LIST_COLUMNS).toContain('profile_completed');
         expect(STUDENT_LIST_COLUMNS).toContain('has_seen_tour');
+        expect(STUDENT_LIST_COLUMNS).toContain('address');
+        expect(STUDENT_LIST_COLUMNS).toContain('gender');
+        expect(STUDENT_LIST_COLUMNS).toContain('emergency_contact');
+        expect(STUDENT_LIST_COLUMNS).not.toContain('password');
     });
 });

@@ -102,7 +102,9 @@ const applyModeFilters = (query: any, mode: NatListMode, supportsAttendance: boo
         return query
             .neq('status', 'Ongoing')
             .neq('status', 'Test Taken')
+            .neq('status', 'Passed')
             .neq('status', 'Qualified for Interview (1st Choice)')
+            .neq('status', 'Interview Scheduled')
             .neq('status', 'Failed')
             .neq('status', 'Approved for Enrollment')
             .not('status', 'ilike', '%Forwarded to%')
@@ -111,7 +113,9 @@ const applyModeFilters = (query: any, mode: NatListMode, supportsAttendance: boo
 
     if (mode === 'completed') {
         return query.or([
+            'status.eq.Passed',
             'status.eq.Qualified for Interview (1st Choice)',
+            'status.eq.Interview Scheduled',
             'status.eq.Failed',
             'status.eq.Approved for Enrollment',
             'status.ilike.%Forwarded to%',

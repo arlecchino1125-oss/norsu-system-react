@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -13,7 +14,9 @@ import {
     getRatedEventIds
 } from '../services/studentPortalService';
 import { STUDENT_LIST_COLUMNS } from '../services/careStaffService';
+import { fetchDepartmentNameForCourse } from '../utils/courseDepartment';
 import { joinNameParts, splitFullName } from '../utils/nameUtils';
+import { buildStudentAddress, getStudentEmergencyContact, getStudentSex } from '../utils/studentFields';
 import { useStudentProfileData } from '../hooks/student/useStudentProfileData';
 import { useStudentEventsData } from '../hooks/student/useStudentEventsData';
 import { useStudentFormsData } from '../hooks/student/useStudentFormsData';
@@ -164,7 +167,8 @@ const StudentHero = ({ firstName }: any) => {
 };
 
 export default function StudentPortal() {
-    const { session, loading, updateSession } = useAuth() as any;
+    const { session, loading, updateSession, logout } = useAuth() as any;
+    const navigate = useNavigate();
 
     const [activeView, setActiveView] = useState('dashboard');
     const [profileTab, setProfileTab] = useState('personal');
@@ -227,6 +231,11 @@ export default function StudentPortal() {
 
     const [proofFile, setProofFile] = useState<any>(null);
     const [isTimingIn, setIsTimingIn] = useState(false);
+
+    const handleLogout = React.useCallback(() => {
+        logout();
+        navigate('/student/login', { replace: true });
+    }, [logout, navigate]);
 
     // Profile State
     const [isEditing, setIsEditing] = useState(false);
@@ -647,6 +656,7 @@ export default function StudentPortal() {
                 } else if (studentData) {
                     setPersonalInfo((prev: any) => ({
                         ...prev,
+                        ...studentData,
                         firstName: studentData.first_name,
                         lastName: studentData.last_name,
                         middleName: studentData.middle_name,
@@ -657,14 +667,13 @@ export default function StudentPortal() {
                         year: studentData.year_level,
                         section: studentData.section,
                         status: studentData.status,
-                        address: studentData.address,
+                        address: buildStudentAddress(studentData),
                         mobile: studentData.mobile,
                         email: studentData.email,
                         facebookUrl: studentData.facebook_url,
                         dob: studentData.dob,
                         age: studentData.age,
-                        sex: studentData.sex,
-                        ...studentData
+                        sex: getStudentSex(studentData),
                     }));
 
                     // Profile completion detection moved to fetchAndSyncProfile
@@ -799,11 +808,17 @@ export default function StudentPortal() {
         setIsSubmittingCourseYearGate(true);
         try {
             const nowIso = new Date().toISOString();
+            const matchedDepartment = await fetchDepartmentNameForCourse(
+                supabaseClient,
+                courseYearGate.course,
+                personalInfo.department || 'Unassigned'
+            );
             const { error } = await supabaseClient
                 .from('students')
                 .update({
                     course: courseYearGate.course,
                     year_level: courseYearGate.year,
+                    department: matchedDepartment,
                     status: 'Active',
                     course_year_confirmed_at: nowIso,
                     course_year_update_required: false
@@ -811,10 +826,22 @@ export default function StudentPortal() {
                 .eq('student_id', personalInfo.studentId);
             if (error) throw error;
 
+            const { error: enrollmentSyncError } = await supabaseClient
+                .from('enrolled_students')
+                .update({
+                    course: courseYearGate.course,
+                    year_level: courseYearGate.year
+                })
+                .eq('student_id', personalInfo.studentId);
+            if (enrollmentSyncError) {
+                console.warn('Failed to sync enrollment record after course/year confirmation.', enrollmentSyncError);
+            }
+
             setPersonalInfo((prev: any) => ({
                 ...prev,
                 course: courseYearGate.course,
                 year: courseYearGate.year,
+                department: matchedDepartment,
                 status: 'Active',
                 courseYearWindowStart: courseYearGate.windowStart || prev.courseYearWindowStart || null,
                 courseYearWindowEnd: courseYearGate.windowEnd || prev.courseYearWindowEnd || null
@@ -823,6 +850,7 @@ export default function StudentPortal() {
             syncStudentSession({
                 course: courseYearGate.course,
                 year_level: courseYearGate.year,
+                department: matchedDepartment,
                 status: 'Active',
                 course_year_update_required: false,
                 course_year_window_start: courseYearGate.windowStart || session?.course_year_window_start || null,
@@ -941,16 +969,15 @@ export default function StudentPortal() {
 
             let matchedDepartment = studentData.department || 'Unassigned';
 
-            // If department is missing or generic, try to fetch it dynamically
-            if (!studentData.department && course) {
-                const { data: courseData } = await supabaseClient
-                    .from('courses')
-                    .select('name, departments(name)')
-                    .eq('name', course)
-                    .maybeSingle();
-
-                if (courseData && courseData.departments && (courseData.departments as any).name) {
-                    matchedDepartment = (courseData.departments as any).name;
+            if (course) {
+                try {
+                    matchedDepartment = await fetchDepartmentNameForCourse(
+                        supabaseClient,
+                        course,
+                        matchedDepartment
+                    );
+                } catch (courseLookupError) {
+                    console.warn('Failed to refresh department from selected course.', courseLookupError);
                 }
             }
 
@@ -972,16 +999,16 @@ export default function StudentPortal() {
                 email: studentData.email || '',
                 mobile: studentData.mobile || '',
                 facebookUrl: studentData.facebook_url || '',
-                address: studentData.address || '',
+                address: buildStudentAddress(studentData),
                 street: studentData.street || '',
                 city: studentData.city || '',
                 province: studentData.province || '',
                 zipCode: studentData.zip_code || '',
-                emergencyContact: studentData.emergency_contact || '',
+                emergencyContact: getStudentEmergencyContact(studentData),
                 dob: studentData.dob || '',
                 age: studentData.age || '',
                 placeOfBirth: studentData.place_of_birth || '',
-                sex: studentData.sex || '',
+                sex: getStudentSex(studentData),
                 gender: studentData.gender || '',
                 genderIdentity: studentData.gender_identity || '',
                 civilStatus: studentData.civil_status || '',
@@ -1111,7 +1138,7 @@ export default function StudentPortal() {
                     age: studentData.age || '',
                     placeOfBirth: studentData.place_of_birth || '',
                     nationality: studentData.nationality || '',
-                    sex: studentData.sex || '',
+                    sex: getStudentSex(studentData),
                     genderIdentity: studentData.gender_identity || '',
                     civilStatus: studentData.civil_status || '',
                     street: studentData.street || '',
@@ -1153,7 +1180,7 @@ export default function StudentPortal() {
     }, [loading, session, showProfileCompletion, hasSeenTourState]);
 
     // Save Profile Changes to Supabase
-    const saveProfileChanges = async () => {
+    const saveProfileChanges = async (nextPersonalInfo = personalInfo) => {
         setIsEditing(false);
         try {
             const { data: beforeProfile } = await supabaseClient
@@ -1163,89 +1190,86 @@ export default function StudentPortal() {
                 .maybeSingle();
 
             const updatePayload = {
-                first_name: personalInfo.firstName || null,
-                last_name: personalInfo.lastName || null,
-                middle_name: personalInfo.middleName || null,
-                suffix: personalInfo.suffix || null,
-                place_of_birth: personalInfo.placeOfBirth || null,
-                department: personalInfo.department || null,
-                address: personalInfo.address || null,
-                street: personalInfo.street || null,
-                city: personalInfo.city || null,
-                province: personalInfo.province || null,
-                zip_code: personalInfo.zipCode || null,
-                mobile: personalInfo.mobile || null,
-                email: personalInfo.email || null,
-                civil_status: personalInfo.civilStatus || null,
-                emergency_contact: personalInfo.emergencyContact || null,
-                facebook_url: personalInfo.facebookUrl || null,
-                dob: personalInfo.dob || null,
-                sex: personalInfo.sex || null,
-                gender: personalInfo.gender || null,
-                gender_identity: personalInfo.genderIdentity || null,
-                nationality: personalInfo.nationality || null,
-                school_last_attended: personalInfo.schoolLastAttended || null,
-                is_working_student: Boolean(personalInfo.isWorkingStudent),
-                working_student_type: personalInfo.workingStudentType || null,
-                supporter: personalInfo.supporter || null,
-                supporter_contact: personalInfo.supporterContact || null,
-                is_pwd: Boolean(personalInfo.isPwd),
-                pwd_type: personalInfo.pwdType || null,
-                is_indigenous: Boolean(personalInfo.isIndigenous),
-                indigenous_group: personalInfo.indigenousGroup || null,
-                witnessed_conflict: Boolean(personalInfo.witnessedConflict),
-                is_solo_parent: Boolean(personalInfo.isSoloParent),
-                is_child_of_solo_parent: Boolean(personalInfo.isChildOfSoloParent),
-                section: personalInfo.section || null,
+                first_name: nextPersonalInfo.firstName || null,
+                last_name: nextPersonalInfo.lastName || null,
+                middle_name: nextPersonalInfo.middleName || null,
+                suffix: nextPersonalInfo.suffix || null,
+                place_of_birth: nextPersonalInfo.placeOfBirth || null,
+                department: nextPersonalInfo.department || null,
+                street: nextPersonalInfo.street || null,
+                city: nextPersonalInfo.city || null,
+                province: nextPersonalInfo.province || null,
+                zip_code: nextPersonalInfo.zipCode || null,
+                mobile: nextPersonalInfo.mobile || null,
+                email: nextPersonalInfo.email || null,
+                civil_status: nextPersonalInfo.civilStatus || null,
+                facebook_url: nextPersonalInfo.facebookUrl || null,
+                dob: nextPersonalInfo.dob || null,
+                sex: nextPersonalInfo.sex || null,
+                gender_identity: nextPersonalInfo.genderIdentity || null,
+                nationality: nextPersonalInfo.nationality || null,
+                school_last_attended: nextPersonalInfo.schoolLastAttended || null,
+                is_working_student: Boolean(nextPersonalInfo.isWorkingStudent),
+                working_student_type: nextPersonalInfo.workingStudentType || null,
+                supporter: nextPersonalInfo.supporter || null,
+                supporter_contact: nextPersonalInfo.supporterContact || null,
+                is_pwd: Boolean(nextPersonalInfo.isPwd),
+                pwd_type: nextPersonalInfo.pwdType || null,
+                is_indigenous: Boolean(nextPersonalInfo.isIndigenous),
+                indigenous_group: nextPersonalInfo.indigenousGroup || null,
+                witnessed_conflict: Boolean(nextPersonalInfo.witnessedConflict),
+                is_solo_parent: Boolean(nextPersonalInfo.isSoloParent),
+                is_child_of_solo_parent: Boolean(nextPersonalInfo.isChildOfSoloParent),
+                section: nextPersonalInfo.section || null,
                 // New fields
-                religion: personalInfo.religion || null,
-                is_safe_in_community: Boolean(personalInfo.isSafeInCommunity),
+                religion: nextPersonalInfo.religion || null,
+                is_safe_in_community: Boolean(nextPersonalInfo.isSafeInCommunity),
                 mother_name: joinNameParts({
-                    given: personalInfo.motherGivenName,
-                    middle: personalInfo.motherMiddleName,
-                    last: personalInfo.motherLastName
+                    given: nextPersonalInfo.motherGivenName,
+                    middle: nextPersonalInfo.motherMiddleName,
+                    last: nextPersonalInfo.motherLastName
                 }) || null,
-                mother_last_name: personalInfo.motherLastName || null,
-                mother_given_name: personalInfo.motherGivenName || null,
-                mother_middle_name: personalInfo.motherMiddleName || null,
-                mother_occupation: personalInfo.motherOccupation || null,
-                mother_contact: personalInfo.motherContact || null,
+                mother_last_name: nextPersonalInfo.motherLastName || null,
+                mother_given_name: nextPersonalInfo.motherGivenName || null,
+                mother_middle_name: nextPersonalInfo.motherMiddleName || null,
+                mother_occupation: nextPersonalInfo.motherOccupation || null,
+                mother_contact: nextPersonalInfo.motherContact || null,
                 father_name: joinNameParts({
-                    given: personalInfo.fatherGivenName,
-                    middle: personalInfo.fatherMiddleName,
-                    last: personalInfo.fatherLastName
+                    given: nextPersonalInfo.fatherGivenName,
+                    middle: nextPersonalInfo.fatherMiddleName,
+                    last: nextPersonalInfo.fatherLastName
                 }) || null,
-                father_last_name: personalInfo.fatherLastName || null,
-                father_given_name: personalInfo.fatherGivenName || null,
-                father_middle_name: personalInfo.fatherMiddleName || null,
-                father_occupation: personalInfo.fatherOccupation || null,
-                father_contact: personalInfo.fatherContact || null,
-                parent_address: personalInfo.parentAddress || null,
-                num_brothers: personalInfo.numBrothers || null,
-                num_sisters: personalInfo.numSisters || null,
-                birth_order: personalInfo.birthOrder || null,
-                spouse_name: personalInfo.spouseName || null,
-                spouse_occupation: personalInfo.spouseOccupation || null,
-                num_children: personalInfo.numChildren || null,
-                guardian_name: personalInfo.guardianName || null,
-                guardian_address: personalInfo.guardianAddress || null,
-                guardian_contact: personalInfo.guardianContact || null,
-                guardian_relation: personalInfo.guardianRelation || null,
-                emergency_name: personalInfo.emergencyName || null,
-                emergency_address: personalInfo.emergencyAddress || null,
-                emergency_relationship: personalInfo.emergencyRelationship || null,
-                emergency_number: personalInfo.emergencyNumber || null,
-                elem_school: personalInfo.elemSchool || null,
-                elem_year_graduated: personalInfo.elemYearGraduated || null,
-                junior_high_school: personalInfo.juniorHighSchool || null,
-                junior_high_year_graduated: personalInfo.juniorHighYearGraduated || null,
-                senior_high_school: personalInfo.seniorHighSchool || null,
-                senior_high_year_graduated: personalInfo.seniorHighYearGraduated || null,
-                college_school: personalInfo.collegeSchool || null,
-                college_year_graduated: personalInfo.collegeYearGraduated || null,
-                honors_awards: personalInfo.honorsAwards || null,
-                extracurricular_activities: personalInfo.extracurricularActivities || null,
-                scholarships_availed: personalInfo.scholarshipsAvailed || null,
+                father_last_name: nextPersonalInfo.fatherLastName || null,
+                father_given_name: nextPersonalInfo.fatherGivenName || null,
+                father_middle_name: nextPersonalInfo.fatherMiddleName || null,
+                father_occupation: nextPersonalInfo.fatherOccupation || null,
+                father_contact: nextPersonalInfo.fatherContact || null,
+                parent_address: nextPersonalInfo.parentAddress || null,
+                num_brothers: nextPersonalInfo.numBrothers || null,
+                num_sisters: nextPersonalInfo.numSisters || null,
+                birth_order: nextPersonalInfo.birthOrder || null,
+                spouse_name: nextPersonalInfo.spouseName || null,
+                spouse_occupation: nextPersonalInfo.spouseOccupation || null,
+                num_children: nextPersonalInfo.numChildren || null,
+                guardian_name: nextPersonalInfo.guardianName || null,
+                guardian_address: nextPersonalInfo.guardianAddress || null,
+                guardian_contact: nextPersonalInfo.guardianContact || null,
+                guardian_relation: nextPersonalInfo.guardianRelation || null,
+                emergency_name: nextPersonalInfo.emergencyName || null,
+                emergency_address: nextPersonalInfo.emergencyAddress || null,
+                emergency_relationship: nextPersonalInfo.emergencyRelationship || null,
+                emergency_number: nextPersonalInfo.emergencyNumber || null,
+                elem_school: nextPersonalInfo.elemSchool || null,
+                elem_year_graduated: nextPersonalInfo.elemYearGraduated || null,
+                junior_high_school: nextPersonalInfo.juniorHighSchool || null,
+                junior_high_year_graduated: nextPersonalInfo.juniorHighYearGraduated || null,
+                senior_high_school: nextPersonalInfo.seniorHighSchool || null,
+                senior_high_year_graduated: nextPersonalInfo.seniorHighYearGraduated || null,
+                college_school: nextPersonalInfo.collegeSchool || null,
+                college_year_graduated: nextPersonalInfo.collegeYearGraduated || null,
+                honors_awards: nextPersonalInfo.honorsAwards || null,
+                extracurricular_activities: nextPersonalInfo.extracurricularActivities || null,
+                scholarships_availed: nextPersonalInfo.scholarshipsAvailed || null,
             };
 
             const { error } = await supabaseClient
@@ -1258,9 +1282,10 @@ export default function StudentPortal() {
                 action: 'Student Profile Updated',
                 beforeProfile,
                 afterPayload: updatePayload,
-                fallbackName: `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim(),
-                fallbackStudentId: personalInfo.studentId
+                fallbackName: `${nextPersonalInfo.firstName || ''} ${nextPersonalInfo.lastName || ''}`.trim(),
+                fallbackStudentId: nextPersonalInfo.studentId
             });
+            await refreshStudentProfile();
             showToast("Profile updated successfully!");
         } catch (err: any) {
             showToast("Error saving profile: " + err.message, 'error');
@@ -1657,7 +1682,7 @@ export default function StudentPortal() {
                 rating: avgRating,
                 feedback: ratingForm.comment,
                 submitted_at: new Date().toISOString(),
-                sex: personalInfo.sex || personalInfo.gender || '',
+                sex: personalInfo.sex || '',
                 college: `${personalInfo.department || ''} - ${personalInfo.course || ''} (${personalInfo.year || ''})`,
                 date_of_activity: ratingForm.date_of_activity ? new Date(ratingForm.date_of_activity).toISOString().split('T')[0] : null,
                 q1_score: ratingForm.q1,
@@ -2334,7 +2359,7 @@ export default function StudentPortal() {
                         <div className="mt-5 flex gap-3">
                             <button
                                 type="button"
-                                onClick={() => { window.location.href = '/student/login'; }}
+                                onClick={handleLogout}
                                 className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700"
                             >
                                 Logout
@@ -2388,7 +2413,7 @@ export default function StudentPortal() {
 
                 {/* Logout */}
                 <div className="p-4 border-t border-white/5">
-                    <button onClick={() => window.location.href = '/student/login'} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-400/80 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"><Icons.Logout /> Logout</button>
+                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-400/80 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"><Icons.Logout /> Logout</button>
                 </div>
             </aside>
 

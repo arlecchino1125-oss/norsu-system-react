@@ -5,6 +5,7 @@ import { exportToExcel } from '../../utils/dashboardUtils';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { Scholarship } from '../../types/models';
 import { splitFullName } from '../../utils/nameUtils';
+import { buildStudentAddress } from '../../utils/studentFields';
 import type { CareStaffDashboardFunctions } from './types';
 
 interface ScholarshipApplicantStudent {
@@ -244,7 +245,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                 motherName.last || '',
                 motherName.given || '',
                 motherName.middle || '',
-                student?.street || student?.address || '',
+                buildStudentAddress(student),
                 student?.zip_code || '',
                 disabilityInfo,
                 student?.mobile || '',

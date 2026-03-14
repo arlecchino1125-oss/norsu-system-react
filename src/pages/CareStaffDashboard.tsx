@@ -39,6 +39,7 @@ import SupportRequestsPage from './carestaff/SupportRequestsPage';
 import { renderCareStaffModals } from './carestaff/modals/CareStaffModals';
 import NotificationBell from '../components/NotificationBell';
 import type { CareStaffDashboardFunctions, ToastHandler, ToastType } from './carestaff/types';
+import { COUNSELING_STATUS, SUPPORT_STATUS, getCounselingScheduledDate } from '../utils/workflow';
 
 const PROFILE_NOTIFICATION_ACTIONS = [
     'Student Profile Updated',
@@ -76,6 +77,8 @@ interface NotificationItem {
     details?: unknown;
     message?: string;
     created_at?: string | null;
+    time_label?: string | null;
+    sort_at?: string | null;
 }
 
 interface StaffNote {
@@ -89,8 +92,30 @@ interface AuthSession {
     full_name?: string;
 }
 
-interface RealtimeInsertPayload {
-    new?: NotificationItem;
+interface SupportNotificationRow {
+    id?: string | number;
+    student_id?: string | null;
+    student_name?: string | null;
+    support_type?: string | null;
+    status?: string | null;
+    created_at?: string | null;
+    dept_notes?: string | null;
+}
+
+interface CounselingNotificationRow {
+    id?: string | number;
+    student_id?: string | null;
+    student_name?: string | null;
+    request_type?: string | null;
+    status?: string | null;
+    created_at?: string | null;
+    scheduled_date?: string | null;
+    schedule_date?: string | null;
+}
+
+interface RealtimeChangePayload<T = NotificationItem> {
+    old?: T;
+    new?: T;
 }
 
 type NavItem = { tab: ActiveTab; label: string; icon: LucideIcon };
@@ -152,6 +177,162 @@ const STAT_TAB_MAP: Record<string, ActiveTab> = {
 const QUICK_ACTION_TAB_MAP: Record<string, ActiveTab> = {
     'Schedule Wellness Check': 'counseling',
     'View Reports': 'analytics'
+};
+
+const STAFF_BELL_LIMIT = 25;
+
+const parseTimestamp = (value: unknown): string | null => {
+    if (!value) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    const normalized = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(raw) ? raw.replace(' ', 'T') : raw;
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const parseJsonRecord = (value: unknown): Record<string, unknown> | null => {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed as Record<string, unknown>
+            : null;
+    } catch {
+        return null;
+    }
+};
+
+const isSameLocalDay = (value: string | null, base = new Date()) => {
+    if (!value) return false;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    return (
+        date.getFullYear() === base.getFullYear() &&
+        date.getMonth() === base.getMonth() &&
+        date.getDate() === base.getDate()
+    );
+};
+
+const formatTodayTimeLabel = (value: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return `Today, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+};
+
+const getNotificationIdentity = (item: NotificationItem) => {
+    if (item.id !== undefined && item.id !== null) {
+        if (typeof item.id === 'string') return item.id;
+        if (item.message) return `message-${item.id}`;
+        if (item.action) return `action-${item.id}`;
+        return `item-${item.id}`;
+    }
+    return `${item.message || item.action || 'notification'}-${item.sort_at || item.created_at || ''}`;
+};
+
+const getNotificationSortTime = (item: NotificationItem) =>
+    new Date(item.sort_at || item.created_at || 0).getTime();
+
+const dedupeAndLimitNotifications = (items: NotificationItem[]) => {
+    const seen = new Set<string>();
+    return items
+        .filter((item) => {
+            const key = getNotificationIdentity(item);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .sort((a, b) => getNotificationSortTime(b) - getNotificationSortTime(a))
+        .slice(0, STAFF_BELL_LIMIT);
+};
+
+const prependNotification = (prev: NotificationItem[], next: NotificationItem | null) =>
+    next ? dedupeAndLimitNotifications([next, ...prev]) : prev;
+
+const getStudentLabel = (studentName?: string | null, studentId?: string | null) => {
+    const trimmedName = String(studentName || '').trim();
+    if (trimmedName) return trimmedName;
+    const trimmedId = String(studentId || '').trim();
+    return trimmedId ? `student ${trimmedId}` : 'a student';
+};
+
+const mapSupportSubmittedNotification = (request: SupportNotificationRow): NotificationItem => {
+    const studentLabel = getStudentLabel(request.student_name, request.student_id);
+    const supportType = String(request.support_type || '').trim();
+    return {
+        id: `staff-support-submitted-${request.id}`,
+        message: `New support request from ${studentLabel}${supportType ? ` for ${supportType}` : ''}.`,
+        created_at: request.created_at || null,
+        sort_at: request.created_at || null,
+    };
+};
+
+const mapSupportReferredNotification = (
+    request: SupportNotificationRow,
+    alertAt?: string | null
+): NotificationItem => {
+    const deptNotes = parseJsonRecord(request.dept_notes);
+    const occurredAt = alertAt || parseTimestamp(deptNotes?.date_acted) || request.created_at || null;
+    const studentLabel = getStudentLabel(request.student_name, request.student_id);
+    const supportType = String(request.support_type || '').trim();
+    return {
+        id: `staff-support-referred-${request.id}`,
+        message: `Support case for ${studentLabel}${supportType ? ` (${supportType})` : ''} was referred back to CARE.`,
+        created_at: occurredAt,
+        sort_at: occurredAt,
+    };
+};
+
+const mapCounselingReferredNotification = (
+    request: CounselingNotificationRow,
+    alertAt?: string | null
+): NotificationItem => {
+    const occurredAt = alertAt || request.created_at || null;
+    const studentLabel = getStudentLabel(request.student_name, request.student_id);
+    const requestType = String(request.request_type || '').trim();
+    return {
+        id: `staff-counseling-referred-${request.id}`,
+        message: `Counseling case for ${studentLabel}${requestType ? ` (${requestType})` : ''} was referred to CARE.`,
+        created_at: occurredAt,
+        sort_at: occurredAt,
+    };
+};
+
+const mapCounselingScheduledTodayNotification = (
+    request: CounselingNotificationRow,
+    alertAt?: string | null
+): NotificationItem | null => {
+    const scheduledAt = parseTimestamp(getCounselingScheduledDate(request));
+    if (!isSameLocalDay(scheduledAt)) return null;
+
+    const studentLabel = getStudentLabel(request.student_name, request.student_id);
+    const requestType = String(request.request_type || '').trim();
+    return {
+        id: `staff-counseling-scheduled-${request.id}`,
+        message: `Counseling session with ${studentLabel}${requestType ? ` (${requestType})` : ''} is scheduled today.`,
+        created_at: alertAt || request.created_at || scheduledAt,
+        sort_at: alertAt || scheduledAt,
+        time_label: formatTodayTimeLabel(scheduledAt),
+    };
+};
+
+const mapSupportVisitScheduledTodayNotification = (
+    request: SupportNotificationRow,
+    alertAt?: string | null
+): NotificationItem | null => {
+    const deptNotes = parseJsonRecord(request.dept_notes);
+    const scheduledAt = parseTimestamp(deptNotes?.scheduled_date);
+    if (!isSameLocalDay(scheduledAt)) return null;
+
+    const studentLabel = getStudentLabel(request.student_name, request.student_id);
+    const supportType = String(request.support_type || '').trim();
+    return {
+        id: `staff-support-visit-scheduled-${request.id}`,
+        message: `Support visit with ${studentLabel}${supportType ? ` (${supportType})` : ''} is scheduled today.`,
+        created_at: alertAt || request.created_at || scheduledAt,
+        sort_at: alertAt || scheduledAt,
+        time_label: formatTodayTimeLabel(scheduledAt),
+    };
 };
 
 const CareStaffDashboard = () => {
@@ -223,67 +404,222 @@ const CareStaffDashboard = () => {
 
     useEffect(() => {
         let isMounted = true;
+        let pollingWindowId: ReturnType<typeof setInterval> | null = null;
 
-        const fetchProfileNotifications = async () => {
-            const [{ data: auditRows }, { data: notificationRows }] = await Promise.all([
+        const fetchStaffBellNotifications = async () => {
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const tomorrowStart = new Date(todayStart);
+            tomorrowStart.setDate(todayStart.getDate() + 1);
+
+            const [
+                { data: auditRows },
+                { data: profileNotificationRows },
+                { data: supportSubmittedRows },
+                { data: supportReferredRows },
+                { data: counselingReferredRows },
+                { data: counselingScheduledRows },
+                { data: supportVisitRows }
+            ] = await Promise.all([
                 supabase
                     .from('audit_logs')
                     .select('id, action, details, created_at')
                     .in('action', PROFILE_NOTIFICATION_ACTIONS)
                     .order('created_at', { ascending: false })
-                    .limit(25),
+                    .limit(STAFF_BELL_LIMIT),
                 supabase
                     .from('notifications')
                     .select('id, message, created_at')
                     .like('message', '[PROFILE UPDATE]%')
                     .order('created_at', { ascending: false })
-                    .limit(25)
+                    .limit(STAFF_BELL_LIMIT),
+                supabase
+                    .from('support_requests')
+                    .select('id, student_id, student_name, support_type, status, created_at')
+                    .eq('status', SUPPORT_STATUS.SUBMITTED)
+                    .order('created_at', { ascending: false })
+                    .limit(10),
+                supabase
+                    .from('support_requests')
+                    .select('id, student_id, student_name, support_type, status, created_at, dept_notes')
+                    .eq('status', SUPPORT_STATUS.REFERRED_TO_CARE)
+                    .order('created_at', { ascending: false })
+                    .limit(10),
+                supabase
+                    .from('counseling_requests')
+                    .select('id, student_id, student_name, request_type, status, created_at')
+                    .eq('status', COUNSELING_STATUS.REFERRED)
+                    .order('created_at', { ascending: false })
+                    .limit(10),
+                supabase
+                    .from('counseling_requests')
+                    .select('id, student_id, student_name, request_type, status, created_at, scheduled_date')
+                    .in('status', [COUNSELING_STATUS.STAFF_SCHEDULED, COUNSELING_STATUS.SCHEDULED])
+                    .gte('scheduled_date', todayStart.toISOString())
+                    .lt('scheduled_date', tomorrowStart.toISOString())
+                    .order('scheduled_date', { ascending: true })
+                    .limit(10),
+                supabase
+                    .from('support_requests')
+                    .select('id, student_id, student_name, support_type, status, created_at, dept_notes')
+                    .eq('status', SUPPORT_STATUS.VISIT_SCHEDULED)
+                    .order('created_at', { ascending: false })
+                    .limit(100)
             ]);
 
-            const merged = [
+            const merged = dedupeAndLimitNotifications([
                 ...((auditRows || []) as NotificationItem[]),
-                ...((notificationRows || []) as NotificationItem[])
-            ]
-                .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-                .slice(0, 25);
+                ...((profileNotificationRows || []) as NotificationItem[]),
+                ...((supportSubmittedRows || []) as SupportNotificationRow[]).map((row) => mapSupportSubmittedNotification(row)),
+                ...((supportReferredRows || []) as SupportNotificationRow[]).map((row) => mapSupportReferredNotification(row)),
+                ...((counselingReferredRows || []) as CounselingNotificationRow[]).map((row) => mapCounselingReferredNotification(row)),
+                ...((counselingScheduledRows || []) as CounselingNotificationRow[])
+                    .map((row) => mapCounselingScheduledTodayNotification(row))
+                    .filter(Boolean) as NotificationItem[],
+                ...((supportVisitRows || []) as SupportNotificationRow[])
+                    .map((row) => mapSupportVisitScheduledTodayNotification(row))
+                    .filter(Boolean) as NotificationItem[]
+            ]);
 
             if (isMounted) {
                 setNotifications(merged);
             }
         };
 
-        fetchProfileNotifications();
+        fetchStaffBellNotifications();
+
+        const syncBellNotifications = () => {
+            fetchStaffBellNotifications().catch((error) => {
+                console.error('Failed to sync care staff notifications:', error);
+            });
+        };
+
+        const handleWindowFocus = () => {
+            syncBellNotifications();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                syncBellNotifications();
+            }
+        };
+
+        pollingWindowId = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                syncBellNotifications();
+            }
+        }, 5000);
+
+        window.addEventListener('focus', handleWindowFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         const profileNotificationsChannel = supabase
             .channel('care_staff_profile_notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: RealtimeInsertPayload) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: RealtimeChangePayload) => {
                 const action = payload?.new?.action;
                 if (typeof action !== 'string' || !PROFILE_NOTIFICATION_ACTIONS.includes(action)) {
                     return;
                 }
                 if (payload.new) {
-                    setNotifications((prev) => [payload.new as NotificationItem, ...prev].slice(0, 25));
+                    setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
                 }
             })
             .subscribe();
 
         const profileNotificationsFallbackChannel = supabase
             .channel('care_staff_profile_notifications_fallback')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: RealtimeInsertPayload) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: RealtimeChangePayload) => {
                 const message = String(payload?.new?.message || '');
                 if (!message.startsWith('[PROFILE UPDATE]')) {
                     return;
                 }
                 if (payload.new) {
-                    setNotifications((prev) => [payload.new as NotificationItem, ...prev].slice(0, 25));
+                    setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
+                }
+            })
+            .subscribe();
+
+        const supportNotificationsChannel = supabase
+            .channel('care_staff_service_notifications_support')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
+                if (!payload.new) return;
+                if (payload.new.status === SUPPORT_STATUS.SUBMITTED) {
+                    setNotifications((prev) => prependNotification(prev, mapSupportSubmittedNotification(payload.new as SupportNotificationRow)));
+                }
+                if (payload.new.status === SUPPORT_STATUS.REFERRED_TO_CARE) {
+                    setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
+                }
+                if (payload.new.status === SUPPORT_STATUS.VISIT_SCHEDULED) {
+                    setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
+                }
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
+                if (!payload.new) return;
+
+                const nextStatus = payload.new.status;
+                const prevStatus = payload.old?.status;
+                const alertAt = new Date().toISOString();
+
+                if (nextStatus === SUPPORT_STATUS.REFERRED_TO_CARE && prevStatus !== SUPPORT_STATUS.REFERRED_TO_CARE) {
+                    setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, alertAt)));
+                }
+
+                const nextScheduledAt = parseTimestamp(parseJsonRecord(payload.new.dept_notes)?.scheduled_date);
+                const prevScheduledAt = parseTimestamp(parseJsonRecord(payload.old?.dept_notes)?.scheduled_date);
+                if (
+                    nextStatus === SUPPORT_STATUS.VISIT_SCHEDULED &&
+                    (prevStatus !== SUPPORT_STATUS.VISIT_SCHEDULED || nextScheduledAt !== prevScheduledAt)
+                ) {
+                    setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, alertAt)));
+                }
+            })
+            .subscribe();
+
+        const counselingNotificationsChannel = supabase
+            .channel('care_staff_service_notifications_counseling')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
+                if (!payload.new) return;
+                const alertAt = new Date().toISOString();
+                if (payload.new.status === COUNSELING_STATUS.REFERRED) {
+                    setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
+                }
+                if ([COUNSELING_STATUS.STAFF_SCHEDULED, COUNSELING_STATUS.SCHEDULED].includes(String(payload.new.status || ''))) {
+                    setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
+                }
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
+                if (!payload.new) return;
+
+                const nextStatus = payload.new.status;
+                const prevStatus = payload.old?.status;
+                const alertAt = new Date().toISOString();
+
+                if (nextStatus === COUNSELING_STATUS.REFERRED && prevStatus !== COUNSELING_STATUS.REFERRED) {
+                    setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
+                }
+
+                const nextScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.new as CounselingNotificationRow));
+                const prevScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.old as CounselingNotificationRow | undefined));
+                if (
+                    [COUNSELING_STATUS.STAFF_SCHEDULED, COUNSELING_STATUS.SCHEDULED].includes(String(nextStatus || '')) &&
+                    (prevStatus !== nextStatus || nextScheduledAt !== prevScheduledAt)
+                ) {
+                    setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
                 }
             })
             .subscribe();
 
         return () => {
             isMounted = false;
+            if (pollingWindowId) {
+                clearInterval(pollingWindowId);
+            }
+            window.removeEventListener('focus', handleWindowFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             supabase.removeChannel(profileNotificationsChannel).catch(console.error);
             supabase.removeChannel(profileNotificationsFallbackChannel).catch(console.error);
+            supabase.removeChannel(supportNotificationsChannel).catch(console.error);
+            supabase.removeChannel(counselingNotificationsChannel).catch(console.error);
         };
     }, []);
 
@@ -476,7 +812,7 @@ const CareStaffDashboard = () => {
                         <button onClick={refreshAll} disabled={isRefreshing} title="Refresh Dashboard" className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 hover:text-purple-600 hover:shadow-md transition-all border border-gray-100 disabled:opacity-50">
                             <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                         </button>
-                        <NotificationBell notifications={notifications} accentColor="purple" />
+                        <NotificationBell notifications={notifications} accentColor="purple" expandProfileUpdates />
                     </div>
                 </header>
 

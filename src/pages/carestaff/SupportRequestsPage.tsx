@@ -7,7 +7,12 @@ import {
 import StatusBadge from '../../components/StatusBadge';
 import { jsPDF } from 'jspdf';
 import { formatDate, generateExportFilename } from '../../utils/formatters';
+import { buildStudentAddress } from '../../utils/studentFields';
 import type { CareStaffDashboardFunctions } from './types';
+import {
+    SUPPORT_STATUS,
+    isCareStaffSupportDeptUpdate
+} from '../../utils/workflow';
 
 interface SupportRequestsPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
@@ -18,7 +23,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
 
     // Data State
     const [supportReqs, setSupportReqs] = useState<any[]>([]);
-    const [supportTab, setSupportTab] = useState<string>('queue');
+    const [supportTab, setSupportTab] = useState<string>(SUPPORT_STATUS.SUBMITTED);
     const [supportCategory, setSupportCategory] = useState<string>('All');
 
     // Modal State
@@ -27,6 +32,32 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const [supportForm, setSupportForm] = useState<any>({ care_notes: '', resolution_notes: '' });
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [letterFile, setLetterFile] = useState<File | null>(null);
+
+    const parseDeptNotes = (value: string | null | undefined) => {
+        if (!value) return null;
+        try {
+            return JSON.parse(value);
+        } catch {
+            return null;
+        }
+    };
+
+    const supportTabs = [
+        { id: SUPPORT_STATUS.SUBMITTED, label: 'Submitted', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.SUBMITTED).length },
+        { id: SUPPORT_STATUS.FORWARDED_TO_DEPT, label: 'Forwarded to Dept', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.FORWARDED_TO_DEPT).length },
+        { id: SUPPORT_STATUS.VISIT_SCHEDULED, label: 'Visit Scheduled', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.VISIT_SCHEDULED).length },
+        { id: 'dept_updates', label: 'Dept Updates', count: supportReqs.filter(r => isCareStaffSupportDeptUpdate(r.status)).length },
+        { id: SUPPORT_STATUS.COMPLETED, label: 'Completed', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.COMPLETED).length }
+    ];
+
+    const matchesSupportTab = (req: any) => {
+        if (supportTab === 'dept_updates') return isCareStaffSupportDeptUpdate(req.status);
+        return req.status === supportTab;
+    };
+
+    const visibleSupportReqs = supportReqs
+        .filter(matchesSupportTab)
+        .filter(req => supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)));
 
     // Fetch data
     const fetchSupport = async () => {
@@ -85,7 +116,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
             const careNotesValue = letterUrl
                 ? JSON.stringify({ notes: supportForm.care_notes, letter_url: letterUrl })
                 : supportForm.care_notes;
-            await supabase.from('support_requests').update({ status: 'Forwarded to Dept', care_notes: careNotesValue }).eq('id', selectedSupportReq.id);
+            await supabase.from('support_requests').update({ status: SUPPORT_STATUS.FORWARDED_TO_DEPT, care_notes: careNotesValue }).eq('id', selectedSupportReq.id);
             showToast?.("Request forwarded to Dean.", 'success');
             setShowSupportModal(false);
             setLetterFile(null);
@@ -96,7 +127,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const handleFinalizeSupport = async () => {
         if (!supportForm.resolution_notes) { showToast?.("Please add resolution notes.", 'error'); return; }
         try {
-            await supabase.from('support_requests').update({ status: 'Completed', resolution_notes: supportForm.resolution_notes }).eq('id', selectedSupportReq.id);
+            await supabase.from('support_requests').update({ status: SUPPORT_STATUS.COMPLETED, resolution_notes: supportForm.resolution_notes }).eq('id', selectedSupportReq.id);
             await supabase.from('notifications').insert([{ student_id: selectedSupportReq.student_id, message: `Your support request regarding ${selectedSupportReq.support_type} has been updated.` }]);
             showToast?.("Request completed and student notified.", 'success');
             setShowSupportModal(false);
@@ -160,7 +191,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         y += 7;
         drawFieldRow('Email Address:', student?.email || '', marginLeft, halfW, y);
         y += 7;
-        drawFieldRow('Home Address:', student?.address || '', marginLeft, contentW, y);
+        drawFieldRow('Home Address:', buildStudentAddress(student), marginLeft, contentW, y);
         y += 9;
 
         // --- CATEGORY SECTION ---
@@ -393,12 +424,13 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                 </div>
 
                 {/* Stats Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
                     {[
-                        { label: 'New Requests', value: supportReqs.filter(r => r.status === 'Submitted').length, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-                        { label: 'With Dean', value: supportReqs.filter(r => r.status === 'Forwarded to Dept').length, icon: <Send size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-                        { label: 'Action Needed', value: supportReqs.filter(r => r.status === 'Approved' || r.status === 'Rejected').length, icon: <AlertTriangle size={20} />, color: 'text-orange-500', bg: 'bg-orange-50' },
-                        { label: 'Completed', value: supportReqs.filter(r => r.status === 'Completed').length, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
+                        { label: 'Submitted', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.SUBMITTED).length, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
+                        { label: 'Forwarded to Dept', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.FORWARDED_TO_DEPT).length, icon: <Send size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+                        { label: 'Visit Scheduled', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.VISIT_SCHEDULED).length, icon: <AlertTriangle size={20} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                        { label: 'Dept Updates', value: supportReqs.filter(r => isCareStaffSupportDeptUpdate(r.status)).length, icon: <ClipboardList size={20} />, color: 'text-orange-500', bg: 'bg-orange-50' },
+                        { label: 'Completed', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.COMPLETED).length, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
                     ].map((stat, idx) => (
                         <div key={idx} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                             <div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center mb-3 ${stat.color}`}>{stat.icon}</div>
@@ -410,8 +442,11 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
 
                 {/* Tabs */}
                 <div className="bg-gray-100 rounded-full p-1 flex items-center justify-start gap-2 mb-6 overflow-x-auto max-w-fit">
-                    <button onClick={() => setSupportTab('queue')} className={`px-6 py-2 rounded-full text-sm font-bold transition ${supportTab === 'queue' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Request Queue ({supportReqs.filter(r => r.status !== 'Approved' && r.status !== 'Completed' && r.status !== 'Rejected').length})</button>
-                    <button onClick={() => setSupportTab('approved')} className={`px-6 py-2 rounded-full text-sm font-bold transition ${supportTab === 'approved' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Approved / Monitoring ({supportReqs.filter(r => r.status === 'Approved' || r.status === 'Completed' || r.status === 'Rejected').length})</button>
+                    {supportTabs.map((tab) => (
+                        <button key={tab.id} onClick={() => setSupportTab(tab.id)} className={`px-6 py-2 rounded-full text-sm font-bold transition ${supportTab === tab.id ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                            {tab.label} ({tab.count})
+                        </button>
+                    ))}
                 </div>
 
                 {/* Category Filter */}
@@ -423,13 +458,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {supportReqs
-                        .filter(req => {
-                            if (supportTab === 'queue') return req.status !== 'Approved' && req.status !== 'Completed' && req.status !== 'Rejected';
-                            return req.status === 'Approved' || req.status === 'Completed' || req.status === 'Rejected';
-                        })
-                        .filter(req => supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)))
-                        .map(req => (
+                    {visibleSupportReqs.map(req => (
                             <div key={req.id} className="card-hover bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-100/80 shadow-sm flex flex-col justify-between relative overflow-hidden group">
                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 <div>
@@ -451,7 +480,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                             </div>
                         ))}
                 </div>
-                {supportReqs.length === 0 && <p className="text-center text-gray-500 py-8">No requests found.</p>}
+                {visibleSupportReqs.length === 0 && <p className="text-center text-gray-500 py-8">No requests found in this stage.</p>}
             </div>
 
             {/* Support Modal - Enhanced Side Panel */}
@@ -481,7 +510,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                     <div><label className="block text-xs font-bold text-gray-500">Program — Year</label><div className="font-semibold text-gray-900">{selectedSupportReq.course_year || `${selectedStudent?.course || '-'} - ${selectedStudent?.year_level || '-'}`}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Mobile</label><div className="font-semibold text-gray-900">{selectedStudent?.mobile || '-'}</div></div>
                                     <div><label className="block text-xs font-bold text-gray-500">Email</label><div className="font-semibold text-gray-900">{selectedStudent?.email || '-'}</div></div>
-                                    <div className="col-span-2"><label className="block text-xs font-bold text-gray-500">Home Address</label><div className="font-semibold text-gray-900">{selectedStudent?.address || '-'}</div></div>
+                                    <div className="col-span-2"><label className="block text-xs font-bold text-gray-500">Home Address</label><div className="font-semibold text-gray-900">{buildStudentAddress(selectedStudent) || '-'}</div></div>
                                 </div>
                             </section>
 
@@ -527,54 +556,12 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                 })()}
                             </section>
 
-
-                            {/* Section A: Studies */}
-                            <section>
-                                <h4 className="font-bold text-sm text-purple-600 mb-3 uppercase tracking-wider border-b pb-1">A. Your Studies</h4>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between border-b border-gray-50 pb-1"><span className="text-gray-500">1st Priority:</span><span className="font-medium text-gray-900">{selectedStudent?.priority_course || 'N/A'}</span></div>
-                                    <div className="flex justify-between border-b border-gray-50 pb-1"><span className="text-gray-500">2nd Priority:</span><span className="font-medium text-gray-900">{selectedStudent?.alt_course_1 || 'N/A'}</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-500">3rd Priority:</span><span className="font-medium text-gray-900">{selectedStudent?.alt_course_2 || 'N/A'}</span></div>
-                                </div>
-                            </section>
-
-                            {/* Categories & Particulars */}
-                            <section>
-                                <h4 className="font-bold text-sm text-purple-600 mb-3 uppercase tracking-wider border-b pb-1">B. Particulars of Need</h4>
-                                <div className="mb-4">
-                                    <p className="text-xs font-bold text-gray-600 mb-1">Categories:</p>
-                                    <div className="flex flex-wrap gap-1">
-                                        {selectedSupportReq.support_type ? selectedSupportReq.support_type.split(', ').map((cat: string, i: number) => (
-                                            <span key={i} className="bg-white border border-gray-200 px-2 py-1 rounded text-xs text-gray-700">{cat}</span>
-                                        )) : <span className="text-xs text-gray-400">None</span>}
-                                    </div>
-                                </div>
-                                {renderDetailedDescription(selectedSupportReq.description)}
-                                {selectedSupportReq.documents_url && (() => {
-                                    let urls: string[] = [];
-                                    try {
-                                        const parsed = JSON.parse(selectedSupportReq.documents_url);
-                                        urls = Array.isArray(parsed) ? parsed : [selectedSupportReq.documents_url];
-                                    } catch { urls = [selectedSupportReq.documents_url]; }
-                                    return urls.length > 0 ? (
-                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-2">
-                                            <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1"><Paperclip size={12} /> Supporting Documents ({urls.length})</p>
-                                            {urls.map((url: string, idx: number) => (
-                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline font-medium py-1">
-                                                    <Download size={14} className="flex-shrink-0" />
-                                                    <span className="truncate">Document {idx + 1} — {decodeURIComponent(url.split('/').pop() || 'file')}</span>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    ) : null;
-                                })()}
-                            </section>
 
                             {/* Action Section */}
                             <section className="bg-gray-50 p-5 rounded-xl border border-gray-200">
                                 <h4 className="font-bold text-sm text-gray-700 mb-4 uppercase tracking-wider">Staff Actions</h4>
 
-                                {selectedSupportReq.status === 'Submitted' && (
+                                {selectedSupportReq.status === SUPPORT_STATUS.SUBMITTED && (
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">CARE Staff Notes (For Dean)</label>
                                         <textarea rows={3} value={supportForm.care_notes} onChange={e => setSupportForm({ ...supportForm, care_notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Add endorsement notes..."></textarea>
@@ -593,13 +580,33 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                     </div>
                                 )}
 
-                                {selectedSupportReq.status === 'Forwarded to Dept' && (
+                                {selectedSupportReq.status === SUPPORT_STATUS.FORWARDED_TO_DEPT && (
                                     <div className="text-center text-sm text-gray-500 italic py-4">Waiting for Dean review...</div>
                                 )}
 
-                                {(selectedSupportReq.status === 'Approved' || selectedSupportReq.status === 'Rejected') && (
+                                {selectedSupportReq.status === SUPPORT_STATUS.VISIT_SCHEDULED && (() => {
+                                    const deptUpdate = parseDeptNotes(selectedSupportReq.dept_notes);
+                                    return (
+                                        <div className="space-y-4">
+                                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                                <p className="text-xs font-bold text-blue-700 uppercase mb-1">Department Visit Scheduled</p>
+                                                <p className="text-sm text-blue-900">
+                                                    {deptUpdate?.scheduled_date || 'Schedule pending'}
+                                                </p>
+                                                {deptUpdate?.approval_notes && (
+                                                    <p className="text-sm text-blue-800 mt-2 whitespace-pre-wrap">{deptUpdate.approval_notes}</p>
+                                                )}
+                                            </div>
+                                            <div className="text-center text-sm text-gray-500 italic py-2">
+                                                Waiting for the department visit outcome before CARE Staff completes the case.
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {(selectedSupportReq.status === SUPPORT_STATUS.APPROVED || selectedSupportReq.status === SUPPORT_STATUS.REJECTED) && (
                                     <div>
-                                        <div className={`p-3 rounded-lg mb-3 ${selectedSupportReq.status === 'Approved' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                                        <div className={`p-3 rounded-lg mb-3 ${selectedSupportReq.status === SUPPORT_STATUS.APPROVED ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
                                             <p className="text-xs font-bold uppercase">Dean's Decision: {selectedSupportReq.status}</p>
                                             <p className="text-sm mt-1">{selectedSupportReq.dept_notes || 'No notes provided.'}</p>
                                         </div>
@@ -609,7 +616,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                     </div>
                                 )}
 
-                                {(selectedSupportReq.status === 'Referred to CARE' || selectedSupportReq.status === 'Visit Scheduled' || selectedSupportReq.status === 'Resolved by Dept') && (() => {
+                                {(selectedSupportReq.status === SUPPORT_STATUS.REFERRED_TO_CARE || selectedSupportReq.status === SUPPORT_STATUS.RESOLVED_BY_DEPT) && (() => {
                                     let referral: any = null;
                                     try { referral = JSON.parse(selectedSupportReq.dept_notes); } catch { /* not JSON */ }
                                     return (
@@ -660,7 +667,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                     );
                                 })()}
 
-                                {selectedSupportReq.status === 'Completed' && (
+                                {selectedSupportReq.status === SUPPORT_STATUS.COMPLETED && (
                                     <p className="text-xs text-green-600 font-bold bg-green-50 p-2 rounded"><CheckCircle size={12} className="inline mr-1" /> Request Resolved</p>
                                 )}
                             </section>

@@ -31,11 +31,16 @@ const STUDENT_COUNSELING_COLUMNS = [
     'created_at',
     'student_id',
     'student_name',
+    'request_type',
+    'description',
     'department',
     'status',
+    'course_year',
+    'contact_number',
     'reason_for_referral',
     'personal_actions_taken',
     'date_duration_of_concern',
+    'referred_by',
     'scheduled_date',
     'resolution_notes',
     'rating',
@@ -62,13 +67,15 @@ const NOTIFICATION_COLUMNS = [
     'id',
     'created_at',
     'student_id',
-    'message'
+    'message',
+    'is_read'
 ].join(', ');
 
 const ATTENDANCE_COLUMNS = [
     'id',
     'event_id',
     'student_id',
+    'student_name',
     'checked_in_at',
     'time_in',
     'time_out',

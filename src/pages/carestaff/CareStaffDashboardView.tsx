@@ -4,6 +4,14 @@ import {
     Activity, Bell, Calendar, CheckCircle, ClipboardList,
     Users, GraduationCap, Rocket, BarChart2, Send, ChevronRight
 } from 'lucide-react';
+import {
+    CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
+    CARE_STAFF_ACTIVE_SUPPORT_STATUSES,
+    CARE_STAFF_COUNSELING_ACTIVITY_STATUSES,
+    COUNSELING_STATUS,
+    SUPPORT_STATUS,
+    isCounselingAwaitingDept
+} from '../../utils/workflow';
 
 interface CareStaffDashboardViewProps {
     setActiveTab: (tab: string) => void;
@@ -88,8 +96,8 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { count: eventsCount }
                 ] = await Promise.all([
                     supabase.from('students').select('*', { count: 'exact', head: true }),
-                    supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', ['Scheduled', 'Pending']),
-                    supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', ['Pending', 'Forwarded to Dept']),
+                    supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
+                    supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
                     supabase.from('events').select('*', { count: 'exact', head: true })
                 ]);
 
@@ -111,7 +119,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { data: recentProfileNotifications }
                 ] = await Promise.all([
                     supabase.from('events').select('id, title, type, created_at').order('created_at', { ascending: false }).limit(10),
-                    supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', ['Scheduled', 'Completed']).order('created_at', { ascending: false }).limit(10),
+                    supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', [...CARE_STAFF_COUNSELING_ACTIVITY_STATUSES]).order('created_at', { ascending: false }).limit(10),
                     supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
                     supabase.from('scholarship_applications').select('id, student_id, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
                     supabase
@@ -150,8 +158,20 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         id: `coun-${c.id}`,
                         type: 'Counseling',
                         icon: <Users size={16} />,
-                        color: c.status === 'Completed' ? 'from-green-400 to-emerald-500' : 'from-blue-400 to-cyan-500',
-                        title: c.status === 'Completed' ? 'Counseling completed' : 'Counseling scheduled',
+                        color:
+                            c.status === COUNSELING_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
+                                : c.status === COUNSELING_STATUS.REFERRED ? 'from-purple-400 to-violet-500'
+                                    : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'from-indigo-400 to-blue-500'
+                                        : c.status === COUNSELING_STATUS.REJECTED ? 'from-rose-400 to-red-500'
+                                            : 'from-blue-400 to-cyan-500',
+                        title:
+                            c.status === COUNSELING_STATUS.COMPLETED ? 'Counseling completed'
+                                : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
+                                    : c.status === COUNSELING_STATUS.SCHEDULED ? 'Department counseling scheduled'
+                                        : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
+                                            : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
+                                                : isCounselingAwaitingDept(c.status) ? 'Counseling request submitted'
+                                                    : 'Counseling updated',
                         detail: c.student_name,
                         date: new Date(c.created_at)
                     })),
@@ -159,8 +179,22 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         id: `sup-${s.id}`,
                         type: 'Support',
                         icon: <CheckCircle size={16} />,
-                        color: s.status === 'Completed' ? 'from-green-400 to-emerald-500' : s.status === 'Forwarded to Dept' ? 'from-orange-400 to-amber-500' : 'from-amber-400 to-yellow-500',
-                        title: s.status === 'Completed' ? 'Support resolved' : s.status === 'Forwarded to Dept' ? 'Support forwarded' : 'Support request received',
+                        color:
+                            s.status === SUPPORT_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
+                                : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'from-orange-400 to-amber-500'
+                                    : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'from-blue-400 to-cyan-500'
+                                        : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'from-emerald-400 to-teal-500'
+                                            : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'from-orange-400 to-yellow-500'
+                                                : s.status === SUPPORT_STATUS.REJECTED ? 'from-rose-400 to-red-500'
+                                                    : 'from-amber-400 to-yellow-500',
+                        title:
+                            s.status === SUPPORT_STATUS.COMPLETED ? 'Support resolved'
+                                : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'Support forwarded to department'
+                                    : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'Department visit scheduled'
+                                        : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'Department resolved support request'
+                                            : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'Support referred back to CARE Staff'
+                                                : s.status === SUPPORT_STATUS.REJECTED ? 'Support request rejected'
+                                                    : 'Support request received',
                         detail: s.student_name,
                         date: new Date(s.created_at)
                     })),
@@ -233,9 +267,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
             {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children">
                 {[
-                    { label: 'Active Students', value: counts.students, icon: <GraduationCap size={20} />, gradient: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50' },
+                { label: 'Active Students', value: counts.students, icon: <GraduationCap size={20} />, gradient: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50' },
                     { label: 'Counselings (Active)', value: counts.counseling, icon: <Users size={20} />, gradient: 'from-blue-400 to-indigo-500', bg: 'bg-blue-50' },
-                    { label: 'Support Reqs (Pending)', value: counts.support, icon: <CheckCircle size={20} />, gradient: 'from-amber-400 to-orange-500', bg: 'bg-amber-50' },
+                    { label: 'Support Cases (Active)', value: counts.support, icon: <CheckCircle size={20} />, gradient: 'from-amber-400 to-orange-500', bg: 'bg-amber-50' },
                     { label: 'Total Events', value: counts.events, icon: <Calendar size={20} />, gradient: 'from-purple-400 to-violet-500', bg: 'bg-purple-50' },
                 ].map((card, idx) => (
                     <div key={idx} className="card-hover bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-gray-100/80 flex flex-col justify-between h-32 animate-fade-in-up">

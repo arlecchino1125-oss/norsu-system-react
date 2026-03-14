@@ -267,7 +267,7 @@ function ProfileViewContent(p: any) {
                         {isEditing && (
                             <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
                                 <button onClick={() => setIsEditing(false)} className="w-full rounded-xl border border-purple-100/50 bg-white/80 px-6 py-3 text-sm font-bold transition-all hover:bg-gray-50 sm:w-auto sm:py-2.5">Cancel</button>
-                                <button onClick={() => { setPersonalInfo(draftPersonalInfo); saveProfileChanges(); }} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl btn-press sm:w-auto sm:py-2.5">Save Changes</button>
+                                <button onClick={() => { setPersonalInfo(draftPersonalInfo); saveProfileChanges(draftPersonalInfo); }} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl btn-press sm:w-auto sm:py-2.5">Save Changes</button>
                             </div>
                         )}
                     </div>
