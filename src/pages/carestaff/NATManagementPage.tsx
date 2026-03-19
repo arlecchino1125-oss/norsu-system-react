@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
-import { ArrowRightLeft, CheckCircle2, Download, FileText, Plus, Trash2, Upload, XCircle } from 'lucide-react';
+import { ArrowRightLeft, CheckCircle2, Download, FileText, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { savePdf } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, formatTime, generateExportFilename } from '../../utils/formatters';
@@ -85,6 +85,7 @@ const NATManagementPage = ({ showToast }: any) => {
     const [courseLimits, setCourseLimits] = useState<any[]>([]);
     const [supportsAttendance, setSupportsAttendance] = useState(true);
     const [loading, setLoading] = useState(true);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [testTakersCourseFilter, setTestTakersCourseFilter] = useState('All');
     const [completedFilter, setCompletedFilter] = useState('All');
@@ -109,7 +110,6 @@ const NATManagementPage = ({ showToast }: any) => {
         venue: '',
         timeSlots: [{ start: '08:00', end: '09:00', slots: '' }]
     });
-    const fetchDataRef = useRef<() => Promise<void>>(async () => { });
     const bulkPassInputRef = useRef<HTMLInputElement | null>(null);
 
     const normalizeTimeSlots = (rawSlots: any[] = []) => {
@@ -223,37 +223,18 @@ const NATManagementPage = ({ showToast }: any) => {
     };
 
     useEffect(() => {
-        fetchDataRef.current = fetchData;
-    });
-
-    useEffect(() => {
         void fetchData();
     }, [searchTerm, completedFilter, applicationsPage, completedPage, testTakersPage, testTakersCourseFilter]);
 
-    useEffect(() => {
-        const refreshData = () => {
-            void fetchDataRef.current();
-        };
-
-        const sub1 = supabase
-            .channel('nat_apps')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, refreshData)
-            .subscribe();
-        const sub2 = supabase
-            .channel('nat_scheds')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'admission_schedules' }, refreshData)
-            .subscribe();
-        const sub3 = supabase
-            .channel('nat_courses')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, refreshData)
-            .subscribe();
-
-        return () => {
-            void supabase.removeChannel(sub1);
-            void supabase.removeChannel(sub2);
-            void supabase.removeChannel(sub3);
-        };
-    }, []);
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await fetchData();
+            showToast('NAT data refreshed.', 'success');
+        } finally {
+            setIsRefreshingData(false);
+        }
+    };
 
     const updateStatus = async (id, newStatus) => {
         console.log(`[DEBUG] Attempting to update status for ID: ${id} to ${newStatus}`);
@@ -778,9 +759,19 @@ const NATManagementPage = ({ showToast }: any) => {
 
     return (
         <div className="space-y-6">
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">NAT Management</h1>
-                <p className="text-gray-500 text-sm">Manage NAT applications and course quotas.</p>
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">NAT Management</h1>
+                    <p className="text-gray-500 text-sm">Manage NAT applications and course quotas.</p>
+                </div>
+                <button
+                    onClick={handleRefreshData}
+                    disabled={isRefreshingData}
+                    className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600 disabled:opacity-50"
+                >
+                    <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
+                    <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                </button>
             </div>
 
             <input

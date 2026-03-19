@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
     FileText, CheckCircle, Send, AlertTriangle,
-    Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip
+    Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip, RefreshCw
 } from 'lucide-react';
 import StatusBadge from '../../components/StatusBadge';
 import { jsPDF } from 'jspdf';
 import { formatDate, generateExportFilename } from '../../utils/formatters';
 import { buildStudentAddress } from '../../utils/studentFields';
+import {
+    getStoredAssetEntries,
+    openStoredAsset
+} from '../../utils/storageAssets';
 import type { CareStaffDashboardFunctions } from './types';
 import {
     SUPPORT_STATUS,
@@ -20,11 +24,19 @@ interface SupportRequestsPageProps {
 
 const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const { showToast } = functions || {};
+    const sortSupportByCreatedAt = (rows: any[]) =>
+        [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+    const upsertSupportRequest = (rows: any[], nextRow: any) => {
+        const normalized = rows.filter((row: any) => row.id !== nextRow.id);
+        return sortSupportByCreatedAt([nextRow, ...normalized]);
+    };
 
     // Data State
     const [supportReqs, setSupportReqs] = useState<any[]>([]);
     const [supportTab, setSupportTab] = useState<string>(SUPPORT_STATUS.SUBMITTED);
     const [supportCategory, setSupportCategory] = useState<string>('All');
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
 
     // Modal State
     const [showSupportModal, setShowSupportModal] = useState<boolean>(false);
@@ -64,7 +76,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         try {
             const { data, error } = await supabase.from('support_requests').select('*').order('created_at', { ascending: false });
             if (error) throw error;
-            setSupportReqs(data || []);
+            setSupportReqs(sortSupportByCreatedAt(data || []));
         } catch (error: any) {
             console.error('Error fetching support requests:', error);
             showToast?.('Failed to load support requests', 'error');
@@ -76,7 +88,12 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
 
         const channel = supabase.channel('care_support_isolated')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests' }, (payload: any) => {
-                fetchSupport();
+                if (payload.eventType === 'DELETE') {
+                    setSupportReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
+                } else if (payload.new) {
+                    setSupportReqs((prev) => upsertSupportRequest(prev, payload.new));
+                }
+
                 if (payload.eventType === 'INSERT') {
                     showToast?.(`New Support Request Received`, 'info');
                 } else if (payload.eventType === 'UPDATE') {
@@ -87,6 +104,16 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
 
         return () => { supabase.removeChannel(channel); };
     }, []);
+
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await fetchSupport();
+            showToast?.('Support requests refreshed.', 'success');
+        } finally {
+            setIsRefreshingData(false);
+        }
+    };
 
     // Handlers
     const openSupportModal = async (req: any) => {
@@ -104,17 +131,16 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const handleForwardSupport = async () => {
         if (!supportForm.care_notes) { showToast?.("Please add notes for Dept Head.", 'error'); return; }
         try {
-            let letterUrl = null;
+            let letterPath = null;
             if (letterFile) {
                 const fileExt = letterFile.name.split('.').pop();
                 const fileName = `endorsement_${selectedSupportReq.student_id}_${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage.from('support_documents').upload(fileName, letterFile);
                 if (uploadError) throw uploadError;
-                const { data: publicUrlData } = supabase.storage.from('support_documents').getPublicUrl(fileName);
-                letterUrl = publicUrlData.publicUrl;
+                letterPath = fileName;
             }
-            const careNotesValue = letterUrl
-                ? JSON.stringify({ notes: supportForm.care_notes, letter_url: letterUrl })
+            const careNotesValue = letterPath
+                ? JSON.stringify({ notes: supportForm.care_notes, letter_path: letterPath })
                 : supportForm.care_notes;
             await supabase.from('support_requests').update({ status: SUPPORT_STATUS.FORWARDED_TO_DEPT, care_notes: careNotesValue }).eq('id', selectedSupportReq.id);
             showToast?.("Request forwarded to Dean.", 'success');
@@ -415,12 +441,22 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     return (
         <>
             <div>
-                <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-1">
-                        <ClipboardList size={24} className="text-purple-600" />
-                        <h1 className="text-2xl font-bold text-gray-900">Additional Support Management</h1>
+                <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            <ClipboardList size={24} className="text-purple-600" />
+                            <h1 className="text-2xl font-bold text-gray-900">Additional Support Management</h1>
+                        </div>
+                        <p className="text-gray-500 text-sm">Manage and respond to student support requests across all categories</p>
                     </div>
-                    <p className="text-gray-500 text-sm">Manage and respond to student support requests across all categories</p>
+                    <button
+                        onClick={handleRefreshData}
+                        disabled={isRefreshingData}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600 disabled:opacity-50"
+                    >
+                        <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
+                        <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                    </button>
                 </div>
 
                 {/* Stats Row */}
@@ -537,19 +573,26 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                 </div>
                                 {renderDetailedDescription(selectedSupportReq.description)}
                                 {selectedSupportReq.documents_url && (() => {
-                                    let urls: string[] = [];
-                                    try {
-                                        const parsed = JSON.parse(selectedSupportReq.documents_url);
-                                        urls = Array.isArray(parsed) ? parsed : [selectedSupportReq.documents_url];
-                                    } catch { urls = [selectedSupportReq.documents_url]; }
+                                    const urls = getStoredAssetEntries(selectedSupportReq.documents_url);
                                     return urls.length > 0 ? (
                                         <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-2">
                                             <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1"><Paperclip size={12} /> Supporting Documents ({urls.length})</p>
                                             {urls.map((url: string, idx: number) => (
-                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline font-medium py-1">
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        try {
+                                                            await openStoredAsset('support_documents', url);
+                                                        } catch (error: any) {
+                                                            showToast?.(error.message || 'Unable to open the selected document.', 'error');
+                                                        }
+                                                    }}
+                                                    className="flex w-full items-center gap-2 py-1 text-left text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                                                >
                                                     <Download size={14} className="flex-shrink-0" />
                                                     <span className="truncate">Document {idx + 1} — {decodeURIComponent(url.split('/').pop() || 'file')}</span>
-                                                </a>
+                                                </button>
                                             ))}
                                         </div>
                                     ) : null;

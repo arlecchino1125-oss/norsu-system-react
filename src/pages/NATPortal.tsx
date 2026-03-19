@@ -19,7 +19,7 @@ const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false,
             <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-blue-400/30 rounded-full mix-blend-multiply filter blur-[80px] opacity-50 animate-blob"></div>
             <div className="absolute top-[20%] right-[-10%] w-[35rem] h-[35rem] bg-cyan-400/30 rounded-full mix-blend-multiply filter blur-[80px] opacity-50 animate-blob animation-delay-2000"></div>
             <div className="absolute bottom-[-10%] left-[20%] w-[45rem] h-[45rem] bg-indigo-400/30 rounded-full mix-blend-multiply filter blur-[80px] opacity-50 animate-blob animation-delay-4000"></div>
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E')] opacity-20 brightness-100 contrast-150"></div>
         </div>
 
         {/* Content */}
@@ -131,7 +131,7 @@ const NATPortal = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
-    const [pendingActivationConfirmation, setPendingActivationConfirmation] = useState<any>(null);
+    const [enrollConfirm, setEnrollConfirm] = useState<{ visible: boolean; studentId: string; course: string; resolve: ((v: boolean) => void) | null }>({ visible: false, studentId: '', course: '', resolve: null });
 
     // Auth & User State
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -595,324 +595,49 @@ const NATPortal = () => {
         const course = e.target.course.value.trim();
 
         try {
-            // 1. Check if ID exists and is unused
-            let { data: keyData, error: keyError } = await supabase
-                .from('enrolled_students')
-                .select('*')
-                .eq('student_id', studentId)
-                .maybeSingle();
-
-            // FALLBACK: If key not found, check if student exists in main table (Manual Entry case)
-            if (!keyData) {
-                const { data: studentData } = await supabase
-                    .from('students')
-                    .select('student_id, course')
-                    .eq('student_id', studentId)
-                    .maybeSingle();
-
-                if (studentData) {
-                    // Check if already claimed
-                    const { data: existingApp } = await supabase.from('applications').select('id').eq('student_id', studentId).maybeSingle();
-                    if (existingApp) throw new Error("This Student ID is already linked to another account.");
-
-                    if (studentData.course && studentData.course.toLowerCase() !== course.toLowerCase()) {
-                        throw new Error(`Course mismatch. The ID ${studentId} is enrolled in ${studentData.course}.`);
-                    }
-
-                    // Generate key
-                    const { data: newKey } = await supabase.from('enrolled_students').insert([{ student_id: studentId, course: course, is_used: false }]).select().single();
-                    keyData = newKey;
-                } else if (currentUser.status === 'Approved for Enrollment') {
-                    setPendingActivationConfirmation({ studentId, course });
-                    return;
-                    // No enrollment key found — ask user to confirm their details before auto-creating
-                    const confirmed = window.confirm(
-                        `⚠️ No enrollment record found for Student ID "${studentId}".\n\n` +
-                        `This may happen if the enrollment key has not been uploaded yet by the staff.\n\n` +
-                        `Please confirm your details are correct:\n` +
-                        `• Student ID: ${studentId}\n` +
-                        `• Course: ${course}\n\n` +
-                        `Since your application is approved for enrollment, we can proceed with activation using these details.\n\n` +
-                        `Are you sure these are correct?`
-                    );
-                    if (!confirmed) {
-                        setLoading(false);
-                        return;
-                    }
-                    const { data: newKey, error: createError } = await supabase.from('enrolled_students').insert([{ student_id: studentId, course: course, is_used: false }]).select().single();
-                    if (createError) throw new Error("Failed to create enrollment record: " + createError.message);
-                    keyData = newKey;
+            const { data, error } = await supabase.functions.invoke('activate-student-account', {
+                body: {
+                    mode: 'nat-application-activation',
+                    applicationId: currentUser.id,
+                    studentId,
+                    course
                 }
+            });
+
+            if (error) {
+                throw new Error(error.message || 'Activation failed.');
             }
 
-            if (keyError) throw new Error("Verification Error: " + keyError.message);
-            if (!keyData) throw new Error("Invalid Student ID. Please ensure the ID is correct.");
-
-            // Verify Course Match for keys
-            if (keyData.course && keyData.course.toLowerCase() !== course.toLowerCase()) {
-                throw new Error(`Invalid Course. This ID is registered for ${keyData.course}.`);
+            if (!data?.success) {
+                throw new Error(data?.error || 'Activation failed.');
             }
-
-            if (keyData.is_used) {
-                if (keyData.assigned_to_email === currentUser.email) {
-                    console.log("ID ownership verified. Syncing profile...");
-                } else {
-                    throw new Error("This Student ID has already been activated by another user.");
-                }
-            } else {
-                // 2. Mark key as used
-                const { error: updateKeyError } = await supabase
-                    .from('enrolled_students')
-                    .update({ is_used: true, status: 'Activated', assigned_to_email: currentUser.email })
-                    .eq('student_id', studentId);
-                if (updateKeyError) throw updateKeyError;
-            }
-
-            // 3. Prepare Student Profile Data
-            let matchedDepartment = 'Unassigned';
-            if (course) {
-                const { data: courseData } = await supabase
-                    .from('courses')
-                    .select('name, departments(name)')
-                    .eq('name', course)
-                    .maybeSingle();
-
-                if (courseData && courseData.departments && (courseData.departments as any).name) {
-                    matchedDepartment = (courseData.departments as any).name;
-                }
-            }
-
-            const profileData = {
-                password: currentUser.password,
-                first_name: currentUser.first_name,
-                last_name: currentUser.last_name,
-                middle_name: currentUser.middle_name,
-                suffix: currentUser.suffix,
-                dob: currentUser.dob,
-                age: currentUser.age,
-                place_of_birth: currentUser.place_of_birth,
-                sex: currentUser.sex,
-                gender_identity: currentUser.gender_identity,
-                civil_status: currentUser.civil_status,
-                nationality: currentUser.nationality,
-                email: currentUser.email,
-                mobile: currentUser.mobile,
-                facebook_url: currentUser.facebook_url,
-                street: currentUser.street,
-                city: currentUser.city,
-                province: currentUser.province,
-                zip_code: currentUser.zip_code,
-                emergency_contact: currentUser.supporter_contact || '',
-                address: `${currentUser.street}, ${currentUser.city}, ${currentUser.province}`,
-                gender: currentUser.sex,
-                course: course,
-                year_level: '1st Year',
-                status: 'Active',
-                department: matchedDepartment,
-                school_last_attended: currentUser.school_last_attended,
-                is_working_student: currentUser.is_working_student,
-                working_student_type: currentUser.working_student_type,
-                supporter: currentUser.supporter,
-                supporter_contact: currentUser.supporter_contact,
-                is_pwd: currentUser.is_pwd,
-                pwd_type: currentUser.pwd_type,
-                is_indigenous: currentUser.is_indigenous,
-                indigenous_group: currentUser.indigenous_group,
-                witnessed_conflict: currentUser.witnessed_conflict,
-                is_solo_parent: currentUser.is_solo_parent,
-                is_child_of_solo_parent: currentUser.is_child_of_solo_parent,
-                priority_course: currentUser.priority_course,
-                alt_course_1: currentUser.alt_course_1,
-                alt_course_2: currentUser.alt_course_2
-            };
-
-            // 4. Upsert student
-            const { data: existingStudent } = await supabase
-                .from('students')
-                .select('id, profile_completed, has_seen_tour')
-                .eq('student_id', studentId)
-                .maybeSingle();
-
-            if (existingStudent) {
-                const studentUpdatePayload = {
-                    ...profileData,
-                    ...(existingStudent.profile_completed ? { profile_completed: true } : {}),
-                    ...(existingStudent.has_seen_tour ? { has_seen_tour: true } : {})
-                };
-                const { error: updateError } = await supabase.from('students').update(studentUpdatePayload).eq('student_id', studentId);
-                if (updateError) throw updateError;
-            } else {
-                const { error: insertError } = await supabase.from('students').insert([{
-                    ...profileData,
-                    student_id: studentId,
-                    profile_completed: false,
-                    has_seen_tour: false
-                }]);
-                if (insertError) throw insertError;
-            }
-
-            // 5. Delete application
-            await supabase.from('applications').delete().eq('id', currentUser.id);
-
-            // Send Activation Email
-            try {
-                await supabase.functions.invoke('send-email', {
-                    body: {
-                        type: 'STUDENT_ACTIVATION',
-                        email: currentUser.email,
-                        name: `${currentUser.first_name} ${currentUser.last_name}`,
-                        studentId: studentId,
-                        password: currentUser.password
-                    }
-                });
-            } catch (emailErr: any) {
-                console.error("Activation email failed:", emailErr);
-            }
-
-            showToast("Account Activated Successfully! A confirmation email has been sent. Your application details have been transferred to your Student Profile.");
-            setShowActivationModal(false);
-            setCurrentUser(null);
-            navigate('/student/login');
-        } catch (error: any) {
-            showToast("Activation Failed: " + error.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-
-    const confirmActivationWithoutPreloadedSetup = async () => {
-        if (!pendingActivationConfirmation) return;
-        setLoading(true);
-
-        const { studentId, course } = pendingActivationConfirmation;
-
-        try {
-            const { data: newKey, error: createError } = await supabase
-                .from('enrolled_students')
-                .insert([{ student_id: studentId, course, is_used: false }])
-                .select()
-                .single();
-
-            if (createError) {
-                throw new Error("We couldn't continue account setup right now. Please try again or contact the office.");
-            }
-
-            const { error: updateKeyError } = await supabase
-                .from('enrolled_students')
-                .update({ is_used: true, status: 'Activated', assigned_to_email: currentUser.email })
-                .eq('student_id', studentId);
-            if (updateKeyError) throw updateKeyError;
-
-            let matchedDepartment = 'Unassigned';
-            if (course) {
-                const { data: courseData } = await supabase
-                    .from('courses')
-                    .select('name, departments(name)')
-                    .eq('name', course)
-                    .maybeSingle();
-
-                if (courseData && courseData.departments && (courseData.departments as any).name) {
-                    matchedDepartment = (courseData.departments as any).name;
-                }
-            }
-
-            const profileData = {
-                password: currentUser.password,
-                first_name: currentUser.first_name,
-                last_name: currentUser.last_name,
-                middle_name: currentUser.middle_name,
-                suffix: currentUser.suffix,
-                dob: currentUser.dob,
-                age: currentUser.age,
-                place_of_birth: currentUser.place_of_birth,
-                sex: currentUser.sex,
-                gender_identity: currentUser.gender_identity,
-                civil_status: currentUser.civil_status,
-                nationality: currentUser.nationality,
-                email: currentUser.email,
-                mobile: currentUser.mobile,
-                facebook_url: currentUser.facebook_url,
-                street: currentUser.street,
-                city: currentUser.city,
-                province: currentUser.province,
-                zip_code: currentUser.zip_code,
-                emergency_contact: currentUser.supporter_contact || '',
-                address: `${currentUser.street}, ${currentUser.city}, ${currentUser.province}`,
-                gender: currentUser.sex,
-                course,
-                year_level: '1st Year',
-                status: 'Active',
-                department: matchedDepartment,
-                school_last_attended: currentUser.school_last_attended,
-                is_working_student: currentUser.is_working_student,
-                working_student_type: currentUser.working_student_type,
-                supporter: currentUser.supporter,
-                supporter_contact: currentUser.supporter_contact,
-                is_pwd: currentUser.is_pwd,
-                pwd_type: currentUser.pwd_type,
-                is_indigenous: currentUser.is_indigenous,
-                indigenous_group: currentUser.indigenous_group,
-                witnessed_conflict: currentUser.witnessed_conflict,
-                is_solo_parent: currentUser.is_solo_parent,
-                is_child_of_solo_parent: currentUser.is_child_of_solo_parent,
-                priority_course: currentUser.priority_course,
-                alt_course_1: currentUser.alt_course_1,
-                alt_course_2: currentUser.alt_course_2
-            };
-
-            const { data: existingStudent } = await supabase
-                .from('students')
-                .select('id, profile_completed, has_seen_tour')
-                .eq('student_id', studentId)
-                .maybeSingle();
-
-            if (existingStudent) {
-                const studentUpdatePayload = {
-                    ...profileData,
-                    ...(existingStudent.profile_completed ? { profile_completed: true } : {}),
-                    ...(existingStudent.has_seen_tour ? { has_seen_tour: true } : {})
-                };
-                const { error: updateError } = await supabase.from('students').update(studentUpdatePayload).eq('student_id', studentId);
-                if (updateError) throw updateError;
-            } else {
-                const { error: insertError } = await supabase.from('students').insert([{
-                    ...profileData,
-                    student_id: studentId,
-                    profile_completed: false,
-                    has_seen_tour: false
-                }]);
-                if (insertError) throw insertError;
-            }
-
-            await supabase.from('applications').delete().eq('id', currentUser.id);
 
             try {
                 await supabase.functions.invoke('send-email', {
                     body: {
                         type: 'STUDENT_ACTIVATION',
                         email: currentUser.email,
-                        name: `${currentUser.first_name} ${currentUser.last_name}`,
+                        name: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
                         studentId,
-                        password: currentUser.password
+                        password: data.password
                     }
                 });
             } catch (emailErr: any) {
-                console.error("Activation email failed:", emailErr);
+                console.error('Activation email failed:', emailErr);
             }
 
-            setPendingActivationConfirmation(null);
-            showToast("Account Activated Successfully! A confirmation email has been sent. Your application details have been transferred to your Student Profile.");
+            showToast('Account Activated Successfully! A confirmation email has been sent. Your application details have been transferred to your Student Profile.');
             setShowActivationModal(false);
             setCurrentUser(null);
             navigate('/student/login');
         } catch (error: any) {
-            showToast("Activation Failed: " + error.message, 'error');
+            showToast('Activation Failed: ' + error.message, 'error');
         } finally {
             setLoading(false);
         }
     };
+
+
 
     // Render Views
     // Page transition variants
@@ -1016,7 +741,7 @@ const NATPortal = () => {
                     </motion.div>
                 </motion.div>
 
-                <p className="text-center text-slate-400/80 text-sm mt-8 font-semibold tracking-wide">© {new Date().getFullYear()} NORSU Admission Office. All rights reserved.</p>
+                <p className="text-center text-slate-400/80 text-sm mt-8 font-semibold tracking-wide">Copyright {new Date().getFullYear()} NORSU Admission Office. All rights reserved.</p>
             </div>
         </NATLayout>
     );
@@ -1168,7 +893,7 @@ const NATPortal = () => {
                                     type="password"
                                     required
                                     className="nat-auth-input w-full pl-12 pr-4 py-4 bg-white/60 border-2 border-slate-200/50 rounded-2xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white outline-none transition-all placeholder:text-slate-400 font-bold font-mono text-slate-800 shadow-sm tracking-wide"
-                                    placeholder="••••••••"
+                                    placeholder="Enter password"
                                 />
                             </div>
                         </div>
@@ -1186,7 +911,7 @@ const NATPortal = () => {
 
                 {toast && (
                     <div className={`fixed top-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[100] backdrop-blur-md ${toast.type === 'error' ? 'bg-red-500/90' : 'bg-green-500/90'}`}>
-                        <div className="bg-white/20 p-2 rounded-full">{toast.type === 'error' ? '⚠️' : '✅'}</div>
+                        <div className="bg-white/20 p-2 rounded-full">{toast.type === 'error' ? '!' : 'OK'}</div>
                         <div>
                             <h4 className="font-bold text-sm">{toast.type === 'error' ? 'Login Failed' : 'Success'}</h4>
                             <p className="text-xs opacity-90 font-medium">{toast.msg}</p>
@@ -1282,7 +1007,7 @@ const NATPortal = () => {
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
                             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden border border-white/20">
                                 <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 text-center relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                                    <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E')] opacity-20"></div>
                                     <div className="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center backdrop-blur-md shadow-inner">
                                         <Clock className="w-10 h-10 text-white" />
                                     </div>
@@ -1314,7 +1039,7 @@ const NATPortal = () => {
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
                             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden border border-white/20">
                                 <div className="bg-gradient-to-br from-red-500 to-rose-600 p-8 text-center relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                                    <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E')] opacity-20"></div>
                                     <div className="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center backdrop-blur-md shadow-inner">
                                         <LogOut className="w-10 h-10 text-white" />
                                     </div>
@@ -1334,95 +1059,80 @@ const NATPortal = () => {
                         </div>
                     )}
 
-                    {pendingActivationConfirmation && (
-                        <div className="fixed inset-0 z-[210] overflow-y-auto p-4 animate-in fade-in duration-200">
-                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !loading && setPendingActivationConfirmation(null)}></div>
-                            <div className="relative z-10 flex min-h-full items-start justify-center py-4 sm:items-center">
-                                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] border border-white/20 overflow-hidden flex flex-col">
-                                    <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-8 text-center relative overflow-hidden shrink-0">
-                                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-                                        <div className="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center backdrop-blur-md shadow-inner relative z-10">
-                                            <Info className="w-10 h-10 text-white" />
+                    {/* Activation Modal */}
+                    {showActivationModal && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in zoom-in duration-200">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-white/20 relative">
+                                <div className="sticky top-0 z-10 bg-white rounded-t-2xl">
+                                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-2xl"></div>
+                                    <div className="flex justify-between items-start p-6 pb-4 pt-8">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900">Activate Student Account</h3>
+                                            <p className="text-sm text-gray-500 mt-1">Enter your details to sync with Student Portal</p>
                                         </div>
-                                        <h3 className="text-2xl font-bold text-white mb-2 relative z-10">Confirm Your Details</h3>
-                                        <p className="text-orange-50 text-sm relative z-10">Review your information before we continue your student account setup.</p>
-                                    </div>
-
-                                    <div className="p-6 md:p-8 space-y-6 overflow-y-auto overscroll-contain">
-                                        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-sm text-slate-700 leading-relaxed">
-                                            We could not find a preloaded setup for this Student ID yet. This can happen if your enrollment details have not been added by the office yet.
-                                        </div>
-
-                                        <div className="grid gap-4 md:grid-cols-2">
-                                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Student ID</p>
-                                                <p className="text-lg font-mono font-black text-slate-900">{pendingActivationConfirmation.studentId}</p>
-                                            </div>
-                                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Course</p>
-                                                <p className="text-sm font-bold text-slate-900 leading-relaxed">{pendingActivationConfirmation.course}</p>
-                                            </div>
-                                        </div>
-
-                                        <p className="text-sm text-slate-600 leading-relaxed">
-                                            Your application is already approved for enrollment. If these details are correct, we can continue setting up your student account now.
-                                        </p>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <button
-                                                type="button"
-                                                disabled={loading}
-                                                onClick={() => setPendingActivationConfirmation(null)}
-                                                className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-60"
-                                            >
-                                                Go Back
-                                            </button>
-                                            <button
-                                                type="button"
-                                                disabled={loading}
-                                                onClick={confirmActivationWithoutPreloadedSetup}
-                                                className="py-3 rounded-xl font-bold text-white bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-200 hover:-translate-y-1 transition-all disabled:opacity-60"
-                                            >
-                                                {loading ? 'Continuing...' : 'Continue'}
-                                            </button>
-                                        </div>
+                                        <button onClick={() => setShowActivationModal(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
                                     </div>
                                 </div>
+
+                                <form onSubmit={handleActivation} className="space-y-4 p-6 pt-2">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700 uppercase">Student ID</label>
+                                        <input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="Ex: 202612345" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-700 uppercase">Enrolled Course</label>
+                                        <select required name="course" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                            <option value="">Select Course</option>
+                                            {availableCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <button disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:-translate-y-1">
+                                        {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Activate Account'}
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     )}
 
-                    {/* Activation Modal */}
-                    {showActivationModal && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] overflow-y-auto p-4 animate-in fade-in zoom-in duration-200">
-                            <div className="flex min-h-full items-start justify-center py-4 sm:items-center">
-                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] border border-white/20 relative overflow-hidden flex flex-col">
-                                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-                                    <div className="overflow-y-auto p-6 sm:p-8">
-                                        <div className="flex justify-between items-start mb-6 gap-4">
-                                            <div>
-                                                <h3 className="text-xl font-bold text-gray-900">Activate Student Account</h3>
-                                                <p className="text-sm text-gray-500 mt-1">Enter your details to sync with Student Portal</p>
-                                            </div>
-                                            <button onClick={() => setShowActivationModal(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors shrink-0"><X className="w-5 h-5 text-gray-500" /></button>
+                    {/* Enrollment Confirmation Modal (replaces window.confirm) */}
+                    {enrollConfirm.visible && (
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[300] p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto border border-white/20 relative">
+                                <div className="bg-gradient-to-br from-amber-500 to-orange-500 p-6 text-center rounded-t-2xl">
+                                    <div className="bg-white/20 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center backdrop-blur-md">
+                                        <Info className="w-8 h-8 text-white" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white">Enrollment Record Still Pending</h3>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                        We could not find your enrollment record yet. This usually means your enrollment details are still being processed.
+                                    </p>
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
+                                        <p className="text-xs font-bold text-gray-500 uppercase">Please review these details:</p>
+                                        <div className="flex items-center gap-2 text-sm text-gray-800">
+                                            <span className="font-bold">Student ID:</span>
+                                            <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{enrollConfirm.studentId}</span>
                                         </div>
-
-                                        <form onSubmit={handleActivation} className="space-y-4">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-gray-700 uppercase">Student ID</label>
-                                                <input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="Ex: 202612345" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-bold text-gray-700 uppercase">Enrolled Course</label>
-                                                <select required name="course" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                                                    <option value="">Select Course</option>
-                                                    {availableCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <button disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:-translate-y-1">
-                                                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Activate Account'}
-                                            </button>
-                                        </form>
+                                        <div className="flex items-center gap-2 text-sm text-gray-800">
+                                            <span className="font-bold">Course:</span>
+                                            <span className="bg-white px-2 py-0.5 rounded border border-gray-200">{enrollConfirm.course}</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-500 leading-relaxed">
+                                        Since your application is already approved for enrollment, you may continue activation using the information shown below.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { enrollConfirm.resolve?.(false); setEnrollConfirm({ visible: false, studentId: '', course: '', resolve: null }); }}
+                                            className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors border border-gray-200"
+                                        >Cancel</button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { enrollConfirm.resolve?.(true); setEnrollConfirm({ visible: false, studentId: '', course: '', resolve: null }); }}
+                                            className="py-3 rounded-xl font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-200 hover:-translate-y-1 transition-all"
+                                        >Continue Activation</button>
                                     </div>
                                 </div>
                             </div>
@@ -1437,7 +1147,7 @@ const NATPortal = () => {
                                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-3 md:gap-4 mb-5 md:mb-6">
                                     <div>
                                         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Hello, {currentUser.first_name}!</h2>
-                                        <p className="text-gray-500 text-xs md:text-sm">App ID: <span className="font-mono text-gray-700">{currentUser.reference_id}</span></p>
+                                        <p className="text-gray-500 text-xs md:text-sm">Reference ID: <span className="font-mono text-gray-700">{currentUser.reference_id}</span></p>
                                     </div>
                                     <span className="px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-[10px] md:text-xs font-bold border border-green-200 w-fit">
                                         Status: {currentUser.status || 'Applied'}
@@ -1616,7 +1326,7 @@ const NATPortal = () => {
 
                 {toast && (
                     <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[200] ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
-                        <div className="text-xl">{toast.type === 'error' ? '⚠️' : '✅'}</div>
+                        <div className="text-xl">{toast.type === 'error' ? '!' : 'OK'}</div>
                         <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
                     </div>
                 )}
@@ -1723,7 +1433,7 @@ const NATPortal = () => {
                             </div>
                         </div>
 
-                        {/* Data Privacy Act Disclaimer — separate card */}
+                        {/* Data Privacy Act Disclaimer - separate card */}
                         <div className="nat-section-card nat-sidebar-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-5 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
                             <h4 className="text-[10px] font-black text-slate-800 mb-2 flex items-center gap-1.5 uppercase tracking-widest"><Info className="w-3 h-3 text-blue-500" /> Data Privacy Disclaimer</h4>
@@ -2054,54 +1764,52 @@ const NATPortal = () => {
 
             {/* Success Modal */}
             {showSuccessModal && (
-                <div className="fixed inset-0 z-[100] overflow-y-auto p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }}></div>
-                    <div className="relative z-10 flex min-h-full items-start justify-center py-4 sm:items-center">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            className="nat-success-modal bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-0 max-w-lg w-full max-h-[calc(100dvh-2rem)] relative z-10 shadow-2xl border border-white overflow-hidden flex flex-col"
-                        >
-                            <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 md:p-10 text-center relative overflow-hidden shrink-0">
-                                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
-                                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 blur-2xl rounded-full"></div>
-                                <motion.div
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ delay: 0.2, type: "spring", stiffness: 400, damping: 20 }}
-                                    className="w-24 h-24 bg-white text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl relative z-10"
-                                >
-                                    <Check className="w-12 h-12" />
-                                </motion.div>
-                                <h2 className="text-3xl font-black text-white tracking-tight relative z-10">Application Received!</h2>
-                            </div>
-                            <div className="p-6 md:p-10 text-center overflow-y-auto">
-                                <p className="text-slate-600 font-medium mb-8 text-lg leading-relaxed">
-                                    Your application for the NORSU Admission Test has been successfully submitted. We've sent a confirmation to <span className="font-bold text-slate-900">{formData.email}</span>.
-                                </p>
-                                <div className="bg-slate-50/80 backdrop-blur-sm border border-slate-100 rounded-2xl p-6 mb-8 text-left shadow-inner">
-                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your Reference ID</p>
-                                    <p className="text-2xl font-mono font-black text-slate-800 tracking-tight">{credentials?.referenceId}</p>
-                                    <div className="grid md:grid-cols-3 gap-4 mt-6">
-                                        <div className="border border-purple-200/50 bg-purple-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-purple-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Calendar className="w-4 h-4" /> Test Date</h3><p className="text-lg font-black text-purple-700 relative z-10">{credentials?.testDate}</p></div>
-                                        <div className="border border-blue-200/50 bg-blue-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-blue-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Clock className="w-4 h-4" /> Test Time</h3><p className="text-sm font-bold text-blue-700 leading-tight relative z-10">{credentials?.testTime ? formatTimeWindowLabel(credentials?.testTime) : 'Assigned on test day'}</p></div>
-                                        <div className="border border-indigo-200/50 bg-indigo-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-indigo-900 flex gap-2 items-center text-sm mb-1 relative z-10"><MapPin className="w-4 h-4" /> Venue</h3><p className="text-sm font-bold text-indigo-700 leading-tight relative z-10">NORSU Main Campus, Dumaguete City</p></div>
-                                    </div>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                        className="nat-success-modal bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-0 max-w-lg w-full relative z-10 shadow-2xl border border-white overflow-hidden"
+                    >
+                        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-10 text-center relative overflow-hidden">
+                            <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E')] opacity-20 mix-blend-overlay"></div>
+                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 blur-2xl rounded-full"></div>
+                            <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: 0.2, type: "spring", stiffness: 400, damping: 20 }}
+                                className="w-24 h-24 bg-white text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl relative z-10"
+                            >
+                                <Check className="w-12 h-12" />
+                            </motion.div>
+                            <h2 className="text-3xl font-black text-white tracking-tight relative z-10">Application Received!</h2>
+                        </div>
+                        <div className="p-8 md:p-10 text-center">
+                            <p className="text-slate-600 font-medium mb-8 text-lg leading-relaxed">
+                                Your application for the NORSU Admission Test has been successfully submitted. We've sent a confirmation to <span className="font-bold text-slate-900">{formData.email}</span>.
+                            </p>
+                            <div className="bg-slate-50/80 backdrop-blur-sm border border-slate-100 rounded-2xl p-6 mb-8 text-left shadow-inner">
+                                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Your Reference ID</p>
+                                <p className="text-2xl font-mono font-black text-slate-800 tracking-tight">{credentials?.referenceId}</p>
+                                <div className="grid md:grid-cols-3 gap-4 mt-6">
+                                    <div className="border border-purple-200/50 bg-purple-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-purple-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Calendar className="w-4 h-4" /> Test Date</h3><p className="text-lg font-black text-purple-700 relative z-10">{credentials?.testDate}</p></div>
+                                    <div className="border border-blue-200/50 bg-blue-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-blue-900 flex gap-2 items-center text-sm mb-1 relative z-10"><Clock className="w-4 h-4" /> Test Time</h3><p className="text-sm font-bold text-blue-700 leading-tight relative z-10">{credentials?.testTime ? formatTimeWindowLabel(credentials?.testTime) : 'Assigned on test day'}</p></div>
+                                    <div className="border border-indigo-200/50 bg-indigo-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-indigo-900 flex gap-2 items-center text-sm mb-1 relative z-10"><MapPin className="w-4 h-4" /> Venue</h3><p className="text-sm font-bold text-indigo-700 leading-tight relative z-10">NORSU Main Campus, Dumaguete City</p></div>
                                 </div>
-                                <button onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="nat-primary-action w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-                                    <span className="relative z-10 flex items-center justify-center gap-2">Continue to Status <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
-                                </button>
                             </div>
-                        </motion.div>
-                    </div>
+                            <button onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="nat-primary-action w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
+                                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
+                                <span className="relative z-10 flex items-center justify-center gap-2">Continue to Status <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+                            </button>
+                        </div>
+                    </motion.div>
                 </div>
             )}
 
             {toast && (
                 <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[200] ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
-                    <div className="text-xl">{toast.type === 'error' ? '⚠️' : '✅'}</div>
+                    <div className="text-xl">{toast.type === 'error' ? '!' : 'OK'}</div>
                     <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
                 </div>
             )}

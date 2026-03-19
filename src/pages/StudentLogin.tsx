@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
 import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User, MapPin, Info, Loader2, X, Check, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
-import { joinNameParts } from '../utils/nameUtils';
 
 export default function StudentLogin() {
     const navigate = useNavigate();
@@ -179,157 +178,96 @@ export default function StudentLogin() {
 
         setLoading(true);
         try {
-            const normalize = (value: any) => String(value || '').trim().toLowerCase();
-
-            // 0. Verify Application is Approved for Enrollment
-            // We find the application using the enrollment key (studentId) since it matches their reference/future ID.
-            // Actually, `enrolled_students` is generated manually right now. We must verify if the application that matches their name/details is approved.
-            // Since Student Portal Activation relies on `enrolled_students`, we just check the enrolled_students key. But to be safe, we must enforce approval locally in NAT.
-            // Wait, does StudentLogin have access to their application ID? No, they only type `studentId` given by Care Staff.
-            // We will trust the `enrolled_students` key generation by Care Staff. A Care Staff wouldn't generate a key for an unapproved student.
-            // Let's rely on the Care Staff dashboard to restrict key generation instead.
-
-            // 1. Verify Enrollment Key
-            const { data: keyData, error: keyError } = await supabase
-                .from('enrolled_students')
-                .select('*')
-                .eq('student_id', formData.studentId)
-                .maybeSingle();
-
-            if (keyError) throw new Error("Verification failed. Please check connection.");
-
-            if (!keyData) {
-                throw new Error("Student ID not found in the enrollment list.");
-            }
-            if (!keyData.course || normalize(keyData.course) !== normalize(formData.course)) {
-                throw new Error(`Course mismatch. This ID is enrolled in ${keyData.course}.`);
-            }
-            if (keyData.is_used) {
-                throw new Error("This Student ID has already been activated.");
-            }
-
-            // 2. Generate Credentials
-            const username = formData.studentId;
-            const password = Math.random().toString(36).slice(-8).toUpperCase();
-
-            // 3. Payload
-            // 2. Fetch Course & Department to set proper Department String
-            let matchedDepartment = 'Unassigned';
-            if (formData.course) {
-                const { data: courseData } = await supabase
-                    .from('courses')
-                    .select('name, departments(name)')
-                    .eq('name', formData.course)
-                    .maybeSingle();
-
-                if (courseData && courseData.departments && (courseData.departments as any).name) {
-                    matchedDepartment = (courseData.departments as any).name;
+            const { data, error } = await supabase.functions.invoke('activate-student-account', {
+                body: {
+                    mode: 'student-profile-activation',
+                    studentId: formData.studentId,
+                    course: formData.course,
+                    profile: {
+                        firstName: formData.firstName,
+                        lastName: formData.lastName,
+                        middleName: formData.middleName,
+                        suffix: formData.suffix,
+                        street: formData.street,
+                        city: formData.city,
+                        province: formData.province,
+                        zipCode: formData.zipCode,
+                        mobile: formData.mobile,
+                        email: formData.email,
+                        dob: formData.dob,
+                        age: formData.age,
+                        placeOfBirth: formData.placeOfBirth,
+                        sex: formData.sex,
+                        genderIdentity: formData.genderIdentity,
+                        yearLevelApplying: formData.yearLevelApplying,
+                        section: formData.section,
+                        civilStatus: formData.civilStatus,
+                        facebookUrl: formData.facebookUrl,
+                        religion: formData.religion,
+                        nationality: formData.nationality,
+                        schoolLastAttended: formData.schoolLastAttended,
+                        supporter: formData.supporter,
+                        supporterContact: formData.supporterContact,
+                        isWorkingStudent: formData.isWorkingStudent,
+                        workingStudentType: formData.workingStudentType,
+                        isPwd: formData.isPwd,
+                        pwdType: formData.pwdType,
+                        isIndigenous: formData.isIndigenous,
+                        indigenousGroup: formData.indigenousGroup,
+                        witnessedConflict: formData.witnessedConflict,
+                        isSafeInCommunity: formData.isSafeInCommunity,
+                        isSoloParent: formData.isSoloParent,
+                        isChildOfSoloParent: formData.isChildOfSoloParent,
+                        motherLastName: formData.motherLastName,
+                        motherGivenName: formData.motherGivenName,
+                        motherMiddleName: formData.motherMiddleName,
+                        motherOccupation: formData.motherOccupation,
+                        motherContact: formData.motherContact,
+                        fatherLastName: formData.fatherLastName,
+                        fatherGivenName: formData.fatherGivenName,
+                        fatherMiddleName: formData.fatherMiddleName,
+                        fatherOccupation: formData.fatherOccupation,
+                        fatherContact: formData.fatherContact,
+                        parentAddress: formData.parentAddress,
+                        numBrothers: formData.numBrothers,
+                        numSisters: formData.numSisters,
+                        birthOrder: formData.birthOrder,
+                        spouseName: formData.spouseName,
+                        spouseOccupation: formData.spouseOccupation,
+                        numChildren: formData.numChildren,
+                        guardianName: formData.guardianName,
+                        guardianAddress: formData.guardianAddress,
+                        guardianContact: formData.guardianContact,
+                        guardianRelation: formData.guardianRelation,
+                        emergencyName: formData.emergencyName,
+                        emergencyAddress: formData.emergencyAddress,
+                        emergencyRelationship: formData.emergencyRelationship,
+                        emergencyNumber: formData.emergencyNumber,
+                        elemSchool: formData.elemSchool,
+                        elemYearGraduated: formData.elemYearGraduated,
+                        juniorHighSchool: formData.juniorHighSchool,
+                        juniorHighYearGraduated: formData.juniorHighYearGraduated,
+                        seniorHighSchool: formData.seniorHighSchool,
+                        seniorHighYearGraduated: formData.seniorHighYearGraduated,
+                        collegeSchool: formData.collegeSchool,
+                        collegeYearGraduated: formData.collegeYearGraduated,
+                        honorsAwards: formData.honorsAwards,
+                        extracurricularActivities: formData.extracurricularActivities,
+                        scholarshipsAvailed: formData.scholarshipsAvailed
+                    }
                 }
+            });
+
+            if (error) {
+                throw new Error(error.message || 'Account activation failed.');
             }
 
-            const studentPayload = {
-                student_id: formData.studentId,
-                first_name: formData.firstName,
-                last_name: formData.lastName,
-                middle_name: formData.middleName,
-                suffix: formData.suffix,
-                dob: formData.dob,
-                age: formData.age,
-                place_of_birth: formData.placeOfBirth,
-                password: password,
-                course: formData.course,
-                year_level: formData.yearLevelApplying,
-                section: formData.section,
-                sex: formData.sex,
-                gender_identity: formData.genderIdentity,
-                civil_status: formData.civilStatus,
-                nationality: formData.nationality,
-                religion: formData.religion,
-                email: formData.email,
-                mobile: formData.mobile,
-                facebook_url: formData.facebookUrl,
-                street: formData.street,
-                city: formData.city,
-                province: formData.province,
-                zip_code: formData.zipCode,
-                school_last_attended: formData.schoolLastAttended,
-                is_working_student: formData.isWorkingStudent === 'Yes',
-                working_student_type: formData.workingStudentType,
-                supporter: Array.isArray(formData.supporter) ? formData.supporter.join(', ') : formData.supporter,
-                supporter_contact: formData.supporterContact,
-                is_pwd: formData.isPwd === 'Yes',
-                pwd_type: formData.pwdType,
-                is_indigenous: formData.isIndigenous === 'Yes',
-                indigenous_group: formData.indigenousGroup,
-                witnessed_conflict: formData.witnessedConflict === 'Yes',
-                is_safe_in_community: formData.isSafeInCommunity === 'Yes',
-                is_solo_parent: formData.isSoloParent === 'Yes',
-                is_child_of_solo_parent: formData.isChildOfSoloParent === 'Yes',
-                department: matchedDepartment,
-                status: 'Active',
-                // Family Background
-                mother_name: joinNameParts({
-                    given: formData.motherGivenName,
-                    middle: formData.motherMiddleName,
-                    last: formData.motherLastName
-                }) || null,
-                mother_last_name: formData.motherLastName || null,
-                mother_given_name: formData.motherGivenName || null,
-                mother_middle_name: formData.motherMiddleName || null,
-                mother_occupation: formData.motherOccupation,
-                mother_contact: formData.motherContact,
-                father_name: joinNameParts({
-                    given: formData.fatherGivenName,
-                    middle: formData.fatherMiddleName,
-                    last: formData.fatherLastName
-                }) || null,
-                father_last_name: formData.fatherLastName || null,
-                father_given_name: formData.fatherGivenName || null,
-                father_middle_name: formData.fatherMiddleName || null,
-                father_occupation: formData.fatherOccupation,
-                father_contact: formData.fatherContact,
-                parent_address: formData.parentAddress,
-                num_brothers: formData.numBrothers,
-                num_sisters: formData.numSisters,
-                birth_order: formData.birthOrder,
-                spouse_name: formData.spouseName,
-                spouse_occupation: formData.spouseOccupation,
-                num_children: formData.numChildren,
-                // Guardian
-                guardian_name: formData.guardianName,
-                guardian_address: formData.guardianAddress,
-                guardian_contact: formData.guardianContact,
-                guardian_relation: formData.guardianRelation,
-                // Emergency Contact
-                emergency_name: formData.emergencyName,
-                emergency_address: formData.emergencyAddress,
-                emergency_relationship: formData.emergencyRelationship,
-                emergency_number: formData.emergencyNumber,
-                // Educational Background
-                elem_school: formData.elemSchool,
-                elem_year_graduated: formData.elemYearGraduated,
-                junior_high_school: formData.juniorHighSchool,
-                junior_high_year_graduated: formData.juniorHighYearGraduated,
-                senior_high_school: formData.seniorHighSchool,
-                senior_high_year_graduated: formData.seniorHighYearGraduated,
-                college_school: formData.collegeSchool,
-                college_year_graduated: formData.collegeYearGraduated,
-                honors_awards: formData.honorsAwards,
-                // Extra-Curricular & Scholarships
-                extracurricular_activities: formData.extracurricularActivities,
-                scholarships_availed: formData.scholarshipsAvailed,
-                profile_completed: true,
-            };
-
-            const { error: insertError } = await supabase.from('students').insert([studentPayload]);
-            if (insertError) {
-                if (insertError.code === '23505') throw new Error("Account already exists.");
-                throw insertError;
+            if (!data?.success || !data?.password) {
+                throw new Error(data?.error || 'Account activation failed.');
             }
 
-            await supabase.from('enrolled_students')
-                .update({ is_used: true, assigned_to_email: formData.email })
-                .eq('student_id', formData.studentId);
+            const username = data.studentId || formData.studentId;
+            const password = data.password;
 
             // Mock Email
             try {
@@ -879,8 +817,8 @@ export default function StudentLogin() {
                                         </button>
                                     ) : (
                                         <button
+                                            type="submit"
                                             disabled={loading}
-                                            onClick={handleActivation}
                                             className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-sky-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 hover:shadow-xl disabled:opacity-50 flex items-center gap-2 hover:-translate-y-0.5 transition-all"
                                         >
                                             {loading ? <><Loader2 className="animate-spin" size={18} /> Activating...</> : 'Complete Activation'}

@@ -285,6 +285,8 @@ export function renderDeptModals(props: any) {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input readOnly value={viewFormRecord.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input readOnly value={viewFormRecord.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Student Contact Number</label><input readOnly value={viewFormRecord.contact_number || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Request Type</label><input readOnly value={viewFormRecord.request_type || 'Dean Referral'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                         </div>
                                         {/* Referral details */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

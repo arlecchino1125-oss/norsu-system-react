@@ -1,10 +1,18 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { useNavigate } from 'react-router-dom';
+import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { useDeptData } from '../hooks/dept/useDeptData';
 import { exportPDF, exportToExcel } from '../utils/dashboardUtils';
+import {
+    COUNSELING_STATUS,
+    DEPT_SUPPORT_VISIBLE_STATUSES,
+    SUPPORT_STATUS,
+    isCounselingAwaitingDept,
+    isWithCareStaffCounseling
+} from '../utils/workflow';
 import DeptHomePage from './dept/DeptHomePage';
 import DeptCounselingQueuePage from './dept/DeptCounselingQueuePage';
 import DeptSupportApprovalsPage from './dept/DeptSupportApprovalsPage';
@@ -18,7 +26,7 @@ import { renderDeptModals } from './dept/modals/DeptModals';
 import {
     LayoutDashboard, CalendarDays, HeartHandshake, Settings, Users, ClipboardList,
     LogOut, UserCircle, Menu, FileText, CheckCircle, XCircle, Info,
-    UserPlus, BarChart3, AlertCircle, User, MapPin, GraduationCap, Bell, Download
+    UserPlus, BarChart3, AlertCircle, User, MapPin, GraduationCap, Bell, Download, RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
@@ -65,11 +73,11 @@ export default function DeptDashboard() {
     const {
         data, setData, eventsList, counselingRequests,
         supportRequests, setSupportRequests, admissionApplicants,
-        lastSeenSupportCount, setLastSeenSupportCount, toast, setToast, showToastMessage,
+        lastSeenSupportCount, setLastSeenSupportCount, toast, setToast, refreshAllData, showToastMessage,
         admissionsState
     } = useDeptData(session, isAuthenticated);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
 
-    // Modals
     // Modals
     const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
     const [showReferralModal, setShowReferralModal] = useState<boolean>(false);
@@ -91,17 +99,17 @@ export default function DeptDashboard() {
     const sigCanvasRefSupport = useRef<any>(null);
 
     // Events State
-    // Events State
-    // Events State
     const [showEventAttendees, setShowEventAttendees] = useState<any>(null);
     const [deptAttendees, setDeptAttendees] = useState<any[]>([]);
     const [yearLevelFilter, setYearLevelFilter] = useState<string>('All');
     const [showApplicantScheduleModal, setShowApplicantScheduleModal] = useState<boolean>(false);
     const [applicantScheduleData, setApplicantScheduleData] = useState<any>({ date: '', time: '', notes: '' });
     const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
+    const [viewFormRecord, setViewFormRecord] = useState<any>(null);
+    const [viewFormMode, setViewFormMode] = useState<string>('student');
 
     // Counseling Queue State
-    const [counselingTab, setCounselingTab] = useState<string>('Submitted');
+    const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.SUBMITTED);
     const [selectedCounselingReq, setSelectedCounselingReq] = useState<any>(null);
     const [showCounselingViewModal, setShowCounselingViewModal] = useState<boolean>(false);
     const [deptFormModalView, setDeptFormModalView] = useState<string>('referral');
@@ -135,8 +143,27 @@ export default function DeptDashboard() {
         }
     }, [activeModule, supportRequests]);
 
-    if (!data) return null;
+    // Derive notifications from counseling + support request activity
+    const deptNotifications = useMemo(() => {
+        const items: Array<{ id: string | number; message: string; created_at: string | null }> = [];
+        (counselingRequests || []).forEach((r: any) => {
+            items.push({
+                id: `cr-${r.id}`,
+                message: `Counseling request from ${r.student_name || 'a student'} \u2014 ${r.status}`,
+                created_at: r.created_at || null,
+            });
+        });
+        (supportRequests || []).forEach((r: any) => {
+            items.push({
+                id: `sr-${r.id}`,
+                message: `Support request: ${r.support_type || r.type || r.request_type || 'General'} from ${r.student_name || 'a student'} \u2014 ${r.status}`,
+                created_at: r.created_at || null,
+            });
+        });
+        return items.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()).slice(0, 30);
+    }, [counselingRequests, supportRequests]);
 
+    if (!data) return null;
 
     const getFilteredData = () => {
         const dept = data.profile.department;
@@ -176,7 +203,10 @@ export default function DeptDashboard() {
     };
 
     // Helper: lookup student for a request by student_id
-    const getStudentForRequest = (req: any) => filteredData.students.find((s: any) => s.id === req.student_id);
+    const getStudentForRequest = (req: any) =>
+        filteredData.students.find((s: any) =>
+            String(s.student_id || s.id || '') === String(req.student_id || '')
+        );
 
     // Filter bar rendered as a JSX element (NOT a component function) to prevent unmount/remount on re-render
     const cascadeFilterBar = (
@@ -209,17 +239,19 @@ export default function DeptDashboard() {
     );
 
     // Chart Data Preparation
-    const approved = filteredData.requests.filter((r: any) => r.status === 'Approved').length;
-    const rejected = filteredData.requests.filter((r: any) => r.status === 'Rejected').length;
-    const pending = filteredData.requests.filter((r: any) => r.status === 'Pending').length;
+    const awaitingReview = filteredData.requests.filter((r: any) => isCounselingAwaitingDept(r.status)).length;
+    const deptScheduled = filteredData.requests.filter((r: any) => r.status === COUNSELING_STATUS.SCHEDULED).length;
+    const withCareStaff = filteredData.requests.filter((r: any) => isWithCareStaffCounseling(r.status)).length;
+    const completed = filteredData.requests.filter((r: any) => r.status === COUNSELING_STATUS.COMPLETED).length;
+    const rejected = filteredData.requests.filter((r: any) => r.status === COUNSELING_STATUS.REJECTED).length;
 
     const chartData = {
-        labels: ['Approved', 'Rejected', 'Pending'],
+        labels: ['Awaiting Review', 'Dept Scheduled', 'With CARE Staff', 'Completed', 'Rejected'],
         datasets: [{
             label: 'Requests',
-            data: [approved, rejected, pending],
-            backgroundColor: ['rgba(34, 197, 94, 0.7)', 'rgba(239, 68, 68, 0.7)', 'rgba(234, 179, 8, 0.7)'],
-            borderColor: ['rgb(34, 197, 94)', 'rgb(239, 68, 68)', 'rgb(234, 179, 8)'],
+            data: [awaitingReview, deptScheduled, withCareStaff, completed, rejected],
+            backgroundColor: ['rgba(234, 179, 8, 0.7)', 'rgba(59, 130, 246, 0.7)', 'rgba(168, 85, 247, 0.7)', 'rgba(34, 197, 94, 0.7)', 'rgba(239, 68, 68, 0.7)'],
+            borderColor: ['rgb(234, 179, 8)', 'rgb(59, 130, 246)', 'rgb(168, 85, 247)', 'rgb(34, 197, 94)', 'rgb(239, 68, 68)'],
             borderWidth: 1
         }]
     };
@@ -230,7 +262,7 @@ export default function DeptDashboard() {
         if (!selectedCounselingReq) return;
         try {
             await supabase.from('counseling_requests').update({
-                status: 'Scheduled',
+                status: COUNSELING_STATUS.SCHEDULED,
                 scheduled_date: `${scheduleData.date} ${scheduleData.time}`,
                 resolution_notes: scheduleData.notes
             }).eq('id', selectedCounselingReq.id);
@@ -246,7 +278,7 @@ export default function DeptDashboard() {
     const handleRejectRequest = async () => {
         if (!selectedCounselingReq) return;
         try {
-            await supabase.from('counseling_requests').update({ status: 'Rejected', resolution_notes: rejectNotes }).eq('id', selectedCounselingReq.id);
+            await supabase.from('counseling_requests').update({ status: COUNSELING_STATUS.REJECTED, resolution_notes: rejectNotes }).eq('id', selectedCounselingReq.id);
             await supabase.from('notifications').insert([{ student_id: selectedCounselingReq.student_id, message: `Your counseling request has been reviewed and was not approved by ${data.profile.department}.${rejectNotes ? ' Reason: ' + rejectNotes : ''}` }]);
             showToastMessage('Request rejected.', 'success');
             setShowRejectModal(false);
@@ -257,7 +289,7 @@ export default function DeptDashboard() {
 
     const handleCompleteRequest = async (req: any) => {
         try {
-            await supabase.from('counseling_requests').update({ status: 'Completed' }).eq('id', req.id);
+            await supabase.from('counseling_requests').update({ status: COUNSELING_STATUS.COMPLETED }).eq('id', req.id);
             await supabase.from('notifications').insert([{ student_id: req.student_id, message: `Your counseling session has been resolved and marked as Completed by ${data.profile.department}.` }]);
             showToastMessage('Request marked as completed.', 'success');
             setShowCounselingViewModal(false);
@@ -268,7 +300,6 @@ export default function DeptDashboard() {
         setForwardingToStaff(true);
         setSelectedCounselingReq(req);
         setShowCounselingViewModal(false);
-        const studentObj = filteredData.students.find((s: any) => s.id === req.student_id);
         setReferralForm({
             student: req.student_name,
             type: req.request_type || 'Self-Referral',
@@ -324,11 +355,10 @@ export default function DeptDashboard() {
                 return;
             }
             console.log('[DEPT] Interview scheduled successfully');
-            await admissionsState.refresh();
             showToastMessage('Interview scheduled successfully.', 'success');
             setShowApplicantScheduleModal(false);
             setApplicantScheduleData({ date: '', time: '', notes: '' });
-            setSelectedApplicant(null);
+            admissionsState.refresh();
         } catch (err: any) {
             console.error('[DEPT] Schedule exception:', err);
             showToastMessage(err.message, 'error');
@@ -345,8 +375,8 @@ export default function DeptDashboard() {
                 showToastMessage('Failed to approve: ' + error.message, 'error');
                 return;
             }
-            await admissionsState.refresh();
             showToastMessage(`Applicant approved for enrollment.`, 'success');
+            admissionsState.refresh();
         } catch (err: any) {
             console.error('[DEPT] Approve exception:', err);
             showToastMessage(err.message, 'error');
@@ -379,8 +409,8 @@ export default function DeptDashboard() {
                 return;
             }
 
-            await admissionsState.refresh();
             showToastMessage(`Applicant forwarded to next choice.`, 'success');
+            admissionsState.refresh();
         } catch (err: any) {
             console.error('[DEPT] Reject exception:', err);
             showToastMessage(err.message, 'error');
@@ -415,6 +445,18 @@ export default function DeptDashboard() {
         navigate('/department/login');
     };
 
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await refreshAllData();
+            showToastMessage('Department data refreshed.', 'success');
+        } catch (error: any) {
+            showToastMessage(error?.message || 'Failed to refresh department data.', 'error');
+        } finally {
+            setIsRefreshingData(false);
+        }
+    };
+
     const handleReferralSubmit = async (e: any) => {
         e.preventDefault();
         try {
@@ -422,7 +464,7 @@ export default function DeptDashboard() {
                 // Forward existing request to care staff
                 const signatureData = sigCanvasRef.current && !sigCanvasRef.current.isEmpty() ? sigCanvasRef.current.getCanvas().toDataURL('image/png') : null;
                 await supabase.from('counseling_requests').update({
-                    status: 'Referred',
+                    status: COUNSELING_STATUS.REFERRED,
                     referred_by: data.profile.name,
                     referrer_contact_number: referralForm.referrer_contact_number,
                     relationship_with_student: referralForm.relationship_with_student,
@@ -442,9 +484,6 @@ export default function DeptDashboard() {
                     student_id: studentObj?.id || 'UNKNOWN',
                     student_name: referralForm.student,
                     course_year: studentObj ? `${studentObj.course || ''} - ${studentObj.year || ''}` : '',
-                    year_window_range: studentObj && (studentObj.course_year_window_start || studentObj.course_year_window_end)
-                        ? `${studentObj.course_year_window_start ? new Date(studentObj.course_year_window_start).toLocaleString() : 'Start N/A'} to ${studentObj.course_year_window_end ? new Date(studentObj.course_year_window_end).toLocaleString() : 'End N/A'}`
-                        : null,
                     contact_number: studentObj?.mobile || '',
                     request_type: 'Dean Referral',
                     description: referralForm.reason_for_referral,
@@ -456,7 +495,7 @@ export default function DeptDashboard() {
                     date_duration_of_observations: referralForm.date_duration_of_observations,
                     referrer_signature: sigData,
                     department: data.profile.department,
-                    status: 'Referred'
+                    status: COUNSELING_STATUS.REFERRED
                 }]);
                 if (studentObj) await supabase.from('notifications').insert([{ student_id: studentObj.id, message: `You have been referred for counseling by ${data.profile.department}.` }]);
                 showToastMessage('Referral submitted.');
@@ -546,30 +585,42 @@ export default function DeptDashboard() {
         const { id, student_id, date, time, notes } = approveScheduleData;
         if (!date || !time) { showToastMessage('Please select date and time.', 'error'); return; }
         try {
+            const requestStudentId = student_id || supportRequests.find((r: any) => r.id === id)?.student_id || null;
             const { error } = await supabase.from('support_requests')
-                .update({ status: 'Visit Scheduled', dept_notes: JSON.stringify({ scheduled_date: `${date} ${time}`, approval_notes: notes }) })
+                .update({ status: SUPPORT_STATUS.VISIT_SCHEDULED, dept_notes: JSON.stringify({ scheduled_date: `${date} ${time}`, approval_notes: notes }) })
                 .eq('id', id);
             if (error) throw error;
-            if (student_id) {
-                await supabase.from('notifications').insert([{ student_id, message: `Your support request has been approved and scheduled for ${date} at ${time} by ${data.profile.department}.` }]);
+            if (requestStudentId) {
+                await supabase.from('notifications').insert([{ student_id: requestStudentId, message: `Your support request has been approved and scheduled for ${date} at ${time} by ${data.profile.department}.` }]);
             }
             showToastMessage('Visit scheduled successfully.', 'success');
             setShowApproveScheduleModal(false);
             setApproveScheduleData({ id: null, student_id: null, date: '', time: '', notes: '' });
             // Re-fetch to update list with new statuses
-            const { data: reqs } = await supabase.from('support_requests').select('*').eq('department', data.profile.department).in('status', ['Forwarded to Dept', 'Visit Scheduled', 'Resolved by Dept', 'Referred to CARE']).order('created_at', { ascending: false });
+            const { data: reqs } = await supabase.from('support_requests').select('*').eq('department', data.profile.department).in('status', [...DEPT_SUPPORT_VISIBLE_STATUSES]).order('created_at', { ascending: false });
             if (reqs) setSupportRequests(reqs);
         } catch (err: any) { showToastMessage(err.message, 'error'); }
     };
 
     const handleRejectSupport = async (id: string, notes: string) => {
         try {
+            const requestStudentId = supportRequests.find((r: any) => r.id === id)?.student_id || null;
             const { error } = await supabase.from('support_requests')
-                .update({ status: 'Rejected', dept_notes: notes })
+                .update({ status: SUPPORT_STATUS.REJECTED, dept_notes: notes })
                 .eq('id', id);
             if (error) throw error;
+            if (requestStudentId) {
+                await supabase.from('notifications').insert([{
+                    student_id: requestStudentId,
+                    message: `Your support request has been reviewed and was not approved by ${data.profile.department}.${notes ? ` Reason: ${notes}` : ''}`
+                }]);
+            }
             showToastMessage('Request rejected.', 'success');
-            setSupportRequests(prev => prev.filter((r: any) => r.id !== id));
+            setSupportRequests(prev => prev.map((r: any) => (
+                r.id === id
+                    ? { ...r, status: SUPPORT_STATUS.REJECTED, dept_notes: notes }
+                    : r
+            )));
         } catch (err: any) { showToastMessage(err.message, 'error'); }
     };
 
@@ -577,17 +628,18 @@ export default function DeptDashboard() {
         const { id, student_id, notes } = resolveData;
         if (!notes.trim()) { showToastMessage('Please add resolution notes.', 'error'); return; }
         try {
+            const requestStudentId = student_id || supportRequests.find((r: any) => r.id === id)?.student_id || null;
             const { error } = await supabase.from('support_requests')
-                .update({ status: 'Resolved by Dept', dept_notes: notes })
+                .update({ status: SUPPORT_STATUS.RESOLVED_BY_DEPT, dept_notes: notes })
                 .eq('id', id);
             if (error) throw error;
-            if (student_id) {
-                await supabase.from('notifications').insert([{ student_id, message: `Your support request has been marked as resolved by ${data.profile.department}.` }]);
+            if (requestStudentId) {
+                await supabase.from('notifications').insert([{ student_id: requestStudentId, message: `Your support request has been marked as resolved by ${data.profile.department}.` }]);
             }
             showToastMessage('Request marked as resolved and sent to CARE.', 'success');
             setShowResolveModal(false);
             setResolveData({ id: null, student_id: null, notes: '' });
-            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: 'Resolved by Dept', dept_notes: notes } : r));
+            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: SUPPORT_STATUS.RESOLVED_BY_DEPT, dept_notes: notes } : r));
         } catch (err: any) { showToastMessage(err.message, 'error'); }
     };
 
@@ -596,6 +648,7 @@ export default function DeptDashboard() {
         if (!actions_taken.trim()) { showToastMessage('Please describe actions taken.', 'error'); return; }
         const sigData = sigCanvasRefSupport.current && !sigCanvasRefSupport.current.isEmpty() ? sigCanvasRefSupport.current.toDataURL() : null;
         try {
+            const requestStudentId = student_id || supportRequests.find((r: any) => r.id === id)?.student_id || null;
             const referralData = JSON.stringify({
                 referred_by: data.profile.name,
                 date_acted,
@@ -604,16 +657,16 @@ export default function DeptDashboard() {
                 signature: sigData
             });
             const { error } = await supabase.from('support_requests')
-                .update({ status: 'Referred to CARE', dept_notes: referralData })
+                .update({ status: SUPPORT_STATUS.REFERRED_TO_CARE, dept_notes: referralData })
                 .eq('id', id);
             if (error) throw error;
-            if (student_id) {
-                await supabase.from('notifications').insert([{ student_id, message: `Your support request case has been referred back to CARE Staff by ${data.profile.department} for further intervention.` }]);
+            if (requestStudentId) {
+                await supabase.from('notifications').insert([{ student_id: requestStudentId, message: `Your support request case has been referred back to CARE Staff by ${data.profile.department} for further intervention.` }]);
             }
             showToastMessage('Request referred to CARE Staff.', 'success');
             setShowReferCareModal(false);
             setReferCareForm({ id: null, student_id: null, student_name: '', date_acted: '', actions_taken: '', comments: '' });
-            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: 'Referred to CARE', dept_notes: referralData } : r));
+            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: SUPPORT_STATUS.REFERRED_TO_CARE, dept_notes: referralData } : r));
         } catch (err: any) { showToastMessage(err.message, 'error'); }
     };
 
@@ -674,7 +727,7 @@ export default function DeptDashboard() {
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
                         {[
-                            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling Requests', hasIndicator: counselingRequests.filter((r: any) => r.status === 'Submitted').length > 0 },
+                            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling Requests', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
                             { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
                             { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Support Approvals', hasIndicator: supportRequests.length > lastSeenSupportCount },
                         ].map((item: any) => (
@@ -728,9 +781,15 @@ export default function DeptDashboard() {
                         <h2 className="text-xl font-bold gradient-text-green capitalize">{(moduleLabels as any)[activeModule] || activeModule}</h2>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 hover:text-emerald-600 hover:shadow-md transition-all relative border border-gray-100">
-                            <Bell size={20} />
+                        <button
+                            onClick={handleRefreshData}
+                            disabled={isRefreshingData}
+                            className="inline-flex items-center gap-2 rounded-xl bg-white/80 px-4 py-2 text-sm font-semibold text-gray-600 hover:text-emerald-600 hover:shadow-md transition-all border border-gray-100 disabled:opacity-50"
+                        >
+                            <RefreshCw size={18} className={isRefreshingData ? 'animate-spin' : ''} />
+                            <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
                         </button>
+                        <NotificationBell notifications={deptNotifications} accentColor="emerald" />
                     </div>
                 </header>
 
@@ -875,18 +934,20 @@ export default function DeptDashboard() {
 
             {renderDeptModals({
                 data,
-                filteredData,
+                counselingRequests,
                 showProfileModal, setShowProfileModal, profileForm, setProfileForm, handleProfileSubmit,
                 showReferralModal, setShowReferralModal, forwardingToStaff, setForwardingToStaff,
                 referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq,
                 referralSearchQuery, setReferralSearchQuery, sigCanvasRef,
-                showHistoryModal, setShowHistoryModal, selectedHistoryStudent, exportPDF: (name: string) => exportPDF(name, filteredData.requests),
+                showHistoryModal, setShowHistoryModal, selectedHistoryStudent, exportPDF: (name: string) => exportPDF(name, counselingRequests),
                 showStudentModal, setShowStudentModal, selectedStudent,
                 showEventAttendees, setShowEventAttendees, deptAttendees,
                 yearLevelFilter, setYearLevelFilter, deptCourseFilter, setDeptCourseFilter,
                 deptSectionFilter, setDeptSectionFilter, exportToExcel,
                 showDecisionModal, setShowDecisionModal, decisionData, setDecisionData, submitDecision,
-                showApplicantScheduleModal, setShowApplicantScheduleModal, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule
+                showApplicantScheduleModal, setShowApplicantScheduleModal, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule,
+                viewFormRecord, setViewFormRecord,
+                viewFormMode, setViewFormMode
             })}
 
         </div >

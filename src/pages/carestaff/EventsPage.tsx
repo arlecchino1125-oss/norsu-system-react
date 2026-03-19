@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Trash2, Archive
+    Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Trash2, Archive, RefreshCw
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
@@ -17,6 +17,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
 
     // Filter States
     const [eventFilter, setEventFilter] = useState('All Items');
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
 
     // Data States from Custom Hook
     const { events, archivedEvents, loading, refetchEvents: fetchEvents } = useEventsData();
@@ -159,6 +160,16 @@ const EventsPage = ({ functions }: EventsPageProps) => {
         }
     };
 
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await fetchEvents();
+            showToast?.('Events refreshed.', 'success');
+        } finally {
+            setIsRefreshingData(false);
+        }
+    };
+
     const getCurrentLocation = () => {
         if (!navigator.geolocation) {
             if (showToast) showToast("Geolocation is not supported.", 'error');
@@ -183,15 +194,25 @@ const EventsPage = ({ functions }: EventsPageProps) => {
                         <h1 className="text-2xl font-bold text-gray-900">Events & Announcements</h1>
                         <p className="text-gray-500 text-sm mt-1">Manage campus activities and broadcast official notices.</p>
                     </div>
-                    <button
-                        onClick={() => {
-                            setEditingEventId(null);
-                            setNewEvent({ title: '', description: '', event_date: '', event_time: '', end_time: '', location: '', latitude: '', longitude: '', type: 'Event' });
-                            setShowEventModal(true);
-                        }}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-purple-200 hover:scale-[1.02] transition-all duration-300">
-                        <Plus size={14} /> Create New
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleRefreshData}
+                            disabled={isRefreshingData}
+                            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600 disabled:opacity-50"
+                        >
+                            <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
+                            <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                        </button>
+                        <button
+                            onClick={() => {
+                                setEditingEventId(null);
+                                setNewEvent({ title: '', description: '', event_date: '', event_time: '', end_time: '', location: '', latitude: '', longitude: '', type: 'Event' });
+                                setShowEventModal(true);
+                            }}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-purple-200 hover:scale-[1.02] transition-all duration-300">
+                            <Plus size={14} /> Create New
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filter Tabs */}

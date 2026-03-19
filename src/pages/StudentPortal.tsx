@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../lib/auth';
@@ -26,6 +26,7 @@ import { useStudentSupportData } from '../hooks/student/useStudentSupportData';
 const supabaseClient = supabase;
 const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
+const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
 
 const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
 
@@ -276,6 +277,8 @@ export default function StudentPortal() {
     const archiveRpcStateRef = useRef<'unknown' | 'available' | 'missing'>(
         sessionStorage.getItem(ARCHIVE_RPC_MISSING_CACHE_KEY) === '1' ? 'missing' : 'unknown'
     );
+    const archiveRpcCheckedKeysRef = useRef<Set<string>>(new Set());
+    const courseOptionsCacheRef = useRef<string[] | null>(null);
 
     // Onboarding Tour State
     const [showTour, setShowTour] = useState(false);
@@ -494,7 +497,6 @@ export default function StudentPortal() {
             const details = `${fullName} (${studentId}) modified: ${changedPreview}${moreSuffix}.`;
 
             const { error: auditError } = await supabaseClient.from('audit_logs').insert([{
-                user_id: studentId,
                 user_name: fullName,
                 action,
                 details
@@ -616,6 +618,7 @@ export default function StudentPortal() {
     // Scholarship State
     const [scholarshipsList, setScholarshipsList] = useState<any[]>([]);
     const [myApplications, setMyApplications] = useState<any[]>([]);
+    const [isRefreshingView, setIsRefreshingView] = useState(false);
 
     const { refreshEvents } = useStudentEventsData({ setEventsList });
     const { refreshForms } = useStudentFormsData({
@@ -639,80 +642,27 @@ export default function StudentPortal() {
         setNotifications
     });
 
-    useEffect(() => {
-        const checkSession = async () => {
-            if (!session?.user?.id) return;
-            try {
-                // Fetch student data
-                const { data: studentDataRaw, error: studentError } = await supabaseClient
-                    .from('students')
-                    .select(STUDENT_LIST_COLUMNS)
-                    .eq('student_id', session.user.id) // Assuming auth id maps to student_id or email
-                    .single();
-                const studentData: any = studentDataRaw as any;
+    const refreshScholarships = useCallback(async () => {
+        const { data } = await supabaseClient
+            .from('scholarships')
+            .select('id, title, description, requirements, deadline')
+            .order('deadline', { ascending: true });
+        setScholarshipsList(data || []);
+    }, []);
 
-                if (studentError) {
-                    console.error('Error fetching student data:', studentError);
-                } else if (studentData) {
-                    setPersonalInfo((prev: any) => ({
-                        ...prev,
-                        ...studentData,
-                        firstName: studentData.first_name,
-                        lastName: studentData.last_name,
-                        middleName: studentData.middle_name,
-                        suffix: studentData.suffix,
-                        studentId: studentData.student_id,
-                        department: studentData.department,
-                        course: studentData.course,
-                        year: studentData.year_level,
-                        section: studentData.section,
-                        status: studentData.status,
-                        address: buildStudentAddress(studentData),
-                        mobile: studentData.mobile,
-                        email: studentData.email,
-                        facebookUrl: studentData.facebook_url,
-                        dob: studentData.dob,
-                        age: studentData.age,
-                        sex: getStudentSex(studentData),
-                    }));
-
-                    // Profile completion detection moved to fetchAndSyncProfile
-                }
-            } catch (err: any) {
-                console.error('Unexpected error:', err);
-            }
-        };
-
-        checkSession();
-
-        if (!session) return;
-
-        const fetchScholarships = async () => {
-            const { data } = await supabaseClient
-                .from('scholarships')
-                .select('id, title, description, requirements, deadline')
-                .order('deadline', { ascending: true });
-            setScholarshipsList(data || []);
-        };
-        const fetchApplications = async () => {
-            const { data } = await supabaseClient.from('scholarship_applications').select('scholarship_id, status').eq('student_id', personalInfo.studentId);
-            setMyApplications(data || []);
-        };
-
-        // Call independent fetches
-        fetchScholarships();
-        if (personalInfo.studentId) {
-            fetchApplications();
+    const refreshScholarshipApplications = useCallback(async () => {
+        if (!personalInfo.studentId) {
+            setMyApplications([]);
+            return;
         }
 
-        const sub = supabaseClient.channel('scholarships_channel')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'scholarships' }, fetchScholarships)
-            .subscribe();
+        const { data } = await supabaseClient
+            .from('scholarship_applications')
+            .select('scholarship_id, status')
+            .eq('student_id', personalInfo.studentId);
 
-        return () => {
-            supabaseClient.removeChannel(sub);
-        };
-    }, [session, personalInfo.studentId]);
+        setMyApplications(data || []);
+    }, [personalInfo.studentId]);
 
     const handleApplyScholarship = async (scholarship: any) => {
         if (!scholarship) return;
@@ -881,22 +831,44 @@ export default function StudentPortal() {
     const refreshStudentProfile = React.useCallback(async () => {
         if (!session || session.userType !== 'student') return;
 
-        const studentId = session.student_id || session?.user?.id;
-        if (!studentId) return;
+        const studentId = session.student_id || null;
+        const authUserId = session.auth_user_id || session?.user?.id || null;
+        const profileKey = String(authUserId || studentId || '').trim();
+        if (!profileKey) return;
         try {
             let studentData: any = session;
-            const { data: latestStudent } = await supabaseClient
-                .from('students')
-                .select(STUDENT_LIST_COLUMNS)
-                .eq('student_id', studentId)
-                .maybeSingle();
+            let latestStudent: any = null;
+
+            if (authUserId) {
+                const { data } = await supabaseClient
+                    .from('students')
+                    .select(STUDENT_LIST_COLUMNS)
+                    .eq('auth_user_id', authUserId)
+                    .maybeSingle();
+                latestStudent = data;
+            }
+
+            if (!latestStudent && studentId) {
+                const { data } = await supabaseClient
+                    .from('students')
+                    .select(STUDENT_LIST_COLUMNS)
+                    .eq('student_id', studentId)
+                    .maybeSingle();
+                latestStudent = data;
+            }
+
             if (latestStudent) {
                 studentData = latestStudent;
             }
 
             let archiveError: any = null;
             let archivedRows = 0;
-            if (archiveRpcStateRef.current !== 'missing') {
+            const archiveCacheKey = `${ARCHIVE_RPC_CHECKED_CACHE_KEY}:${profileKey}`;
+            const archiveAlreadyChecked = archiveRpcCheckedKeysRef.current.has(profileKey)
+                || sessionStorage.getItem(archiveCacheKey) === '1';
+
+            if (archiveRpcStateRef.current !== 'missing' && !archiveAlreadyChecked) {
+                archiveRpcCheckedKeysRef.current.add(profileKey);
                 const rpcResult = await supabaseClient.rpc('archive_and_reset_expired_course_year');
                 archiveError = rpcResult.error;
                 archivedRows = Number(rpcResult.data || 0);
@@ -907,6 +879,7 @@ export default function StudentPortal() {
                     if (missingRpc) {
                         archiveRpcStateRef.current = 'missing';
                         sessionStorage.setItem(ARCHIVE_RPC_MISSING_CACHE_KEY, '1');
+                        sessionStorage.setItem(archiveCacheKey, '1');
                     } else {
                         archiveRpcStateRef.current = 'available';
                         console.warn('Failed to run expired course/year archive reset RPC.', archiveError);
@@ -914,6 +887,7 @@ export default function StudentPortal() {
                 } else {
                     archiveRpcStateRef.current = 'available';
                     sessionStorage.removeItem(ARCHIVE_RPC_MISSING_CACHE_KEY);
+                    sessionStorage.setItem(archiveCacheKey, '1');
                 }
             }
 
@@ -921,7 +895,7 @@ export default function StudentPortal() {
                 const { data: refreshedStudent } = await supabaseClient
                     .from('students')
                     .select(STUDENT_LIST_COLUMNS)
-                    .eq('student_id', studentId)
+                    .eq('student_id', studentData.student_id)
                     .maybeSingle();
                 if (refreshedStudent) studentData = refreshedStudent;
             }
@@ -1074,11 +1048,14 @@ export default function StudentPortal() {
                 const trustedCourse = course || '';
                 const trustedYear = isValidYearLevel(studentData.year_level || '') ? studentData.year_level : '1st Year';
 
-                const { data: courseRows } = await supabaseClient
-                    .from('courses')
-                    .select('name')
-                    .order('name');
-                const normalizedCourseOptions = [...new Set([trustedCourse, ...(courseRows || []).map((row: any) => row.name).filter(Boolean)].filter(Boolean))];
+                if (!courseOptionsCacheRef.current) {
+                    const { data: courseRows } = await supabaseClient
+                        .from('courses')
+                        .select('name')
+                        .order('name');
+                    courseOptionsCacheRef.current = (courseRows || []).map((row: any) => row.name).filter(Boolean);
+                }
+                const normalizedCourseOptions = [...new Set([trustedCourse, ...(courseOptionsCacheRef.current || [])].filter(Boolean))];
 
                 const now = new Date();
                 const windowStart = studentData.course_year_window_start || null;
@@ -1170,7 +1147,7 @@ export default function StudentPortal() {
     // Sync session to personalInfo
     useEffect(() => {
         refreshStudentProfile();
-    }, [refreshStudentProfile]);
+    }, [session?.auth_user_id, session?.user?.id, session?.student_id, session?.userType]);
 
     // Sequences the Tour to appear AFTER Profile Completion closes
     useEffect(() => {
@@ -1325,130 +1302,11 @@ export default function StudentPortal() {
         }
     };
 
-    // Fetch Events from Supabase (service-backed)
-    useEffect(() => {
-        refreshEvents();
-    }, [activeView]);
-
-    // Fetch All Active Forms (service-backed)
-    useEffect(() => {
-        if (activeView === 'assessment') {
-            refreshForms();
-        }
-    }, [activeView, personalInfo.studentId]);
-
-    // Fetch student lists + realtime subscriptions (service-backed)
-    useEffect(() => {
-        if (!personalInfo.studentId) return;
-
-        if (activeView === 'counseling') {
-            refreshCounselingRequests();
-        }
-
-        if (activeView === 'dashboard' || activeView === 'counseling') {
-            refreshNotifications();
-        }
-
-        if (activeView === 'support') {
-            refreshSupportRequests();
-        }
-
-        const counselingChannel = supabaseClient
-            .channel('student_counseling')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
-                if (activeView === 'counseling') {
-                    refreshCounselingRequests();
-                }
-            })
-            .subscribe();
-
-        const supportChannel = supabaseClient
-            .channel('student_support')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
-                refreshSupportRequests();
-            })
-            .subscribe();
-
-        const notifChannel = supabaseClient
-            .channel('student_notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
-                refreshNotifications();
-            })
-            .subscribe();
-
-        const eventsChannel = supabaseClient
-            .channel('student_events')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, refreshEvents)
-            .subscribe();
-
-        const attendanceChannel = supabaseClient
-            .channel('student_attendance')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'event_attendance', filter: `student_id=eq.${personalInfo.studentId}` }, () => {
-                fetchHistory();
-            })
-            .subscribe();
-
-        const formsChannel = supabaseClient
-            .channel('student_forms')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'forms', filter: 'is_active=eq.true' }, refreshForms)
-            .subscribe();
-
-        const applicationsChannel = supabaseClient
-            .channel('student_applications')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications', filter: `student_id=eq.${personalInfo.studentId}` }, (payload: any) => {
-                showToast(`Application Status Updated: ${payload.new.status}`, 'info');
-            })
-            .subscribe();
-
-        const profileChannel = supabaseClient
-            .channel('student_profile_update')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'students', filter: `student_id=eq.${personalInfo.studentId}` }, (payload: any) => {
-                setPersonalInfo((prev: any) => ({ ...prev, ...payload.new }));
-                showToast("Your profile has been updated by an administrator.", 'info');
-            })
-            .subscribe();
-
-        return () => {
-            const channels = [counselingChannel, supportChannel, notifChannel, eventsChannel, attendanceChannel, formsChannel, applicationsChannel, profileChannel];
-            channels.forEach((ch: any) => {
-                if (ch) supabaseClient.removeChannel(ch).catch(() => { });
-            });
-        };
-    }, [activeView, personalInfo.studentId]);
-
-    // Real-time subscription for counseling requests with toast
-    useEffect(() => {
-        if (!personalInfo.studentId) return;
-
-        refreshCounselingRequests();
-
-        const channel = supabaseClient.channel('student_counseling_updates')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counseling_requests', filter: `student_id=eq.${personalInfo.studentId}` }, (payload: any) => {
-                refreshCounselingRequests();
-                if (payload.new.status !== payload.old.status) {
-                    showToast(`Counseling Request Status Updated: ${payload.new.status}`, 'info');
-                }
-            })
-            .subscribe();
-
-        return () => { supabaseClient.removeChannel(channel); };
-    }, [personalInfo.studentId]);
-
-    // Fetch Active Office Visit (service-backed)
-    useEffect(() => {
-        refreshActiveVisit();
-    }, [refreshActiveVisit]);
-
-    // Fetch Visit Reasons (service-backed)
-    useEffect(() => {
-        refreshVisitReasons();
-    }, [refreshVisitReasons]);
-
     const formatFullDate = (date: any) => date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const formatTime = (date: any) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     // Fetch Attendance and Rating History
-    const fetchHistory = async () => {
+    const fetchHistory = useCallback(async () => {
         if (!personalInfo.studentId) return;
 
         const attendanceData = await getAttendanceHistory(personalInfo.studentId);
@@ -1462,12 +1320,82 @@ export default function StudentPortal() {
         const ratingData = await getRatedEventIds(personalInfo.studentId);
 
         setRatedEvents(ratingData || []);
-    };
+    }, [personalInfo.studentId]);
 
-    // Fetch on load AND when switching views (to keep sync)
+    const refreshCurrentView = useCallback(async () => {
+        switch (activeView) {
+            case 'dashboard':
+                await Promise.all([
+                    refreshCounselingRequests(),
+                    refreshNotifications(),
+                    refreshEvents(),
+                    refreshActiveVisit(),
+                    refreshVisitReasons(),
+                    fetchHistory()
+                ]);
+                break;
+            case 'profile':
+                await Promise.all([
+                    refreshActiveVisit(),
+                    refreshVisitReasons()
+                ]);
+                break;
+            case 'assessment':
+                await refreshForms();
+                break;
+            case 'counseling':
+                await Promise.all([
+                    refreshCounselingRequests(),
+                    refreshNotifications()
+                ]);
+                break;
+            case 'support':
+                await refreshSupportRequests();
+                break;
+            case 'scholarship':
+                await Promise.all([
+                    refreshScholarships(),
+                    refreshScholarshipApplications()
+                ]);
+                break;
+            case 'events':
+                await Promise.all([
+                    refreshEvents(),
+                    fetchHistory()
+                ]);
+                break;
+            default:
+                break;
+        }
+    }, [
+        activeView,
+        fetchHistory,
+        refreshActiveVisit,
+        refreshCounselingRequests,
+        refreshEvents,
+        refreshForms,
+        refreshNotifications,
+        refreshScholarshipApplications,
+        refreshScholarships,
+        refreshSupportRequests,
+        refreshVisitReasons
+    ]);
+
     useEffect(() => {
-        fetchHistory();
-    }, [personalInfo.studentId, activeView]);
+        refreshCurrentView();
+    }, [refreshCurrentView]);
+
+    const handleRefreshCurrentView = useCallback(async () => {
+        setIsRefreshingView(true);
+        try {
+            await refreshCurrentView();
+            showToast('View refreshed.');
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to refresh this view.', 'error');
+        } finally {
+            setIsRefreshingView(false);
+        }
+    }, [refreshCurrentView, showToast]);
 
     const syncEventAttendeeCount = async (eventId: any) => {
         const { count, error: countError } = await supabaseClient
@@ -1551,9 +1479,6 @@ export default function StudentPortal() {
                 });
                 if (uploadError) throw uploadError;
 
-                const { data: publicUrlData } = supabaseClient.storage.from('attendance_proofs').getPublicUrl(fileName);
-                const proofUrl = publicUrlData.publicUrl;
-
                 // Record Time In
                 const now = new Date().toISOString();
                 const { error } = await supabaseClient.from('event_attendance').insert([{
@@ -1561,7 +1486,7 @@ export default function StudentPortal() {
                     student_id: personalInfo.studentId,
                     student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
                     time_in: now,
-                    proof_url: proofUrl,
+                    proof_url: fileName,
                     latitude: userLat,
                     longitude: userLng,
                     department: personalInfo.department
@@ -1759,15 +1684,10 @@ export default function StudentPortal() {
         if (!counselingForm.reason_for_referral.trim()) { showToast("Please provide your reason for requesting counseling.", 'error'); return; }
         setIsSubmitting(true);
         try {
-            const windowRange = getCourseYearWindowRange(
-                personalInfo.courseYearWindowStart,
-                personalInfo.courseYearWindowEnd
-            );
             const payload = {
                 student_id: personalInfo.studentId,
                 student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
                 course_year: `${personalInfo.course || ''} - ${personalInfo.year || ''}`,
-                year_window_range: windowRange,
                 contact_number: personalInfo.mobile || '',
                 request_type: 'Self-Referral',
                 description: counselingForm.reason_for_referral,
@@ -1779,11 +1699,6 @@ export default function StudentPortal() {
             } as any;
 
             let { error } = await supabaseClient.from('counseling_requests').insert([payload]);
-            if (error && String(error.message || '').toLowerCase().includes('year_window_range')) {
-                const fallbackPayload = { ...payload };
-                delete fallbackPayload.year_window_range;
-                ({ error } = await supabaseClient.from('counseling_requests').insert([fallbackPayload]));
-            }
             if (error) throw error;
             showToast("Counseling Request Submitted!");
             setShowCounselingForm(false);
@@ -1797,10 +1712,6 @@ export default function StudentPortal() {
         if (supportForm.categories.length === 0 && !supportForm.otherCategory) { showToast("Please select at least one category.", 'error'); return; }
         setIsSubmitting(true);
         try {
-            const windowRange = getCourseYearWindowRange(
-                personalInfo.courseYearWindowStart,
-                personalInfo.courseYearWindowEnd
-            );
             // Upload multiple files (up to 4)
             const docUrls: string[] = [];
             if (supportForm.files && supportForm.files.length > 0) {
@@ -1809,8 +1720,7 @@ export default function StudentPortal() {
                     const fileName = `${personalInfo.studentId}_support_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${fileExt}`;
                     const { error: uploadError } = await supabaseClient.storage.from('support_documents').upload(fileName, file);
                     if (uploadError) throw uploadError;
-                    const { data: publicUrlData } = supabaseClient.storage.from('support_documents').getPublicUrl(fileName);
-                    docUrls.push(publicUrlData.publicUrl);
+                    docUrls.push(fileName);
                 }
             }
             const description = `[Q1 Description]: ${supportForm.q1}\n[Q2 Previous Support]: ${supportForm.q2}\n[Q3 Required Support]: ${supportForm.q3}\n[Q4 Other Needs]: ${supportForm.q4}`.trim();
@@ -1824,22 +1734,9 @@ export default function StudentPortal() {
                 support_type: finalCategories.join(', '),
                 description: description,
                 documents_url: documentsValue,
-                course_year: `${personalInfo.course || ''} - ${personalInfo.year || ''}`,
-                year_window_range: windowRange,
                 status: 'Submitted'
             } as any;
             let { error } = await supabaseClient.from('support_requests').insert([payload]);
-            if (error && String(error.message || '').toLowerCase().includes('year_window_range')) {
-                const fallbackPayload = { ...payload };
-                delete fallbackPayload.year_window_range;
-                ({ error } = await supabaseClient.from('support_requests').insert([fallbackPayload]));
-            }
-            if (error && String(error.message || '').toLowerCase().includes('course_year')) {
-                const fallbackPayload = { ...payload };
-                delete fallbackPayload.course_year;
-                delete fallbackPayload.year_window_range;
-                ({ error } = await supabaseClient.from('support_requests').insert([fallbackPayload]));
-            }
             if (error) throw error;
             showToast("Support Request Submitted!");
             setShowSupportModal(false);
@@ -2425,7 +2322,23 @@ export default function StudentPortal() {
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
                         <h2 className="text-xl font-bold gradient-text-blue">{(viewLabels as any)[activeView] || activeView}</h2>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={handleRefreshCurrentView}
+                            disabled={isRefreshingView}
+                            className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <svg
+                                className={`h-4 w-4 ${isRefreshingView ? 'animate-spin' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 1118.36 5.64" />
+                            </svg>
+                            {isRefreshingView ? 'Refreshing...' : 'Refresh View'}
+                        </button>
                         <NotificationBell notifications={notifications} accentColor="blue" />
                     </div>
                 </header>
@@ -2502,7 +2415,7 @@ export default function StudentPortal() {
                     )}
 
                     {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
-                    {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill })}
+                    {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
                 </div>
 
                 {/* FAB TRIGGER FOR COMMAND HUB */}

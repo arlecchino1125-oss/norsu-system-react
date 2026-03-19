@@ -365,7 +365,9 @@ const CareStaffDashboard = () => {
     });
 
     const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const bellSyncRef = useRef<() => Promise<void>>(async () => undefined);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshNonce, setRefreshNonce] = useState(0);
 
     // Session guard - redirect to login if no session
     useEffect(() => {
@@ -382,16 +384,6 @@ const CareStaffDashboard = () => {
         };
     }, []);
 
-    const refreshAll = useCallback(async () => {
-        setIsRefreshing(true);
-        try {
-            // Since data is decentralized, full refresh reloads the page.
-            window.location.reload();
-        } finally {
-            setIsRefreshing(false);
-        }
-    }, []);
-
     const showToastMessage = useCallback<ToastHandler>((msg, type = 'success') => {
         setToast({ msg, type });
 
@@ -402,9 +394,22 @@ const CareStaffDashboard = () => {
         toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
     }, []);
 
+    const refreshAll = useCallback(async () => {
+        setIsRefreshing(true);
+        try {
+            await bellSyncRef.current();
+            setRefreshNonce((current) => current + 1);
+            showToastMessage('Current view refreshed.');
+        } catch (error) {
+            console.error('Failed to refresh care staff dashboard view:', error);
+            showToastMessage('Failed to refresh the current view.', 'error');
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [showToastMessage]);
+
     useEffect(() => {
         let isMounted = true;
-        let pollingWindowId: ReturnType<typeof setInterval> | null = null;
 
         const fetchStaffBellNotifications = async () => {
             const now = new Date();
@@ -486,6 +491,7 @@ const CareStaffDashboard = () => {
             }
         };
 
+        bellSyncRef.current = fetchStaffBellNotifications;
         fetchStaffBellNotifications();
 
         const syncBellNotifications = () => {
@@ -503,12 +509,6 @@ const CareStaffDashboard = () => {
                 syncBellNotifications();
             }
         };
-
-        pollingWindowId = setInterval(() => {
-            if (document.visibilityState === 'visible') {
-                syncBellNotifications();
-            }
-        }, 5000);
 
         window.addEventListener('focus', handleWindowFocus);
         document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -611,9 +611,7 @@ const CareStaffDashboard = () => {
 
         return () => {
             isMounted = false;
-            if (pollingWindowId) {
-                clearInterval(pollingWindowId);
-            }
+            bellSyncRef.current = async () => undefined;
             window.removeEventListener('focus', handleWindowFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             supabase.removeChannel(profileNotificationsChannel).catch(console.error);
@@ -627,7 +625,6 @@ const CareStaffDashboard = () => {
         try {
             const { error } = await supabase.from('audit_logs').insert([
                 {
-                    user_id: session?.id || 'unknown',
                     user_name: session?.full_name || 'CARE Staff',
                     action,
                     details
@@ -809,14 +806,20 @@ const CareStaffDashboard = () => {
                         <h2 className="text-xl font-bold gradient-text capitalize">{activeTab}</h2>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button onClick={refreshAll} disabled={isRefreshing} title="Refresh Dashboard" className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 hover:text-purple-600 hover:shadow-md transition-all border border-gray-100 disabled:opacity-50">
+                        <button
+                            onClick={refreshAll}
+                            disabled={isRefreshing}
+                            title="Refresh Current View"
+                            className="inline-flex items-center gap-2 rounded-xl bg-white/80 px-4 py-2 text-sm font-semibold text-gray-600 hover:text-purple-600 hover:shadow-md transition-all border border-gray-100 disabled:opacity-50"
+                        >
                             <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+                            <span>{isRefreshing ? 'Refreshing...' : 'Refresh View'}</span>
                         </button>
                         <NotificationBell notifications={notifications} accentColor="purple" expandProfileUpdates />
                     </div>
                 </header>
 
-                <div key={activeTab} className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
+                <div key={`${activeTab}-${refreshNonce}`} className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
                     {renderActiveTab()}
 
                     {renderCareStaffModals({

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Award, Trash2, XCircle, Download } from 'lucide-react';
+import { Plus, Award, Trash2, XCircle, Download, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
@@ -55,11 +55,11 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     // Data States from Custom Hook
     const { data: scholarships, loading: loadingScholarships, refetch: fetchScholarships } = useSupabaseData<Scholarship>({
         table: 'scholarships',
-        order: { column: 'created_at', ascending: false },
-        subscribe: true
+        order: { column: 'created_at', ascending: false }
     });
 
     const [loading, setLoading] = useState(false);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
 
     // Modal State
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
@@ -142,6 +142,16 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
             if (showToast) showToast("Failed to fetch applicants: " + err.message, "error");
         } finally {
             setApplicantsLoading(false);
+        }
+    };
+
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await fetchScholarships();
+            showToast?.('Scholarships refreshed.', 'success');
+        } finally {
+            setIsRefreshingData(false);
         }
     };
 
@@ -296,9 +306,19 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                     <h1 className="text-2xl font-bold text-gray-900">Scholarship Management</h1>
                     <p className="text-gray-500 text-sm mt-1">Manage active scholarships and view applicants.</p>
                 </div>
-                <button onClick={() => setShowScholarshipModal(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-purple-200 transition-all duration-300">
-                    <Plus size={14} /> Add Scholarship
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleRefreshData}
+                        disabled={isRefreshingData}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600 disabled:opacity-50"
+                    >
+                        <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
+                        <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                    </button>
+                    <button onClick={() => setShowScholarshipModal(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-purple-200 transition-all duration-300">
+                        <Plus size={14} /> Add Scholarship
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
