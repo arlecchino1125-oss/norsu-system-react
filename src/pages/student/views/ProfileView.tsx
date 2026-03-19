@@ -292,7 +292,7 @@ function ProfileViewContent(p: any) {
                         <h3 className="font-bold text-lg mb-4 flex items-center gap-2 sm:mb-6"><span className="p-1.5 bg-gradient-to-br from-slate-600 to-slate-800 text-white rounded-lg"><Icons.Support /></span> Security Settings</h3>
                         <p className="text-sm text-gray-400">Manage your account security and password.</p>
                         <div className="mt-6 p-4 bg-purple-50/50 rounded-xl border border-purple-100/30">
-                            <p className="text-xs text-gray-500">Password management is handled through your NAT account. Contact the admin office for password resets.</p>
+                            <p className="text-xs text-gray-500">Your student password is managed through your Supabase-backed student login. Contact the admin office if you need your account reset or reactivated.</p>
                         </div>
                     </div>
                 )}

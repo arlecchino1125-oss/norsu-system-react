@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, ListChecks, XCircle, Trash2 } from 'lucide-react';
+import { Download, ListChecks, RefreshCw, XCircle, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDateTime, generateExportFilename } from '../../utils/formatters';
@@ -10,30 +10,58 @@ interface OfficeLogbookPageProps {
 }
 
 const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
+    const sortVisitsByTimeIn = (rows: any[]) =>
+        [...rows].sort((a: any, b: any) => new Date(b.time_in || 0).getTime() - new Date(a.time_in || 0).getTime());
+
     const [visits, setVisits] = useState<any[]>([]);
     const [reasons, setReasons] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [showManageModal, setShowManageModal] = useState(false);
     const [newReason, setNewReason] = useState('');
+
+    const fetchReasons = async () => {
+        const { data } = await supabase.from('office_visit_reasons').select('*').order('reason');
+        if (data) setReasons(data);
+    };
 
     useEffect(() => {
         const fetchVisits = async () => {
             const { data } = await supabase.from('office_visits').select('*').order('time_in', { ascending: false });
-            if (data) setVisits(data);
+            if (data) setVisits(sortVisitsByTimeIn(data));
             setLoading(false);
         };
         fetchVisits();
         fetchReasons();
 
         const channel = supabase.channel('visits_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'office_visits' }, fetchVisits)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'office_visits' }, (payload: any) => {
+                if (payload.eventType === 'DELETE') {
+                    setVisits((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
+                    return;
+                }
+
+                if (payload.new) {
+                    setVisits((prev) => sortVisitsByTimeIn([payload.new, ...prev.filter((row: any) => row.id !== payload.new.id)]));
+                }
+            })
             .subscribe();
         return () => { supabase.removeChannel(channel).catch(console.error); };
     }, []);
 
-    const fetchReasons = async () => {
-        const { data } = await supabase.from('office_visit_reasons').select('*').order('reason');
-        if (data) setReasons(data);
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            const [{ data: visitsData }, { data: reasonsData }] = await Promise.all([
+                supabase.from('office_visits').select('*').order('time_in', { ascending: false }),
+                supabase.from('office_visit_reasons').select('*').order('reason')
+            ]);
+            if (visitsData) setVisits(sortVisitsByTimeIn(visitsData));
+            if (reasonsData) setReasons(reasonsData);
+            functions.showToast('Office logbook refreshed.');
+        } finally {
+            setIsRefreshingData(false);
+        }
     };
 
     const handleAddReason = async (e) => {
@@ -60,6 +88,9 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
             <div className="mb-6 flex justify-between items-center">
                 <div><h1 className="text-2xl font-bold text-gray-900">Office Logbook</h1><p className="text-gray-500 text-sm mt-1">Digital log of student visits and transactions.</p></div>
                 <div className="flex gap-3">
+                    <button onClick={handleRefreshData} disabled={isRefreshingData} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} /> {isRefreshingData ? 'Refreshing...' : 'Refresh Data'}
+                    </button>
                     <button onClick={() => {
                         if (visits.length === 0) return;
                         const headers = ['Student Name', 'Student ID', 'Reason', 'Time In', 'Time Out', 'Status'];

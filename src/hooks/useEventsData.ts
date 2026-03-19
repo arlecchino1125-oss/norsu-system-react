@@ -91,17 +91,6 @@ export function useEventsData() {
 
     useEffect(() => {
         fetchEvents();
-
-        // Listen to events table for real-time changes
-        const eventChannel = supabase.channel('events_aggregate_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchEvents())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'event_attendance' }, () => fetchEvents())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'event_feedback' }, () => fetchEvents())
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(eventChannel);
-        };
     }, []);
 
     // Split into active (upcoming/ongoing) and archived (expired)

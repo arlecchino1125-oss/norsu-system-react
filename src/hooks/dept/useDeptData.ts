@@ -3,8 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
 import { DEPT_SUPPORT_VISIBLE_STATUSES, SUPPORT_STATUS } from '../../utils/workflow';
 import {
-    getApplicationsPage,
     getCounselingRequestsPage,
+    getDepartmentApplicationsPage,
     getCourseDepartmentMap,
     getEventsPage,
     getStudentsPage,
@@ -60,6 +60,16 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         setTimeout(() => setToast(null), 3000);
     };
 
+    const ensureCourseMap = async () => {
+        if (Object.keys(courseMap).length > 0) {
+            return courseMap;
+        }
+
+        const map = await getCourseDepartmentMap();
+        setCourseMap(map);
+        return map;
+    };
+
     // Initialize Data from Session
     useEffect(() => {
         if (isAuthenticated && session) {
@@ -90,8 +100,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         setStudentsLoading(true);
         setStudentsError(null);
         try {
-            const map = await getCourseDepartmentMap();
-            setCourseMap(map);
+            const map = await ensureCourseMap();
 
             const result = await getStudentsPage(
                 { ...studentFilters, department: data.profile.department },
@@ -197,20 +206,14 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         setAdmissionsLoading(true);
         setAdmissionsError(null);
         try {
-            const result = await getApplicationsPage(
+            const result = await getDepartmentApplicationsPage(
+                data.profile.department,
                 admissionsFilters,
                 { page: admissionsPage, pageSize: admissionsPageSize },
                 { column: 'created_at', ascending: false }
             );
 
-            const deptApps = result.rows.filter((app: any) => {
-                const choice = app.current_choice || 1;
-                const activeCourse = choice === 1 ? app.priority_course : choice === 2 ? app.alt_course_1 : app.alt_course_2;
-                const mappedDept = courseMap[String(activeCourse || '').trim().toLowerCase()];
-                return mappedDept === data.profile.department;
-            });
-
-            setAdmissionApplicants(deptApps);
+            setAdmissionApplicants(result.rows);
             setAdmissionsTotal(result.total);
         } catch (error: any) {
             setAdmissionsError(error.message || 'Failed to load admissions');
@@ -221,14 +224,15 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
 
     // Fetch paginated students (server-side)
     useEffect(() => {
-        if (data?.profile) {
+        if (data?.profile?.department) {
             refreshStudents();
+            const department = data.profile.department;
             const channel = supabase.channel('dept_students_realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, refreshStudents)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: `department=eq.${department}` }, refreshStudents)
                 .subscribe();
             return () => { supabase.removeChannel(channel); };
         }
-    }, [data?.profile, studentsPage, studentsPageSize, JSON.stringify(studentFilters)]);
+    }, [data?.profile?.department, studentsPage, studentsPageSize, JSON.stringify(studentFilters)]);
 
     // Dark Mode Effect
     useEffect(() => {
@@ -266,13 +270,9 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
 
     // Fetch Admissions Applicants (paginated)
     useEffect(() => {
-        if (!data?.profile?.department || !courseMap) return;
+        if (!data?.profile?.department) return;
         refreshAdmissions();
-        const channel = supabase.channel('dept_admissions_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, refreshAdmissions)
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [data?.profile?.department, admissionsPage, admissionsPageSize, JSON.stringify(admissionsFilters), JSON.stringify(courseMap)]);
+    }, [data?.profile?.department, admissionsPage, admissionsPageSize, JSON.stringify(admissionsFilters)]);
 
     // Fetch Support Requests (paginated)
     useEffect(() => {
@@ -295,6 +295,16 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         return () => { supabase.removeChannel(channel); };
     }, [data?.profile?.department, supportPage, supportPageSize, JSON.stringify(supportFilters)]);
 
+    const refreshAllData = async () => {
+        await Promise.all([
+            refreshStudents(),
+            refreshEvents(),
+            refreshCounseling(),
+            refreshSupport(),
+            refreshAdmissions()
+        ]);
+    };
+
     return {
         data,
         setData,
@@ -307,6 +317,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         setLastSeenSupportCount,
         toast,
         setToast,
+        refreshAllData,
         showToastMessage,
         studentsState: {
             rows: data?.students || [],

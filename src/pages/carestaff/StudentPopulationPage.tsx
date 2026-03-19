@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
     Users, Search, Download, XCircle, Edit, Trash2, Plus, Key,
     PieChart, List, UploadCloud, Info, ArrowUpDown, Activity, TrendingUp,
-    Eye, ChevronLeft, ChevronRight, FileSpreadsheet, User
+    Eye, ChevronLeft, ChevronRight, FileSpreadsheet, RefreshCw, User
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
@@ -185,15 +185,13 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const { data: studentsList, refetch: refetchStudents } = useSupabaseData({
         table: 'students',
         select: STUDENT_LIST_COLUMNS,
-        order: { column: 'created_at', ascending: false },
-        subscribe: true
+        order: { column: 'created_at', ascending: false }
     });
 
     const { data: allCourses, refetch: refetchCourses } = useSupabaseData({
         table: 'courses',
         select: 'id, name, application_limit, status, department_id, departments(name)',
-        order: { column: 'name', ascending: true },
-        subscribe: true
+        order: { column: 'name', ascending: true }
     });
 
     const { data: allDepartments } = useSupabaseData({
@@ -201,10 +199,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         order: { column: 'name', ascending: true }
     });
 
-    const { data: natApplications } = useSupabaseData({
+    const { data: natApplications, refetch: refetchNatApplications } = useSupabaseData({
         table: 'applications',
-        select: 'id, priority_course',
-        subscribe: true
+        select: 'id, priority_course'
     });
 
     // Modals
@@ -315,6 +312,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const [tableStudents, setTableStudents] = useState<any[]>([]);
     const [tableStudentsTotal, setTableStudentsTotal] = useState(0);
     const [tableLoading, setTableLoading] = useState(false);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
+    const [tableRefreshTick, setTableRefreshTick] = useState(0);
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
     const [enrollmentKeys, setEnrollmentKeys] = useState<any[]>([]);
     const [courseForm, setCourseForm] = useState({ name: '', application_limit: 200, department_id: '' });
@@ -364,6 +363,22 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         } catch (error) {
             console.error('Error fetching enrollment keys:', error);
             functions.showToast('Failed to fetch enrollment keys', 'error');
+        }
+    };
+
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await Promise.all([
+                refetchStudents(),
+                refetchCourses(),
+                refetchNatApplications(),
+                fetchEnrollmentKeys()
+            ]);
+            setTableRefreshTick((current) => current + 1);
+            functions.showToast('Student data refreshed.', 'success');
+        } finally {
+            setIsRefreshingData(false);
         }
     };
 
@@ -483,7 +498,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         };
 
         fetchPagedStudents();
-    }, [searchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, currentPage, sortConfig.key, sortConfig.direction]);
+    }, [searchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, currentPage, sortConfig.key, sortConfig.direction, tableRefreshTick]);
 
     const [studentForm, setStudentForm] = useState<any>({
         firstName: '', lastName: '', studentId: '', course: '', year: '1st Year', status: 'Active'
@@ -1092,6 +1107,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     <p className="text-slate-500 text-sm mt-1">Comprehensive management and analytics for the student body.</p>
                 </div>
                 <div className="flex gap-3">
+                    <Button variant="secondary" onClick={handleRefreshData} disabled={isRefreshingData} leftIcon={<RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />}>
+                        {isRefreshingData ? 'Refreshing...' : 'Refresh Data'}
+                    </Button>
                     <Button variant="secondary" onClick={handleExportExcel} leftIcon={<FileSpreadsheet size={16} />}>
                         Export Excel
                     </Button>
@@ -1815,5 +1833,3 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 };
 
 export default StudentPopulationPage;
-
-

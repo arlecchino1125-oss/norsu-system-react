@@ -6,7 +6,7 @@ import CalendarView from '../../components/CalendarView';
 import { jsPDF } from 'jspdf';
 import {
     Users, FileText, Clock, CheckCircle, Calendar,
-    User, Eye, Send, Download, XCircle
+    User, Eye, Send, Download, XCircle, RefreshCw
 } from 'lucide-react';
 import type { CareStaffDashboardFunctions } from './types';
 import {
@@ -22,6 +22,14 @@ interface CounselingPageProps {
 
 const CounselingPage = ({ functions }: CounselingPageProps) => {
     const { handleViewProfile, showToastMessage } = functions;
+    const sortCounselingByCreatedAt = (rows: any[]) =>
+        [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+    const upsertCounselingRequest = (rows: any[], nextRow: any) => {
+        const normalized = rows.filter((row: any) => row.id !== nextRow.id);
+        return sortCounselingByCreatedAt([nextRow, ...normalized]);
+    };
+
     const getCounselingStatusTone = (status: string) => {
         if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
         if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
@@ -43,6 +51,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
     const [counselingReqs, setCounselingReqs] = useState<any[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.REFERRED);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
 
     // Modals & form state
     const [viewFormReq, setViewFormReq] = useState<any>(null);
@@ -62,7 +71,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
             setLoading(true);
             const { data, error } = await supabase.from('counseling_requests').select('*').order('created_at', { ascending: false });
             if (error) throw error;
-            setCounselingReqs(data || []);
+            setCounselingReqs(sortCounselingByCreatedAt(data || []));
         } catch (error: any) {
             console.error('Error fetching counseling requests:', error);
             showToastMessage('Failed to load counseling requests', 'error');
@@ -76,8 +85,15 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
 
         // Realtime subscription
         const counselingChannel = supabase.channel('care_counseling_isolated')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests' }, () => {
-                fetchCounseling();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests' }, (payload: any) => {
+                if (payload.eventType === 'DELETE') {
+                    setCounselingReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
+                    return;
+                }
+
+                if (payload.new) {
+                    setCounselingReqs((prev) => upsertCounselingRequest(prev, payload.new));
+                }
             })
             .subscribe();
 
@@ -85,6 +101,16 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
             supabase.removeChannel(counselingChannel);
         };
     }, []);
+
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await fetchCounseling();
+            showToastMessage('Counseling data refreshed.', 'success');
+        } finally {
+            setIsRefreshingData(false);
+        }
+    };
 
     // Handlers
     const handleScheduleSubmit = async (e: any) => {
@@ -184,13 +210,14 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
         drawField('Name of Student:', req.student_name || '', margin, contentW / 2 - 5, y);
         drawField('Course & Year:', req.course_year || '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 10;
-        drawField('Schedule of Appointment:', getCounselingScheduledDate(req) ? new Date(getCounselingScheduledDate(req) as string).toLocaleString() : '', margin, contentW / 2 - 5, y);
-        drawField('Contact Number:', req.referrer_contact_number || '', pageW / 2 + 5, contentW / 2 - 5, y);
+        drawField('Request Type:', req.request_type || 'Dean Referral', margin, contentW / 2 - 5, y);
+        drawField('Schedule of Appointment:', getCounselingScheduledDate(req) ? new Date(getCounselingScheduledDate(req) as string).toLocaleString() : '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 10;
         drawField('Referred by:', req.referred_by || '', margin, contentW / 2 - 5, y);
-        drawField('Contact Number:', req.contact_number || '', pageW / 2 + 5, contentW / 2 - 5, y);
+        drawField('Referrer Contact Number:', req.referrer_contact_number || '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 10;
-        drawField('Relationship with Student:', req.relationship_with_student || '', margin, contentW / 2 - 5, y);
+        drawField('Student Contact Number:', req.contact_number || '', margin, contentW / 2 - 5, y);
+        drawField('Relationship with Student:', req.relationship_with_student || '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 14;
 
         // --- TEXT AREA SECTIONS ---
@@ -268,9 +295,19 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
     return (
         <>
             <div>
-                <div className="mb-8">
-                    <h1 className="text-2xl font-bold text-gray-900">Counseling Management</h1>
-                    <p className="text-gray-500 text-sm mt-1">Review applications, manage referrals, and schedule sessions</p>
+                <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Counseling Management</h1>
+                        <p className="text-gray-500 text-sm mt-1">Review applications, manage referrals, and schedule sessions</p>
+                    </div>
+                    <button
+                        onClick={handleRefreshData}
+                        disabled={isRefreshingData}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600 disabled:opacity-50"
+                    >
+                        <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
+                        <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                    </button>
                 </div>
 
                 {/* Stats Row */}
@@ -405,6 +442,8 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                         <div><label className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input readOnly value={viewFormReq.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                         <div><label className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input readOnly value={viewFormReq.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                        <div><label className="block text-xs font-bold text-gray-500 mb-1">Student Contact Number</label><input readOnly value={viewFormReq.contact_number || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                        <div><label className="block text-xs font-bold text-gray-500 mb-1">Request Type</label><input readOnly value={viewFormReq.request_type || 'Dean Referral'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                     </div>
                                     {/* Referral details */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

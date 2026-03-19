@@ -100,6 +100,13 @@ const DEPT_ADMISSION_COLUMNS = [
     'interview_date'
 ].join(', ');
 
+const DEFAULT_ADMISSIONS_STATUSES = [
+    'Qualified for Interview (1st Choice)',
+    'Forwarded to 2nd Choice for Interview',
+    'Forwarded to 3rd Choice for Interview',
+    'Interview Scheduled'
+];
+
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     let next = query;
     if (!filters) return next;
@@ -286,6 +293,142 @@ export const getApplicationsPage = async (
     const { data, error, count } = await query;
     if (error) throw error;
     return toPageResult(data, count, pageParams);
+};
+
+const applyAdmissionsFilters = (query: any, filters?: AdmissionsFilters) => {
+    let next = query;
+
+    const statusList = Array.isArray(filters?.status)
+        ? filters?.status
+        : DEFAULT_ADMISSIONS_STATUSES;
+    next = next.in('status', statusList);
+
+    const search = String(filters?.search || '').trim();
+    if (search) {
+        const safe = search.replace(/[%]/g, '');
+        next = next.or([
+            `first_name.ilike.%${safe}%`,
+            `last_name.ilike.%${safe}%`,
+            `reference_id.ilike.%${safe}%`
+        ].join(','));
+    }
+
+    return next;
+};
+
+const sortRows = (rows: any[], sort?: SortParams) => {
+    const activeSort = sort || { column: 'created_at', ascending: false };
+    const direction = activeSort.ascending ? 1 : -1;
+
+    return [...rows].sort((left: any, right: any) => {
+        const leftValue = left?.[activeSort.column];
+        const rightValue = right?.[activeSort.column];
+
+        if (leftValue === rightValue) return 0;
+        if (leftValue == null) return -1 * direction;
+        if (rightValue == null) return 1 * direction;
+        return leftValue > rightValue ? direction : -1 * direction;
+    });
+};
+
+const getDepartmentCourseNames = async (departmentName: string) => {
+    const normalizedDepartment = String(departmentName || '').trim();
+    if (!normalizedDepartment) {
+        return [] as string[];
+    }
+
+    const { data: department, error: departmentError } = await supabase
+        .from('departments')
+        .select('id')
+        .eq('name', normalizedDepartment)
+        .maybeSingle();
+
+    if (departmentError) throw departmentError;
+    if (!department?.id) {
+        return [] as string[];
+    }
+
+    const { data: courses, error: courseError } = await supabase
+        .from('courses')
+        .select('name')
+        .eq('department_id', department.id);
+
+    if (courseError) throw courseError;
+
+    return (courses || [])
+        .map((course: any) => String(course?.name || '').trim())
+        .filter(Boolean);
+};
+
+const fetchDepartmentApplicationSlice = async (
+    courseColumn: 'priority_course' | 'alt_course_1' | 'alt_course_2',
+    courseNames: string[],
+    filters: AdmissionsFilters | undefined,
+    choiceCondition: { isNull?: boolean; value?: number }
+) => {
+    if (courseNames.length === 0) {
+        return [] as any[];
+    }
+
+    let query: any = supabase
+        .from('applications')
+        .select(DEPT_ADMISSION_COLUMNS);
+
+    query = applyAdmissionsFilters(query, filters);
+    query = query.in(courseColumn, courseNames);
+
+    if (choiceCondition.isNull) {
+        query = query.is('current_choice', null);
+    } else if (typeof choiceCondition.value === 'number') {
+        query = query.eq('current_choice', choiceCondition.value);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return data || [];
+};
+
+export const getDepartmentApplicationsPage = async (
+    departmentName: string,
+    filters?: AdmissionsFilters,
+    pageParams?: PageParams,
+    sort?: SortParams
+): Promise<PageResult<any>> => {
+    let departmentCourseNames = await getDepartmentCourseNames(departmentName);
+
+    if (filters?.course && filters.course !== 'All') {
+        departmentCourseNames = departmentCourseNames.filter((course) => course === filters.course);
+    }
+
+    if (departmentCourseNames.length === 0) {
+        return toPageResult([], 0, pageParams);
+    }
+
+    const [firstChoiceRows, unassignedChoiceRows, secondChoiceRows, thirdChoiceRows] = await Promise.all([
+        fetchDepartmentApplicationSlice('priority_course', departmentCourseNames, filters, { value: 1 }),
+        fetchDepartmentApplicationSlice('priority_course', departmentCourseNames, filters, { isNull: true }),
+        fetchDepartmentApplicationSlice('alt_course_1', departmentCourseNames, filters, { value: 2 }),
+        fetchDepartmentApplicationSlice('alt_course_2', departmentCourseNames, filters, { value: 3 })
+    ]);
+
+    const mergedById = new Map<string, any>();
+    [
+        ...firstChoiceRows,
+        ...unassignedChoiceRows,
+        ...secondChoiceRows,
+        ...thirdChoiceRows
+    ].forEach((row: any) => {
+        if (row?.id != null) {
+            mergedById.set(String(row.id), row);
+        }
+    });
+
+    const mergedRows = sortRows(Array.from(mergedById.values()), sort || { column: 'created_at', ascending: false });
+    const { from, to } = resolvePageParams(pageParams);
+    const pagedRows = mergedRows.slice(from, to + 1);
+
+    return toPageResult(pagedRows, mergedRows.length, pageParams);
 };
 
 export const getCourseDepartmentMap = async () => {

@@ -5,6 +5,11 @@ import { renderProfileView } from './views/ProfileView';
 import { FeedbackView } from './views/FeedbackView';
 import { ServiceIntroModal } from './views/ServiceIntroModal';
 import {
+    getStoredAssetEntries,
+    getStoredAssetLabel,
+    openStoredAsset
+} from '../../utils/storageAssets';
+import {
     CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
     COUNSELING_STATUS,
     SUPPORT_STATUS,
@@ -15,7 +20,7 @@ export { ServiceIntroModal } from './views/ServiceIntroModal';
 
 // Helper: renders assessment, counseling, support, scholarship, feedback, profile views
 export function renderRemainingViews(p: any) {
-    const { activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, setActiveView, feedbackPrefill, setFeedbackPrefill } = p;
+    const { activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast } = p;
     const getCounselingStatusTone = (status: string) => {
         if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
         if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
@@ -602,26 +607,33 @@ export function renderRemainingViews(p: any) {
 
                                     {/* Uploaded Documents */}
                                     {selectedSupportRequest.documents_url && (() => {
-                                        let urls: string[] = [];
-                                        try {
-                                            const parsed = JSON.parse(selectedSupportRequest.documents_url);
-                                            urls = Array.isArray(parsed) ? parsed : [selectedSupportRequest.documents_url];
-                                        } catch { urls = [selectedSupportRequest.documents_url]; }
+                                        const urls = getStoredAssetEntries(selectedSupportRequest.documents_url);
                                         return urls.length > 0 ? (
                                             <section className="mt-2">
                                                 <h4 className="font-bold text-sm text-blue-800 mb-3 uppercase tracking-wider">Supporting Documents</h4>
                                                 <div className="space-y-2">
                                                     {urls.map((url: string, idx: number) => (
-                                                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors group">
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await openStoredAsset('support_documents', url);
+                                                                } catch (error: any) {
+                                                                    showToast?.(error.message || 'Unable to open the selected document.', 'error');
+                                                                }
+                                                            }}
+                                                            className="group flex w-full items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-left hover:bg-blue-100 transition-colors"
+                                                        >
                                                             <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 group-hover:bg-blue-200 transition-colors">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="text-sm font-bold text-blue-700 truncate">Document {idx + 1}</p>
-                                                                <p className="text-xs text-blue-500 truncate">{decodeURIComponent(url.split('/').pop() || '')}</p>
+                                                                <p className="text-xs text-blue-500 truncate">{getStoredAssetLabel(url)}</p>
                                                             </div>
                                                             <svg className="w-4 h-4 text-blue-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                                        </a>
+                                                        </button>
                                                     ))}
                                                 </div>
                                             </section>

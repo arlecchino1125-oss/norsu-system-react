@@ -3,6 +3,11 @@ import { XCircle, Eye, Paperclip, Calendar, CheckCircle, Send, Clock, AlertTrian
 import { supabase } from '../../lib/supabase';
 import SignatureCanvas from 'react-signature-canvas';
 import { buildStudentAddress } from '../../utils/studentFields';
+import {
+    getStoredAssetEntries,
+    openStoredAsset,
+    parseCareNotesPayload
+} from '../../utils/storageAssets';
 import { SUPPORT_STATUS, isDeptSupportCompleted } from '../../utils/workflow';
 
 const DeptSupportApprovalsPage = ({
@@ -540,19 +545,26 @@ const DeptSupportApprovalsPage = ({
                                 </div>
                                 {renderDetailedDescription(viewReq.description)}
                                 {viewReq.documents_url && (() => {
-                                    let urls: string[] = [];
-                                    try {
-                                        const parsed = JSON.parse(viewReq.documents_url);
-                                        urls = Array.isArray(parsed) ? parsed : [viewReq.documents_url];
-                                    } catch { urls = [viewReq.documents_url]; }
+                                    const urls = getStoredAssetEntries(viewReq.documents_url);
                                     return urls.length > 0 ? (
                                         <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-2">
                                             <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1"><Paperclip size={12} /> Supporting Documents ({urls.length})</p>
                                             {urls.map((url: string, idx: number) => (
-                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 hover:underline font-medium py-1">
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        try {
+                                                            await openStoredAsset('support_documents', url);
+                                                        } catch (error) {
+                                                            console.error('Failed to open support document.', error);
+                                                        }
+                                                    }}
+                                                    className="flex w-full items-center gap-2 py-1 text-left text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                                                >
                                                     <Eye size={14} className="flex-shrink-0" />
                                                     <span className="truncate">Document {idx + 1} — {decodeURIComponent(url.split('/').pop() || 'file')}</span>
-                                                </a>
+                                                </button>
                                             ))}
                                         </div>
                                     ) : null;
@@ -608,15 +620,7 @@ const DeptSupportApprovalsPage = ({
 
             {/* Endorsement Letter Viewer Modal */}
             {showLetterModal && viewReq?.care_notes && (() => {
-                let letterUrl = null;
-                let notesText = '';
-                try {
-                    const parsed = JSON.parse(viewReq.care_notes);
-                    letterUrl = parsed?.letter_url;
-                    notesText = parsed?.notes || '';
-                } catch {
-                    notesText = viewReq.care_notes;
-                }
+                const { letterReference, notes: notesText } = parseCareNotesPayload(viewReq.care_notes);
                 return (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
@@ -650,10 +654,20 @@ const DeptSupportApprovalsPage = ({
                                     </div>
                                 </div>
 
-                                {letterUrl && (
-                                    <a href={letterUrl} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-bold text-sm rounded-xl hover:shadow-lg shadow-yellow-200/50 transition-all">
+                                {letterReference && (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            try {
+                                                await openStoredAsset('support_documents', letterReference);
+                                            } catch (error) {
+                                                console.error('Failed to open endorsement letter.', error);
+                                            }
+                                        }}
+                                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-3 text-sm font-bold text-white shadow-yellow-200/50 transition-all hover:shadow-lg"
+                                    >
                                         <Download size={16} /> Download Original Letter
-                                    </a>
+                                    </button>
                                 )}
                             </div>
                         </div>

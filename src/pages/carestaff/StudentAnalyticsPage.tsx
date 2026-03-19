@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import {
     Users, XCircle, Clock, Filter, ArrowUpDown,
-    BarChart2, TrendingUp
+    BarChart2, TrendingUp, RefreshCw
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import QuestionChart from '../../components/charts/QuestionChart';
@@ -21,23 +21,31 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
 
     const [currentTab, setCurrentTab] = useState('Overview');
     const [loading, setLoading] = useState(true);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [analyticsData, setAnalyticsData] = useState<any>({ submissions: [], answers: [] });
     const [filteredData, setFilteredData] = useState<any>({ submissions: [], answers: [] });
 
-
-
     const refreshForms = async () => {
         const { data } = await supabase.from('forms').select('*').order('created_at', { ascending: false });
-        if (data) setForms(data);
+        if (data) {
+            setForms(data);
+            setSelectedFormId((current: any) => {
+                const currentStillExists = data.some((form: any) => form.id === current);
+                return currentStillExists ? current : (data[0]?.id || null);
+            });
+            if (!selectedFormId && data[0]) {
+                setDateFilter({
+                    start: data[0].created_at ? data[0].created_at.split('T')[0] : '',
+                    end: data[0].status === 'Closed' ? (data[0].updated_at ? data[0].updated_at.split('T')[0] : '') : ''
+                });
+            }
+        }
     };
 
-
-    useEffect(() => {
-        const channel = supabase.channel('public:students_analytics')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'forms' }, refreshForms)
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, []);
+    const refreshDepartments = async () => {
+        const { data } = await supabase.from('departments').select('name').order('name');
+        if (data) setAllDepartments(data);
+    };
 
     // Smart Date Logic & Filters
     const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
@@ -70,12 +78,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
             }
         };
         loadForms();
-
-        const loadDepartments = async () => {
-            const { data } = await supabase.from('departments').select('name').order('name');
-            if (data) setAllDepartments(data);
-        };
-        loadDepartments();
+        refreshDepartments();
     }, []);
 
     // Handle Form Change & Smart Dates
@@ -100,6 +103,24 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
     const fetchQuestions = async () => {
         const { data } = await supabase.from('questions').select('*').eq('form_id', selectedFormId).order('order_index');
         setQuestions(data || []);
+    };
+
+    const handleRefreshData = async () => {
+        setIsRefreshingData(true);
+        try {
+            await Promise.all([
+                refreshForms(),
+                refreshDepartments(),
+                selectedFormId ? fetchQuestions() : Promise.resolve(),
+                selectedFormId ? fetchAnalytics() : Promise.resolve()
+            ]);
+            functions.showToast('Analytics data refreshed.', 'success');
+        } catch (error) {
+            console.error('Error refreshing analytics:', error);
+            functions.showToast('Error refreshing analytics', 'error');
+        } finally {
+            setIsRefreshingData(false);
+        }
     };
 
     const processAnalyticsData = (subs) => {
@@ -258,15 +279,24 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
                         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><BarChart2 className="text-purple-600" /> Student Analytics</h1>
                         <p className="text-gray-500 text-sm mt-1">Deep dive into student responses and trends.</p>
                     </div>
-                    {/* Form Select */}
-                    <select
-                        value={selectedFormId || ''}
-                        onChange={e => handleFormSelect(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg font-bold text-purple-700 bg-purple-50 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-auto"
-                    >
-                        {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
-                        {forms.length === 0 && <option>No Forms Available</option>}
-                    </select>
+                    <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
+                        <button
+                            onClick={handleRefreshData}
+                            disabled={isRefreshingData}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600 disabled:opacity-50"
+                        >
+                            <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
+                            <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                        </button>
+                        <select
+                            value={selectedFormId || ''}
+                            onChange={e => handleFormSelect(e.target.value)}
+                            className="px-4 py-2 border border-gray-300 rounded-lg font-bold text-purple-700 bg-purple-50 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-auto"
+                        >
+                            {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
+                            {forms.length === 0 && <option>No Forms Available</option>}
+                        </select>
+                    </div>
                 </div>
 
                 {/* Filters Row */}
