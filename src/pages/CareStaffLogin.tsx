@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Lock, CheckCircle, AlertCircle, Heart, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRoleLogin } from '../hooks/auth/useRoleLogin';
 import { STAFF_LOGIN_CONFIGS } from './auth/staffLoginConfigs';
@@ -67,9 +67,13 @@ export default function CareStaffLogin() {
                     >
                         <motion.div
                             whileHover={{ scale: 1.05, rotate: -5 }}
-                            className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-[2rem] flex items-center justify-center text-white mb-8 shadow-xl shadow-purple-500/20"
+                            className="w-32 h-32 overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 rounded-[2.25rem] flex items-center justify-center text-white mb-8 shadow-xl shadow-purple-500/20"
                         >
-                            <Heart size={40} className="drop-shadow-sm" fill="currentColor" />
+                            <img
+                                src="/carecenter.png"
+                                alt="CARE Center Logo"
+                                className="h-full w-full scale-[1.18] object-cover drop-shadow-sm"
+                            />
                         </motion.div>
 
                         <h2 className="text-6xl font-black mb-6 leading-tight tracking-tight text-slate-800">

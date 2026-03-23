@@ -2,6 +2,9 @@ import { supabase } from '../lib/supabase';
 import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
 import type { PageResult } from '../types/pagination';
 import type { AdmissionsFilters, PageParams, RequestFilters, SortParams, StudentFilters } from '../types/query';
+import { readSessionCache, writeSessionCache } from '../utils/sessionCache';
+
+const PAGED_LIST_COUNT_MODE = 'planned';
 
 const DEPT_STUDENT_COLUMNS = [
     'id',
@@ -97,7 +100,10 @@ const DEPT_ADMISSION_COLUMNS = [
     'alt_course_2',
     'current_choice',
     'status',
-    'interview_date'
+    'interview_date',
+    'interview_venue',
+    'interview_panel',
+    'interview_queue_status'
 ].join(', ');
 
 const DEFAULT_ADMISSIONS_STATUSES = [
@@ -106,6 +112,44 @@ const DEFAULT_ADMISSIONS_STATUSES = [
     'Forwarded to 3rd Choice for Interview',
     'Interview Scheduled'
 ];
+
+const DEPARTMENT_ADMISSIONS_RPC_CACHE_KEY = 'dept.admissions.rpc.available';
+const DEPT_CACHE_TTL_MS = 30 * 1000;
+const DEPT_LOOKUP_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const readDepartmentAdmissionsRpcAvailability = () => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const cached = window.sessionStorage.getItem(DEPARTMENT_ADMISSIONS_RPC_CACHE_KEY);
+    if (cached === 'true') return true;
+    if (cached === 'false') return false;
+    return null;
+};
+
+const writeDepartmentAdmissionsRpcAvailability = (value: boolean | null) => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    if (value == null) {
+        window.sessionStorage.removeItem(DEPARTMENT_ADMISSIONS_RPC_CACHE_KEY);
+        return;
+    }
+
+    window.sessionStorage.setItem(DEPARTMENT_ADMISSIONS_RPC_CACHE_KEY, value ? 'true' : 'false');
+};
+
+let departmentAdmissionsRpcAvailability: boolean | null = readDepartmentAdmissionsRpcAvailability();
+
+const buildDeptCacheKey = (scope: string, payload: unknown) => `dept-cache:${scope}:${JSON.stringify(payload)}`;
+
+const readDeptCache = <T>(scope: string, payload: unknown) =>
+    readSessionCache<T>(buildDeptCacheKey(scope, payload));
+
+const writeDeptCache = <T>(scope: string, payload: unknown, value: T, ttlMs: number) =>
+    writeSessionCache(buildDeptCacheKey(scope, payload), value, ttlMs);
 
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     let next = query;
@@ -180,10 +224,16 @@ export const getStudentsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
+    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
+    const cached = readDeptCache<PageResult<any>>('students-page', cacheKeyPayload);
+    if (cached) {
+        return cached;
+    }
+
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('students')
-        .select(DEPT_STUDENT_COLUMNS, { count: 'exact' });
+        .select(DEPT_STUDENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     query = applyStudentFilters(query, filters);
     query = applySort(query, sort || { column: 'last_name', ascending: true });
@@ -191,7 +241,9 @@ export const getStudentsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    return toPageResult(data, count, pageParams);
+    const result = toPageResult(data, count, pageParams);
+    writeDeptCache('students-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+    return result;
 };
 
 export const getCounselingRequestsPage = async (
@@ -199,10 +251,16 @@ export const getCounselingRequestsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
+    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
+    const cached = readDeptCache<PageResult<any>>('counseling-page', cacheKeyPayload);
+    if (cached) {
+        return cached;
+    }
+
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('counseling_requests')
-        .select(DEPT_REQUEST_COLUMNS, { count: 'exact' });
+        .select(DEPT_REQUEST_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     query = applyRequestFilters(query, filters);
     query = applySort(query, sort || { column: 'created_at', ascending: false });
@@ -210,7 +268,9 @@ export const getCounselingRequestsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    return toPageResult(data, count, pageParams);
+    const result = toPageResult(data, count, pageParams);
+    writeDeptCache('counseling-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+    return result;
 };
 
 export const getSupportRequestsPage = async (
@@ -218,10 +278,16 @@ export const getSupportRequestsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
+    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
+    const cached = readDeptCache<PageResult<any>>('support-page', cacheKeyPayload);
+    if (cached) {
+        return cached;
+    }
+
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('support_requests')
-        .select(DEPT_SUPPORT_COLUMNS, { count: 'exact' });
+        .select(DEPT_SUPPORT_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     query = applyRequestFilters(query, filters);
     query = applySort(query, sort || { column: 'created_at', ascending: false });
@@ -229,24 +295,34 @@ export const getSupportRequestsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    return toPageResult(data, count, pageParams);
+    const result = toPageResult(data, count, pageParams);
+    writeDeptCache('support-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+    return result;
 };
 
 export const getEventsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
+    const cacheKeyPayload = { pageParams: pageParams || null, sort: sort || null };
+    const cached = readDeptCache<PageResult<any>>('events-page', cacheKeyPayload);
+    if (cached) {
+        return cached;
+    }
+
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('events')
-        .select(DEPT_EVENT_COLUMNS, { count: 'exact' });
+        .select(DEPT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
     query = query.range(from, to);
 
     const { data, error, count } = await query;
     if (error) throw error;
-    return toPageResult(data, count, pageParams);
+    const result = toPageResult(data, count, pageParams);
+    writeDeptCache('events-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+    return result;
 };
 
 export const getApplicationsPage = async (
@@ -254,10 +330,16 @@ export const getApplicationsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
+    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
+    const cached = readDeptCache<PageResult<any>>('applications-page', cacheKeyPayload);
+    if (cached) {
+        return cached;
+    }
+
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('applications')
-        .select(DEPT_ADMISSION_COLUMNS, { count: 'exact' });
+        .select(DEPT_ADMISSION_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     const statusList = Array.isArray(filters?.status)
         ? filters?.status
@@ -292,7 +374,9 @@ export const getApplicationsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    return toPageResult(data, count, pageParams);
+    const result = toPageResult(data, count, pageParams);
+    writeDeptCache('applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+    return result;
 };
 
 const applyAdmissionsFilters = (query: any, filters?: AdmissionsFilters) => {
@@ -337,6 +421,11 @@ const getDepartmentCourseNames = async (departmentName: string) => {
         return [] as string[];
     }
 
+    const cached = readDeptCache<string[]>('department-course-names', normalizedDepartment);
+    if (cached) {
+        return cached;
+    }
+
     const { data: department, error: departmentError } = await supabase
         .from('departments')
         .select('id')
@@ -355,9 +444,11 @@ const getDepartmentCourseNames = async (departmentName: string) => {
 
     if (courseError) throw courseError;
 
-    return (courses || [])
+    const result = (courses || [])
         .map((course: any) => String(course?.name || '').trim())
         .filter(Boolean);
+    writeDeptCache('department-course-names', normalizedDepartment, result, DEPT_LOOKUP_CACHE_TTL_MS);
+    return result;
 };
 
 const fetchDepartmentApplicationSlice = async (
@@ -389,7 +480,7 @@ const fetchDepartmentApplicationSlice = async (
     return data || [];
 };
 
-export const getDepartmentApplicationsPage = async (
+const getDepartmentApplicationsPageFallback = async (
     departmentName: string,
     filters?: AdmissionsFilters,
     pageParams?: PageParams,
@@ -431,7 +522,146 @@ export const getDepartmentApplicationsPage = async (
     return toPageResult(pagedRows, mergedRows.length, pageParams);
 };
 
+const getDepartmentApplicationsPageViaRpc = async (
+    departmentName: string,
+    filters?: AdmissionsFilters,
+    pageParams?: PageParams,
+    sort?: SortParams
+): Promise<PageResult<any>> => {
+    const activeSort = sort || { column: 'created_at', ascending: false };
+    if (activeSort.column !== 'created_at') {
+        return getDepartmentApplicationsPageFallback(departmentName, filters, pageParams, sort);
+    }
+
+    const { from, pageSize } = resolvePageParams(pageParams);
+    const trimmedSearch = String(filters?.search || '').trim();
+    const requestedStatusList = Array.isArray(filters?.status) && filters.status.length > 0
+        ? filters.status
+        : DEFAULT_ADMISSIONS_STATUSES;
+
+    const { data, error } = await supabase.rpc('get_department_applications_page', {
+        p_department_name: String(departmentName || '').trim(),
+        p_statuses: requestedStatusList,
+        p_search: trimmedSearch || null,
+        p_course: filters?.course && filters.course !== 'All' ? filters.course : null,
+        p_limit: pageSize,
+        p_offset: from,
+        p_sort_ascending: activeSort.ascending ?? false
+    });
+
+    if (error) {
+        throw error;
+    }
+
+    const rows = (data || []).map((row: any) => {
+        const { total_count, ...application } = row || {};
+        return application;
+    });
+    const total = Number(data?.[0]?.total_count || 0);
+
+    return toPageResult(rows, total, pageParams);
+};
+
+export const getDepartmentApplicationsPage = async (
+    departmentName: string,
+    filters?: AdmissionsFilters,
+    pageParams?: PageParams,
+    sort?: SortParams
+): Promise<PageResult<any>> => {
+    const cacheKeyPayload = { departmentName, filters: filters || null, pageParams: pageParams || null, sort: sort || null };
+    const cached = readDeptCache<PageResult<any>>('department-applications-page', cacheKeyPayload);
+    if (cached) {
+        return cached;
+    }
+
+    if (departmentAdmissionsRpcAvailability === false) {
+        const result = await getDepartmentApplicationsPageFallback(departmentName, filters, pageParams, sort);
+        writeDeptCache('department-applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+        return result;
+    }
+
+    try {
+        const result = await getDepartmentApplicationsPageViaRpc(departmentName, filters, pageParams, sort);
+        departmentAdmissionsRpcAvailability = true;
+        writeDepartmentAdmissionsRpcAvailability(true);
+        writeDeptCache('department-applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+        return result;
+    } catch (error: any) {
+        const isMissingRpc = String(error?.code || '').trim() === 'PGRST202'
+            || String(error?.message || '').includes('Could not find the function public.get_department_applications_page');
+
+        if (isMissingRpc) {
+            departmentAdmissionsRpcAvailability = false;
+            writeDepartmentAdmissionsRpcAvailability(false);
+        } else {
+            console.warn('Department admissions RPC unavailable, falling back to legacy query path.', error);
+        }
+
+        const result = await getDepartmentApplicationsPageFallback(departmentName, filters, pageParams, sort);
+        writeDeptCache('department-applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+        return result;
+    }
+};
+
+export const getDepartmentInterviewQueue = async (
+    departmentName: string,
+    interviewDate?: string
+) => {
+    const cacheKeyPayload = { departmentName, interviewDate: interviewDate || null };
+    const cached = readDeptCache<any[]>('department-interview-queue', cacheKeyPayload);
+    if (cached) {
+        return cached;
+    }
+
+    const departmentCourseNames = await getDepartmentCourseNames(departmentName);
+    if (departmentCourseNames.length === 0) {
+        return [] as any[];
+    }
+
+    const filters: AdmissionsFilters = { status: ['Interview Scheduled', 'Approved for Enrollment'] };
+    const [firstChoiceRows, unassignedChoiceRows, secondChoiceRows, thirdChoiceRows] = await Promise.all([
+        fetchDepartmentApplicationSlice('priority_course', departmentCourseNames, filters, { value: 1 }),
+        fetchDepartmentApplicationSlice('priority_course', departmentCourseNames, filters, { isNull: true }),
+        fetchDepartmentApplicationSlice('alt_course_1', departmentCourseNames, filters, { value: 2 }),
+        fetchDepartmentApplicationSlice('alt_course_2', departmentCourseNames, filters, { value: 3 })
+    ]);
+
+    const mergedById = new Map<string, any>();
+    [
+        ...firstChoiceRows,
+        ...unassignedChoiceRows,
+        ...secondChoiceRows,
+        ...thirdChoiceRows
+    ].forEach((row: any) => {
+        if (row?.id != null) {
+            mergedById.set(String(row.id), row);
+        }
+    });
+
+    const normalizedDate = String(interviewDate || '').trim();
+    const rows = Array.from(mergedById.values())
+        .filter((row: any) => {
+            const rowInterviewDate = String(row?.interview_date || '').trim();
+            if (!rowInterviewDate) return false;
+            if (!normalizedDate) return true;
+            return rowInterviewDate.startsWith(normalizedDate);
+        })
+        .filter((row: any) => !(
+            String(row?.status || '').trim() === 'Interview Scheduled'
+            && String(row?.interview_queue_status || '').trim() === 'Absent'
+        ));
+
+    const result = sortRows(rows, { column: 'interview_date', ascending: true });
+    writeDeptCache('department-interview-queue', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
+    return result;
+};
+
 export const getCourseDepartmentMap = async () => {
+    const cached = readDeptCache<Record<string, string>>('course-department-map', {});
+    if (cached) {
+        return cached;
+    }
+
     const { data: coursesData, error: courseError } = await supabase
         .from('courses')
         .select('id, name, department_id');
@@ -453,5 +683,6 @@ export const getCourseDepartmentMap = async () => {
         courseMap[key] = deptMap[String(course.department_id)] || 'Unassigned';
     });
 
+    writeDeptCache('course-department-map', {}, courseMap, DEPT_LOOKUP_CACHE_TTL_MS);
     return courseMap;
 };

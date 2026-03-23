@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
     Activity,
@@ -9,6 +9,7 @@ import {
     Calendar,
     CheckCircle,
     ClipboardList,
+    Download,
     FileText,
     LayoutDashboard,
     LogOut,
@@ -22,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../lib/auth';
+import { createDeferredChannelCleanup } from '../lib/realtime';
 import { supabase } from '../lib/supabase';
 import AuditLogsPage from './carestaff/AuditLogsPage';
 import CareStaffDashboardView from './carestaff/CareStaffDashboardView';
@@ -33,13 +35,19 @@ import HomePage from './carestaff/HomePage';
 import NATManagementPage from './carestaff/NATManagementPage';
 import OfficeLogbookPage from './carestaff/OfficeLogbookPage';
 import ScholarshipPage from './carestaff/ScholarshipPage';
-import StudentAnalyticsPage from './carestaff/StudentAnalyticsPage';
 import StudentPopulationPage from './carestaff/StudentPopulationPage';
 import SupportRequestsPage from './carestaff/SupportRequestsPage';
+import StaffAccountSecurityPage from './shared/StaffAccountSecurityPage';
+import NorsuBrand from '../components/NorsuBrand';
+import StaffCalendarPage from './shared/StaffCalendarPage';
+import StaffExportCenterPage from './shared/StaffExportCenterPage';
 import { renderCareStaffModals } from './carestaff/modals/CareStaffModals';
 import NotificationBell from '../components/NotificationBell';
 import type { CareStaffDashboardFunctions, ToastHandler, ToastType } from './carestaff/types';
-import { COUNSELING_STATUS, SUPPORT_STATUS, getCounselingScheduledDate } from '../utils/workflow';
+import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import { COUNSELING_STATUS, SUPPORT_STATUS, getCounselingScheduledDate, isCounselingCalendarVisible } from '../utils/workflow';
+
+const StudentAnalyticsPage = lazy(() => import('./carestaff/StudentAnalyticsPage'));
 
 const PROFILE_NOTIFICATION_ACTIONS = [
     'Student Profile Updated',
@@ -56,9 +64,12 @@ const ACTIVE_TABS = [
     'counseling',
     'support',
     'events',
+    'calendar',
     'scholarship',
     'forms',
     'feedback',
+    'export_center',
+    'settings',
     'audit',
     'logbook'
 ] as const;
@@ -90,6 +101,10 @@ interface StaffNote {
 interface AuthSession {
     id?: string;
     full_name?: string;
+    auth_email?: string;
+    user?: {
+        email?: string;
+    };
 }
 
 interface SupportNotificationRow {
@@ -144,7 +159,9 @@ const NAV_SECTIONS: NavSection[] = [
             { tab: 'counseling', icon: Users, label: 'Counseling' },
             { tab: 'support', icon: CheckCircle, label: 'Support Requests' },
             { tab: 'events', icon: Calendar, label: 'Events' },
-            { tab: 'scholarship', icon: Award, label: 'Scholarships' }
+            { tab: 'calendar', icon: Calendar, label: 'Calendar' },
+            { tab: 'scholarship', icon: Award, label: 'Scholarships' },
+            { tab: 'export_center', icon: Download, label: 'Export Center' }
         ]
     },
     {
@@ -153,11 +170,31 @@ const NAV_SECTIONS: NavSection[] = [
         items: [
             { tab: 'forms', icon: ClipboardList, label: 'Forms' },
             { tab: 'feedback', icon: Star, label: 'Feedback' },
+            { tab: 'settings', icon: Shield, label: 'Settings' },
             { tab: 'audit', icon: Shield, label: 'Audit Logs' },
             { tab: 'logbook', icon: BookOpen, label: 'Office Logbook' }
         ]
     }
 ];
+
+const HEADER_TITLES: Record<ActiveTab, string> = {
+    home: 'Home',
+    dashboard: 'Dashboard',
+    population: 'Student Population',
+    analytics: 'Student Analytics',
+    nat: 'NORSU ADMISSION TEST DASHBOARD',
+    counseling: 'Counseling',
+    support: 'Support Requests',
+    events: 'Events',
+    calendar: 'Calendar',
+    scholarship: 'Scholarships',
+    export_center: 'Export Center',
+    forms: 'Forms',
+    feedback: 'Feedback',
+    settings: 'Settings',
+    audit: 'Audit Logs',
+    logbook: 'Office Logbook'
+};
 
 const MODULE_TAB_MAP: Record<string, ActiveTab> = {
     'Student Analytics': 'analytics',
@@ -337,9 +374,10 @@ const mapSupportVisitScheduledTodayNotification = (
 
 const CareStaffDashboard = () => {
     const navigate = useNavigate();
-    const { session, isAuthenticated, logout } = useAuth() as {
+    const { session, isAuthenticated, updateSession, logout } = useAuth() as {
         session?: AuthSession | null;
         isAuthenticated: boolean;
+        updateSession?: (updates: any) => void;
         logout: () => void;
     };
 
@@ -350,6 +388,7 @@ const CareStaffDashboard = () => {
     // Data States
     const [toast, setToast] = useState<ToastState | null>(null);
     const [showResetModal, setShowResetModal] = useState<boolean>(false);
+    const [isResettingSystem, setIsResettingSystem] = useState(false);
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
     // Command Hub (FAB Panel)
@@ -393,6 +432,98 @@ const CareStaffDashboard = () => {
 
         toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
     }, []);
+
+    const syncStaffSession = useCallback((patch: Record<string, unknown>) => {
+        updateSession?.((prev: any) => ({
+            ...(prev || {}),
+            ...(patch || {}),
+            user: {
+                ...(prev?.user || {}),
+                ...((patch as any)?.user || {})
+            }
+        }));
+    }, [updateSession]);
+
+    const requestStaffSecurityOtp = useCallback(async (
+        purpose: 'password_change' | 'email_change',
+        nextEmailValue?: string
+    ) => {
+        return invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'request-security-otp',
+                purpose,
+                email: purpose === 'email_change'
+                    ? String(nextEmailValue || '').trim().toLowerCase()
+                    : undefined
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to send the security OTP.'
+        });
+    }, []);
+
+    const confirmStaffSecurityEmailChange = useCallback(async (nextEmailValue: string, otp: string) => {
+        const normalizedEmail = String(nextEmailValue || '').trim().toLowerCase();
+        if (!normalizedEmail) {
+            throw new Error('Email is required.');
+        }
+
+        await invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'confirm-email-change',
+                email: normalizedEmail,
+                otp: String(otp || '').trim()
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to update your staff login email.'
+        });
+
+        syncStaffSession({
+            email: normalizedEmail,
+            auth_email: normalizedEmail,
+            user: {
+                ...(session?.user || {}),
+                email: normalizedEmail
+            }
+        });
+    }, [session?.user, syncStaffSession]);
+
+    const confirmStaffPasswordChange = useCallback(async (nextPasswordValue: string, otp: string) => {
+        await invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'confirm-password-change',
+                password: String(nextPasswordValue || ''),
+                otp: String(otp || '').trim()
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to update your staff password.'
+        });
+    }, []);
+
+    const updateStaffProfileName = useCallback(async (nextNameValue: string) => {
+        const normalizedName = String(nextNameValue || '').trim().replace(/\s+/g, ' ');
+        if (normalizedName.length < 2) {
+            throw new Error('A valid profile name is required.');
+        }
+
+        await invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'update-self-profile',
+                payload: {
+                    full_name: normalizedName
+                }
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to update your staff profile.'
+        });
+
+        syncStaffSession({
+            full_name: normalizedName
+        });
+    }, [syncStaffSession]);
 
     const refreshAll = useCallback(async () => {
         setIsRefreshing(true);
@@ -513,111 +644,123 @@ const CareStaffDashboard = () => {
         window.addEventListener('focus', handleWindowFocus);
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        const profileNotificationsChannel = supabase
-            .channel('care_staff_profile_notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: RealtimeChangePayload) => {
-                const action = payload?.new?.action;
-                if (typeof action !== 'string' || !PROFILE_NOTIFICATION_ACTIONS.includes(action)) {
-                    return;
-                }
-                if (payload.new) {
-                    setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
-                }
-            })
-            .subscribe();
+        const removeProfileNotificationsChannel = createDeferredChannelCleanup(
+            () => supabase
+                .channel('care_staff_profile_notifications')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: RealtimeChangePayload) => {
+                    const action = payload?.new?.action;
+                    if (typeof action !== 'string' || !PROFILE_NOTIFICATION_ACTIONS.includes(action)) {
+                        return;
+                    }
+                    if (payload.new) {
+                        setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
+                    }
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
 
-        const profileNotificationsFallbackChannel = supabase
-            .channel('care_staff_profile_notifications_fallback')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: RealtimeChangePayload) => {
-                const message = String(payload?.new?.message || '');
-                if (!message.startsWith('[PROFILE UPDATE]')) {
-                    return;
-                }
-                if (payload.new) {
-                    setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
-                }
-            })
-            .subscribe();
+        const removeProfileNotificationsFallbackChannel = createDeferredChannelCleanup(
+            () => supabase
+                .channel('care_staff_profile_notifications_fallback')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: RealtimeChangePayload) => {
+                    const message = String(payload?.new?.message || '');
+                    if (!message.startsWith('[PROFILE UPDATE]')) {
+                        return;
+                    }
+                    if (payload.new) {
+                        setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
+                    }
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
 
-        const supportNotificationsChannel = supabase
-            .channel('care_staff_service_notifications_support')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
-                if (!payload.new) return;
-                if (payload.new.status === SUPPORT_STATUS.SUBMITTED) {
-                    setNotifications((prev) => prependNotification(prev, mapSupportSubmittedNotification(payload.new as SupportNotificationRow)));
-                }
-                if (payload.new.status === SUPPORT_STATUS.REFERRED_TO_CARE) {
-                    setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
-                }
-                if (payload.new.status === SUPPORT_STATUS.VISIT_SCHEDULED) {
-                    setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
-                }
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
-                if (!payload.new) return;
+        const removeSupportNotificationsChannel = createDeferredChannelCleanup(
+            () => supabase
+                .channel('care_staff_service_notifications_support')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
+                    if (!payload.new) return;
+                    if (payload.new.status === SUPPORT_STATUS.SUBMITTED) {
+                        setNotifications((prev) => prependNotification(prev, mapSupportSubmittedNotification(payload.new as SupportNotificationRow)));
+                    }
+                    if (payload.new.status === SUPPORT_STATUS.REFERRED_TO_CARE) {
+                        setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
+                    }
+                    if (payload.new.status === SUPPORT_STATUS.VISIT_SCHEDULED) {
+                        setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
+                    }
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
+                    if (!payload.new) return;
 
-                const nextStatus = payload.new.status;
-                const prevStatus = payload.old?.status;
-                const alertAt = new Date().toISOString();
+                    const nextStatus = payload.new.status;
+                    const prevStatus = payload.old?.status;
+                    const alertAt = new Date().toISOString();
 
-                if (nextStatus === SUPPORT_STATUS.REFERRED_TO_CARE && prevStatus !== SUPPORT_STATUS.REFERRED_TO_CARE) {
-                    setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, alertAt)));
-                }
+                    if (nextStatus === SUPPORT_STATUS.REFERRED_TO_CARE && prevStatus !== SUPPORT_STATUS.REFERRED_TO_CARE) {
+                        setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, alertAt)));
+                    }
 
-                const nextScheduledAt = parseTimestamp(parseJsonRecord(payload.new.dept_notes)?.scheduled_date);
-                const prevScheduledAt = parseTimestamp(parseJsonRecord(payload.old?.dept_notes)?.scheduled_date);
-                if (
-                    nextStatus === SUPPORT_STATUS.VISIT_SCHEDULED &&
-                    (prevStatus !== SUPPORT_STATUS.VISIT_SCHEDULED || nextScheduledAt !== prevScheduledAt)
-                ) {
-                    setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, alertAt)));
-                }
-            })
-            .subscribe();
+                    const nextScheduledAt = parseTimestamp(parseJsonRecord(payload.new.dept_notes)?.scheduled_date);
+                    const prevScheduledAt = parseTimestamp(parseJsonRecord(payload.old?.dept_notes)?.scheduled_date);
+                    if (
+                        nextStatus === SUPPORT_STATUS.VISIT_SCHEDULED &&
+                        (prevStatus !== SUPPORT_STATUS.VISIT_SCHEDULED || nextScheduledAt !== prevScheduledAt)
+                    ) {
+                        setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, alertAt)));
+                    }
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
 
-        const counselingNotificationsChannel = supabase
-            .channel('care_staff_service_notifications_counseling')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
-                if (!payload.new) return;
-                const alertAt = new Date().toISOString();
-                if (payload.new.status === COUNSELING_STATUS.REFERRED) {
-                    setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
-                }
-                if ([COUNSELING_STATUS.STAFF_SCHEDULED, COUNSELING_STATUS.SCHEDULED].includes(String(payload.new.status || ''))) {
-                    setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
-                }
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
-                if (!payload.new) return;
+        const removeCounselingNotificationsChannel = createDeferredChannelCleanup(
+            () => supabase
+                .channel('care_staff_service_notifications_counseling')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
+                    if (!payload.new) return;
+                    const alertAt = new Date().toISOString();
+                    if (payload.new.status === COUNSELING_STATUS.REFERRED) {
+                        setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
+                    }
+                    if (isCounselingCalendarVisible(payload.new.status)) {
+                        setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
+                    }
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
+                    if (!payload.new) return;
 
-                const nextStatus = payload.new.status;
-                const prevStatus = payload.old?.status;
-                const alertAt = new Date().toISOString();
+                    const nextStatus = payload.new.status;
+                    const prevStatus = payload.old?.status;
+                    const alertAt = new Date().toISOString();
 
-                if (nextStatus === COUNSELING_STATUS.REFERRED && prevStatus !== COUNSELING_STATUS.REFERRED) {
-                    setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
-                }
+                    if (nextStatus === COUNSELING_STATUS.REFERRED && prevStatus !== COUNSELING_STATUS.REFERRED) {
+                        setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
+                    }
 
-                const nextScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.new as CounselingNotificationRow));
-                const prevScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.old as CounselingNotificationRow | undefined));
-                if (
-                    [COUNSELING_STATUS.STAFF_SCHEDULED, COUNSELING_STATUS.SCHEDULED].includes(String(nextStatus || '')) &&
-                    (prevStatus !== nextStatus || nextScheduledAt !== prevScheduledAt)
-                ) {
-                    setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
-                }
-            })
-            .subscribe();
+                    const nextScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.new as CounselingNotificationRow));
+                    const prevScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.old as CounselingNotificationRow | undefined));
+                    if (
+                        isCounselingCalendarVisible(nextStatus) &&
+                        (prevStatus !== nextStatus || nextScheduledAt !== prevScheduledAt)
+                    ) {
+                        setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
+                    }
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
 
         return () => {
             isMounted = false;
             bellSyncRef.current = async () => undefined;
             window.removeEventListener('focus', handleWindowFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
-            supabase.removeChannel(profileNotificationsChannel).catch(console.error);
-            supabase.removeChannel(profileNotificationsFallbackChannel).catch(console.error);
-            supabase.removeChannel(supportNotificationsChannel).catch(console.error);
-            supabase.removeChannel(counselingNotificationsChannel).catch(console.error);
+            removeProfileNotificationsChannel();
+            removeProfileNotificationsFallbackChannel();
+            removeSupportNotificationsChannel();
+            removeCounselingNotificationsChannel();
         };
     }, []);
 
@@ -640,7 +783,9 @@ const CareStaffDashboard = () => {
 
     // System Reset (matches HTML handleResetSystem exactly - wipes 14+ tables)
     const handleResetSystem = useCallback(async () => {
+        if (isResettingSystem) return;
         setShowResetModal(false);
+        setIsResettingSystem(true);
         try {
             const standardTables = [
                 'answers',
@@ -655,7 +800,6 @@ const CareStaffDashboard = () => {
                 'scholarships',
                 'events',
                 'audit_logs',
-                'needs_assessments',
                 'students'
             ];
             for (const table of standardTables) {
@@ -669,8 +813,10 @@ const CareStaffDashboard = () => {
         } catch (err: unknown) {
             console.error('Reset error:', err);
             showToastMessage('Reset completed with some warnings. Check console.', 'error');
+        } finally {
+            setIsResettingSystem(false);
         }
-    }, [showToastMessage]);
+    }, [isResettingSystem, showToastMessage]);
 
     const functions = useMemo<CareStaffDashboardFunctions>(() => ({
         showToast: showToastMessage,
@@ -711,6 +857,14 @@ const CareStaffDashboard = () => {
         setActiveTab(tab as ActiveTab);
     }, []);
 
+    const tabLoadingFallback = (
+        <div className="rounded-2xl border border-purple-100 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
+            <p className="text-sm font-semibold text-gray-700">Loading module...</p>
+            <p className="mt-1 text-xs text-gray-500">Preparing this page and its assets.</p>
+        </div>
+    );
+
     const renderActiveTab = (): React.ReactNode => {
         switch (activeTab) {
             case 'home':
@@ -720,7 +874,11 @@ const CareStaffDashboard = () => {
             case 'dashboard':
                 return <CareStaffDashboardView setActiveTab={setActiveTabFromString} />;
             case 'analytics':
-                return <StudentAnalyticsPage functions={functions} />;
+                return (
+                    <Suspense fallback={tabLoadingFallback}>
+                        <StudentAnalyticsPage functions={functions} />
+                    </Suspense>
+                );
             case 'nat':
                 return <NATManagementPage showToast={showToastMessage} />;
             case 'counseling':
@@ -729,12 +887,30 @@ const CareStaffDashboard = () => {
                 return <SupportRequestsPage functions={functions} />;
             case 'events':
                 return <EventsPage functions={functions} />;
+            case 'calendar':
+                return <StaffCalendarPage scope="care" accent="purple" />;
+            case 'export_center':
+                return <StaffExportCenterPage scope="care" accent="purple" showToast={showToastMessage} />;
             case 'scholarship':
                 return <ScholarshipPage functions={functions} />;
             case 'forms':
                 return <FormManagementPage functions={functions} />;
             case 'feedback':
                 return <FeedbackPage functions={functions} />;
+            case 'settings':
+                return (
+                    <StaffAccountSecurityPage
+                        portalLabel="CARE Staff"
+                        authEmail={session?.user?.email || session?.auth_email || ''}
+                        staffName={session?.full_name || 'CARE Staff'}
+                        staffRole="Care Staff"
+                        requestStaffSecurityOtp={requestStaffSecurityOtp}
+                        confirmStaffSecurityEmailChange={confirmStaffSecurityEmailChange}
+                        confirmStaffPasswordChange={confirmStaffPasswordChange}
+                        updateStaffProfileName={updateStaffProfileName}
+                        showToast={showToastMessage}
+                    />
+                );
             case 'audit':
                 return <AuditLogsPage />;
             case 'logbook':
@@ -744,6 +920,8 @@ const CareStaffDashboard = () => {
         }
     };
 
+    const headerTitle = HEADER_TITLES[activeTab] || activeTab;
+
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 text-gray-800 font-sans overflow-hidden">
             {/* Mobile Overlay */}
@@ -752,15 +930,14 @@ const CareStaffDashboard = () => {
             {/* Premium Sidebar */}
             <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-sidebar transform transition-all duration-500 ease-out lg:static lg:translate-x-0 flex flex-col ${sidebarOpen ? 'translate-x-0 shadow-2xl shadow-purple-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
-                <div className="p-6 flex items-center justify-between border-b border-white/10">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-purple rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-purple-600/30 text-sm">CS</div>
-                        <div>
-                            <h1 className="font-bold text-white text-lg tracking-tight">CARE Staff</h1>
-                            <p className="text-purple-300/70 text-xs font-medium">NORSU Portal</p>
+                <div className="p-6 border-b border-white/10">
+                    <div className="flex items-center justify-between">
+                        <div className="cursor-pointer group" onClick={() => setActiveTab('settings')}>
+                            <NorsuBrand title="CARE Staff" subtitle="NORSU-G CARE operations" accent="purple" size="sm" className="min-w-0" />
+                            <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-purple-200/50 transition-colors group-hover:text-purple-100/80">Open Profile & Settings</p>
                         </div>
+                        <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-purple-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                     </div>
-                    <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-purple-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                 </div>
 
                 {/* Navigation */}
@@ -803,9 +980,13 @@ const CareStaffDashboard = () => {
                 <header className="h-16 glass gradient-border flex items-center justify-between px-6 lg:px-10 relative z-10">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"><Menu /></button>
-                        <h2 className="text-xl font-bold gradient-text capitalize">{activeTab}</h2>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-purple-500/70">NORSU-G CARE</p>
+                            <h2 className="text-xl font-bold gradient-text">{headerTitle}</h2>
+                        </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        <img src="/carecenter.png" alt="NORSU-G CARE" className="hidden h-10 w-10 rounded-full border border-purple-100 bg-white object-cover shadow-sm md:block" />
                         <button
                             onClick={refreshAll}
                             disabled={isRefreshing}
@@ -825,7 +1006,7 @@ const CareStaffDashboard = () => {
                     {renderCareStaffModals({
                         showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
                         setActiveTab, toast, setToast,
-                        showResetModal, setShowResetModal, handleResetSystem,
+                        showResetModal, setShowResetModal, handleResetSystem, isResettingSystem,
                     })}
                 </div>
             </main>

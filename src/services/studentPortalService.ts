@@ -3,6 +3,8 @@ import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
 import type { PageResult } from '../types/pagination';
 import type { PageParams, SortParams } from '../types/query';
 
+const PAGED_LIST_COUNT_MODE = 'planned';
+
 const STUDENT_EVENT_COLUMNS = [
     'id',
     'created_at',
@@ -118,7 +120,7 @@ export const getEventsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('events')
-        .select(STUDENT_EVENT_COLUMNS, { count: 'exact' });
+        .select(STUDENT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
     query = query.range(from, to);
@@ -135,7 +137,7 @@ export const getActiveFormsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('forms')
-        .select(STUDENT_FORM_COLUMNS, { count: 'exact' })
+        .select(STUDENT_FORM_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
         .eq('is_active', true);
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
@@ -163,7 +165,7 @@ export const getStudentCounselingRequestsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('counseling_requests')
-        .select(STUDENT_COUNSELING_COLUMNS, { count: 'exact' })
+        .select(STUDENT_COUNSELING_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
         .eq('student_id', studentId);
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
@@ -182,7 +184,7 @@ export const getStudentSupportRequestsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('support_requests')
-        .select(STUDENT_SUPPORT_COLUMNS, { count: 'exact' })
+        .select(STUDENT_SUPPORT_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
         .eq('student_id', studentId);
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
@@ -201,7 +203,7 @@ export const getStudentNotificationsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('notifications')
-        .select(NOTIFICATION_COLUMNS, { count: 'exact' })
+        .select(NOTIFICATION_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
         .eq('student_id', studentId);
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });

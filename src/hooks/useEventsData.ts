@@ -50,30 +50,51 @@ export function useEventsData() {
 
             const eventsData = evs || [];
             if (eventsData.length > 0) {
+                const eventIds = eventsData
+                    .map((event) => event.id)
+                    .filter((eventId) => eventId != null);
+
                 // Fetch aggregate data in parallel
                 const [
                     { data: attData, error: attErr },
                     { data: fbData, error: fbErr }
                 ] = await Promise.all([
-                    supabase.from('event_attendance').select('event_id'),
-                    supabase.from('event_feedback').select('event_id, rating')
+                    supabase.from('event_attendance').select('event_id').in('event_id', eventIds),
+                    supabase.from('event_feedback').select('event_id, rating').in('event_id', eventIds)
                 ]);
 
                 if (attErr) throw attErr;
                 if (fbErr) throw fbErr;
 
+                const attendanceCounts = new Map<string, number>();
+                (attData || []).forEach((attendance: any) => {
+                    const eventId = String(attendance.event_id);
+                    attendanceCounts.set(eventId, (attendanceCounts.get(eventId) || 0) + 1);
+                });
+
+                const feedbackAggregates = new Map<string, { total: number; count: number }>();
+                (fbData || []).forEach((feedback: any) => {
+                    const eventId = String(feedback.event_id);
+                    const current = feedbackAggregates.get(eventId) || { total: 0, count: 0 };
+                    feedbackAggregates.set(eventId, {
+                        total: current.total + Number(feedback.rating || 0),
+                        count: current.count + 1
+                    });
+                });
+
                 const enrichedEvents = eventsData.map(ev => {
-                    const evAtts = (attData || []).filter(a => a.event_id === ev.id);
-                    const evFbs = (fbData || []).filter(f => f.event_id === ev.id);
-                    const avgRating = evFbs.length > 0
-                        ? (evFbs.reduce((acc, curr) => acc + curr.rating, 0) / evFbs.length).toFixed(1)
+                    const attendanceCount = attendanceCounts.get(String(ev.id)) || 0;
+                    const feedbackAggregate = feedbackAggregates.get(String(ev.id));
+                    const feedbackCount = feedbackAggregate?.count || 0;
+                    const avgRating = feedbackCount > 0
+                        ? (feedbackAggregate!.total / feedbackCount).toFixed(1)
                         : null;
 
                     return {
                         ...ev,
-                        attendees: evAtts.length,
+                        attendees: attendanceCount,
                         avgRating,
-                        feedbackCount: evFbs.length
+                        feedbackCount
                     };
                 });
 

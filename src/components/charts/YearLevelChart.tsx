@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { Chart } from 'chart.js/auto';
+import { ensureBarChartSetup } from '../../lib/chartSetup';
 
 // Helper Component for Year Level Chart
 const YearLevelChart = ({ submissions }: any) => {
@@ -7,6 +7,7 @@ const YearLevelChart = ({ submissions }: any) => {
     const chartRef = useRef(null);
 
     useEffect(() => {
+        const Chart = ensureBarChartSetup();
         if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
 

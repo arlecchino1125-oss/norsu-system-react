@@ -185,7 +185,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const { data: studentsList, refetch: refetchStudents } = useSupabaseData({
         table: 'students',
         select: STUDENT_LIST_COLUMNS,
-        order: { column: 'created_at', ascending: false }
+        order: { column: 'created_at', ascending: false },
+        subscribe: true
     });
 
     const { data: allCourses, refetch: refetchCourses } = useSupabaseData({
@@ -196,18 +197,18 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
     const { data: allDepartments } = useSupabaseData({
         table: 'departments',
-        order: { column: 'name', ascending: true }
+        order: { column: 'name', ascending: true },
+        subscribe: true
     });
 
     const { data: natApplications, refetch: refetchNatApplications } = useSupabaseData({
         table: 'applications',
-        select: 'id, priority_course'
+        select: 'id, priority_course',
+        subscribe: true
     });
 
     // Modals
-    const [showModal, setShowModal] = useState(false);
     const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editForm, setEditForm] = useState<any>({});
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -499,58 +500,6 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
         fetchPagedStudents();
     }, [searchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, currentPage, sortConfig.key, sortConfig.direction, tableRefreshTick]);
-
-    const [studentForm, setStudentForm] = useState<any>({
-        firstName: '', lastName: '', studentId: '', course: '', year: '1st Year', status: 'Active'
-    });
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setStudentForm(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-
-        const selectedCourseData = allCourses.find(c => c.name === studentForm.course);
-        const selectedDepartment = allDepartments.find((d: any) => d.id === selectedCourseData?.department_id);
-        const departmentName = selectedCourseData?.departments?.name || selectedDepartment?.name || 'Unassigned';
-
-        try {
-            const { error } = await supabase
-                .from('students')
-                .insert([{
-                    first_name: studentForm.firstName,
-                    last_name: studentForm.lastName,
-                    student_id: studentForm.studentId,
-                    course: studentForm.course,
-                    year_level: studentForm.year,
-                    status: studentForm.status,
-                    department: departmentName
-                }]);
-
-            if (error) throw error;
-
-            await supabase.from('enrolled_students').upsert([
-                {
-                    student_id: studentForm.studentId,
-                    course: studentForm.course,
-                    year_level: studentForm.year,
-                    is_used: false
-                }
-            ], { onConflict: 'student_id' });
-
-            functions.showToast("Student saved successfully!");
-            setShowModal(false);
-            setStudentForm({ firstName: '', lastName: '', studentId: '', course: '', year: '1st Year', status: 'Active' });
-            refetchStudents();
-        } catch (error) {
-            functions.showToast("Error saving student: " + error.message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
 
     /* handlers lifted */
 
@@ -1116,9 +1065,6 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     <Button variant="primary" onClick={() => setShowEnrollmentModal(true)} leftIcon={<Key size={16} />}>
                         Enrollment Keys
                     </Button>
-                    <Button variant="primary" className="bg-blue-600 hover:bg-blue-700 shadow-blue-200" onClick={() => setShowModal(true)} leftIcon={<Plus size={16} />}>
-                        Add Student
-                    </Button>
                     <Button variant="secondary" onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')} leftIcon={viewMode === 'list' ? <PieChart size={16} /> : <List size={16} />}>
                         {viewMode === 'list' ? 'View Stats' : 'View List'}
                     </Button>
@@ -1420,36 +1366,6 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                 <button type="button" onClick={confirmDeleteStudent} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Add Student Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-                        <div className="px-6 py-4 border-b flex justify-between items-center"><h3 className="font-bold text-lg">Add New Student</h3><button onClick={() => setShowModal(false)}><XCircle size={24} className="text-slate-400" /></button></div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-xs font-bold mb-1">First Name</label><input required name="firstName" value={studentForm.firstName} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                                <div><label className="block text-xs font-bold mb-1">Last Name</label><input required name="lastName" value={studentForm.lastName} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                            </div>
-                            <div><label className="block text-xs font-bold mb-1">Student ID</label><input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" placeholder="Ex: 202612345" value={studentForm.studentId} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
-                            <div><label className="block text-xs font-bold mb-1">Course</label><select required name="course" value={studentForm.course} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm"><option value="">Select...</option>{allCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold mb-1">Year Level</label>
-                                    <select name="year" value={studentForm.year} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm">
-                                        {YEAR_LEVEL_OPTIONS.map((year) => <option key={year} value={year}>{year}</option>)}
-                                    </select>
-                                </div>
-                                <div><label className="block text-xs font-bold mb-1">Status</label><select name="status" value={studentForm.status} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg text-sm"><option>Active</option><option>Inactive</option><option>Probation</option></select></div>
-                            </div>
-                            <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
-                                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{isSubmitting ? 'Saving...' : 'Save Student'}</button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             )}

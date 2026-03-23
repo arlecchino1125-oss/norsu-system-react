@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Download, ListChecks, RefreshCw, XCircle, Trash2 } from 'lucide-react';
+import { createDeferredChannelCleanup } from '../../lib/realtime';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDateTime, generateExportFilename } from '../../utils/formatters';
@@ -34,19 +35,21 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
         fetchVisits();
         fetchReasons();
 
-        const channel = supabase.channel('visits_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'office_visits' }, (payload: any) => {
-                if (payload.eventType === 'DELETE') {
-                    setVisits((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
-                    return;
-                }
+        return createDeferredChannelCleanup(
+            () => supabase.channel('visits_realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'office_visits' }, (payload: any) => {
+                    if (payload.eventType === 'DELETE') {
+                        setVisits((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
+                        return;
+                    }
 
-                if (payload.new) {
-                    setVisits((prev) => sortVisitsByTimeIn([payload.new, ...prev.filter((row: any) => row.id !== payload.new.id)]));
-                }
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel).catch(console.error); };
+                    if (payload.new) {
+                        setVisits((prev) => sortVisitsByTimeIn([payload.new, ...prev.filter((row: any) => row.id !== payload.new.id)]));
+                    }
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
     }, []);
 
     const handleRefreshData = async () => {

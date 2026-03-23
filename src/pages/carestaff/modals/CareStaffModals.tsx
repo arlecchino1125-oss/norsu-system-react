@@ -34,7 +34,7 @@ export function renderCareStaffModals(p: any) {
         showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
         setActiveTab, toast, setToast,
         showDeleteEventModal, setShowDeleteEventModal, setEventToDelete, confirmDeleteEvent,
-        showResetModal, setShowResetModal, handleResetSystem,
+        showResetModal, setShowResetModal, handleResetSystem, isResettingSystem,
         showEditModal, setShowEditModal, editForm, setEditForm, handleUpdateStudent, allCourses,
         showDeleteModal, setShowDeleteModal, studentToDelete, confirmDeleteStudent,
     } = p;
@@ -305,8 +305,8 @@ export function renderCareStaffModals(p: any) {
                             <h3 className="text-xl font-bold text-gray-900 mb-2">System Reset</h3>
                             <p className="text-gray-500 text-sm mb-6">âš ï¸ WARNING: This will DELETE ALL user-submitted data (Students, Applications, Logs, etc.). This action cannot be undone.</p>
                             <div className="flex gap-3">
-                                <button onClick={() => setShowResetModal(false)} className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all duration-200">Cancel</button>
-                                <button onClick={handleResetSystem} className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-red-200 transition-all duration-300 hover:scale-[1.01]">Yes, Wipe Data</button>
+                                <button disabled={Boolean(isResettingSystem)} onClick={() => setShowResetModal(false)} className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-60">Cancel</button>
+                                <button disabled={Boolean(isResettingSystem)} onClick={handleResetSystem} className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-red-200 transition-all duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none">{isResettingSystem ? 'Wiping...' : 'Yes, Wipe Data'}</button>
                             </div>
                         </div>
                     </div>

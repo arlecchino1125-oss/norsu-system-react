@@ -1,9 +1,23 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import { buildStudentAuthEmail, sanitizeStudentSession } from './studentAuth';
-import { buildStaffAuthEmail, sanitizeStaffSession } from './staffAuth';
+import { buildEdgeFunctionHeaders } from './functionHeaders';
+import { sanitizeStudentSession } from './studentAuth';
+import { sanitizeStaffSession } from './staffAuth';
 
 const AuthContext = createContext(null);
+type StaffProfileRecord = {
+    id?: string | number | null;
+    username?: string | null;
+    full_name?: string | null;
+    role?: string | null;
+    department?: string | null;
+    email?: string | null;
+    created_at?: string | null;
+    auth_user_id?: string | null;
+    [key: string]: unknown;
+};
+const isStaffProfileRecord = (value: unknown): value is StaffProfileRecord =>
+    Boolean(value) && typeof value === 'object' && 'role' in value;
 const STAFF_PROFILE_SELECT = [
     'id',
     'username',
@@ -110,6 +124,73 @@ const STUDENT_PROFILE_SELECT = [
     'auth_user_id'
 ].join(', ');
 
+const normalizeLoginEmail = (value: unknown) => {
+    const email = String(value || '').trim().toLowerCase();
+    return email || null;
+};
+
+const isInvalidAuthCredentialsError = (error: any) => {
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('invalid login credentials')
+        || message.includes('email not confirmed')
+        || message.includes('invalid credentials');
+};
+
+const signInWithResolvedEmail = async (email: string, password: string) =>
+    supabase.auth.signInWithPassword({
+        email,
+        password
+    });
+
+const resolveAuthLoginAccount = async (
+    mode: 'resolve-staff-login' | 'resolve-student-login',
+    payload: Record<string, unknown>
+) => {
+    const { data, error } = await supabase.functions.invoke('resolve-auth-login', {
+        body: {
+            mode,
+            ...payload
+        },
+        headers: buildEdgeFunctionHeaders()
+    });
+
+    if (error || !data?.success) {
+        throw error || new Error(data?.error || 'Unable to resolve the login account.');
+    }
+
+    return data.account || null;
+};
+
+const syncLinkedAuthEmailAfterLogin = async (
+    functionName: string,
+    nextEmailValue: unknown,
+    accessToken?: string | null
+) => {
+    const nextEmail = normalizeLoginEmail(nextEmailValue);
+    if (!nextEmail || !accessToken) {
+        return null;
+    }
+
+    try {
+        const { data, error } = await supabase.functions.invoke(functionName, {
+            body: {
+                mode: 'sync-auth-email',
+                email: nextEmail
+            },
+            headers: buildEdgeFunctionHeaders(accessToken)
+        });
+
+        if (error || !data?.success) {
+            throw error || new Error(data?.error || 'Unable to sync the auth email.');
+        }
+
+        return normalizeLoginEmail(data.email) || nextEmail;
+    } catch (error) {
+        console.warn(`Failed to sync auth email through ${functionName}.`, error);
+        return null;
+    }
+};
+
 export function AuthProvider({ children }: any) {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -142,23 +223,10 @@ export function AuthProvider({ children }: any) {
             if (linkedStudent) return linkedStudent;
         }
 
-        const authEmail = String(authUser.email || '').trim().toLowerCase();
-        if (authEmail.endsWith('@students.norsu.local')) {
-            const derivedStudentId = authEmail.slice(0, authEmail.indexOf('@'));
-            const { data: derivedStudent, error: derivedError } = await supabase
-                .from('students')
-                .select(STUDENT_PROFILE_SELECT)
-                .eq('student_id', derivedStudentId)
-                .maybeSingle();
-
-            if (derivedError) throw derivedError;
-            return derivedStudent;
-        }
-
         return null;
     }, []);
 
-    const getStaffProfileByAuthUser = useCallback(async (authUser: any) => {
+    const getStaffProfileByAuthUser = useCallback(async (authUser: any): Promise<StaffProfileRecord | null> => {
         if (!authUser) return null;
 
         if (authUser.id) {
@@ -169,20 +237,7 @@ export function AuthProvider({ children }: any) {
                 .maybeSingle();
 
             if (linkedError) throw linkedError;
-            if (linkedStaff) return linkedStaff;
-        }
-
-        const authEmail = String(authUser.email || '').trim().toLowerCase();
-        if (authEmail.endsWith('@staff.norsu.local')) {
-            const derivedUsername = authEmail.slice(0, authEmail.indexOf('@'));
-            const { data: derivedStaff, error: derivedError } = await supabase
-                .from('staff_accounts')
-                .select(STAFF_PROFILE_SELECT)
-                .eq('username', derivedUsername)
-                .maybeSingle();
-
-            if (derivedError) throw derivedError;
-            return derivedStaff;
+            if (isStaffProfileRecord(linkedStaff)) return linkedStaff;
         }
 
         return null;
@@ -239,26 +294,15 @@ export function AuthProvider({ children }: any) {
     }, []);
 
     /**
-     * Login against staff_accounts table.
-     * @param {string} username
-     * @param {string} password
-     * @param {string} requiredRole - e.g. 'Admin', 'Department Head', 'Care Staff'
-     * @returns {{ success: boolean, error?: string, data?: object }}
-     */
-    /**
      * Login for Staff (Admin, Department Head, Care Staff)
      */
     const loginStaff = useCallback(async (username: any, password: any, requiredRole: any) => {
         setLoading(true);
         try {
             const trimmedUsername = String(username || '').trim();
-            const { data: userCheck, error: userError } = await supabase
-                .from('staff_accounts')
-                .select('role, auth_user_id')
-                .eq('username', trimmedUsername)
-                .maybeSingle();
-
-            if (userError) throw userError;
+            const userCheck = await resolveAuthLoginAccount('resolve-staff-login', {
+                username: trimmedUsername
+            });
 
             if (!userCheck) {
                 setLoading(false);
@@ -278,28 +322,47 @@ export function AuthProvider({ children }: any) {
                 };
             }
 
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email: buildStaffAuthEmail(trimmedUsername),
-                password
-            });
+            const resolvedEmail = normalizeLoginEmail(userCheck.email);
+            if (!resolvedEmail) {
+                setLoading(false);
+                return {
+                    success: false,
+                    error: 'This staff account has no migrated auth email yet. Run the auth email sync first.'
+                };
+            }
+
+            const { data: authData, error: authError } = await signInWithResolvedEmail(resolvedEmail, password);
 
             if (authError || !authData?.user) {
                 setLoading(false);
-                return { success: false, error: 'Incorrect password.' };
+                if (isInvalidAuthCredentialsError(authError)) {
+                    return { success: false, error: 'Incorrect password.' };
+                }
+                return { success: false, error: authError?.message || 'Unable to sign in with the migrated auth email.' };
             }
 
             const staffProfile = await getStaffProfileByAuthUser(authData.user);
             if (!staffProfile) {
+                await supabase.auth.signOut().catch(() => null);
                 setLoading(false);
                 return { success: false, error: 'Staff profile not found.' };
             }
 
             if (staffProfile.role !== requiredRole) {
+                await supabase.auth.signOut().catch(() => null);
                 setLoading(false);
                 return { success: false, error: `Access denied: This account is not a ${requiredRole}.` };
             }
 
-            const sessionData = sanitizeStaffSession(staffProfile, authData.user);
+            const syncedAuthEmail = await syncLinkedAuthEmailAfterLogin(
+                'manage-staff-accounts',
+                userCheck.email,
+                authData.session?.access_token
+            );
+            const authUserForSession = syncedAuthEmail
+                ? { ...authData.user, email: syncedAuthEmail }
+                : authData.user;
+            const sessionData = sanitizeStaffSession(staffProfile, authUserForSession);
             persistSession(sessionData);
             setLoading(false);
 
@@ -318,13 +381,9 @@ export function AuthProvider({ children }: any) {
         setLoading(true);
         try {
             const trimmedStudentId = String(studentId || '').trim();
-            const { data: studentLookup, error: lookupError } = await supabase
-                .from('students')
-                .select('student_id, auth_user_id, status')
-                .eq('student_id', trimmedStudentId)
-                .maybeSingle();
-
-            if (lookupError) throw lookupError;
+            const studentLookup = await resolveAuthLoginAccount('resolve-student-login', {
+                studentId: trimmedStudentId
+            });
 
             if (!studentLookup) {
                 setLoading(false);
@@ -339,23 +398,41 @@ export function AuthProvider({ children }: any) {
                 };
             }
 
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email: buildStudentAuthEmail(trimmedStudentId),
-                password
-            });
+            const resolvedEmail = normalizeLoginEmail(studentLookup.email);
+            if (!resolvedEmail) {
+                setLoading(false);
+                return {
+                    success: false,
+                    error: 'This student account has no migrated auth email yet. Run the student auth email sync first.'
+                };
+            }
+
+            const { data: authData, error: authError } = await signInWithResolvedEmail(resolvedEmail, password);
 
             if (authError || !authData?.user) {
                 setLoading(false);
-                return { success: false, error: 'Incorrect password.' };
+                if (isInvalidAuthCredentialsError(authError)) {
+                    return { success: false, error: 'Incorrect password.' };
+                }
+                return { success: false, error: authError?.message || 'Unable to sign in with the migrated auth email.' };
             }
 
             const studentProfile = await getStudentProfileByAuthUser(authData.user);
             if (!studentProfile) {
+                await supabase.auth.signOut().catch(() => null);
                 setLoading(false);
                 return { success: false, error: 'Student profile not found.' };
             }
 
-            const sessionData = sanitizeStudentSession(studentProfile, authData.user);
+            const syncedAuthEmail = await syncLinkedAuthEmailAfterLogin(
+                'manage-student-accounts',
+                studentLookup.email,
+                authData.session?.access_token
+            );
+            const authUserForSession = syncedAuthEmail
+                ? { ...authData.user, email: syncedAuthEmail }
+                : authData.user;
+            const sessionData = sanitizeStudentSession(studentProfile, authUserForSession);
             persistSession(sessionData);
             setLoading(false);
 

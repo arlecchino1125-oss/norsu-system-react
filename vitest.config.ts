@@ -8,6 +8,13 @@ export default defineConfig({
         setupFiles: ['./src/test/setup.ts'],
         globals: true,
         css: true,
+        exclude: [
+            '**/node_modules/**',
+            '**/dist/**',
+            '**/cypress/**',
+            '**/.{idea,git,cache,output,temp}/**',
+            '**/.codex-backups/**'
+        ],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'html', 'lcov'],
@@ -15,9 +22,9 @@ export default defineConfig({
             exclude: [
                 'src/main.tsx',
                 'src/App.tsx',
-                'src/**/*.d.ts'
+                'src/**/*.d.ts',
+                '.codex-backups/**'
             ]
         }
     }
 });
-

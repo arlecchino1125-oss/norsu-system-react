@@ -12,9 +12,9 @@ export function renderDeptModals(props: any) {
     const {
         data,
         counselingRequests,
-        showProfileModal, setShowProfileModal, profileForm, setProfileForm, handleProfileSubmit,
+        showProfileModal, setShowProfileModal, profileForm, setProfileForm, handleProfileSubmit, isUpdatingProfile,
         showReferralModal, setShowReferralModal, forwardingToStaff, setForwardingToStaff,
-        referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq,
+        referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq, isSubmittingReferral,
         referralSearchQuery, setReferralSearchQuery, sigCanvasRef,
         showHistoryModal, setShowHistoryModal, selectedHistoryStudent, exportPDF,
         showStudentModal, setShowStudentModal, selectedStudent,
@@ -22,7 +22,7 @@ export function renderDeptModals(props: any) {
         yearLevelFilter, setYearLevelFilter, deptCourseFilter, setDeptCourseFilter,
         deptSectionFilter, setDeptSectionFilter, exportToExcel,
         showDecisionModal, setShowDecisionModal, decisionData, setDecisionData, submitDecision,
-        showApplicantScheduleModal, setShowApplicantScheduleModal, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule,
+        showApplicantScheduleModal, closeApplicantScheduleModal, applicantScheduleMode, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule, isSchedulingApplicant, selectedApplicants,
         viewFormRecord, setViewFormRecord,
         viewFormMode, setViewFormMode
     } = props;
@@ -34,9 +34,44 @@ export function renderDeptModals(props: any) {
                 <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold">Schedule Department Interview</h3>
-                            <button onClick={() => setShowApplicantScheduleModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
+                            <div>
+                                <h3 className="text-lg font-bold">
+                                    {applicantScheduleMode === 'reschedule'
+                                        ? 'Reschedule Department Interview'
+                                        : selectedApplicants?.length > 1
+                                            ? 'Bulk Schedule Department Interviews'
+                                            : 'Schedule Department Interview'}
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {applicantScheduleMode === 'reschedule'
+                                        ? 'Update the interview date, time, venue, and panel for this scheduled applicant.'
+                                        : selectedApplicants?.length > 1
+                                        ? `${selectedApplicants.length} applicants will be assigned the same interview date, time, venue, and panel.`
+                                        : 'Assign an interview date, time, venue, and panel to this applicant.'}
+                                </p>
+                            </div>
+                            <button onClick={closeApplicantScheduleModal} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
                         </div>
+                        {Array.isArray(selectedApplicants) && selectedApplicants.length > 0 && (
+                            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wide text-blue-700 mb-2">
+                                    {selectedApplicants.length > 1 ? 'Selected Applicants' : 'Applicant'}
+                                </p>
+                                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                                    {selectedApplicants.slice(0, 8).map((app: any) => (
+                                        <div key={app.id} className="text-sm text-blue-900 font-medium">
+                                            {app.first_name} {app.last_name}
+                                            {app.reference_id ? <span className="text-xs text-blue-700 ml-2">({app.reference_id})</span> : null}
+                                        </div>
+                                    ))}
+                                    {selectedApplicants.length > 8 && (
+                                        <p className="text-xs text-blue-700 font-medium">
+                                            +{selectedApplicants.length - 8} more applicants selected
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         <form onSubmit={confirmApplicantSchedule} className="space-y-4">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Interview Date</label>
@@ -46,7 +81,21 @@ export function renderDeptModals(props: any) {
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Interview Time</label>
                                 <input required type="time" value={applicantScheduleData.time} onChange={(e) => setApplicantScheduleData({ ...applicantScheduleData, time: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl" />
                             </div>
-                            <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Confirm Schedule</button>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Venue</label>
+                                <input required type="text" value={applicantScheduleData.venue || ''} onChange={(e) => setApplicantScheduleData({ ...applicantScheduleData, venue: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl" placeholder="Enter interview venue" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Panel Assignment</label>
+                                <input type="text" value={applicantScheduleData.panel || ''} onChange={(e) => setApplicantScheduleData({ ...applicantScheduleData, panel: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl" placeholder="Enter panel label or interviewer group" />
+                            </div>
+                            <button type="submit" disabled={Boolean(isSchedulingApplicant)} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                                {isSchedulingApplicant
+                                    ? (applicantScheduleMode === 'reschedule' ? 'Preparing Preview...' : 'Preparing Preview...')
+                                    : applicantScheduleMode === 'reschedule'
+                                        ? 'Preview Reschedule Email'
+                                        : (selectedApplicants?.length > 1 ? 'Preview Bulk Schedule Email' : 'Preview Schedule Email')}
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -64,7 +113,7 @@ export function renderDeptModals(props: any) {
                             <form onSubmit={handleProfileSubmit} className="p-6 space-y-4">
                                 <div><label className="block text-sm font-bold text-gray-700 mb-1 dark:text-gray-300">Name</label><input value={profileForm.name || ''} onChange={e => setProfileForm({ ...profileForm, name: e.target.value })} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white" /></div>
                                 <div><label className="block text-sm font-bold text-gray-700 mb-1 dark:text-gray-300">Department</label><input value={profileForm.department || ''} disabled className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400" /></div>
-                                <button type="submit" className="w-full py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700">Save Changes</button>
+                                <button type="submit" disabled={Boolean(isUpdatingProfile)} className="w-full py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isUpdatingProfile ? 'Saving...' : 'Save Changes'}</button>
                             </form>
                         </div>
                     </div>
@@ -153,7 +202,7 @@ export function renderDeptModals(props: any) {
                                     </div>
                                 </div>
 
-                                <button type="submit" className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:shadow-lg shadow-emerald-200/50 transition-all">{forwardingToStaff ? 'Forward to CARE Staff' : 'Submit Referral'}</button>
+                                <button type="submit" disabled={Boolean(isSubmittingReferral)} className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:shadow-lg shadow-emerald-200/50 transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-none">{isSubmittingReferral ? (forwardingToStaff ? 'Forwarding...' : 'Submitting...') : (forwardingToStaff ? 'Forward to CARE Staff' : 'Submit Referral')}</button>
                             </form>
                         </div>
                     </div>

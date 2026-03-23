@@ -60,6 +60,23 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         setTimeout(() => setToast(null), 3000);
     };
 
+    const subscribeWithDeferredCleanup = (buildChannel: () => any) => {
+        let channel: any = null;
+        let disposed = false;
+        const timeoutId = window.setTimeout(() => {
+            if (disposed) return;
+            channel = buildChannel();
+        }, 0);
+
+        return () => {
+            disposed = true;
+            window.clearTimeout(timeoutId);
+            if (channel) {
+                void supabase.removeChannel(channel).catch(() => undefined);
+            }
+        };
+    };
+
     const ensureCourseMap = async () => {
         if (Object.keys(courseMap).length > 0) {
             return courseMap;
@@ -227,10 +244,9 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         if (data?.profile?.department) {
             refreshStudents();
             const department = data.profile.department;
-            const channel = supabase.channel('dept_students_realtime')
+            return subscribeWithDeferredCleanup(() => supabase.channel('dept_students_realtime')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: `department=eq.${department}` }, refreshStudents)
-                .subscribe();
-            return () => { supabase.removeChannel(channel); };
+                .subscribe());
         }
     }, [data?.profile?.department, studentsPage, studentsPageSize, JSON.stringify(studentFilters)]);
 
@@ -246,17 +262,16 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
     // Fetch Events (paginated)
     useEffect(() => {
         refreshEvents();
-        const channel = supabase.channel('dept_events_realtime')
+        return subscribeWithDeferredCleanup(() => supabase.channel('dept_events_realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, refreshEvents)
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
+            .subscribe());
     }, [eventsPage, eventsPageSize]);
 
     // Fetch Counseling Requests (paginated)
     useEffect(() => {
         if (!data?.profile?.department) return;
         refreshCounseling();
-        const channel = supabase
+        return subscribeWithDeferredCleanup(() => supabase
             .channel('dept_counseling')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests', filter: `department=eq.${data.profile.department}` }, (payload: any) => {
                 refreshCounseling();
@@ -264,8 +279,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                     showToastMessage(`New Counseling Request Received`, 'info');
                 }
             })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
+            .subscribe());
     }, [data?.profile?.department, counselingPage, counselingPageSize, JSON.stringify(counselingFilters)]);
 
     // Fetch Admissions Applicants (paginated)
@@ -278,7 +292,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
     useEffect(() => {
         if (!data?.profile?.department) return;
         refreshSupport();
-        const channel = supabase
+        return subscribeWithDeferredCleanup(() => supabase
             .channel('dept_support_realtime')
             .on('postgres_changes', {
                 event: '*',
@@ -291,8 +305,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                 }
                 refreshSupport();
             })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
+            .subscribe());
     }, [data?.profile?.department, supportPage, supportPageSize, JSON.stringify(supportFilters)]);
 
     const refreshAllData = async () => {
@@ -310,6 +323,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         setData,
         eventsList,
         counselingRequests,
+        setCounselingRequests,
         supportRequests,
         setSupportRequests,
         admissionApplicants,
@@ -359,6 +373,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             pageSize: admissionsPageSize,
             isLoading: admissionsLoading,
             error: admissionsError,
+            setRows: setAdmissionApplicants,
             setPage: setAdmissionsPage,
             setFilters: setAdmissionsFilters,
             refresh: refreshAdmissions

@@ -42,7 +42,7 @@ describe('deptService.getStudentsPage', () => {
 
         expect(queryMock.select).toHaveBeenCalledWith(
             'id, student_id, first_name, middle_name, last_name, suffix, email, mobile, sex, address, street, city, province, zip_code, year_level, status, department, course, section',
-            { count: 'exact' }
+            { count: 'planned' }
         );
         expect(queryMock.eq).toHaveBeenCalledWith('department', 'CAS');
         expect(queryMock.or).toHaveBeenCalled();

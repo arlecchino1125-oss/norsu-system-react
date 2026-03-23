@@ -7,9 +7,37 @@ import {
 } from 'lucide-react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
-import { isMissingNatAttendanceColumnsError } from '../services/natService';
+import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 
 // --- ASSETS & CONSTANTS ---
+const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+const NAT_SESSION_REFRESH_INTERVAL_MS = 90 * 1000;
+const NAT_SECURE_TIME_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let natSecureTimeCache: { datetime: string; fetchedAt: number } | null = null;
+
+const getTrustedNatTime = async () => {
+    const nowTimestamp = Date.now();
+
+    if (natSecureTimeCache && (nowTimestamp - natSecureTimeCache.fetchedAt) < NAT_SECURE_TIME_CACHE_TTL_MS) {
+        const cachedBaseTimestamp = new Date(natSecureTimeCache.datetime).getTime();
+        return new Date(cachedBaseTimestamp + (nowTimestamp - natSecureTimeCache.fetchedAt));
+    }
+
+    const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Manila');
+    if (!response.ok) {
+        throw new Error('Time API failed');
+    }
+
+    const timeData = await response.json();
+    natSecureTimeCache = {
+        datetime: String(timeData.datetime),
+        fetchedAt: nowTimestamp
+    };
+
+    return new Date(timeData.datetime);
+};
+
 
 // --- REUSABLE LAYOUT COMPONENT ---
 const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false, onBack, rightAction }: any) => (
@@ -131,6 +159,8 @@ const NATPortal = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
+    const [activationConfirm, setActivationConfirm] = useState<{ visible: boolean; studentId: string; course: string }>({ visible: false, studentId: '', course: '' });
+    const [activationSuccess, setActivationSuccess] = useState<{ visible: boolean; studentId: string; course: string; emailSent: boolean; password: string }>({ visible: false, studentId: '', course: '', emailSent: true, password: '' });
     const [enrollConfirm, setEnrollConfirm] = useState<{ visible: boolean; studentId: string; course: string; resolve: ((v: boolean) => void) | null }>({ visible: false, studentId: '', course: '', resolve: null });
 
     // Auth & User State
@@ -140,6 +170,7 @@ const NATPortal = () => {
     // Options
     const [availableCourses, setAvailableCourses] = useState<any[]>([]);
     const [availableDates, setAvailableDates] = useState<any[]>([]);
+    const [natRequirements, setNatRequirements] = useState<string[]>([]);
     const [supportsTestTime, setSupportsTestTime] = useState<boolean>(true);
 
     // Form State
@@ -170,23 +201,6 @@ const NATPortal = () => {
     const [showTimeOutConfirm, setShowTimeOutConfirm] = useState(false);
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
 
-    // Realtime: auto-update applicant status when dept head changes it
-    useEffect(() => {
-        if (!currentUser?.id) return;
-        const channel = supabase
-            .channel(`nat_user_${currentUser.id}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'applications',
-                filter: `id=eq.${currentUser.id}`
-            }, (payload: any) => {
-                console.log('[NATPortal] Realtime update received:', payload.new?.status);
-                setCurrentUser((prev: any) => ({ ...prev, ...payload.new }));
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [currentUser?.id]);
     const [toast, setToast] = useState<any>(null);
 
     const showToast = (msg: string, type: string = 'success') => {
@@ -194,9 +208,98 @@ const NATPortal = () => {
         setTimeout(() => setToast(null), 3000);
     };
 
+    const invokeNatManagementFunction = async (body: any, fallbackMessage: string) => {
+        return invokeEdgeFunction('manage-nat-applications', {
+            body,
+            fallbackMessage
+        });
+    };
+
     const supportsNatAttendance = hasNatAttendanceColumns(currentUser);
     const hasStartedCurrentNat = supportsNatAttendance ? Boolean(currentUser?.time_in) : hasNatStartedStatus(currentUser?.status);
     const hasFinishedCurrentNat = supportsNatAttendance ? Boolean(currentUser?.time_out) : isNatFinishedStatus(currentUser?.status);
+
+    const selectedDateSchedule = availableDates.find((d: any) => d.date === formData.testDate);
+    const selectedDateTimeSlots = selectedDateSchedule?.timeSlots || [];
+
+    const isWithinAssignedTimeWindow = (timeWindow: string, now: Date) => {
+        if (!timeWindow) return null;
+        const [start, end] = String(timeWindow).split('-').map((part) => part.trim());
+        const startMin = parseTimeToMinutes(start);
+        const endMin = parseTimeToMinutes(end);
+        if (startMin < 0 || endMin < 0 || startMin >= endMin) return null;
+        const nowMin = (now.getHours() * 60) + now.getMinutes();
+        return nowMin >= startMin && nowMin < endMin;
+    };
+
+    // Load Options
+    useEffect(() => {
+        const fetchOptions = async () => {
+            let statsData: any = {
+                supportsTestTime: true,
+                courseCounts: {},
+                dateCounts: {},
+                dateTimeCounts: {}
+            };
+
+            try {
+                statsData = await invokeNatManagementFunction(
+                    { mode: 'public-stats' },
+                    'Failed to load NAT applicant counts.'
+                );
+            } catch (error) {
+                console.error('Failed to load NAT applicant counts.', error);
+            }
+
+            // Fetch Courses
+            const { data: coursesData } = await supabase.from('courses').select('*').order('name');
+
+            // Fetch Test Dates
+            const { data: datesData } = await supabase
+                .from('admission_schedules')
+                .select('*')
+                .eq('is_active', true)
+                .order('date');
+
+            const courseCounts = statsData?.courseCounts || {};
+            const dateCounts = statsData?.dateCounts || {};
+            const dateTimeCounts = statsData?.dateTimeCounts || {};
+            const requirements = Array.isArray(statsData?.requirements)
+                ? statsData.requirements.map((item: unknown) => String(item || '').trim()).filter(Boolean)
+                : [];
+            setSupportsTestTime(Boolean(statsData?.supportsTestTime));
+            setNatRequirements(requirements);
+
+            if (coursesData) {
+                const coursesWithStats = coursesData.map((c: any) => ({
+                    ...c,
+                    applicantCount: courseCounts[c.name] || 0
+                }));
+                setAvailableCourses(coursesWithStats);
+            }
+
+            if (datesData) {
+                const datesWithStats = datesData.map((d: any) => {
+                    const normalizedWindows = normalizeScheduleTimeWindows(d.time_windows);
+                    const timeSlots = normalizedWindows.map((slot: any) => {
+                        const assigned = dateTimeCounts[`${d.date}|${slot.key}`] || 0;
+                        return {
+                            ...slot,
+                            applicantCount: assigned,
+                            remaining: Math.max(slot.slots - assigned, 0)
+                        };
+                    });
+                    return {
+                        ...d,
+                        applicantCount: dateCounts[d.date] || 0,
+                        timeSlots
+                    };
+                });
+                setAvailableDates(datesWithStats);
+            }
+        };
+        void fetchOptions();
+    }, []);
 
     useEffect(() => {
         let interval: ReturnType<typeof setInterval> | null = null;
@@ -225,103 +328,17 @@ const NATPortal = () => {
         };
     }, [supportsNatAttendance, currentUser?.time_in, currentUser?.time_out]);
 
-    const selectedDateSchedule = availableDates.find((d: any) => d.date === formData.testDate);
-    const selectedDateTimeSlots = selectedDateSchedule?.timeSlots || [];
-
-    const isWithinAssignedTimeWindow = (timeWindow: string, now: Date) => {
-        if (!timeWindow) return null;
-        const [start, end] = String(timeWindow).split('-').map((part) => part.trim());
-        const startMin = parseTimeToMinutes(start);
-        const endMin = parseTimeToMinutes(end);
-        if (startMin < 0 || endMin < 0 || startMin >= endMin) return null;
-        const nowMin = (now.getHours() * 60) + now.getMinutes();
-        return nowMin >= startMin && nowMin < endMin;
-    };
-
-    // Load Options
-    useEffect(() => {
-        const fetchOptions = async () => {
-            // Fetch Courses
-            const { data: coursesData } = await supabase.from('courses').select('*').order('name');
-
-            // Fetch Test Dates
-            const { data: datesData } = await supabase
-                .from('admission_schedules')
-                .select('*')
-                .eq('is_active', true)
-                .order('date');
-
-            // Fetch Application Counts
-            let appsData: any[] = [];
-            const withTime = await supabase.from('applications').select('priority_course, test_date, test_time');
-            if (withTime.error) {
-                setSupportsTestTime(false);
-                const fallback = await supabase.from('applications').select('priority_course, test_date');
-                appsData = fallback.data || [];
-            } else {
-                setSupportsTestTime(true);
-                appsData = withTime.data || [];
-            }
-
-            if (coursesData && appsData) {
-                const courseCounts: Record<string, any> = {};
-                appsData.forEach((a: any) => courseCounts[a.priority_course] = (courseCounts[a.priority_course] || 0) + 1);
-
-                const coursesWithStats = coursesData.map((c: any) => ({
-                    ...c,
-                    applicantCount: courseCounts[c.name] || 0
-                }));
-                setAvailableCourses(coursesWithStats);
-            }
-
-            if (datesData) {
-                const dateCounts: Record<string, any> = {};
-                const dateTimeCounts: Record<string, number> = {};
-
-                appsData.forEach((a: any) => {
-                    if (a.test_date) {
-                        dateCounts[a.test_date] = (dateCounts[a.test_date] || 0) + 1;
-                        if (a.test_time) {
-                            const key = `${a.test_date}|${a.test_time}`;
-                            dateTimeCounts[key] = (dateTimeCounts[key] || 0) + 1;
-                        }
-                    }
-                });
-
-                const datesWithStats = datesData.map((d: any) => {
-                    const normalizedWindows = normalizeScheduleTimeWindows(d.time_windows);
-                    const timeSlots = normalizedWindows.map((slot: any) => {
-                        const assigned = dateTimeCounts[`${d.date}|${slot.key}`] || 0;
-                        return {
-                            ...slot,
-                            applicantCount: assigned,
-                            remaining: Math.max(slot.slots - assigned, 0)
-                        };
-                    });
-                    return {
-                        ...d,
-                        applicantCount: dateCounts[d.date] || 0,
-                        timeSlots
-                    };
-                });
-                setAvailableDates(datesWithStats);
-            }
-        };
-        fetchOptions();
-    }, []);
-
     // Check Time Logic (Secure Server Time)
     useEffect(() => {
-        if (currentScreen !== 'dashboard' || !currentUser) return;
+        if (currentScreen !== 'dashboard' || !currentUser || activationSuccess.visible) return;
         const checkTime = async () => {
-            try {
-                // Fetch secure time to prevent local clock manipulation
-                const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Manila');
-                if (!response.ok) throw new Error("Time API failed");
-                const timeData = await response.json();
-                const now = new Date(timeData.datetime);
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+                return;
+            }
 
-                const todayDate = timeData.datetime.split('T')[0];
+            try {
+                const now = await getTrustedNatTime();
+                const todayDate = now.toISOString().split('T')[0];
 
                 const isTestDate = currentUser.test_date === todayDate;
                 const assignedWindowOpen = isWithinAssignedTimeWindow(currentUser.test_time, now);
@@ -342,30 +359,88 @@ const NATPortal = () => {
                 setTimeState({ isTestDate, isOpen });
             }
         };
-        checkTime();
-        const interval = setInterval(checkTime, 60000);
-        return () => clearInterval(interval);
-    }, [currentScreen, currentUser]);
 
-    // Real-time Status Update
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                void checkTime();
+            }
+        };
+
+        void checkTime();
+        const interval = setInterval(() => { void checkTime(); }, NAT_TIME_CHECK_INTERVAL_MS);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [currentScreen, currentUser, activationSuccess.visible]);
+
     useEffect(() => {
-        let channel: any;
-        if (currentUser) {
-            channel = supabase.channel('nat_app_status')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications', filter: `id=eq.${currentUser.id}` }, (payload: any) => {
-                    setCurrentUser((prev: any) => ({ ...prev, ...payload.new }));
-                    showToast(`Application Status Updated: ${payload.new.status}`, 'info');
-                })
-                .subscribe();
-        } else if (credentials?.referenceId) {
-            channel = supabase.channel('nat_app_ref_status')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications', filter: `reference_id=eq.${credentials.referenceId}` }, (payload: any) => {
-                    showToast(`Application Status Updated: ${payload.new.status}`, 'info');
-                })
-                .subscribe();
+        if (currentScreen !== 'dashboard' || activationSuccess.visible || !credentials?.username || !credentials?.password) {
+            return;
         }
-        return () => { if (channel) supabase.removeChannel(channel); }
-    }, [currentUser, credentials]);
+
+        let cancelled = false;
+        let hasCompletedInitialRefresh = false;
+
+        const refreshSession = async () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+                return;
+            }
+
+            try {
+                const data = await invokeNatManagementFunction(
+                    {
+                        mode: 'session',
+                        username: credentials.username,
+                        password: credentials.password
+                    },
+                    'Failed to refresh the NAT portal session.'
+                );
+
+                if (cancelled || !data?.application) {
+                    return;
+                }
+
+                setCurrentUser((prev: any) => {
+                    const nextApplication = data.application;
+
+                    if (
+                        hasCompletedInitialRefresh
+                        && prev?.status
+                        && nextApplication?.status
+                        && prev.status !== nextApplication.status
+                    ) {
+                        showToast(`Application Status Updated: ${nextApplication.status}`, 'info');
+                    }
+
+                    return prev ? { ...prev, ...nextApplication } : nextApplication;
+                });
+
+                hasCompletedInitialRefresh = true;
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Failed to refresh the NAT portal session.', error);
+                }
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                void refreshSession();
+            }
+        };
+
+        void refreshSession();
+        const interval = setInterval(() => { void refreshSession(); }, NAT_SESSION_REFRESH_INTERVAL_MS);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [currentScreen, credentials?.username, credentials?.password, activationSuccess.visible]);
 
     // Handlers
     const handleChange = (e: any) => {
@@ -397,6 +472,7 @@ const NATPortal = () => {
 
     const handleSubmit = async (e: any) => {
         e.preventDefault();
+        if (loading) return;
 
         if (currentStep === 1 && !formData.agreedToPrivacy) {
             showToast("You must agree to the Data Privacy Act Disclaimer.", 'error');
@@ -466,22 +542,34 @@ const NATPortal = () => {
 
             setCredentials({ ...formData, username, password, referenceId });
 
+            let emailRequirements = natRequirements;
+            try {
+                const latestStatsData = await invokeNatManagementFunction(
+                    { mode: 'public-stats' },
+                    'Failed to load NAT requirements.'
+                );
+                emailRequirements = Array.isArray(latestStatsData?.requirements)
+                    ? latestStatsData.requirements.map((item: unknown) => String(item || '').trim()).filter(Boolean)
+                    : emailRequirements;
+            } catch (requirementsError) {
+                console.error('Failed to refresh NAT requirements before email send:', requirementsError);
+            }
+
             // Send Email Notification
             try {
-                const { error: emailError } = await supabase.functions.invoke('send-email', {
+                await invokeEdgeFunction('send-email', {
                     body: {
                         type: 'NAT_SUBMISSION',
                         email: formData.email,
                         name: `${formData.firstName} ${formData.lastName}`,
                         testDate: formData.testDate,
                         testTime: formData.testTime,
+                        requirements: emailRequirements,
                         username: username,
                         password: password
-                    }
-                    // supabase-js automatically attaches apikey and Authorization headers
+                    },
+                    fallbackMessage: 'Failed to send NAT submission email.'
                 });
-
-                if (emailError) throw emailError;
             } catch (emailErr: any) {
                 console.error("Email notification failed:", emailErr);
                 showToast("Application saved, but email notification failed. Please save your credentials manually.", 'error'); // changed type to match HTML slightly or keep as warning
@@ -501,24 +589,28 @@ const NATPortal = () => {
 
     const handleLogin = async (e: any) => {
         e.preventDefault();
+        if (loading) return;
         setLoading(true);
         const user = e.target.username.value;
         const pass = e.target.password.value;
         try {
-            const { data, error } = await supabase
-                .from('applications')
-                .select('*')
-                .eq('username', user)
-                .eq('password', pass)
-                .maybeSingle();
+            const data = await invokeNatManagementFunction(
+                {
+                    mode: 'login',
+                    username: user,
+                    password: pass
+                },
+                'Failed to sign in to the NAT portal.'
+            );
 
-            if (error) throw error;
-            if (!data) {
-                showToast("Invalid credentials.", 'error');
-            } else {
-                setCurrentUser(data);
-                setCurrentScreen('dashboard');
-            }
+            setCredentials((prev: any) => ({
+                ...(prev || {}),
+                username: user,
+                password: pass,
+                referenceId: data?.application?.reference_id || prev?.referenceId || ''
+            }));
+            setCurrentUser(data.application);
+            setCurrentScreen('dashboard');
         } catch (err: any) {
             showToast("Login error: " + err.message, 'error');
         } finally {
@@ -527,28 +619,26 @@ const NATPortal = () => {
     };
 
     const executeTimeIn = async () => {
+        if (loading) return;
+        if (!credentials?.username || !credentials?.password) {
+            showToast('Your NAT session has expired. Please sign in again.', 'error');
+            return;
+        }
+
         setLoading(true);
         try {
-            const timestamp = new Date().toISOString();
-            let { data, error } = await supabase
-                .from('applications')
-                .update({ time_in: timestamp, status: 'Ongoing' })
-                .eq('id', currentUser.id)
-                .select()
-                .single();
+            const data = await invokeNatManagementFunction(
+                {
+                    mode: 'time-in',
+                    username: credentials.username,
+                    password: credentials.password
+                },
+                'Failed to record Time In.'
+            );
 
-            if (error && isMissingNatAttendanceColumnsError(error)) {
-                ({ data, error } = await supabase
-                    .from('applications')
-                    .update({ status: 'Ongoing' })
-                    .eq('id', currentUser.id)
-                    .select()
-                    .single());
-            }
-
-            if (error) throw error;
-            showToast(data?.time_in ? "Time In recorded successfully. Good luck!" : "NAT started successfully. Good luck!");
-            setCurrentUser({ ...currentUser, ...data, status: data.status || 'Ongoing' });
+            const application = data?.application || {};
+            showToast(application?.time_in ? "Time In recorded successfully. Good luck!" : "NAT started successfully. Good luck!");
+            setCurrentUser({ ...currentUser, ...application, status: application.status || 'Ongoing' });
             setShowTimeInConfirm(false);
         } catch (error: any) {
             showToast("Error recording Time In: " + error.message, 'error');
@@ -558,28 +648,26 @@ const NATPortal = () => {
     };
 
     const executeTimeOut = async () => {
+        if (loading) return;
+        if (!credentials?.username || !credentials?.password) {
+            showToast('Your NAT session has expired. Please sign in again.', 'error');
+            return;
+        }
+
         setLoading(true);
         try {
-            const timestamp = new Date().toISOString();
-            let { data, error } = await supabase
-                .from('applications')
-                .update({ time_out: timestamp, status: 'Test Taken' })
-                .eq('id', currentUser.id)
-                .select()
-                .single();
+            const data = await invokeNatManagementFunction(
+                {
+                    mode: 'time-out',
+                    username: credentials.username,
+                    password: credentials.password
+                },
+                'Failed to record Time Out.'
+            );
 
-            if (error && isMissingNatAttendanceColumnsError(error)) {
-                ({ data, error } = await supabase
-                    .from('applications')
-                    .update({ status: 'Test Taken' })
-                    .eq('id', currentUser.id)
-                    .select()
-                    .single());
-            }
-
-            if (error) throw error;
-            showToast(data?.time_out ? "Time Out recorded. You have completed the NAT." : "NAT completion recorded.");
-            setCurrentUser({ ...currentUser, ...data, status: data.status || 'Test Taken' });
+            const application = data?.application || {};
+            showToast(application?.time_out ? "Time Out recorded. You have completed the NAT." : "NAT completion recorded.");
+            setCurrentUser({ ...currentUser, ...application, status: application.status || 'Test Taken' });
             setShowTimeOutConfirm(false);
         } catch (error: any) {
             showToast("Error: " + error.message, 'error');
@@ -588,53 +676,115 @@ const NATPortal = () => {
         }
     };
 
-    const handleActivation = async (e: any) => {
-        e.preventDefault();
+    const executeActivation = async (studentId: string, course: string) => {
+        if (loading) return;
         setLoading(true);
-        const studentId = e.target.studentId.value.trim();
-        const course = e.target.course.value.trim();
 
         try {
-            const { data, error } = await supabase.functions.invoke('activate-student-account', {
-                body: {
-                    mode: 'nat-application-activation',
-                    applicationId: currentUser.id,
-                    studentId,
-                    course
-                }
-            });
+            const activateNatAccount = async (allowEnrollmentCreate = false) => {
+                return invokeEdgeFunction('activate-student-account', {
+                    body: {
+                        mode: 'nat-application-activation',
+                        applicationId: currentUser.id,
+                        studentId,
+                        course,
+                        allowEnrollmentCreate
+                    },
+                    fallbackMessage: 'Activation failed.'
+                });
+            };
 
-            if (error) {
-                throw new Error(error.message || 'Activation failed.');
-            }
-
-            if (!data?.success) {
-                throw new Error(data?.error || 'Activation failed.');
-            }
+            let data;
 
             try {
-                await supabase.functions.invoke('send-email', {
+                data = await activateNatAccount(false);
+            } catch (error: any) {
+                const missingEnrollment = String(error?.message || '').includes('Student ID not found in the enrollment list.');
+                const canContinue = missingEnrollment && currentUser?.status === 'Approved for Enrollment';
+
+                if (!canContinue) {
+                    throw error;
+                }
+
+                const confirmed = await new Promise<boolean>((resolve) => {
+                    setEnrollConfirm({
+                        visible: true,
+                        studentId,
+                        course,
+                        resolve
+                    });
+                });
+
+                if (!confirmed) {
+                    return;
+                }
+
+                data = await activateNatAccount(true);
+            }
+
+            let emailSent = true;
+            try {
+                await invokeEdgeFunction('send-email', {
                     body: {
                         type: 'STUDENT_ACTIVATION',
                         email: currentUser.email,
                         name: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
                         studentId,
-                        password: data.password
-                    }
+                        password: data.password,
+                        loginUrl: `${window.location.origin}/student/login`
+                    },
+                    fallbackMessage: 'Failed to send activation email.'
                 });
             } catch (emailErr: any) {
+                emailSent = false;
                 console.error('Activation email failed:', emailErr);
             }
 
-            showToast('Account Activated Successfully! A confirmation email has been sent. Your application details have been transferred to your Student Profile.');
             setShowActivationModal(false);
-            setCurrentUser(null);
-            navigate('/student/login');
+            setActivationSuccess({
+                visible: true,
+                studentId,
+                course,
+                emailSent,
+                password: String(data?.password || '')
+            });
         } catch (error: any) {
             showToast('Activation Failed: ' + error.message, 'error');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleActivation = (e: any) => {
+        e.preventDefault();
+        const studentId = e.target.studentId.value.trim();
+        const course = e.target.course.value.trim();
+
+        setActivationConfirm({
+            visible: true,
+            studentId,
+            course
+        });
+    };
+
+    const handleConfirmedActivation = async () => {
+        if (loading) return;
+        const { studentId, course } = activationConfirm;
+        setActivationConfirm({ visible: false, studentId: '', course: '' });
+        await executeActivation(studentId, course);
+    };
+
+    const handleActivationSuccessContinue = () => {
+        setActivationSuccess({ visible: false, studentId: '', course: '', emailSent: true, password: '' });
+        setCurrentUser(null);
+        setCredentials(null);
+        navigate('/student/login');
+    };
+
+    const handleNatLogout = () => {
+        setCurrentUser(null);
+        setCredentials(null);
+        setCurrentScreen('welcome');
     };
 
 
@@ -930,7 +1080,7 @@ const NATPortal = () => {
                 title="Applicant Dashboard"
                 rightAction={
                     <button
-                        onClick={() => { setCurrentUser(null); setCurrentScreen('welcome'); }}
+                        onClick={handleNatLogout}
                         className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-white/80 border border-white/50 rounded-lg text-sm font-bold text-red-600 transition-all shadow-sm hover:shadow active:scale-95"
                     >
                         <LogOut className="w-4 h-4" /> Logout
@@ -1027,7 +1177,7 @@ const NATPortal = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button onClick={() => setShowTimeInConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
-                                        <button onClick={executeTimeIn} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 hover:-translate-y-1 transition-all">Confirm Time In</button>
+                                        <button disabled={loading} onClick={executeTimeIn} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Processing...' : 'Confirm Time In'}</button>
                                     </div>
                                 </div>
                             </div>
@@ -1052,7 +1202,7 @@ const NATPortal = () => {
                                     </p>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button onClick={() => setShowTimeOutConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
-                                        <button onClick={executeTimeOut} className="py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 hover:-translate-y-1 transition-all">Confirm Time Out</button>
+                                        <button disabled={loading} onClick={executeTimeOut} className="py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Processing...' : 'Confirm Time Out'}</button>
                                     </div>
                                 </div>
                             </div>
@@ -1090,6 +1240,48 @@ const NATPortal = () => {
                                         {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Activate Account'}
                                     </button>
                                 </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Activation Confirmation Modal */}
+                    {activationConfirm.visible && (
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[250] p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-white/20">
+                                <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-center">
+                                    <div className="bg-white/20 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center backdrop-blur-md">
+                                        <Info className="w-8 h-8 text-white" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white">Confirm Activation</h3>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                        Please confirm that these details are correct before creating your student portal account.
+                                    </p>
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
+                                        <div className="flex items-center gap-2 text-sm text-gray-800">
+                                            <span className="font-bold">Student ID:</span>
+                                            <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{activationConfirm.studentId}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm text-gray-800">
+                                            <span className="font-bold">Course:</span>
+                                            <span className="bg-white px-2 py-0.5 rounded border border-gray-200">{activationConfirm.course}</span>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setActivationConfirm({ visible: false, studentId: '', course: '' })}
+                                            className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors border border-gray-200"
+                                        >Cancel</button>
+                                        <button
+                                            type="button"
+                                            disabled={loading}
+                                            onClick={handleConfirmedActivation}
+                                            className="py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                                        >{loading ? 'Processing...' : 'Confirm'}</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1134,6 +1326,51 @@ const NATPortal = () => {
                                             className="py-3 rounded-xl font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-200 hover:-translate-y-1 transition-all"
                                         >Continue Activation</button>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Activation Success Modal */}
+                    {activationSuccess.visible && (
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[350] p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20">
+                                <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 text-center">
+                                    <div className="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center backdrop-blur-md">
+                                        <Check className="w-10 h-10 text-white" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-white">Account Activated</h3>
+                                    <p className="text-green-50 text-sm mt-2">Your student portal account is now ready.</p>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
+                                        <div className="flex items-center gap-2 text-sm text-gray-800">
+                                            <span className="font-bold">Student ID:</span>
+                                            <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{activationSuccess.studentId}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm text-gray-800">
+                                            <span className="font-bold">Course:</span>
+                                            <span className="bg-white px-2 py-0.5 rounded border border-gray-200">{activationSuccess.course}</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                        {activationSuccess.emailSent
+                                            ? 'A confirmation email with your login details has been sent. You can continue to the student login page now.'
+                                            : 'Your account was activated, but the confirmation email could not be sent. Use the generated student portal password below when you continue to the student login page.'}
+                                    </p>
+                                    {!activationSuccess.emailSent && activationSuccess.password && (
+                                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                            <span className="font-bold">Temporary Password:</span>{' '}
+                                            <span className="font-mono">{activationSuccess.password}</span>
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={handleActivationSuccessContinue}
+                                        className="w-full py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 hover:-translate-y-1 transition-all"
+                                    >
+                                        Continue to Student Login
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1277,6 +1514,26 @@ const NATPortal = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="nat-section-card bg-white/60 backdrop-blur-md rounded-3xl p-5 md:p-8 border border-white/50 shadow-xl shadow-amber-900/5">
+                                <h3 className="font-bold text-gray-900 mb-5 md:mb-6 flex items-center gap-2 text-sm md:text-base">
+                                    <Check className="w-4 h-4 md:w-5 md:h-5 text-amber-500" /> Requirements to Bring
+                                </h3>
+                                {natRequirements.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No requirements have been posted yet. Please check again later.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {natRequirements.map((requirement, index) => (
+                                            <div key={`${requirement}-${index}`} className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                                                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[11px] font-bold text-white">
+                                                    {index + 1}
+                                                </span>
+                                                <p className="text-sm font-medium text-gray-800">{requirement}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

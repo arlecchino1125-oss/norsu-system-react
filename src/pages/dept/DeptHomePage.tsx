@@ -1,17 +1,19 @@
 import {
     Users, CalendarDays, ClipboardList, UserPlus, BarChart3, FileText,
-    Info, CheckCircle, GraduationCap, Settings
+    Info, CheckCircle, GraduationCap, Settings, Bell
 } from 'lucide-react';
 import {
     COUNSELING_STATUS,
     isCounselingAwaitingDept,
     isWithCareStaffCounseling
 } from '../../utils/workflow';
+import { useLiveClock } from '../../components/ClockDisplay';
 
 const DeptHomePage = ({
-    clock,
     filteredData,
     counselingRequests,
+    admissionsDashboardCounts,
+    departmentAlertItems,
     setActiveModule,
     setForwardingToStaff,
     setReferralForm,
@@ -19,6 +21,8 @@ const DeptHomePage = ({
     setSelectedCounselingReq,
     setShowCounselingViewModal
 }: any) => {
+    const clock = useLiveClock();
+
     return (
         <div className="space-y-8 animate-fade-in">
             {/* Welcome Hero with Live Clock */}
@@ -82,6 +86,59 @@ const DeptHomePage = ({
                         <h3 className="text-3xl font-extrabold text-gray-900">{card.value}</h3>
                     </div>
                 ))}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-2 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
+                    <div className="flex items-center justify-between gap-4 mb-5">
+                        <div>
+                            <h3 className="font-bold text-gray-900 flex items-center gap-2"><BarChart3 size={18} className="text-emerald-500" /> Admissions Snapshot</h3>
+                            <p className="text-sm text-gray-500 mt-1">Simple department admissions counts and funnel summary.</p>
+                        </div>
+                        <button onClick={() => setActiveModule('admissions')} className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">Open Admissions</button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {[
+                            { label: 'Ready for Interview', value: admissionsDashboardCounts?.readyForInterview || 0, tone: 'border-blue-100 bg-blue-50 text-blue-700' },
+                            { label: 'Interview Scheduled', value: admissionsDashboardCounts?.scheduled || 0, tone: 'border-emerald-100 bg-emerald-50 text-emerald-700' },
+                            { label: 'Approved', value: admissionsDashboardCounts?.approved || 0, tone: 'border-teal-100 bg-teal-50 text-teal-700' },
+                            { label: 'Unsuccessful', value: admissionsDashboardCounts?.unsuccessful || 0, tone: 'border-rose-100 bg-rose-50 text-rose-700' }
+                        ].map((item) => (
+                            <div key={item.label} className={`rounded-xl border p-4 ${item.tone}`}>
+                                <p className="text-xs font-bold uppercase tracking-wide">{item.label}</p>
+                                <p className="mt-3 text-3xl font-extrabold text-gray-900">{item.value}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
+                    <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2"><Bell size={18} className="text-emerald-500" /> Role-Based Alerts</h3>
+                    <div className="space-y-3">
+                        {(departmentAlertItems || []).filter((item: any) => Number(item?.count || 0) > 0).length === 0 ? (
+                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-5 text-sm text-emerald-700">
+                                No urgent department alerts right now.
+                            </div>
+                        ) : (
+                            (departmentAlertItems || [])
+                                .filter((item: any) => Number(item?.count || 0) > 0)
+                                .map((item: any) => (
+                                    <button
+                                        key={item.key}
+                                        onClick={() => setActiveModule(item.module)}
+                                        className={`w-full rounded-xl border px-4 py-3 text-left transition-colors hover:bg-white ${item.tone}`}
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-semibold text-gray-900">{item.label}</p>
+                                            <span className="inline-flex min-w-9 items-center justify-center rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-gray-800">
+                                                {item.count}
+                                            </span>
+                                        </div>
+                                    </button>
+                                ))
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Population + Quick Launch */}

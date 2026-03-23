@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Download } from 'lucide-react';
+import { createDeferredChannelCleanup } from '../../lib/realtime';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 
@@ -15,11 +16,13 @@ const AuditLogsPage = () => {
         };
         fetchLogs();
 
-        const channel = supabase.channel('audit_realtime')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {
-                setLogs(prev => [payload.new, ...prev]);
-            }).subscribe();
-        return () => { supabase.removeChannel(channel).catch(console.error); };
+        return createDeferredChannelCleanup(
+            () => supabase.channel('audit_realtime')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {
+                    setLogs(prev => [payload.new, ...prev]);
+                }).subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
     }, []);
 
     return (

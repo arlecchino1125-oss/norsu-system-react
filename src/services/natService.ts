@@ -3,6 +3,8 @@ import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
 import type { PageResult } from '../types/pagination';
 import type { PageParams, SortParams } from '../types/query';
 
+const PAGED_LIST_COUNT_MODE = 'planned';
+
 export type NatListMode = 'applications' | 'completed' | 'test_takers';
 
 export interface NatApplicationsFilters {
@@ -144,7 +146,7 @@ export const getApplicationsPage = async (
     const buildQuery = (supportsAttendance: boolean) => {
         let query: any = supabase
             .from('applications')
-            .select(getNatApplicationColumns(supportsAttendance), { count: 'exact' });
+            .select(getNatApplicationColumns(supportsAttendance), { count: PAGED_LIST_COUNT_MODE });
 
         query = applyModeFilters(query, mode, supportsAttendance);
         query = applySearch(query, filters?.search);

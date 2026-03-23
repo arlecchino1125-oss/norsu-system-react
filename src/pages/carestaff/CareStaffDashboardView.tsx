@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createDeferredChannelCleanup } from '../../lib/realtime';
 import { supabase } from '../../lib/supabase';
 import {
     Activity, Bell, Calendar, CheckCircle, ClipboardList,
@@ -29,6 +30,11 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
         counseling: 0,
         support: 0,
         events: 0
+    });
+    const [roleAlerts, setRoleAlerts] = useState({
+        counselingForCare: 0,
+        supportForCare: 0,
+        profileUpdates: 0
     });
     const [activities, setActivities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -93,12 +99,18 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { count: studentsCount },
                     { count: counselingCount },
                     { count: supportCount },
-                    { count: eventsCount }
+                    { count: eventsCount },
+                    { count: counselingForCareCount },
+                    { count: supportForCareCount },
+                    { count: profileUpdateCount }
                 ] = await Promise.all([
                     supabase.from('students').select('*', { count: 'exact', head: true }),
                     supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
                     supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
-                    supabase.from('events').select('*', { count: 'exact', head: true })
+                    supabase.from('events').select('*', { count: 'exact', head: true }),
+                    supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
+                    supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
+                    supabase.from('notifications').select('*', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%')
                 ]);
 
                 if (!isMounted) return;
@@ -107,6 +119,11 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     counseling: counselingCount || 0,
                     support: supportCount || 0,
                     events: eventsCount || 0
+                });
+                setRoleAlerts({
+                    counselingForCare: counselingForCareCount || 0,
+                    supportForCare: supportForCareCount || 0,
+                    profileUpdates: profileUpdateCount || 0
                 });
 
                 // Fetch Recent Activity (top 10 from each table)
@@ -221,40 +238,46 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
 
         fetchDashboardData();
 
-        const profileActivityChannel = supabase
-            .channel('care_staff_profile_activity')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: any) => {
-                if (!isMounted) return;
-                const action = payload?.new?.action;
-                if (!PROFILE_ACTIVITY_ACTIONS.includes(action)) return;
-                const nextActivity = mapProfileLogToActivity(payload.new);
-                setActivities(prev =>
-                    [nextActivity, ...prev]
-                        .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
-                        .slice(0, 10)
-                );
-            })
-            .subscribe();
+        const removeProfileActivityChannel = createDeferredChannelCleanup(
+            () => supabase
+                .channel('care_staff_profile_activity')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: any) => {
+                    if (!isMounted) return;
+                    const action = payload?.new?.action;
+                    if (!PROFILE_ACTIVITY_ACTIONS.includes(action)) return;
+                    const nextActivity = mapProfileLogToActivity(payload.new);
+                    setActivities(prev =>
+                        [nextActivity, ...prev]
+                            .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
+                            .slice(0, 10)
+                    );
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
 
-        const profileNotificationChannel = supabase
-            .channel('care_staff_profile_notification_activity')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
-                if (!isMounted) return;
-                const message = String(payload?.new?.message || '');
-                if (!message.startsWith('[PROFILE UPDATE]')) return;
-                const nextActivity = mapProfileNotificationToActivity(payload.new);
-                setActivities(prev =>
-                    [nextActivity, ...prev]
-                        .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
-                        .slice(0, 10)
-                );
-            })
-            .subscribe();
+        const removeProfileNotificationChannel = createDeferredChannelCleanup(
+            () => supabase
+                .channel('care_staff_profile_notification_activity')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
+                    if (!isMounted) return;
+                    const message = String(payload?.new?.message || '');
+                    if (!message.startsWith('[PROFILE UPDATE]')) return;
+                    const nextActivity = mapProfileNotificationToActivity(payload.new);
+                    setActivities(prev =>
+                        [nextActivity, ...prev]
+                            .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())
+                            .slice(0, 10)
+                    );
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
 
         return () => {
             isMounted = false;
-            supabase.removeChannel(profileActivityChannel).catch(console.error);
-            supabase.removeChannel(profileNotificationChannel).catch(console.error);
+            removeProfileActivityChannel();
+            removeProfileNotificationChannel();
         };
     }, []);
 
@@ -315,58 +338,82 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     </div>
                 </div>
 
-                {/* Quick Actions */}
-                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm flex flex-col card-hover">
-                    <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2"><Rocket size={18} className="text-purple-500" /> Quick Actions</h3>
-                    <div className="space-y-3 flex-1">
-                        <button
-                            onClick={() => setActiveTab('events')}
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group text-left"
-                        >
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-200/50 group-hover:scale-105 transition-transform">
-                                <Calendar size={18} />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">Schedule Event</p>
-                                <p className="text-xs text-gray-400">Create a new campus event</p>
-                            </div>
-                            <ChevronRight size={16} className="ml-auto text-gray-300 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
-                        </button>
-
-                        <button
-                            onClick={() => setActiveTab('events')}
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group text-left"
-                        >
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-violet-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-purple-200/50 group-hover:scale-105 transition-transform">
-                                <Send size={18} />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">Send Announcement</p>
-                                <p className="text-xs text-gray-400">Broadcast an official notice</p>
-                            </div>
-                            <ChevronRight size={16} className="ml-auto text-gray-300 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
-                        </button>
-
-                        <button
-                            onClick={() => setActiveTab('analytics')}
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group text-left"
-                        >
-                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-200/50 group-hover:scale-105 transition-transform">
-                                <BarChart2 size={18} />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">View Reports</p>
-                                <p className="text-xs text-gray-400">Student analytics & insights</p>
-                            </div>
-                            <ChevronRight size={16} className="ml-auto text-gray-300 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
-                        </button>
+                <div className="space-y-6">
+                    <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
+                        <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2"><Bell size={18} className="text-purple-500" /> Role-Based Alerts</h3>
+                        <div className="space-y-3">
+                            {[
+                                { label: 'Counseling cases with CARE Staff', value: roleAlerts.counselingForCare, tab: 'counseling', tone: 'border-blue-200 bg-blue-50 text-blue-700' },
+                                { label: 'Support cases waiting for CARE', value: roleAlerts.supportForCare, tab: 'support', tone: 'border-amber-200 bg-amber-50 text-amber-700' },
+                                { label: 'Profile updates to review', value: roleAlerts.profileUpdates, tab: 'population', tone: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700' }
+                            ].map((item) => (
+                                <button
+                                    key={item.label}
+                                    onClick={() => setActiveTab(item.tab)}
+                                    className={`w-full rounded-xl border px-4 py-3 text-left transition-colors hover:bg-white ${item.tone}`}
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-semibold text-gray-900">{item.label}</p>
+                                        <span className="inline-flex min-w-9 items-center justify-center rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-gray-800">
+                                            {item.value}
+                                        </span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Mini summary */}
-                    <div className="mt-5 pt-4 border-t border-gray-100">
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-gray-400">Today</span>
-                            <span className="font-bold text-gray-600">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                    <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm flex flex-col card-hover">
+                        <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2"><Rocket size={18} className="text-purple-500" /> Quick Actions</h3>
+                        <div className="space-y-3 flex-1">
+                            <button
+                                onClick={() => setActiveTab('events')}
+                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group text-left"
+                            >
+                                <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-200/50 group-hover:scale-105 transition-transform">
+                                    <Calendar size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">Schedule Event</p>
+                                    <p className="text-xs text-gray-400">Create a new campus event</p>
+                                </div>
+                                <ChevronRight size={16} className="ml-auto text-gray-300 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('events')}
+                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group text-left"
+                            >
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-violet-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-purple-200/50 group-hover:scale-105 transition-transform">
+                                    <Send size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">Send Announcement</p>
+                                    <p className="text-xs text-gray-400">Broadcast an official notice</p>
+                                </div>
+                                <ChevronRight size={16} className="ml-auto text-gray-300 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('analytics')}
+                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group text-left"
+                            >
+                                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-200/50 group-hover:scale-105 transition-transform">
+                                    <BarChart2 size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">View Reports</p>
+                                    <p className="text-xs text-gray-400">Student analytics & insights</p>
+                                </div>
+                                <ChevronRight size={16} className="ml-auto text-gray-300 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
+                            </button>
+                        </div>
+
+                        <div className="mt-5 pt-4 border-t border-gray-100">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-400">Today</span>
+                                <span className="font-bold text-gray-600">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

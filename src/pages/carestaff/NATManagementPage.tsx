@@ -1,14 +1,13 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
-import { ArrowRightLeft, CheckCircle2, Download, FileText, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
+import { ArrowRightLeft, CheckCircle2, Download, FileText, Pencil, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { loadJsPdfAutoTable, loadXlsx } from '../../lib/exportVendors';
 import { savePdf } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, formatTime, generateExportFilename } from '../../utils/formatters';
 import StatusBadge from '../../components/StatusBadge';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
 import { getAdmissionSchedules, getApplicationsPage, getCoursesForNat, getNatAttendanceSupport, isMissingNatAttendanceColumnsError } from '../../services/natService';
+import { buildEdgeFunctionHeaders } from '../../lib/functionHeaders';
 
 const PASS_STATUS = 'Qualified for Interview (1st Choice)';
 const FAIL_STATUS = 'Failed';
@@ -74,6 +73,12 @@ const getSheetColumnValue = (row: Record<string, unknown>, aliases: string[]) =>
     return matchKey ? row[matchKey] : '';
 };
 
+const createEmptyScheduleForm = () => ({
+    date: '',
+    venue: '',
+    timeSlots: [{ start: '08:00', end: '09:00', slots: '' }]
+});
+
 // PAGE 5: NAT Management
 const NATManagementPage = ({ showToast }: any) => {
     const [activeTab, setActiveTab] = useState('applications');
@@ -83,9 +88,13 @@ const NATManagementPage = ({ showToast }: any) => {
     const [summaryApplications, setSummaryApplications] = useState<any[]>([]);
     const [schedules, setSchedules] = useState<any[]>([]);
     const [courseLimits, setCourseLimits] = useState<any[]>([]);
+    const [natRequirements, setNatRequirements] = useState<any[]>([]);
     const [supportsAttendance, setSupportsAttendance] = useState(true);
     const [loading, setLoading] = useState(true);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
+    const [newRequirementName, setNewRequirementName] = useState('');
+    const [isSavingRequirement, setIsSavingRequirement] = useState(false);
+    const [pendingRequirementDeleteId, setPendingRequirementDeleteId] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [testTakersCourseFilter, setTestTakersCourseFilter] = useState('All');
     const [completedFilter, setCompletedFilter] = useState('All');
@@ -100,16 +109,15 @@ const NATManagementPage = ({ showToast }: any) => {
     const [showModal, setShowModal] = useState(false);
     const [selectedApp, setSelectedApp] = useState(null);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [editingSchedule, setEditingSchedule] = useState<any | null>(null);
+    const [isScheduleDateLocked, setIsScheduleDateLocked] = useState(false);
+    const [isSavingSchedule, setIsSavingSchedule] = useState(false);
     const [showBulkPassModal, setShowBulkPassModal] = useState(false);
     const [bulkPassRows, setBulkPassRows] = useState<any[]>([]);
     const [bulkPassFileName, setBulkPassFileName] = useState('');
     const [bulkPassApplying, setBulkPassApplying] = useState(false);
     const [statusBoardFilter, setStatusBoardFilter] = useState('awaiting_results');
-    const [scheduleForm, setScheduleForm] = useState({
-        date: '',
-        venue: '',
-        timeSlots: [{ start: '08:00', end: '09:00', slots: '' }]
-    });
+    const [scheduleForm, setScheduleForm] = useState(createEmptyScheduleForm);
     const bulkPassInputRef = useRef<HTMLInputElement | null>(null);
 
     const normalizeTimeSlots = (rawSlots: any[] = []) => {
@@ -182,7 +190,8 @@ const NATManagementPage = ({ showToast }: any) => {
                 testTakersResult,
                 scheds,
                 courses,
-                summaryRows
+                summaryRows,
+                natRequirementsResult
             ] = await Promise.all([
                 getApplicationsPage(
                     { mode: 'applications', search: searchTerm },
@@ -198,11 +207,18 @@ const NATManagementPage = ({ showToast }: any) => {
                 ),
                 getAdmissionSchedules(),
                 getCoursesForNat(),
-                getSummaryRows(attendanceEnabled)
+                getSummaryRows(attendanceEnabled),
+                supabase
+                    .from('nat_requirements')
+                    .select('id, name, created_at')
+                    .order('created_at', { ascending: true })
             ]);
 
             if (summaryRows.error) {
                 throw summaryRows.error;
+            }
+            if (natRequirementsResult.error) {
+                throw natRequirementsResult.error;
             }
 
             setApplications(applicationsResult.rows);
@@ -213,6 +229,7 @@ const NATManagementPage = ({ showToast }: any) => {
             setTestTakersTotal(testTakersResult.total);
             setSchedules(scheds || []);
             setCourseLimits(courses || []);
+            setNatRequirements(natRequirementsResult.data || []);
             setSupportsAttendance(summaryRows.supportsAttendance);
             setSummaryApplications(summaryRows.data || []);
         } catch (error: any) {
@@ -236,7 +253,8 @@ const NATManagementPage = ({ showToast }: any) => {
         }
     };
 
-    const updateStatus = async (id, newStatus) => {
+    const updateStatus = async (application, newStatus) => {
+        const id = application?.id;
         console.log(`[DEBUG] Attempting to update status for ID: ${id} to ${newStatus}`);
         if (!id) {
             alert("Error: Invalid Application ID");
@@ -257,6 +275,21 @@ const NATManagementPage = ({ showToast }: any) => {
             }
 
             console.log("[DEBUG] Update successful!");
+            try {
+                if (application?.email) {
+                    await supabase.functions.invoke('send-email', {
+                        body: {
+                            type: 'NAT_RESULT',
+                            email: application.email,
+                            name: [application.first_name, application.last_name].filter(Boolean).join(' ') || 'Applicant',
+                            status: newStatus
+                        },
+                        headers: buildEdgeFunctionHeaders()
+                    });
+                }
+            } catch (emailError) {
+                console.error('[DEBUG] NAT result email failed:', emailError);
+            }
             showToast(`Status updated to ${newStatus}`);
             fetchData();
             setShowModal(false);
@@ -274,7 +307,15 @@ const NATManagementPage = ({ showToast }: any) => {
         setShowModal(false);
     };
 
-    const handleAddSchedule = async (e) => {
+    const closeScheduleModal = () => {
+        setShowScheduleModal(false);
+        setEditingSchedule(null);
+        setIsScheduleDateLocked(false);
+        setIsSavingSchedule(false);
+        setScheduleForm(createEmptyScheduleForm());
+    };
+
+    const handleSaveSchedule = async (e) => {
         e.preventDefault();
         const normalizedSlots = normalizeTimeSlots(scheduleForm.timeSlots);
 
@@ -291,41 +332,75 @@ const NATManagementPage = ({ showToast }: any) => {
 
         const totalSlots = normalizedSlots.reduce((sum: number, slot: any) => sum + slot.slots, 0);
         const payload: any = {
-            date: scheduleForm.date,
             venue: scheduleForm.venue,
             slots: totalSlots,
-            is_active: true,
             time_windows: normalizedSlots
         };
+        if (!editingSchedule || !isScheduleDateLocked) {
+            payload.date = scheduleForm.date;
+        }
 
-        let { error } = await supabase.from('admission_schedules').insert(payload);
-        if (error && String(error.message || '').toLowerCase().includes('time_windows')) {
-            // Backward compatibility if DB migration is not yet applied.
-            const fallback = await supabase.from('admission_schedules').insert({
-                date: scheduleForm.date,
-                venue: scheduleForm.venue,
-                slots: totalSlots,
-                is_active: true
-            });
-            error = fallback.error;
-            if (!fallback.error) {
-                showToast('Schedule saved. Time windows need latest DB migration to persist.', 'info');
+        setIsSavingSchedule(true);
+
+        try {
+            if (editingSchedule) {
+                let { error } = await supabase
+                    .from('admission_schedules')
+                    .update(payload)
+                    .eq('id', editingSchedule.id);
+
+                if (error && String(error.message || '').toLowerCase().includes('time_windows')) {
+                    const fallbackPayload = { ...payload };
+                    delete fallbackPayload.time_windows;
+                    const fallback = await supabase
+                        .from('admission_schedules')
+                        .update(fallbackPayload)
+                        .eq('id', editingSchedule.id);
+                    error = fallback.error;
+                    if (!fallback.error) {
+                        showToast('Schedule updated. Time windows need latest DB migration to persist.', 'info');
+                    }
+                }
+
+                if (error) {
+                    showToast(error.message, 'error');
+                    return;
+                }
+
+                showToast('Schedule updated successfully!', 'success');
+                closeScheduleModal();
+                fetchData();
+                return;
             }
-        }
 
-        if (error) {
-            showToast(error.message, 'error');
-            return;
-        }
+            payload.is_active = true;
 
-        showToast('Schedule added successfully!');
-        setShowScheduleModal(false);
-        setScheduleForm({
-            date: '',
-            venue: '',
-            timeSlots: [{ start: '08:00', end: '09:00', slots: '' }]
-        });
-        fetchData();
+            let { error } = await supabase.from('admission_schedules').insert(payload);
+            if (error && String(error.message || '').toLowerCase().includes('time_windows')) {
+                // Backward compatibility if DB migration is not yet applied.
+                const fallback = await supabase.from('admission_schedules').insert({
+                    date: scheduleForm.date,
+                    venue: scheduleForm.venue,
+                    slots: totalSlots,
+                    is_active: true
+                });
+                error = fallback.error;
+                if (!fallback.error) {
+                    showToast('Schedule saved. Time windows need latest DB migration to persist.', 'info');
+                }
+            }
+
+            if (error) {
+                showToast(error.message, 'error');
+                return;
+            }
+
+            showToast('Schedule added successfully!', 'success');
+            closeScheduleModal();
+            fetchData();
+        } finally {
+            setIsSavingSchedule(false);
+        }
     };
 
     const addTimeSlotRow = () => {
@@ -428,6 +503,52 @@ const NATManagementPage = ({ showToast }: any) => {
         }
     };
 
+    const handleAddRequirement = async (e: any) => {
+        e.preventDefault();
+        const nextName = String(newRequirementName || '').trim();
+        if (!nextName || isSavingRequirement) return;
+
+        setIsSavingRequirement(true);
+        try {
+            const { error } = await supabase
+                .from('nat_requirements')
+                .insert({ name: nextName });
+
+            if (error) throw error;
+
+            setNewRequirementName('');
+            showToast('NAT requirement added.', 'success');
+            await fetchData();
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to add NAT requirement.', 'error');
+        } finally {
+            setIsSavingRequirement(false);
+        }
+    };
+
+    const handleDeleteRequirement = async (requirement: any) => {
+        const requirementId = Number(requirement?.id || 0);
+        if (!requirementId || pendingRequirementDeleteId === requirementId) return;
+        if (!window.confirm(`Delete requirement "${requirement?.name || 'this item'}"?`)) return;
+
+        setPendingRequirementDeleteId(requirementId);
+        try {
+            const { error } = await supabase
+                .from('nat_requirements')
+                .delete()
+                .eq('id', requirementId);
+
+            if (error) throw error;
+
+            showToast('NAT requirement deleted.', 'success');
+            await fetchData();
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to delete NAT requirement.', 'error');
+        } finally {
+            setPendingRequirementDeleteId(null);
+        }
+    };
+
     const filteredApplications = applications;
     const filteredResults = testTakers;
     const hasCompletedAttendance = (app: any) => Boolean(app?.time_in) && Boolean(app?.time_out);
@@ -446,6 +567,67 @@ const NATManagementPage = ({ showToast }: any) => {
         return acc;
     }, {});
 
+    const openAddScheduleModal = () => {
+        setEditingSchedule(null);
+        setIsScheduleDateLocked(false);
+        setScheduleForm(createEmptyScheduleForm());
+        setShowScheduleModal(true);
+    };
+
+    const openEditScheduleModal = (sch: any) => {
+        const existingTimeSlots = normalizeTimeSlots(Array.isArray(sch.time_windows) ? sch.time_windows : []);
+        const assignedApplicants = dateApplicantCounts[sch.date] || 0;
+
+        setEditingSchedule(sch);
+        setIsScheduleDateLocked(assignedApplicants > 0);
+        setScheduleForm({
+            date: sch.date || '',
+            venue: sch.venue || '',
+            timeSlots: existingTimeSlots.length > 0
+                ? existingTimeSlots.map((slot: any) => ({
+                    start: slot.start,
+                    end: slot.end,
+                    slots: String(slot.slots)
+                }))
+                : [{ start: '', end: '', slots: String(sch.slots || '') }]
+        });
+        setShowScheduleModal(true);
+    };
+
+    const handleDeleteSchedule = async (sch: any) => {
+        const assignedApplicants = dateApplicantCounts[sch.date] || 0;
+        if (assignedApplicants > 0) {
+            showToast(`Cannot delete ${formatDate(sch.date)} because ${assignedApplicants} applicant${assignedApplicants !== 1 ? 's are' : ' is'} already assigned to it.`, 'error');
+            return;
+        }
+
+        if (!window.confirm(`Delete the NAT schedule for ${formatDate(sch.date)} at ${sch.venue || 'the selected venue'}?`)) {
+            return;
+        }
+
+        const { error } = await supabase
+            .from('admission_schedules')
+            .delete()
+            .eq('id', sch.id);
+
+        if (error) {
+            showToast(error.message, 'error');
+            return;
+        }
+
+        if (editingSchedule?.id === sch.id) {
+            closeScheduleModal();
+        }
+
+        showToast('Schedule deleted successfully!', 'success');
+        fetchData();
+    };
+
+    const isEditingLegacySchedule = Boolean(
+        editingSchedule
+        && normalizeTimeSlots(Array.isArray(editingSchedule.time_windows) ? editingSchedule.time_windows : []).length === 0
+    );
+
     const formatTime12h = (value: string) => {
         if (!value) return value;
         const [hour, minute] = value.split(':').map(Number);
@@ -463,10 +645,11 @@ const NATManagementPage = ({ showToast }: any) => {
         return `${formatTime12h(start)} - ${formatTime12h(end)}`;
     };
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
+        const { jsPDF, autoTable } = await loadJsPdfAutoTable();
         const doc = new jsPDF();
         doc.text("NAT Applications Log", 14, 20);
-        (doc as any).autoTable({
+        autoTable(doc, {
             startY: 30,
             head: [supportsAttendance
                 ? ["Student Name", "Ref ID", "Status", "Test Date", "Course", "Time In", "Time Out"]
@@ -511,7 +694,8 @@ const NATManagementPage = ({ showToast }: any) => {
         document.body.removeChild(link);
     };
 
-    const handleDownloadBulkPassTemplate = () => {
+    const handleDownloadBulkPassTemplate = async () => {
+        const XLSX = await loadXlsx();
         const workbook = XLSX.utils.book_new();
         const worksheet = XLSX.utils.aoa_to_sheet([BULK_PASS_TEMPLATE_HEADERS]);
         XLSX.utils.book_append_sheet(workbook, worksheet, 'bulk_pass');
@@ -533,6 +717,7 @@ const NATManagementPage = ({ showToast }: any) => {
         if (!file) return;
 
         try {
+            const XLSX = await loadXlsx();
             const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
             const firstSheet = workbook.SheetNames[0];
             if (!firstSheet) {
@@ -761,8 +946,8 @@ const NATManagementPage = ({ showToast }: any) => {
         <div className="space-y-6">
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">NAT Management</h1>
-                    <p className="text-gray-500 text-sm">Manage NAT applications and course quotas.</p>
+                    <h1 className="text-2xl font-bold text-gray-900">NORSU ADMISSION TEST DASHBOARD</h1>
+                    <p className="text-gray-500 text-sm">Manage NAT applications, schedules, and course quotas.</p>
                 </div>
                 <button
                     onClick={handleRefreshData}
@@ -790,7 +975,7 @@ const NATManagementPage = ({ showToast }: any) => {
             </div>
 
             <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-6">
-                {['applications', 'test takers', 'status board', 'completed', 'schedules', 'limits'].map(t => (
+                {['applications', 'test takers', 'status board', 'completed', 'schedules', 'requirements', 'limits'].map(t => (
                     <button key={t} onClick={() => setActiveTab(t)} className={`px-4 py-2 rounded-md text-sm font-bold capitalize transition ${activeTab === t ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>{t === 'completed' ? 'Completed Logs' : t}</button>
                 ))}
             </div>
@@ -817,8 +1002,8 @@ const NATManagementPage = ({ showToast }: any) => {
                                             <td className="p-4">
                                                 <div className="flex gap-2">
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app.id, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app.id, FAIL_STATUS); }} className="text-red-600 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, FAIL_STATUS); }} className="text-red-600 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-slate-400 font-bold text-xs cursor-pointer hover:bg-red-50 hover:text-red-600 px-2 py-1 rounded transition-colors">Del</button>
                                                 </div>
                                             </td>
@@ -916,8 +1101,8 @@ const NATManagementPage = ({ showToast }: any) => {
                                             <td className="p-4">
                                                 <div className="flex gap-2">
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedApp(r); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r.id, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r.id, FAIL_STATUS); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, FAIL_STATUS); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1093,13 +1278,29 @@ const NATManagementPage = ({ showToast }: any) => {
                     </div>
                 ) : activeTab === 'schedules' ? (
                     <div className="space-y-4">
-                        <div className="flex justify-end"><button onClick={() => setShowScheduleModal(true)} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold">+ Add Schedule</button></div>
+                        <div className="flex justify-end"><button onClick={openAddScheduleModal} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold">+ Add Schedule</button></div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {schedules.map(sch => (
                                 <div key={sch.id} className="bg-white p-4 rounded-xl border shadow-sm">
-                                    <div className="flex justify-between mb-2">
+                                    <div className="flex justify-between items-start gap-3 mb-2">
                                         <span className="font-bold text-gray-800">{formatDate(sch.date)}</span>
-                                        <button onClick={() => toggleSchedule(sch)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${sch.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{sch.is_active ? 'Active' : 'Closed'}</button>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => toggleSchedule(sch)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${sch.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{sch.is_active ? 'Active' : 'Closed'}</button>
+                                            <button
+                                                type="button"
+                                                onClick={() => openEditScheduleModal(sch)}
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100"
+                                            >
+                                                <Pencil size={12} /> Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteSchedule(sch)}
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-red-700 bg-red-50 hover:bg-red-100"
+                                            >
+                                                <Trash2 size={12} /> Delete
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="text-sm text-gray-600">
                                         <div className="font-medium">{sch.venue}</div>
@@ -1125,6 +1326,69 @@ const NATManagementPage = ({ showToast }: any) => {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                ) : activeTab === 'requirements' ? (
+                    <div className="space-y-4">
+                        <div className="bg-white border rounded-xl p-4 shadow-sm">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                                <div>
+                                    <h3 className="font-bold text-gray-900 text-sm">NAT Requirements</h3>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        These items appear in the applicant NAT portal dashboard and in the NAT application received email.
+                                    </p>
+                                </div>
+                                <form onSubmit={handleAddRequirement} className="flex w-full gap-2 md:max-w-xl">
+                                    <input
+                                        value={newRequirementName}
+                                        onChange={(e) => setNewRequirementName(e.target.value)}
+                                        placeholder="Add a requirement name"
+                                        className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!String(newRequirementName || '').trim() || isSavingRequirement}
+                                        className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-bold disabled:opacity-60"
+                                    >
+                                        {isSavingRequirement ? 'Adding...' : 'Add'}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+                            {natRequirements.length === 0 ? (
+                                <div className="p-6 text-sm text-gray-500">No NAT requirements added yet.</div>
+                            ) : (
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                                        <tr>
+                                            <th className="p-4">Requirement</th>
+                                            <th className="p-4">Created</th>
+                                            <th className="p-4 text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {natRequirements.map((requirement: any) => (
+                                            <tr key={requirement.id}>
+                                                <td className="p-4 font-medium text-gray-800">{requirement.name}</td>
+                                                <td className="p-4 text-xs text-gray-500">{formatDateTime(requirement.created_at)}</td>
+                                                <td className="p-4 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteRequirement(requirement)}
+                                                        disabled={pendingRequirementDeleteId === requirement.id}
+                                                        className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                        {pendingRequirementDeleteId === requirement.id ? 'Deleting...' : 'Delete'}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
                     </div>
                 ) : (
@@ -1256,8 +1520,8 @@ const NATManagementPage = ({ showToast }: any) => {
                             <div className="p-6 border-t border-gray-100 flex flex-wrap gap-3 sticky bottom-0 bg-white rounded-b-2xl">
                                 {!isNatFinalizedStatus(selectedApp.status) && (
                                     <>
-                                        <button onClick={() => updateStatus(selectedApp.id, PASS_STATUS)} className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200/50 hover:shadow-xl transition-all">Pass</button>
-                                        <button onClick={() => updateStatus(selectedApp.id, FAIL_STATUS)} className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-200/50 hover:shadow-xl transition-all">Fail</button>
+                                        <button onClick={() => updateStatus(selectedApp, PASS_STATUS)} className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200/50 hover:shadow-xl transition-all">Pass</button>
+                                        <button onClick={() => updateStatus(selectedApp, FAIL_STATUS)} className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-200/50 hover:shadow-xl transition-all">Fail</button>
                                     </>
                                 )}
                                 <button onClick={() => setShowModal(false)} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
@@ -1383,12 +1647,36 @@ const NATManagementPage = ({ showToast }: any) => {
                 showScheduleModal && (
                     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
-                            <h3 className="font-bold text-lg mb-4">Add Schedule</h3>
-                            <form onSubmit={handleAddSchedule} className="space-y-4">
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                                <div>
+                                    <h3 className="font-bold text-lg">{editingSchedule ? 'Edit Schedule' : 'Add Schedule'}</h3>
+                                    {isEditingLegacySchedule && (
+                                        <p className="text-xs text-amber-600 mt-1">
+                                            This older schedule has no saved time blocks yet. Add one or more time slots below to convert it.
+                                        </p>
+                                    )}
+                                    {isScheduleDateLocked && (
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            Date is locked because applicants are already assigned to this schedule. You can still update venue and time slots.
+                                        </p>
+                                    )}
+                                </div>
+                                <button type="button" onClick={closeScheduleModal} className="text-gray-400 hover:text-gray-600">
+                                    <XCircle />
+                                </button>
+                            </div>
+                            <form onSubmit={handleSaveSchedule} className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold block mb-1">Date</label>
-                                        <input type="date" className="w-full border rounded p-2" value={scheduleForm.date} onChange={e => setScheduleForm({ ...scheduleForm, date: e.target.value })} required />
+                                        <input
+                                            type="date"
+                                            className="w-full border rounded p-2 disabled:bg-gray-100 disabled:text-gray-500"
+                                            value={scheduleForm.date}
+                                            onChange={e => setScheduleForm({ ...scheduleForm, date: e.target.value })}
+                                            disabled={isScheduleDateLocked}
+                                            required
+                                        />
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold block mb-1">Venue</label>
@@ -1439,7 +1727,12 @@ const NATManagementPage = ({ showToast }: any) => {
                                         Overall day slots: <span className="font-bold text-gray-800">{normalizeTimeSlots(scheduleForm.timeSlots).reduce((sum: number, slot: any) => sum + slot.slots, 0)}</span>
                                     </p>
                                 </div>
-                                <button className="w-full bg-purple-600 text-white py-2 rounded-lg font-bold">Save</button>
+                                <div className="flex gap-3">
+                                    <button type="button" onClick={closeScheduleModal} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg font-bold">Cancel</button>
+                                    <button disabled={isSavingSchedule} className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold disabled:opacity-60">
+                                        {isSavingSchedule ? (editingSchedule ? 'Saving...' : 'Adding...') : (editingSchedule ? 'Save Changes' : 'Save')}
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>

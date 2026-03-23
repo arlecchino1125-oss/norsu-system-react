@@ -21,13 +21,17 @@ const DeptSupportApprovalsPage = ({
     approveScheduleData, setApproveScheduleData,
     handleSupportApproveAndSchedule,
     handleRejectSupport,
+    pendingSupportRejectId,
     showResolveModal, setShowResolveModal,
     resolveData, setResolveData,
     handleResolveSupport,
     showReferCareModal, setShowReferCareModal,
     referCareForm, setReferCareForm,
     handleReferToCare,
-    sigCanvasRefSupport
+    sigCanvasRefSupport,
+    isSubmittingSupportSchedule,
+    isSubmittingSupportResolve,
+    isSubmittingSupportRefer
 }: any) => {
     const [viewReq, setViewReq] = useState<any>(null);
     const [viewStudent, setViewStudent] = useState<any>(null);
@@ -368,7 +372,10 @@ const DeptSupportApprovalsPage = ({
                         <h3 className="text-lg font-bold mb-4">Reject Support Request</h3>
                         <textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm mb-4" placeholder="Reason for rejection..." required />
                         <div className="flex gap-2">
-                            <button onClick={() => { handleRejectSupport(rejectingId, rejectNotes); setRejectingId(null); }} className="flex-1 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700">Confirm Reject</button>
+                            <button onClick={async () => {
+                                await handleRejectSupport(rejectingId, rejectNotes);
+                                setRejectingId(null);
+                            }} disabled={pendingSupportRejectId === String(rejectingId)} className="flex-1 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">{pendingSupportRejectId === String(rejectingId) ? 'Rejecting...' : 'Confirm Reject'}</button>
                             <button onClick={() => setRejectingId(null)} className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-300">Cancel</button>
                         </div>
                     </div>
@@ -396,7 +403,7 @@ const DeptSupportApprovalsPage = ({
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Notes (Optional)</label>
                                 <textarea value={approveScheduleData.notes} onChange={(e) => setApproveScheduleData({ ...approveScheduleData, notes: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Additional notes..." />
                             </div>
-                            <button onClick={handleSupportApproveAndSchedule} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition">Approve & Schedule Visit</button>
+                            <button disabled={isSubmittingSupportSchedule} onClick={handleSupportApproveAndSchedule} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingSupportSchedule ? 'Scheduling...' : 'Approve & Schedule Visit'}</button>
                         </div>
                     </div>
                 </div>
@@ -416,7 +423,7 @@ const DeptSupportApprovalsPage = ({
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Resolution Notes <span className="text-red-400">*</span></label>
                                 <textarea value={resolveData.notes} onChange={(e) => setResolveData({ ...resolveData, notes: e.target.value })} rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Describe how the issue was resolved..." required />
                             </div>
-                            <button onClick={handleResolveSupport} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition"><CheckCircle size={16} className="inline mr-1" /> Mark Resolved & Send to CARE</button>
+                            <button disabled={isSubmittingSupportResolve} onClick={handleResolveSupport} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-60"><CheckCircle size={16} className={`inline mr-1 ${isSubmittingSupportResolve ? 'animate-spin' : ''}`} /> {isSubmittingSupportResolve ? 'Sending...' : 'Mark Resolved & Send to CARE'}</button>
                         </div>
                     </div>
                 </div>
@@ -472,7 +479,7 @@ const DeptSupportApprovalsPage = ({
                                 </div>
                             </div>
 
-                            <button onClick={handleReferToCare} className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:shadow-lg shadow-orange-200/50 transition-all"><Send size={16} className="inline mr-1" /> Submit Referral to CARE Staff</button>
+                            <button disabled={isSubmittingSupportRefer} onClick={handleReferToCare} className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:shadow-lg shadow-orange-200/50 transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-none"><Send size={16} className={`inline mr-1 ${isSubmittingSupportRefer ? 'animate-spin' : ''}`} /> {isSubmittingSupportRefer ? 'Submitting...' : 'Submit Referral to CARE Staff'}</button>
                         </div>
                     </div>
                 </div>

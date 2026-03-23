@@ -1,11 +1,10 @@
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { loadJsPdf, loadJsPdfAutoTable, loadXlsx } from '../lib/exportVendors';
 
 /**
  * Export a single counseling request as a PDF form.
  */
-export const exportRequestPDF = (record: any) => {
+export const exportRequestPDF = async (record: any) => {
+    const jsPDF = await loadJsPdf();
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -93,11 +92,12 @@ export const exportRequestPDF = (record: any) => {
 /**
  * Legacy: export a simple history table PDF.
  */
-export const exportPDF = (studentName: string, requests: any[]) => {
+export const exportPDF = async (studentName: string, requests: any[]) => {
     const records = requests.filter((r: any) => r.student === studentName || r.student_name === studentName);
+    const { jsPDF, autoTable } = await loadJsPdfAutoTable();
     const doc = new jsPDF();
     doc.text(`${studentName}'s History`, 14, 22);
-    (doc as any).autoTable({
+    autoTable(doc, {
         head: [["Date", "Type", "Status", "ID"]],
         body: records.map((r: any) => [
             new Date(r.created_at || r.date).toLocaleDateString(),
@@ -110,11 +110,111 @@ export const exportPDF = (studentName: string, requests: any[]) => {
     doc.save(`${studentName}_History.pdf`);
 };
 
-export const exportToExcel = (headers: string[], rows: any[][], fileName: string) => {
+export const exportToExcel = async (headers: string[], rows: any[][], fileName: string) => {
+    const XLSX = await loadXlsx();
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
+};
+
+export const exportToCsv = async (headers: string[], rows: any[][], fileName: string) => {
+    const csv = [headers, ...rows]
+        .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+};
+
+export const exportTablePdf = async (
+    title: string,
+    headers: string[],
+    rows: any[][],
+    fileName: string
+) => {
+    const { jsPDF, autoTable } = await loadJsPdfAutoTable();
+    const doc = new jsPDF({
+        orientation: headers.length > 6 ? 'landscape' : 'portrait'
+    });
+
+    doc.setFontSize(14);
+    doc.text(title, 14, 18);
+    autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: 26,
+        styles: {
+            fontSize: 8,
+            cellPadding: 2.5
+        },
+        headStyles: {
+            fillColor: [31, 41, 55]
+        }
+    });
+    doc.save(fileName);
+};
+
+const escapeHtml = (value: unknown) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+export const printTableDocument = (
+    title: string,
+    headers: string[],
+    rows: any[][],
+    subtitle?: string
+) => {
+    const printWindow = window.open('', '_blank', 'width=1200,height=900');
+    if (!printWindow) {
+        throw new Error('Unable to open the print window.');
+    }
+
+    const thead = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
+    const tbody = rows.map((row) => `
+        <tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>
+    `).join('');
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+    <title>${escapeHtml(title)}</title>
+    <style>
+        @page { size: landscape; margin: 12mm; }
+        body { font-family: Arial, sans-serif; color: #111827; padding: 8px; }
+        h1 { font-size: 20px; margin: 0 0 8px; }
+        p { font-size: 12px; margin: 0 0 16px; color: #4b5563; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #d1d5db; padding: 8px; font-size: 12px; vertical-align: top; word-break: break-word; }
+        th { background: #f3f4f6; text-align: left; }
+        tr:nth-child(even) td { background: #fafafa; }
+    </style>
+</head>
+<body>
+    <h1>${escapeHtml(title)}</h1>
+    ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
+    <table>
+        <thead><tr>${thead}</tr></thead>
+        <tbody>${tbody}</tbody>
+    </table>
+</body>
+</html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
 };
 
 export const savePdf = (doc: any, fileName: string) => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import AccountSecuritySettings from '../../../components/AccountSecuritySettings';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
@@ -57,7 +58,25 @@ const Section = ({ icon, gradient, title, children, cardClass }: any) => (
 );
 
 function ProfileViewContent(p: any) {
-    const { profileTab, setProfileTab, personalInfo, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, Icons, attendanceMap, formatFullDate, uploadProfilePicture } = p;
+    const {
+        profileTab,
+        setProfileTab,
+        personalInfo,
+        isEditing,
+        setIsEditing,
+        setPersonalInfo,
+        saveProfileChanges,
+        isSavingProfileChanges,
+        authEmail,
+        requestStudentSecurityOtp,
+        confirmStudentSecurityEmailChange,
+        confirmStudentPasswordChange,
+        Icons,
+        attendanceMap,
+        formatFullDate,
+        uploadProfilePicture,
+        showToast
+    } = p;
     const [draftPersonalInfo, setDraftPersonalInfo] = React.useState(personalInfo);
     const profileCardClass = isEditing
         ? 'bg-white rounded-xl border border-blue-100/50 p-4 shadow-sm sm:p-6'
@@ -182,7 +201,7 @@ function ProfileViewContent(p: any) {
                         </Section>
 
                         <Section cardClass={profileCardClass} icon={<Icons.Events />} gradient="from-emerald-400 to-teal-500" title="Contact & Address">
-                            <Field {...fp} label="Email" field="email" colSpan={2} />
+                            <Field {...fp} label="Email" field="email" colSpan={2} readOnly />
                             <Field {...fp} label="Mobile" field="mobile" />
                             <Field {...fp} label="Facebook" field="facebookUrl" />
                             <Field {...fp} label="Street / Barangay" field="street" colSpan={2} />
@@ -267,7 +286,7 @@ function ProfileViewContent(p: any) {
                         {isEditing && (
                             <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
                                 <button onClick={() => setIsEditing(false)} className="w-full rounded-xl border border-purple-100/50 bg-white/80 px-6 py-3 text-sm font-bold transition-all hover:bg-gray-50 sm:w-auto sm:py-2.5">Cancel</button>
-                                <button onClick={() => { setPersonalInfo(draftPersonalInfo); saveProfileChanges(draftPersonalInfo); }} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl btn-press sm:w-auto sm:py-2.5">Save Changes</button>
+                                <button disabled={Boolean(isSavingProfileChanges)} onClick={() => { setPersonalInfo(draftPersonalInfo); void saveProfileChanges(draftPersonalInfo); }} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl btn-press disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2.5">{isSavingProfileChanges ? 'Saving...' : 'Save Changes'}</button>
                             </div>
                         )}
                     </div>
@@ -290,10 +309,17 @@ function ProfileViewContent(p: any) {
                 {profileTab === 'security' && (
                     <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm card-hover animate-fade-in-up sm:p-8" style={{ animationDelay: '200ms' }}>
                         <h3 className="font-bold text-lg mb-4 flex items-center gap-2 sm:mb-6"><span className="p-1.5 bg-gradient-to-br from-slate-600 to-slate-800 text-white rounded-lg"><Icons.Support /></span> Security Settings</h3>
-                        <p className="text-sm text-gray-400">Manage your account security and password.</p>
-                        <div className="mt-6 p-4 bg-purple-50/50 rounded-xl border border-purple-100/30">
-                            <p className="text-xs text-gray-500">Your student password is managed through your Supabase-backed student login. Contact the admin office if you need your account reset or reactivated.</p>
-                        </div>
+                        <p className="text-sm text-gray-400">Manage the email and password behind your student login here. OTP verification is required before any email or password change is applied.</p>
+                        <AccountSecuritySettings
+                            currentEmail={authEmail || personalInfo.email || ''}
+                            loginLabel="your student email"
+                            emailHelperText="Your student ID login stays the same. This updates the real email behind your account, and the OTP will be sent to the new email address."
+                            passwordHelperText="Choose a new password for your student login. An OTP will be sent to your current email before the password change is accepted."
+                            requestOtp={requestStudentSecurityOtp}
+                            confirmEmailChange={confirmStudentSecurityEmailChange}
+                            confirmPasswordChange={confirmStudentPasswordChange}
+                            showToast={showToast}
+                        />
                     </div>
                 )}
             </div>

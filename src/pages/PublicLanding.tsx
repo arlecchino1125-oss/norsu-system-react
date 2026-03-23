@@ -159,7 +159,7 @@ export default function PublicLanding() {
                         <GraduationCap className="w-8 h-8 text-blue-600 drop-shadow-sm group-hover:text-blue-500 transition-colors" />
                     </div>
                     <h3 className="text-xl font-extrabold text-slate-800 mb-2 relative">Student Portal</h3>
-                    <p className="text-slate-600/90 text-sm mb-6 leading-relaxed relative font-medium">Access your profile, courses, grades, and request counseling.</p>
+                    <p className="text-slate-600/90 text-sm mb-6 leading-relaxed relative font-medium">Access your profile, needs assessments, counseling, support services, scholarships, and events.</p>
                     <div className="flex items-center text-blue-600 font-bold text-sm tracking-wide group-hover:gap-3 gap-2 transition-all relative">
                         Access Portal <ArrowRight className="w-4 h-4 inline" />
                     </div>

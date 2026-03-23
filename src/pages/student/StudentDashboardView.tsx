@@ -253,6 +253,8 @@ const StudentDashboardView = ({
     selectedReason,
     setSelectedReason,
     submitTimeIn,
+    isSubmittingOfficeTimeIn,
+    isCompletingOfficeVisit,
     showTimeOutFeedback,
     setShowTimeOutFeedback,
     timeOutVisitReason,
@@ -286,7 +288,7 @@ const StudentDashboardView = ({
                     </div>
                     <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '200ms' }}>
                         <h3 className="font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-xl shadow-lg shadow-violet-500/20">🏢</span> Office Logbook</h3>
-                        {activeVisit ? (<div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center"><p className="text-sm font-bold text-emerald-800 mb-1">You are currently at the office</p><p className="text-xs text-emerald-600 mb-3">Reason: {activeVisit.reason}</p><button onClick={handleOfficeTimeOut} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs hover:from-red-400 hover:to-rose-500 shadow-lg shadow-red-500/20 transition-all">Time Out</button></div>) : <button onClick={handleOfficeTimeIn} className="w-full bg-gradient-to-r from-blue-500 to-sky-400 text-white py-3 rounded-xl font-bold text-sm hover:from-blue-400 hover:to-sky-300 shadow-lg shadow-blue-500/20 btn-press transition-all">Time In for Office Visit</button>}
+                        {activeVisit ? (<div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center"><p className="text-sm font-bold text-emerald-800 mb-1">You are currently at the office</p><p className="text-xs text-emerald-600 mb-3">Reason: {activeVisit.reason}</p><button disabled={isCompletingOfficeVisit} onClick={handleOfficeTimeOut} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs hover:from-red-400 hover:to-rose-500 shadow-lg shadow-red-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isCompletingOfficeVisit ? 'Timing Out...' : 'Time Out'}</button></div>) : <button onClick={handleOfficeTimeIn} className="w-full bg-gradient-to-r from-blue-500 to-sky-400 text-white py-3 rounded-xl font-bold text-sm hover:from-blue-400 hover:to-sky-300 shadow-lg shadow-blue-500/20 btn-press transition-all">Time In for Office Visit</button>}
                     </div>
                     {notifications.length > 0 && (<div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-orange-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '300ms' }}><h3 className="font-bold flex items-center gap-2 mb-4 text-orange-600"><span className="p-2 bg-gradient-to-br from-orange-400 to-amber-500 text-white rounded-xl shadow-lg shadow-orange-500/20">📢</span> Notifications</h3><div className="space-y-2">{notifications.map((n: any) => <div key={n.id} className="text-xs p-3 bg-orange-50 border border-orange-100 rounded-xl text-gray-700">{n.message}</div>)}</div></div>)}
                 </div>
@@ -318,7 +320,7 @@ const StudentDashboardView = ({
                             </label>
                         ))}
                     </div>
-                    <button onClick={submitTimeIn} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700">Confirm Time In</button>
+                    <button disabled={isSubmittingOfficeTimeIn} onClick={submitTimeIn} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingOfficeTimeIn ? 'Submitting...' : 'Confirm Time In'}</button>
                 </div>
             </div>
         )}

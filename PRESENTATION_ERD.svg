@@ -1,0 +1,549 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1420" viewBox="0 0 1800 1420">
+  <style>
+    .page-bg { fill: #f8fafc; }
+    .title { font: 700 32px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+    .subtitle { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #475569; }
+    .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+    .panel-title { font: 700 22px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+    .panel-note { font: 400 12px 'Segoe UI', Arial, sans-serif; fill: #64748b; }
+    .entity { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.5; }
+    .entity-title { font: 700 14px 'Segoe UI', Arial, sans-serif; fill: #0f172a; letter-spacing: 0.4px; }
+    .field { font: 13px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+    .tag { font: 700 10px 'Segoe UI', Arial, sans-serif; }
+    .pk { fill: #0f766e; }
+    .fk { fill: #7c3aed; }
+    .grid { stroke: #e2e8f0; stroke-width: 1; }
+    .connector { fill: none; stroke: #475569; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .cardinality { display: none; }
+    .blue-head { fill: #dbeafe; }
+    .teal-head { fill: #ccfbf1; }
+    .amber-head { fill: #fef3c7; }
+    .rose-head { fill: #ffe4e6; }
+    .legend-label { font: 600 12px 'Segoe UI', Arial, sans-serif; fill: #334155; }
+    .legend-box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; }
+    .legend-title { font: 700 13px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+  </style>
+
+  <defs>
+    <marker id="m-many" viewBox="-18 0 18 14" refX="0" refY="7" markerWidth="18" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse" overflow="visible">
+      <path d="M0 7 H-4 M-4 7 L-16 1 M-4 7 H-16 M-4 7 L-16 13" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    </marker>
+    <marker id="m-one" viewBox="-12 0 12 14" refX="0" refY="7" markerWidth="12" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse" overflow="visible">
+      <path d="M0 7 H-8 M-8 1 V13" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    </marker>
+    <marker id="m-zeroMany" viewBox="-24 0 24 14" refX="0" refY="7" markerWidth="24" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse" overflow="visible">
+      <path d="M0 7 H-2 M-8 7 H-10 M-10 7 L-22 1 M-10 7 H-22 M-10 7 L-22 13" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="-5" cy="7" r="3" fill="#ffffff" stroke="#475569" stroke-width="1.8" />
+    </marker>
+    <marker id="m-oneMany" viewBox="-24 0 24 14" refX="0" refY="7" markerWidth="24" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse" overflow="visible">
+      <path d="M0 7 H-4 M-4 1 V13 M-4 7 H-8 M-8 7 L-20 1 M-8 7 H-20 M-8 7 L-20 13" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    </marker>
+    <marker id="m-zeroOne" viewBox="-18 0 18 14" refX="0" refY="7" markerWidth="18" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse" overflow="visible">
+      <path d="M0 7 H-2 M-8 7 H-12 M-12 1 V13" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="-5" cy="7" r="3" fill="#ffffff" stroke="#475569" stroke-width="1.8" />
+    </marker>
+    <marker id="m-onlyOne" viewBox="-14 0 14 14" refX="0" refY="7" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse" overflow="visible">
+      <path d="M0 7 H-4 M-4 1 V13 M-8 1 V13" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    </marker>
+  </defs>
+
+  <rect class="page-bg" x="0" y="0" width="1800" height="1420" />
+
+  <text class="title" x="50" y="52">NORSU System Presentation ERD</text>
+  <text class="subtitle" x="50" y="78">Simplified visual ERD based on the latest schema. Only major entities and key presentation columns are shown.</text>
+
+  <g transform="translate(1240 12)">
+    <rect class="legend-box" width="520" height="78" rx="14" />
+    <text class="legend-title" x="18" y="18">Crow's-Foot Legend</text>
+    <line class="connector" x1="18" y1="36" x2="58" y2="36" marker-end="url(#m-many)" />
+    <text class="legend-label" x="74" y="40">Many</text>
+    <line class="connector" x1="18" y1="54" x2="58" y2="54" marker-end="url(#m-one)" />
+    <text class="legend-label" x="74" y="58">One</text>
+    <line class="connector" x1="18" y1="72" x2="58" y2="72" marker-end="url(#m-zeroMany)" />
+    <text class="legend-label" x="74" y="76">Zero or Many</text>
+    <line class="connector" x1="272" y1="36" x2="312" y2="36" marker-end="url(#m-oneMany)" />
+    <text class="legend-label" x="328" y="40">One or Many</text>
+    <line class="connector" x1="272" y1="54" x2="312" y2="54" marker-end="url(#m-zeroOne)" />
+    <text class="legend-label" x="328" y="58">Zero or One</text>
+    <line class="connector" x1="272" y1="72" x2="312" y2="72" marker-end="url(#m-onlyOne)" />
+    <text class="legend-label" x="328" y="76">Only One</text>
+  </g>
+
+  <rect class="panel" x="40" y="100" width="820" height="580" rx="22" />
+  <text class="panel-title" x="70" y="138">Figure 1. Admissions and Academic Structure</text>
+  <text class="panel-note" x="70" y="160">Core admissions flow, course ownership, and main user records.</text>
+
+  <rect class="panel" x="900" y="100" width="860" height="580" rx="22" />
+  <text class="panel-title" x="930" y="138">Figure 2. Student Services and Scholarship</text>
+  <text class="panel-note" x="930" y="160">Service requests and scholarship processing centered on the student entity.</text>
+
+  <rect class="panel" x="40" y="720" width="820" height="620" rx="22" />
+  <text class="panel-title" x="70" y="758">Figure 3. Needs Assessment and Forms Module</text>
+  <text class="panel-note" x="70" y="780">Needs assessment is represented through forms, submissions, and answers.</text>
+  <text class="panel-note" x="70" y="798">Each student submits one response per form, while answers store the per-question details.</text>
+
+  <rect class="panel" x="900" y="720" width="860" height="620" rx="22" />
+  <text class="panel-title" x="930" y="758">Figure 4. Events and Participation</text>
+  <text class="panel-note" x="930" y="780">Student participation and feedback around campus events.</text>
+
+  <!-- Figure 1 -->
+  <path class="connector" d="M250 235 H330" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="258" y="227">1</text>
+  <text class="cardinality" x="316" y="227">M</text>
+
+  <path class="connector" d="M165 280 V322 H182 V360" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="174" y="300">1</text>
+  <text class="cardinality" x="192" y="348">M</text>
+
+  <path class="connector" d="M250 245 H480 V475 H610" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="260" y="236">1</text>
+  <text class="cardinality" x="596" y="467">M</text>
+
+  <path class="connector" d="M442 316 V380" marker-start="url(#m-onlyOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="452" y="344">1</text>
+  <text class="cardinality" x="452" y="372">M</text>
+
+  <path class="connector" d="M712 316 V350 H550 V380" marker-start="url(#m-onlyOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="722" y="340">1</text>
+  <text class="cardinality" x="560" y="370">M</text>
+
+  <path class="connector" d="M330 225 H300 V470 H305" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="314" y="216">1</text>
+  <text class="cardinality" x="290" y="460">M</text>
+
+  <g transform="translate(80 190)">
+    <rect class="entity" width="170" height="86" rx="14" />
+    <rect class="blue-head" width="170" height="34" rx="14" />
+    <rect x="0" y="20" width="170" height="14" class="blue-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="86" />
+    <line class="grid" x1="0" y1="60" x2="170" y2="60" />
+    <text class="entity-title" x="85" y="22" text-anchor="middle">DEPARTMENTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">name</text>
+  </g>
+
+  <g transform="translate(330 160)">
+    <rect class="entity" width="225" height="164" rx="14" />
+    <rect class="blue-head" width="225" height="34" rx="14" />
+    <rect x="0" y="20" width="225" height="14" class="blue-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="164" />
+    <line class="grid" x1="0" y1="60" x2="225" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="225" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="225" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="225" y2="138" />
+    <text class="entity-title" x="112.5" y="22" text-anchor="middle">COURSES</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">department_id</text>
+    <text class="field" x="52" y="104">name</text>
+    <text class="field" x="52" y="130">application_limit</text>
+    <text class="field" x="52" y="156">status</text>
+  </g>
+
+  <g transform="translate(595 160)">
+    <rect class="entity" width="235" height="164" rx="14" />
+    <rect class="blue-head" width="235" height="34" rx="14" />
+    <rect x="0" y="20" width="235" height="14" class="blue-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="164" />
+    <line class="grid" x1="0" y1="60" x2="235" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="235" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="235" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="235" y2="138" />
+    <text class="entity-title" x="117.5" y="22" text-anchor="middle">ADMISSION_SCHEDULES</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">date</text>
+    <text class="field" x="52" y="104">venue</text>
+    <text class="field" x="52" y="130">slots</text>
+    <text class="field" x="52" y="156">is_active</text>
+  </g>
+
+  <g transform="translate(325 380)">
+    <rect class="entity" width="250" height="242" rx="14" />
+    <rect class="blue-head" width="250" height="34" rx="14" />
+    <rect x="0" y="20" width="250" height="14" class="blue-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="242" />
+    <line class="grid" x1="0" y1="60" x2="250" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="250" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="250" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="250" y2="138" />
+    <line class="grid" x1="0" y1="164" x2="250" y2="164" />
+    <line class="grid" x1="0" y1="190" x2="250" y2="190" />
+    <line class="grid" x1="0" y1="216" x2="250" y2="216" />
+    <text class="entity-title" x="125" y="22" text-anchor="middle">APPLICATIONS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">priority_course</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">test_date</text>
+    <text class="field" x="52" y="130">reference_id</text>
+    <text class="field" x="52" y="156">first_name</text>
+    <text class="field" x="52" y="182">last_name</text>
+    <text class="field" x="52" y="208">email</text>
+    <text class="field" x="52" y="234">status</text>
+  </g>
+
+  <g transform="translate(80 360)">
+    <rect class="entity" width="225" height="242" rx="14" />
+    <rect class="blue-head" width="225" height="34" rx="14" />
+    <rect x="0" y="20" width="225" height="14" class="blue-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="242" />
+    <line class="grid" x1="0" y1="60" x2="225" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="225" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="225" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="225" y2="138" />
+    <line class="grid" x1="0" y1="164" x2="225" y2="164" />
+    <line class="grid" x1="0" y1="190" x2="225" y2="190" />
+    <line class="grid" x1="0" y1="216" x2="225" y2="216" />
+    <text class="entity-title" x="112.5" y="22" text-anchor="middle">STUDENTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">course</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">department</text>
+    <text class="field" x="52" y="130">student_id</text>
+    <text class="field" x="52" y="156">first_name</text>
+    <text class="field" x="52" y="182">last_name</text>
+    <text class="field" x="52" y="208">year_level</text>
+    <text class="field" x="52" y="234">status</text>
+  </g>
+
+  <g transform="translate(610 390)">
+    <rect class="entity" width="220" height="190" rx="14" />
+    <rect class="blue-head" width="220" height="34" rx="14" />
+    <rect x="0" y="20" width="220" height="14" class="blue-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="190" />
+    <line class="grid" x1="0" y1="60" x2="220" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="220" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="220" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="220" y2="138" />
+    <line class="grid" x1="0" y1="164" x2="220" y2="164" />
+    <text class="entity-title" x="110" y="22" text-anchor="middle">STAFF_ACCOUNTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">department</text>
+    <text class="field" x="52" y="104">username</text>
+    <text class="field" x="52" y="130">full_name</text>
+    <text class="field" x="52" y="156">role</text>
+    <text class="field" x="52" y="182">email</text>
+  </g>
+
+  <!-- Figure 2 -->
+  <path class="connector" d="M1170 330 H1200 V255 H1230" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1182" y="322">1</text>
+  <text class="cardinality" x="1216" y="246">M</text>
+
+  <path class="connector" d="M1170 390 H1200 V475 H1230" marker-start="url(#m-onlyOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1182" y="382">1</text>
+  <text class="cardinality" x="1216" y="466">M</text>
+
+  <path class="connector" d="M1170 430 H1440 V475 H1495" marker-start="url(#m-onlyOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1182" y="422">1</text>
+  <text class="cardinality" x="1480" y="466">M</text>
+
+  <path class="connector" d="M1622 310 V360 H1617 V400" marker-start="url(#m-onlyOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1633" y="336">1</text>
+  <text class="cardinality" x="1633" y="390">M</text>
+
+  <g transform="translate(940 250)">
+    <rect class="entity" width="230" height="216" rx="14" />
+    <rect class="teal-head" width="230" height="34" rx="14" />
+    <rect x="0" y="20" width="230" height="14" class="teal-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="216" />
+    <line class="grid" x1="0" y1="60" x2="230" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="230" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="230" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="230" y2="138" />
+    <line class="grid" x1="0" y1="164" x2="230" y2="164" />
+    <line class="grid" x1="0" y1="190" x2="230" y2="190" />
+    <text class="entity-title" x="115" y="22" text-anchor="middle">STUDENTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">student_id</text>
+    <text class="field" x="52" y="104">first_name</text>
+    <text class="field" x="52" y="130">last_name</text>
+    <text class="field" x="52" y="156">course</text>
+    <text class="field" x="52" y="182">year_level</text>
+    <text class="field" x="52" y="208">status</text>
+  </g>
+
+  <g transform="translate(1230 160)">
+    <rect class="entity" width="240" height="190" rx="14" />
+    <rect class="teal-head" width="240" height="34" rx="14" />
+    <rect x="0" y="20" width="240" height="14" class="teal-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="190" />
+    <line class="grid" x1="0" y1="60" x2="240" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="240" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="240" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="240" y2="138" />
+    <line class="grid" x1="0" y1="164" x2="240" y2="164" />
+    <text class="entity-title" x="120" y="22" text-anchor="middle">COUNSELING_REQUESTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">student_id</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">department</text>
+    <text class="field" x="52" y="130">request_type</text>
+    <text class="field" x="52" y="156">status</text>
+    <text class="field" x="52" y="182">scheduled_date</text>
+  </g>
+
+  <g transform="translate(1230 390)">
+    <rect class="entity" width="240" height="164" rx="14" />
+    <rect class="teal-head" width="240" height="34" rx="14" />
+    <rect x="0" y="20" width="240" height="14" class="teal-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="164" />
+    <line class="grid" x1="0" y1="60" x2="240" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="240" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="240" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="240" y2="138" />
+    <text class="entity-title" x="120" y="22" text-anchor="middle">SUPPORT_REQUESTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">student_id</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">department</text>
+    <text class="field" x="52" y="130">support_type</text>
+    <text class="field" x="52" y="156">status</text>
+  </g>
+
+  <g transform="translate(1515 170)">
+    <rect class="entity" width="215" height="138" rx="14" />
+    <rect class="teal-head" width="215" height="34" rx="14" />
+    <rect x="0" y="20" width="215" height="14" class="teal-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="138" />
+    <line class="grid" x1="0" y1="60" x2="215" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="215" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="215" y2="112" />
+    <text class="entity-title" x="107.5" y="22" text-anchor="middle">SCHOLARSHIPS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">title</text>
+    <text class="field" x="52" y="104">deadline</text>
+    <text class="field" x="52" y="130">description</text>
+  </g>
+
+  <g transform="translate(1495 400)">
+    <rect class="entity" width="245" height="138" rx="14" />
+    <rect class="teal-head" width="245" height="34" rx="14" />
+    <rect x="0" y="20" width="245" height="14" class="teal-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="138" />
+    <line class="grid" x1="0" y1="60" x2="245" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="245" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="245" y2="112" />
+    <text class="entity-title" x="122.5" y="22" text-anchor="middle">SCHOLARSHIP_APPLICATIONS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">scholarship_id</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">student_id</text>
+    <text class="field" x="52" y="130">status</text>
+  </g>
+
+  <!-- Figure 3 -->
+  <path class="connector" d="M570 850 H620" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="578" y="842">1</text>
+  <text class="cardinality" x="608" y="842">M</text>
+
+  <path class="connector" d="M460 920 V1020" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="472" y="964">1</text>
+  <text class="cardinality" x="472" y="1010">M</text>
+
+  <path class="connector" d="M290 1010 H320 V1095 H340" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="298" y="1000">1</text>
+  <text class="cardinality" x="328" y="1086">M</text>
+
+  <path class="connector" d="M580 1095 H620" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="588" y="1087">1</text>
+  <text class="cardinality" x="608" y="1087">M</text>
+
+  <path class="connector" d="M730 940 V1010" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="742" y="972">1</text>
+  <text class="cardinality" x="742" y="1002">M</text>
+
+  <g transform="translate(70 940)">
+    <rect class="entity" width="220" height="138" rx="14" />
+    <rect class="amber-head" width="220" height="34" rx="14" />
+    <rect x="0" y="20" width="220" height="14" class="amber-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="138" />
+    <line class="grid" x1="0" y1="60" x2="220" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="220" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="220" y2="112" />
+    <text class="entity-title" x="110" y="22" text-anchor="middle">STUDENTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">student_id</text>
+    <text class="field" x="52" y="104">first_name</text>
+    <text class="field" x="52" y="130">last_name</text>
+  </g>
+
+  <g transform="translate(350 780)">
+    <rect class="entity" width="220" height="138" rx="14" />
+    <rect class="amber-head" width="220" height="34" rx="14" />
+    <rect x="0" y="20" width="220" height="14" class="amber-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="138" />
+    <line class="grid" x1="0" y1="60" x2="220" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="220" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="220" y2="112" />
+    <text class="entity-title" x="110" y="22" text-anchor="middle">FORMS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">title</text>
+    <text class="field" x="52" y="104">description</text>
+    <text class="field" x="52" y="130">is_active</text>
+  </g>
+
+  <g transform="translate(620 770)">
+    <rect class="entity" width="220" height="164" rx="14" />
+    <rect class="amber-head" width="220" height="34" rx="14" />
+    <rect x="0" y="20" width="220" height="14" class="amber-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="164" />
+    <line class="grid" x1="0" y1="60" x2="220" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="220" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="220" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="220" y2="138" />
+    <text class="entity-title" x="110" y="22" text-anchor="middle">QUESTIONS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">form_id</text>
+    <text class="field" x="52" y="104">question_text</text>
+    <text class="field" x="52" y="130">question_type</text>
+    <text class="field" x="52" y="156">order_index</text>
+  </g>
+
+  <g transform="translate(340 1020)">
+    <rect class="entity" width="240" height="138" rx="14" />
+    <rect class="amber-head" width="240" height="34" rx="14" />
+    <rect x="0" y="20" width="240" height="14" class="amber-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="138" />
+    <line class="grid" x1="0" y1="60" x2="240" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="240" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="240" y2="112" />
+    <text class="entity-title" x="120" y="22" text-anchor="middle">SUBMISSIONS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">form_id</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">student_id</text>
+    <text class="field" x="52" y="130">submitted_at</text>
+  </g>
+
+  <g transform="translate(620 1010)">
+    <rect class="entity" width="220" height="164" rx="14" />
+    <rect class="amber-head" width="220" height="34" rx="14" />
+    <rect x="0" y="20" width="220" height="14" class="amber-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="164" />
+    <line class="grid" x1="0" y1="60" x2="220" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="220" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="220" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="220" y2="138" />
+    <text class="entity-title" x="110" y="22" text-anchor="middle">ANSWERS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">submission_id</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">question_id</text>
+    <text class="field" x="52" y="130">answer_value</text>
+    <text class="field" x="52" y="156">answer_text</text>
+  </g>
+
+  <!-- Figure 4 -->
+  <path class="connector" d="M1385 950 V1030" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1397" y="988">1</text>
+  <text class="cardinality" x="1397" y="1020">M</text>
+
+  <path class="connector" d="M1500 875 H1515 V1005 H1530" marker-start="url(#m-zeroOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1508" y="866">1</text>
+  <text class="cardinality" x="1518" y="996">M</text>
+
+  <path class="connector" d="M1160 1020 H1200 V1115 H1240" marker-start="url(#m-onlyOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1172" y="1010">1</text>
+  <text class="cardinality" x="1228" y="1106">M</text>
+
+  <path class="connector" d="M1160 980 H1450 V1005 H1530" marker-start="url(#m-onlyOne)" marker-end="url(#m-zeroMany)" />
+  <text class="cardinality" x="1172" y="970">1</text>
+  <text class="cardinality" x="1518" y="996">M</text>
+
+  <g transform="translate(940 950)">
+    <rect class="entity" width="220" height="138" rx="14" />
+    <rect class="rose-head" width="220" height="34" rx="14" />
+    <rect x="0" y="20" width="220" height="14" class="rose-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="138" />
+    <line class="grid" x1="0" y1="60" x2="220" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="220" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="220" y2="112" />
+    <text class="entity-title" x="110" y="22" text-anchor="middle">STUDENTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">student_id</text>
+    <text class="field" x="52" y="104">first_name</text>
+    <text class="field" x="52" y="130">last_name</text>
+  </g>
+
+  <g transform="translate(1270 800)">
+    <rect class="entity" width="230" height="138" rx="14" />
+    <rect class="rose-head" width="230" height="34" rx="14" />
+    <rect x="0" y="20" width="230" height="14" class="rose-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="138" />
+    <line class="grid" x1="0" y1="60" x2="230" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="230" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="230" y2="112" />
+    <text class="entity-title" x="115" y="22" text-anchor="middle">EVENTS</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="field" x="52" y="78">title</text>
+    <text class="field" x="52" y="104">type</text>
+    <text class="field" x="52" y="130">event_date</text>
+  </g>
+
+  <g transform="translate(1240 1030)">
+    <rect class="entity" width="255" height="164" rx="14" />
+    <rect class="rose-head" width="255" height="34" rx="14" />
+    <rect x="0" y="20" width="255" height="14" class="rose-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="164" />
+    <line class="grid" x1="0" y1="60" x2="255" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="255" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="255" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="255" y2="138" />
+    <text class="entity-title" x="127.5" y="22" text-anchor="middle">EVENT_ATTENDANCE</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">event_id</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">student_id</text>
+    <text class="field" x="52" y="130">time_in</text>
+    <text class="field" x="52" y="156">time_out</text>
+  </g>
+
+  <g transform="translate(1530 920)">
+    <rect class="entity" width="220" height="164" rx="14" />
+    <rect class="rose-head" width="220" height="34" rx="14" />
+    <rect x="0" y="20" width="220" height="14" class="rose-head" />
+    <line class="grid" x1="42" y1="34" x2="42" y2="164" />
+    <line class="grid" x1="0" y1="60" x2="220" y2="60" />
+    <line class="grid" x1="0" y1="86" x2="220" y2="86" />
+    <line class="grid" x1="0" y1="112" x2="220" y2="112" />
+    <line class="grid" x1="0" y1="138" x2="220" y2="138" />
+    <text class="entity-title" x="110" y="22" text-anchor="middle">EVENT_FEEDBACK</text>
+    <text class="tag pk" x="21" y="52" text-anchor="middle">PK</text>
+    <text class="field" x="52" y="52">id</text>
+    <text class="tag fk" x="21" y="78" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="78">event_id</text>
+    <text class="tag fk" x="21" y="104" text-anchor="middle">FK</text>
+    <text class="field" x="52" y="104">student_id</text>
+    <text class="field" x="52" y="130">rating</text>
+    <text class="field" x="52" y="156">feedback</text>
+  </g>
+</svg>

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { createDeferredChannelCleanup } from '../../lib/realtime';
+import { invokeEdgeFunction } from '../../lib/invokeEdgeFunction';
+import { sendTransactionalEmailNotification } from '../../lib/transactionalEmail';
+import { loadJsPdf } from '../../lib/exportVendors';
 import {
     FileText, CheckCircle, Send, AlertTriangle,
     Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip, RefreshCw
 } from 'lucide-react';
 import StatusBadge from '../../components/StatusBadge';
-import { jsPDF } from 'jspdf';
 import { formatDate, generateExportFilename } from '../../utils/formatters';
 import { buildStudentAddress } from '../../utils/studentFields';
 import {
@@ -44,6 +47,25 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const [supportForm, setSupportForm] = useState<any>({ care_notes: '', resolution_notes: '' });
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [letterFile, setLetterFile] = useState<File | null>(null);
+    const [isForwardingSupport, setIsForwardingSupport] = useState(false);
+    const [isFinalizingSupport, setIsFinalizingSupport] = useState(false);
+
+    const invokeManagedCareServicesFunction = async (body: any) => {
+        return invokeEdgeFunction('manage-care-services', {
+            body,
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to manage CARE services.'
+        });
+    };
+
+    const queueProcessEmailNotification = (payload: any, context: string) => {
+        void sendTransactionalEmailNotification(payload).then((emailResult) => {
+            if (emailResult.emailSent === false) {
+                showToast?.(`${context} Email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
+            }
+        });
+    };
 
     const parseDeptNotes = (value: string | null | undefined) => {
         if (!value) return null;
@@ -86,23 +108,24 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     useEffect(() => {
         fetchSupport();
 
-        const channel = supabase.channel('care_support_isolated')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests' }, (payload: any) => {
-                if (payload.eventType === 'DELETE') {
-                    setSupportReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
-                } else if (payload.new) {
-                    setSupportReqs((prev) => upsertSupportRequest(prev, payload.new));
-                }
+        return createDeferredChannelCleanup(
+            () => supabase.channel('care_support_isolated')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests' }, (payload: any) => {
+                    if (payload.eventType === 'DELETE') {
+                        setSupportReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
+                    } else if (payload.new) {
+                        setSupportReqs((prev) => upsertSupportRequest(prev, payload.new));
+                    }
 
-                if (payload.eventType === 'INSERT') {
-                    showToast?.(`New Support Request Received`, 'info');
-                } else if (payload.eventType === 'UPDATE') {
-                    showToast?.(`Support Request Updated`, 'info');
-                }
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
+                    if (payload.eventType === 'INSERT') {
+                        showToast?.(`New Support Request Received`, 'info');
+                    } else if (payload.eventType === 'UPDATE') {
+                        showToast?.(`Support Request Updated`, 'info');
+                    }
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
     }, []);
 
     const handleRefreshData = async () => {
@@ -129,7 +152,9 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     };
 
     const handleForwardSupport = async () => {
+        if (isForwardingSupport) return;
         if (!supportForm.care_notes) { showToast?.("Please add notes for Dept Head.", 'error'); return; }
+        setIsForwardingSupport(true);
         try {
             let letterPath = null;
             if (letterFile) {
@@ -142,26 +167,44 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
             const careNotesValue = letterPath
                 ? JSON.stringify({ notes: supportForm.care_notes, letter_path: letterPath })
                 : supportForm.care_notes;
-            await supabase.from('support_requests').update({ status: SUPPORT_STATUS.FORWARDED_TO_DEPT, care_notes: careNotesValue }).eq('id', selectedSupportReq.id);
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'forward-support-to-dept',
+                requestId: selectedSupportReq.id,
+                careNotes: careNotesValue
+            });
             showToast?.("Request forwarded to Dean.", 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request forwarded to Dean.');
             setShowSupportModal(false);
             setLetterFile(null);
-            fetchSupport();
-        } catch (err: any) { showToast?.(err.message, 'error'); }
+        } catch (err: any) {
+            showToast?.(err.message, 'error');
+        } finally {
+            setIsForwardingSupport(false);
+        }
     };
 
     const handleFinalizeSupport = async () => {
+        if (isFinalizingSupport) return;
         if (!supportForm.resolution_notes) { showToast?.("Please add resolution notes.", 'error'); return; }
+        setIsFinalizingSupport(true);
         try {
-            await supabase.from('support_requests').update({ status: SUPPORT_STATUS.COMPLETED, resolution_notes: supportForm.resolution_notes }).eq('id', selectedSupportReq.id);
-            await supabase.from('notifications').insert([{ student_id: selectedSupportReq.student_id, message: `Your support request regarding ${selectedSupportReq.support_type} has been updated.` }]);
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'complete-support',
+                requestId: selectedSupportReq.id,
+                resolutionNotes: supportForm.resolution_notes
+            });
             showToast?.("Request completed and student notified.", 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request completed and student notified.');
             setShowSupportModal(false);
-            fetchSupport();
-        } catch (err: any) { showToast?.(err.message, 'error'); }
+        } catch (err: any) {
+            showToast?.(err.message, 'error');
+        } finally {
+            setIsFinalizingSupport(false);
+        }
     };
 
-    const handlePrintSupport = () => {
+    const handlePrintSupport = async () => {
+        const jsPDF = await loadJsPdf();
         const doc = new jsPDF({ format: 'legal' });
         const req = selectedSupportReq;
         const student = selectedStudent;
@@ -619,7 +662,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                                 </div>
                                             )}
                                         </div>
-                                        <button onClick={handleForwardSupport} className="w-full mt-3 bg-yellow-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-yellow-600">Forward to Dean</button>
+                                        <button disabled={isForwardingSupport} onClick={handleForwardSupport} className="w-full mt-3 bg-yellow-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-60">{isForwardingSupport ? 'Forwarding...' : 'Forward to Dean'}</button>
                                     </div>
                                 )}
 
@@ -655,7 +698,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                         </div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Final Resolution / Ideas for Student</label>
                                         <textarea rows={3} value={supportForm.resolution_notes} onChange={e => setSupportForm({ ...supportForm, resolution_notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Provide solution or next steps..."></textarea>
-                                        <button onClick={handleFinalizeSupport} className="w-full mt-2 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700">Notify Student & Complete</button>
+                                        <button disabled={isFinalizingSupport} onClick={handleFinalizeSupport} className="w-full mt-2 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isFinalizingSupport ? 'Completing...' : 'Notify Student & Complete'}</button>
                                     </div>
                                 )}
 
@@ -705,7 +748,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                             </div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Final Resolution / Ideas for Student</label>
                                             <textarea rows={3} value={supportForm.resolution_notes} onChange={e => setSupportForm({ ...supportForm, resolution_notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Provide solution or next steps..."></textarea>
-                                            <button onClick={handleFinalizeSupport} className="w-full mt-2 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700">Notify Student & Complete</button>
+                                            <button disabled={isFinalizingSupport} onClick={handleFinalizeSupport} className="w-full mt-2 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isFinalizingSupport ? 'Completing...' : 'Notify Student & Complete'}</button>
                                         </div>
                                     );
                                 })()}
