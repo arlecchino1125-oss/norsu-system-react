@@ -1,9 +1,12 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
+import { createDeferredChannelCleanup } from '../../lib/realtime';
 import { supabase } from '../../lib/supabase';
+import { invokeEdgeFunction } from '../../lib/invokeEdgeFunction';
+import { sendTransactionalEmailNotification } from '../../lib/transactionalEmail';
+import { loadJsPdf } from '../../lib/exportVendors';
 import CalendarView from '../../components/CalendarView';
-import { jsPDF } from 'jspdf';
 import {
     Users, FileText, Clock, CheckCircle, Calendar,
     User, Eye, Send, Download, XCircle, RefreshCw
@@ -61,9 +64,28 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
     const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
     const [scheduleData, setScheduleData] = useState<any>({ date: '', time: '', notes: '' });
     const [selectedApp, setSelectedApp] = useState<any>(null);
+    const [isSchedulingSession, setIsSchedulingSession] = useState(false);
 
     const [showCompleteModal, setShowCompleteModal] = useState<boolean>(false);
     const [completionForm, setCompletionForm] = useState<any>({ id: null, student_id: null, publicNotes: '', privateNotes: '' });
+    const [isCompletingSession, setIsCompletingSession] = useState(false);
+
+    const invokeManagedCareServicesFunction = async (body: any) => {
+        return invokeEdgeFunction('manage-care-services', {
+            body,
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to manage CARE services.'
+        });
+    };
+
+    const queueProcessEmailNotification = (payload: any, context: string) => {
+        void sendTransactionalEmailNotification(payload).then((emailResult) => {
+            if (emailResult.emailSent === false) {
+                showToastMessage(`${context} Email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
+            }
+        });
+    };
 
     // Fetch counseling requests
     const fetchCounseling = async () => {
@@ -83,23 +105,21 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
     useEffect(() => {
         fetchCounseling();
 
-        // Realtime subscription
-        const counselingChannel = supabase.channel('care_counseling_isolated')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests' }, (payload: any) => {
-                if (payload.eventType === 'DELETE') {
-                    setCounselingReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
-                    return;
-                }
+        return createDeferredChannelCleanup(
+            () => supabase.channel('care_counseling_isolated')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests' }, (payload: any) => {
+                    if (payload.eventType === 'DELETE') {
+                        setCounselingReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
+                        return;
+                    }
 
-                if (payload.new) {
-                    setCounselingReqs((prev) => upsertCounselingRequest(prev, payload.new));
-                }
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(counselingChannel);
-        };
+                    if (payload.new) {
+                        setCounselingReqs((prev) => upsertCounselingRequest(prev, payload.new));
+                    }
+                })
+                .subscribe(),
+            (channel) => supabase.removeChannel(channel)
+        );
     }, []);
 
     const handleRefreshData = async () => {
@@ -115,57 +135,53 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
     // Handlers
     const handleScheduleSubmit = async (e: any) => {
         e.preventDefault();
-        if (!selectedApp) return;
+        if (!selectedApp || isSchedulingSession) return;
+        setIsSchedulingSession(true);
 
         try {
-            const newStatus = selectedApp.status === COUNSELING_STATUS.REFERRED
-                ? COUNSELING_STATUS.STAFF_SCHEDULED
-                : COUNSELING_STATUS.SCHEDULED;
-            const { error } = await supabase.from('counseling_requests').update({
-                status: newStatus,
-                scheduled_date: `${scheduleData.date} ${scheduleData.time}`,
-                resolution_notes: scheduleData.notes
-            }).eq('id', selectedApp.id);
-
-            if (error) throw error;
-
-            await supabase.from('notifications').insert([{
-                student_id: selectedApp.student_id,
-                message: `Your counseling session with CARE Staff is scheduled for ${scheduleData.date} at ${scheduleData.time}.`
-            }]);
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'schedule-counseling',
+                requestId: selectedApp.id,
+                date: scheduleData.date,
+                time: scheduleData.time,
+                notes: scheduleData.notes
+            });
 
             showToastMessage('Session Scheduled Successfully', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Session scheduled successfully.');
             setShowScheduleModal(false);
             setScheduleData({ date: '', time: '', notes: '' });
-            fetchCounseling();
         } catch (err: any) {
             showToastMessage(err.message, 'error');
+        } finally {
+            setIsSchedulingSession(false);
         }
     };
 
     const handleCompleteSession = async (e: any) => {
         e.preventDefault();
+        if (isCompletingSession) return;
+        setIsCompletingSession(true);
         try {
-            await supabase.from('counseling_requests').update({
-                status: COUNSELING_STATUS.COMPLETED,
-                resolution_notes: completionForm.publicNotes,
-                confidential_notes: completionForm.privateNotes
-            }).eq('id', completionForm.id);
-
-            await supabase.from('notifications').insert([{
-                student_id: completionForm.student_id,
-                message: `Your counseling session has been marked as Completed. You can now view the advice.`
-            }]);
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'complete-counseling',
+                requestId: completionForm.id,
+                publicNotes: completionForm.publicNotes,
+                privateNotes: completionForm.privateNotes
+            });
 
             showToastMessage('Session marked as complete.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Session marked as complete.');
             setShowCompleteModal(false);
-            fetchCounseling();
         } catch (err: any) {
             showToastMessage(err.message, 'error');
+        } finally {
+            setIsCompletingSession(false);
         }
     };
 
-    const handleDownloadReferralForm = (req: any) => {
+    const handleDownloadReferralForm = async (req: any) => {
+        const jsPDF = await loadJsPdf();
         const doc = new jsPDF();
         const pageW = doc.internal.pageSize.getWidth();
         const margin = 20;
@@ -566,8 +582,8 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Location</label><input className="w-full border rounded-lg p-2 text-sm" value={scheduleData.location} onChange={e => setScheduleData({ ...scheduleData, location: e.target.value })} placeholder="e.g. Guidance Office" /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Notes for Student</label><textarea rows={3} className="w-full border rounded-lg p-2 text-sm" value={scheduleData.notes} onChange={e => setScheduleData({ ...scheduleData, notes: e.target.value })} placeholder="Optional notes..." /></div>
                             <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => setShowScheduleModal(false)} className="flex-1 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50">Cancel</button>
-                                <button type="submit" className="flex-1 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">Confirm Schedule</button>
+                                <button type="button" disabled={isSchedulingSession} onClick={() => setShowScheduleModal(false)} className="flex-1 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 disabled:opacity-60">Cancel</button>
+                                <button type="submit" disabled={isSchedulingSession} className="flex-1 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSchedulingSession ? 'Scheduling...' : 'Confirm Schedule'}</button>
                             </div>
                         </form>
                     </div>
@@ -590,8 +606,8 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                 <p className="text-[10px] text-red-500 mt-1">* Only visible to Guidance Staff</p>
                             </div>
                             <div className="flex gap-3">
-                                <button type="button" onClick={() => setShowCompleteModal(false)} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50">Cancel</button>
-                                <button type="submit" className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700">Complete Session</button>
+                                <button type="button" disabled={isCompletingSession} onClick={() => setShowCompleteModal(false)} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 disabled:opacity-60">Cancel</button>
+                                <button type="submit" disabled={isCompletingSession} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">{isCompletingSession ? 'Completing...' : 'Complete Session'}</button>
                             </div>
                         </form>
                     </div>

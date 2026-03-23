@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+  <style>
+    .bg { fill: #252525; }
+    .title { font: 700 24px 'Times New Roman', serif; fill: #ffffff; }
+    .subtitle { font: 700 20px 'Times New Roman', serif; fill: #ffffff; }
+    .system { fill: #fafafa; stroke: #111111; stroke-width: 2.2; }
+    .system-title { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #111111; }
+    .section-label { font: 700 12px 'Segoe UI', Arial, sans-serif; fill: #666666; letter-spacing: 1px; }
+    .usecase { fill: #fcfcfc; stroke: #111111; stroke-width: 2.2; }
+    .usecase-text { font: 600 15px 'Segoe UI', Arial, sans-serif; fill: #111111; }
+    .assoc { fill: none; stroke: #111111; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .actor { fill: none; stroke: #111111; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .actor-head { fill: #ffffff; stroke: #111111; stroke-width: 2.2; }
+    .actor-box { fill: #ffffff; stroke: #111111; stroke-width: 1.8; }
+    .actor-label { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #111111; }
+    .caption { font: 700 16px 'Times New Roman', serif; fill: #ffffff; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1120" />
+
+  <text class="title" x="800" y="42" text-anchor="middle">Use Case Diagram of the NORSU-G CARE Center Management System</text>
+  <text class="subtitle" x="800" y="72" text-anchor="middle">Simplified Top-Level User and Staff Interactions</text>
+
+  <rect class="system" x="230" y="105" width="1140" height="930" />
+  <text class="system-title" x="800" y="137" text-anchor="middle">NORSU-G CARE Center Management System</text>
+  <text class="section-label" x="360" y="165">APPLICANT AND STUDENT USE CASES</text>
+  <text class="section-label" x="885" y="165">ADMINISTRATIVE AND STAFF USE CASES</text>
+
+  <g transform="translate(45 215)">
+    <circle class="actor-head" cx="50" cy="26" r="18" />
+    <path class="actor" d="M50 44 V94 M24 60 H76 M50 94 L28 122 M50 94 L72 122" />
+    <rect class="actor-box" x="0" y="132" width="100" height="40" />
+    <text class="actor-label" x="50" y="158" text-anchor="middle">APPLICANT</text>
+  </g>
+
+  <g transform="translate(45 675)">
+    <circle class="actor-head" cx="50" cy="26" r="18" />
+    <path class="actor" d="M50 44 V94 M24 60 H76 M50 94 L28 122 M50 94 L72 122" />
+    <rect class="actor-box" x="10" y="132" width="80" height="40" />
+    <text class="actor-label" x="50" y="158" text-anchor="middle">STUDENT</text>
+  </g>
+
+  <g transform="translate(1440 190)">
+    <circle class="actor-head" cx="50" cy="26" r="18" />
+    <path class="actor" d="M50 44 V94 M24 60 H76 M50 94 L28 122 M50 94 L72 122" />
+    <rect class="actor-box" x="16" y="132" width="68" height="40" />
+    <text class="actor-label" x="50" y="158" text-anchor="middle">ADMIN</text>
+  </g>
+
+  <g transform="translate(1400 460)">
+    <circle class="actor-head" cx="90" cy="26" r="18" />
+    <path class="actor" d="M90 44 V94 M64 60 H116 M90 94 L68 122 M90 94 L112 122" />
+    <rect class="actor-box" x="0" y="132" width="180" height="40" />
+    <text class="actor-label" x="90" y="158" text-anchor="middle">DEPARTMENT HEAD</text>
+  </g>
+
+  <g transform="translate(1420 730)">
+    <circle class="actor-head" cx="70" cy="26" r="18" />
+    <path class="actor" d="M70 44 V94 M44 60 H96 M70 94 L48 122 M70 94 L92 122" />
+    <rect class="actor-box" x="0" y="132" width="140" height="40" />
+    <text class="actor-label" x="70" y="158" text-anchor="middle">CARE STAFF</text>
+  </g>
+
+  <ellipse class="usecase" cx="520" cy="230" rx="185" ry="34" />
+  <text class="usecase-text" x="520" y="235" text-anchor="middle">Submit NAT Application</text>
+
+  <ellipse class="usecase" cx="520" cy="315" rx="185" ry="34" />
+  <text class="usecase-text" x="520" y="320" text-anchor="middle">Check Application Status</text>
+
+  <ellipse class="usecase" cx="520" cy="455" rx="185" ry="34" />
+  <text class="usecase-text" x="520" y="460" text-anchor="middle">Manage Student Profile</text>
+
+  <ellipse class="usecase" cx="520" cy="540" rx="185" ry="34" />
+  <text class="usecase-text" x="520" y="545" text-anchor="middle">Complete Needs Assessment</text>
+
+  <ellipse class="usecase" cx="520" cy="625" rx="205" ry="34" />
+  <text class="usecase-text" x="520" y="630" text-anchor="middle">Request Counseling / Support</text>
+
+  <ellipse class="usecase" cx="520" cy="710" rx="175" ry="34" />
+  <text class="usecase-text" x="520" y="715" text-anchor="middle">Apply for Scholarship</text>
+
+  <ellipse class="usecase" cx="520" cy="795" rx="220" ry="34" />
+  <text class="usecase-text" x="520" y="800" text-anchor="middle">Join Events and Submit Feedback</text>
+
+  <ellipse class="usecase" cx="1035" cy="245" rx="210" ry="34" />
+  <text class="usecase-text" x="1035" y="250" text-anchor="middle">Manage Accounts and Departments</text>
+
+  <ellipse class="usecase" cx="1035" cy="355" rx="220" ry="34" />
+  <text class="usecase-text" x="1035" y="360" text-anchor="middle">Screen Admissions and Interview Queue</text>
+
+  <ellipse class="usecase" cx="1035" cy="500" rx="200" ry="34" />
+  <text class="usecase-text" x="1035" y="505" text-anchor="middle">Manage Counseling and Support</text>
+
+  <ellipse class="usecase" cx="1035" cy="645" rx="230" ry="34" />
+  <text class="usecase-text" x="1035" y="650" text-anchor="middle">Manage Forms, Scholarships, and Events</text>
+
+  <ellipse class="usecase" cx="1035" cy="790" rx="210" ry="34" />
+  <text class="usecase-text" x="1035" y="795" text-anchor="middle">View Reports, Calendar, and Analytics</text>
+
+  <path class="assoc" d="M145 250 L255 250 L255 230 L335 230" />
+  <path class="assoc" d="M145 275 L240 275 L240 315 L335 315" />
+
+  <path class="assoc" d="M145 730 L265 730 L265 455 L335 455" />
+  <path class="assoc" d="M145 755 L250 755 L250 540 L335 540" />
+  <path class="assoc" d="M145 780 L235 780 L235 625 L315 625" />
+  <path class="assoc" d="M145 805 L220 805 L220 710 L345 710" />
+  <path class="assoc" d="M145 830 L205 830 L205 795 L300 795" />
+
+  <path class="assoc" d="M1440 250 L1310 250 L1310 245 L1245 245" />
+  <path class="assoc" d="M1440 275 L1295 275 L1295 790 L1245 790" />
+
+  <path class="assoc" d="M1400 545 L1310 545 L1310 355 L1255 355" />
+  <path class="assoc" d="M1400 575 L1295 575 L1295 500 L1235 500" />
+  <path class="assoc" d="M1400 605 L1280 605 L1280 790 L1245 790" />
+
+  <path class="assoc" d="M1420 815 L1310 815 L1310 355 L1255 355" />
+  <path class="assoc" d="M1420 845 L1295 845 L1295 500 L1235 500" />
+  <path class="assoc" d="M1420 875 L1280 875 L1280 645 L1265 645" />
+  <path class="assoc" d="M1420 905 L1265 905 L1265 790 L1245 790" />
+
+  <text class="caption" x="800" y="1086" text-anchor="middle">Figure 3. Simplified Use Case Diagram</text>
+</svg>

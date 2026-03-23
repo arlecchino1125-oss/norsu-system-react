@@ -95,7 +95,7 @@ describe('studentPortalService', () => {
 
         expect(eventsQueryMock.select).toHaveBeenCalledWith(
             'id, created_at, title, description, type, location, event_date, event_time, end_time, attendees, latitude, longitude',
-            { count: 'exact' }
+            { count: 'planned' }
         );
     });
 
@@ -104,7 +104,7 @@ describe('studentPortalService', () => {
 
         expect(counselingQueryMock.select).toHaveBeenCalledWith(
             'id, created_at, student_id, student_name, request_type, description, department, status, course_year, contact_number, reason_for_referral, personal_actions_taken, date_duration_of_concern, referred_by, scheduled_date, resolution_notes, rating, feedback',
-            { count: 'exact' }
+            { count: 'planned' }
         );
         expect(counselingQueryMock.eq).toHaveBeenCalledWith('student_id', '202600001');
     });
@@ -123,7 +123,7 @@ describe('studentPortalService', () => {
 
         expect(notificationsQueryMock.select).toHaveBeenCalledWith(
             'id, created_at, student_id, message, is_read',
-            { count: 'exact' }
+            { count: 'planned' }
         );
         expect(notificationsQueryMock.eq).toHaveBeenCalledWith('student_id', '202600001');
     });
@@ -133,7 +133,7 @@ describe('studentPortalService', () => {
 
         expect(supportQueryMock.select).toHaveBeenCalledWith(
             'id, created_at, student_id, student_name, department, status, support_type, description, documents_url, care_notes, care_documents_url, dept_notes, resolution_notes',
-            { count: 'exact' }
+            { count: 'planned' }
         );
         expect(supportQueryMock.eq).toHaveBeenCalledWith('student_id', '202600001');
     });

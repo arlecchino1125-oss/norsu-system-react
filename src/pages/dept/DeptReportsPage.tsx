@@ -1,6 +1,9 @@
 import { Bar } from 'react-chartjs-2';
+import { ensureBarChartSetup } from '../../lib/chartSetup';
 
 const DeptReportsPage = ({ chartData }: any) => {
+    ensureBarChartSetup();
+
     return (
         <div className="space-y-8 animate-fade-in">
             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm w-full mx-auto card-hover">

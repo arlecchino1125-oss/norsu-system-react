@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { Chart } from 'chart.js/auto';
+import { ensureBarChartSetup } from '../../lib/chartSetup';
 
 // Helper Component for Top Questions Chart
 const TopQuestionsChart = ({ questions, answers, scoreFilter }: any) => {
@@ -7,6 +7,7 @@ const TopQuestionsChart = ({ questions, answers, scoreFilter }: any) => {
     const chartRef = useRef(null);
 
     useEffect(() => {
+        const Chart = ensureBarChartSetup();
         if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
 

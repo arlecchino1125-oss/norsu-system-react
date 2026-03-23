@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User, MapPin, Info, Loader2, X, Check, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
+import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 
 export default function StudentLogin() {
     const navigate = useNavigate();
@@ -178,7 +179,7 @@ export default function StudentLogin() {
 
         setLoading(true);
         try {
-            const { data, error } = await supabase.functions.invoke('activate-student-account', {
+            const data = await invokeEdgeFunction('activate-student-account', {
                 body: {
                     mode: 'student-profile-activation',
                     studentId: formData.studentId,
@@ -255,30 +256,25 @@ export default function StudentLogin() {
                         extracurricularActivities: formData.extracurricularActivities,
                         scholarshipsAvailed: formData.scholarshipsAvailed
                     }
-                }
+                },
+                fallbackMessage: 'Account activation failed.'
             });
-
-            if (error) {
-                throw new Error(error.message || 'Account activation failed.');
-            }
-
-            if (!data?.success || !data?.password) {
-                throw new Error(data?.error || 'Account activation failed.');
-            }
 
             const username = data.studentId || formData.studentId;
             const password = data.password;
 
             // Mock Email
             try {
-                await supabase.functions.invoke('send-email', {
+                await invokeEdgeFunction('send-email', {
                     body: {
                         type: 'STUDENT_ACTIVATION',
                         email: formData.email,
                         name: `${formData.firstName} ${formData.lastName}`,
                         studentId: username,
-                        password: password
-                    }
+                        password: password,
+                        loginUrl: `${window.location.origin}/student/login`
+                    },
+                    fallbackMessage: 'Failed to send activation email.'
                 });
             } catch (err) { console.error("Email failed", err); }
 
@@ -343,7 +339,7 @@ export default function StudentLogin() {
                             Student<br />Portal
                         </h2>
                         <p className="text-indigo-200/80 text-xl leading-relaxed font-light max-w-md border-l-4 border-indigo-500/50 pl-4 py-1">
-                            Access your academic profile, view grades, manage courses, and connect with continuous support dynamically.
+                            Access your profile, student services, events, and support tools in one portal.
                         </p>
                     </motion.div>
                 </div>

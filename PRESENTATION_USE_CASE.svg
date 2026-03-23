@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1220" viewBox="0 0 1800 1220">
+  <style>
+    .bg { fill: #242424; }
+    .frame { fill: #f8f8f8; stroke: #111111; stroke-width: 2.2; }
+    .title { font: 700 26px 'Times New Roman', serif; fill: #ffffff; }
+    .subtitle { font: 700 18px 'Times New Roman', serif; fill: #ffffff; }
+    .system-label { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #111111; }
+    .group-label { font: 700 12px 'Segoe UI', Arial, sans-serif; fill: #666666; letter-spacing: 1px; }
+    .usecase { fill: #fcfcfc; stroke: #111111; stroke-width: 2.2; }
+    .usecase-text { font: 600 15px 'Segoe UI', Arial, sans-serif; fill: #111111; }
+    .assoc { fill: none; stroke: #111111; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .actor-line { fill: none; stroke: #111111; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .actor-head { fill: #ffffff; stroke: #111111; stroke-width: 2.2; }
+    .actor-box { fill: #ffffff; stroke: #111111; stroke-width: 1.8; }
+    .actor-label { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #111111; }
+    .caption { font: 700 16px 'Times New Roman', serif; fill: #ffffff; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1220" />
+
+  <text class="title" x="900" y="46" text-anchor="middle">Use Case Diagram of the NORSU-G CARE Center Management System</text>
+  <text class="subtitle" x="900" y="74" text-anchor="middle">Cleaner Top-Level Diagram for Presentation</text>
+
+  <rect class="frame" x="250" y="110" width="1300" height="1010" />
+  <text class="system-label" x="900" y="144" text-anchor="middle">NORSU-G CARE Center Management System</text>
+  <text class="group-label" x="360" y="172">PUBLIC USER FEATURES</text>
+  <text class="group-label" x="1045" y="172">STAFF AND ADMINISTRATIVE FEATURES</text>
+
+  <!-- Actors -->
+  <g transform="translate(60 190)">
+    <circle class="actor-head" cx="48" cy="26" r="18" />
+    <path class="actor-line" d="M48 44 V94 M22 60 H74 M48 94 L26 122 M48 94 L70 122" />
+    <rect class="actor-box" x="0" y="132" width="104" height="40" />
+    <text class="actor-label" x="52" y="158" text-anchor="middle">APPLICANT</text>
+  </g>
+
+  <g transform="translate(60 575)">
+    <circle class="actor-head" cx="48" cy="26" r="18" />
+    <path class="actor-line" d="M48 44 V94 M22 60 H74 M48 94 L26 122 M48 94 L70 122" />
+    <rect class="actor-box" x="12" y="132" width="80" height="40" />
+    <text class="actor-label" x="52" y="158" text-anchor="middle">STUDENT</text>
+  </g>
+
+  <g transform="translate(1605 190)">
+    <circle class="actor-head" cx="48" cy="26" r="18" />
+    <path class="actor-line" d="M48 44 V94 M22 60 H74 M48 94 L26 122 M48 94 L70 122" />
+    <rect class="actor-box" x="16" y="132" width="68" height="40" />
+    <text class="actor-label" x="50" y="158" text-anchor="middle">ADMIN</text>
+  </g>
+
+  <g transform="translate(1565 455)">
+    <circle class="actor-head" cx="88" cy="26" r="18" />
+    <path class="actor-line" d="M88 44 V94 M62 60 H114 M88 94 L66 122 M88 94 L110 122" />
+    <rect class="actor-box" x="0" y="132" width="178" height="40" />
+    <text class="actor-label" x="89" y="158" text-anchor="middle">DEPARTMENT HEAD</text>
+  </g>
+
+  <g transform="translate(1585 760)">
+    <circle class="actor-head" cx="68" cy="26" r="18" />
+    <path class="actor-line" d="M68 44 V94 M42 60 H94 M68 94 L46 122 M68 94 L90 122" />
+    <rect class="actor-box" x="0" y="132" width="138" height="40" />
+    <text class="actor-label" x="69" y="158" text-anchor="middle">CARE STAFF</text>
+  </g>
+
+  <!-- Left/Public use cases -->
+  <ellipse class="usecase" cx="560" cy="235" rx="195" ry="34" />
+  <text class="usecase-text" x="560" y="240" text-anchor="middle">Submit NAT Application</text>
+
+  <ellipse class="usecase" cx="560" cy="315" rx="195" ry="34" />
+  <text class="usecase-text" x="560" y="320" text-anchor="middle">Check Application Status</text>
+
+  <ellipse class="usecase" cx="560" cy="395" rx="195" ry="34" />
+  <text class="usecase-text" x="560" y="400" text-anchor="middle">Record NAT Time In / Out</text>
+
+  <ellipse class="usecase" cx="560" cy="540" rx="195" ry="34" />
+  <text class="usecase-text" x="560" y="545" text-anchor="middle">Manage Student Profile</text>
+
+  <ellipse class="usecase" cx="560" cy="620" rx="195" ry="34" />
+  <text class="usecase-text" x="560" y="625" text-anchor="middle">Complete Needs Assessment</text>
+
+  <ellipse class="usecase" cx="560" cy="700" rx="220" ry="34" />
+  <text class="usecase-text" x="560" y="705" text-anchor="middle">Request Counseling or Additional Support</text>
+
+  <ellipse class="usecase" cx="560" cy="780" rx="185" ry="34" />
+  <text class="usecase-text" x="560" y="785" text-anchor="middle">Apply for Scholarship</text>
+
+  <ellipse class="usecase" cx="560" cy="860" rx="245" ry="34" />
+  <text class="usecase-text" x="560" y="865" text-anchor="middle">Join Events, Attendance, and Submit Feedback</text>
+
+  <!-- Right/Staff use cases -->
+  <ellipse class="usecase" cx="1080" cy="235" rx="185" ry="34" />
+  <text class="usecase-text" x="1080" y="240" text-anchor="middle">Manage Staff Accounts</text>
+
+  <ellipse class="usecase" cx="1080" cy="315" rx="205" ry="34" />
+  <text class="usecase-text" x="1080" y="320" text-anchor="middle">Manage Departments and Courses</text>
+
+  <ellipse class="usecase" cx="1080" cy="470" rx="235" ry="34" />
+  <text class="usecase-text" x="1080" y="475" text-anchor="middle">Screen Admissions and Interview Queue</text>
+
+  <ellipse class="usecase" cx="1080" cy="550" rx="235" ry="34" />
+  <text class="usecase-text" x="1080" y="555" text-anchor="middle">Review Department Requests and Cases</text>
+
+  <ellipse class="usecase" cx="1080" cy="630" rx="215" ry="34" />
+  <text class="usecase-text" x="1080" y="635" text-anchor="middle">View Calendar and Export Reports</text>
+
+  <ellipse class="usecase" cx="1080" cy="780" rx="235" ry="34" />
+  <text class="usecase-text" x="1080" y="785" text-anchor="middle">Manage NAT, Forms, and Scholarships</text>
+
+  <ellipse class="usecase" cx="1080" cy="860" rx="255" ry="34" />
+  <text class="usecase-text" x="1080" y="865" text-anchor="middle">Manage Student Population and Core Services</text>
+
+  <ellipse class="usecase" cx="1080" cy="940" rx="220" ry="34" />
+  <text class="usecase-text" x="1080" y="945" text-anchor="middle">View Analytics, Events, and Audit Logs</text>
+
+  <!-- Applicant connections -->
+  <path class="assoc" d="M164 250 H290 V235 H365" />
+  <path class="assoc" d="M164 275 H305 V315 H365" />
+  <path class="assoc" d="M164 300 H320 V395 H365" />
+
+  <!-- Student connections -->
+  <path class="assoc" d="M164 635 H300 V540 H365" />
+  <path class="assoc" d="M164 660 H315 V620 H365" />
+  <path class="assoc" d="M164 685 H330 V700 H340" />
+  <path class="assoc" d="M164 710 H345 V780 H375" />
+  <path class="assoc" d="M164 735 H360 V860 H315" />
+
+  <!-- Admin connections -->
+  <path class="assoc" d="M1605 250 H1475 V235 H1265" />
+  <path class="assoc" d="M1605 275 H1460 V315 H1285" />
+
+  <!-- Department Head connections -->
+  <path class="assoc" d="M1565 515 H1445 V470 H1315" />
+  <path class="assoc" d="M1565 540 H1430 V550 H1315" />
+  <path class="assoc" d="M1565 565 H1415 V630 H1295" />
+
+  <!-- CARE Staff connections -->
+  <path class="assoc" d="M1585 820 H1460 V780 H1315" />
+  <path class="assoc" d="M1585 845 H1445 V860 H1335" />
+  <path class="assoc" d="M1585 870 H1430 V940 H1300" />
+
+  <text class="caption" x="900" y="1170" text-anchor="middle">Figure 3. Use Case Diagram</text>
+</svg>

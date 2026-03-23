@@ -17,6 +17,8 @@ import { STUDENT_LIST_COLUMNS } from '../services/careStaffService';
 import { fetchDepartmentNameForCourse } from '../utils/courseDepartment';
 import { joinNameParts, splitFullName } from '../utils/nameUtils';
 import { buildStudentAddress, getStudentEmergencyContact, getStudentSex } from '../utils/studentFields';
+import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import NorsuBrand from '../components/NorsuBrand';
 import { useStudentProfileData } from '../hooks/student/useStudentProfileData';
 import { useStudentEventsData } from '../hooks/student/useStudentEventsData';
 import { useStudentFormsData } from '../hooks/student/useStudentFormsData';
@@ -29,6 +31,7 @@ const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
 const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
 
 const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
+const normalizeStudentEmail = (value: unknown) => String(value || '').trim().toLowerCase();
 
 interface Student {
     firstName: string;
@@ -232,6 +235,11 @@ export default function StudentPortal() {
 
     const [proofFile, setProofFile] = useState<any>(null);
     const [isTimingIn, setIsTimingIn] = useState(false);
+    const [timingOutEventId, setTimingOutEventId] = useState<string | null>(null);
+    const [isSubmittingEventRating, setIsSubmittingEventRating] = useState(false);
+    const [isApplyingScholarshipId, setIsApplyingScholarshipId] = useState<string | null>(null);
+    const [isSubmittingOfficeTimeIn, setIsSubmittingOfficeTimeIn] = useState(false);
+    const [isCompletingOfficeVisit, setIsCompletingOfficeVisit] = useState(false);
 
     const handleLogout = React.useCallback(() => {
         logout();
@@ -332,6 +340,7 @@ export default function StudentPortal() {
         agreedToPrivacy: false,
     });
     const [profileSaving, setProfileSaving] = useState(false);
+    const [isSavingProfileChanges, setIsSavingProfileChanges] = useState(false);
 
     const handleProfileFormChange = (e: any) => {
         const { name, value } = e.target;
@@ -520,11 +529,18 @@ export default function StudentPortal() {
         if (!profileFormData.agreedToPrivacy) return;
         setProfileSaving(true);
         try {
+            const normalizedEmail = normalizeStudentEmail(profileFormData.email);
+            if (!normalizedEmail) {
+                throw new Error('Email is required.');
+            }
+
             const { data: beforeProfile } = await supabaseClient
                 .from('students')
                 .select(STUDENT_LIST_COLUMNS)
                 .eq('student_id', personalInfo.studentId)
                 .maybeSingle();
+
+            await syncStudentAuthEmailIfNeeded(normalizedEmail);
 
             const payload: any = {
                 // Personal (auto-filled + new)
@@ -536,7 +552,7 @@ export default function StudentPortal() {
                 civil_status: profileFormData.civilStatus,
                 street: profileFormData.street, city: profileFormData.city,
                 province: profileFormData.province, zip_code: profileFormData.zipCode,
-                mobile: profileFormData.mobile, email: profileFormData.email,
+                mobile: profileFormData.mobile, email: normalizedEmail,
                 facebook_url: profileFormData.facebookUrl,
                 religion: profileFormData.religion, school_last_attended: profileFormData.schoolLastAttended,
                 year_level: profileFormData.yearLevelApplying,
@@ -592,8 +608,10 @@ export default function StudentPortal() {
                 scholarships_availed: profileFormData.scholarshipsAvailed,
                 profile_completed: true,
             };
-            const { error } = await supabaseClient.from('students').update(payload).eq('student_id', personalInfo.studentId);
-            if (error) throw error;
+            await invokeManagedStudentFunction({
+                mode: 'update-profile-completion',
+                payload
+            });
             await logStudentProfileUpdate({
                 action: 'Student Profile Completed',
                 beforeProfile,
@@ -666,11 +684,16 @@ export default function StudentPortal() {
 
     const handleApplyScholarship = async (scholarship: any) => {
         if (!scholarship) return;
+        const scholarshipId = String(scholarship.id || '').trim();
+        if (scholarshipId && isApplyingScholarshipId === scholarshipId) return;
         // Verify profile completeness
         if (!personalInfo.mobile || !personalInfo.email) {
             showToast("Please update your contact info (Mobile & Email) in Profile first.", "error"); return;
         }
 
+        if (scholarshipId) {
+            setIsApplyingScholarshipId(scholarshipId);
+        }
         try {
             const payload = {
                 scholarship_id: scholarship.id,
@@ -685,6 +708,10 @@ export default function StudentPortal() {
             setShowScholarshipModal(false);
         } catch (err: any) {
             showToast(err.message, "error");
+        } finally {
+            if (scholarshipId) {
+                setIsApplyingScholarshipId((current) => (current === scholarshipId ? null : current));
+            }
         }
     };
 
@@ -702,6 +729,57 @@ export default function StudentPortal() {
             role: 'Student'
         }));
     }, [session?.userType, updateSession]);
+
+    const invokeManagedStudentFunction = useCallback(async (body: any) => {
+        return invokeEdgeFunction('manage-student-accounts', {
+            client: supabaseClient,
+            body,
+            requireAuth: true,
+            non2xxMessage: 'Your student session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to update your student profile.'
+        });
+    }, []);
+
+    const syncStudentAuthEmailIfNeeded = useCallback(async (nextEmailValue: unknown) => {
+        const nextEmail = normalizeStudentEmail(nextEmailValue);
+        if (!nextEmail) {
+            throw new Error('Email is required.');
+        }
+
+        // Force a fresh auth token before calling a JWT-protected edge function.
+        const { data: refreshedSessionData, error: refreshError } = await supabaseClient.auth.refreshSession();
+        const { data: authSessionData } = await supabaseClient.auth.getSession();
+        const accessToken = refreshedSessionData.session?.access_token || authSessionData.session?.access_token;
+        if (!accessToken) {
+            if (refreshError) {
+                console.warn('Failed to refresh student auth session before email sync.', refreshError);
+            }
+            throw new Error('Your login session has expired. Please sign in again before changing your email.');
+        }
+
+        const data = await invokeEdgeFunction('manage-student-accounts', {
+            client: supabaseClient,
+            accessToken,
+            body: {
+                mode: 'sync-auth-email',
+                email: nextEmail
+            },
+            non2xxMessage: 'Your Supabase login session could not be verified. Please sign out and sign in again, then try again.',
+            fallbackMessage: 'Failed to sync your student login email.'
+        });
+
+        syncStudentSession({
+            email: nextEmail,
+            auth_email: nextEmail,
+            user: {
+                ...(session?.user || {}),
+                id: session?.user?.id || session?.auth_user_id || null,
+                email: nextEmail
+            }
+        });
+
+        return nextEmail;
+    }, [session?.auth_email, session?.auth_user_id, session?.user, syncStudentSession]);
 
     const getCourseYearWindowRange = (startValue: string | null | undefined, endValue: string | null | undefined) => {
         const startText = formatGateDate(startValue || null);
@@ -763,18 +841,17 @@ export default function StudentPortal() {
                 courseYearGate.course,
                 personalInfo.department || 'Unassigned'
             );
-            const { error } = await supabaseClient
-                .from('students')
-                .update({
+            await invokeManagedStudentFunction({
+                mode: 'confirm-course-year',
+                payload: {
                     course: courseYearGate.course,
                     year_level: courseYearGate.year,
                     department: matchedDepartment,
                     status: 'Active',
                     course_year_confirmed_at: nowIso,
                     course_year_update_required: false
-                })
-                .eq('student_id', personalInfo.studentId);
-            if (error) throw error;
+                }
+            });
 
             const { error: enrollmentSyncError } = await supabaseClient
                 .from('enrolled_students')
@@ -912,19 +989,10 @@ export default function StudentPortal() {
                     || studentData.course_year_window_end
                 );
                 if (expired && hasWindowState) {
-                    const { error: fallbackResetError } = await supabaseClient
-                        .from('students')
-                        .update({
-                            course: null,
-                            year_level: null,
-                            status: 'Inactive',
-                            course_year_confirmed_at: null,
-                            course_year_update_required: false,
-                            course_year_window_start: null,
-                            course_year_window_end: null
-                        })
-                        .eq('student_id', studentData.student_id);
-                    if (!fallbackResetError) {
+                    try {
+                        await invokeManagedStudentFunction({
+                            mode: 'reset-expired-course-year'
+                        });
                         studentData = {
                             ...studentData,
                             course: null,
@@ -935,6 +1003,8 @@ export default function StudentPortal() {
                             course_year_window_start: null,
                             course_year_window_end: null
                         };
+                    } catch (fallbackResetError) {
+                        console.warn('Failed to run expired course/year fallback reset.', fallbackResetError);
                     }
                 }
             }
@@ -1142,7 +1212,7 @@ export default function StudentPortal() {
         } catch (error) {
             console.error('Failed to refresh student profile.', error);
         }
-    }, [session, syncStudentSession, getStoredParentParts]);
+    }, [session, syncStudentSession, getStoredParentParts, invokeManagedStudentFunction]);
 
     // Sync session to personalInfo
     useEffect(() => {
@@ -1158,13 +1228,22 @@ export default function StudentPortal() {
 
     // Save Profile Changes to Supabase
     const saveProfileChanges = async (nextPersonalInfo = personalInfo) => {
+        if (isSavingProfileChanges) return;
         setIsEditing(false);
+        setIsSavingProfileChanges(true);
         try {
+            const normalizedEmail = normalizeStudentEmail(nextPersonalInfo.email);
+            if (!normalizedEmail) {
+                throw new Error('Email is required.');
+            }
+
             const { data: beforeProfile } = await supabaseClient
                 .from('students')
                 .select(STUDENT_LIST_COLUMNS)
                 .eq('student_id', personalInfo.studentId)
                 .maybeSingle();
+
+            await syncStudentAuthEmailIfNeeded(normalizedEmail);
 
             const updatePayload = {
                 first_name: nextPersonalInfo.firstName || null,
@@ -1178,7 +1257,7 @@ export default function StudentPortal() {
                 province: nextPersonalInfo.province || null,
                 zip_code: nextPersonalInfo.zipCode || null,
                 mobile: nextPersonalInfo.mobile || null,
-                email: nextPersonalInfo.email || null,
+                email: normalizedEmail,
                 civil_status: nextPersonalInfo.civilStatus || null,
                 facebook_url: nextPersonalInfo.facebookUrl || null,
                 dob: nextPersonalInfo.dob || null,
@@ -1249,12 +1328,10 @@ export default function StudentPortal() {
                 scholarships_availed: nextPersonalInfo.scholarshipsAvailed || null,
             };
 
-            const { error } = await supabaseClient
-                .from('students')
-                .update(updatePayload)
-                .eq('student_id', personalInfo.studentId);
-
-            if (error) throw error;
+            await invokeManagedStudentFunction({
+                mode: 'update-profile',
+                payload: updatePayload
+            });
             await logStudentProfileUpdate({
                 action: 'Student Profile Updated',
                 beforeProfile,
@@ -1266,7 +1343,85 @@ export default function StudentPortal() {
             showToast("Profile updated successfully!");
         } catch (err: any) {
             showToast("Error saving profile: " + err.message, 'error');
+        } finally {
+            setIsSavingProfileChanges(false);
         }
+    };
+
+    const requestStudentSecurityOtp = async (
+        purpose: 'password_change' | 'email_change',
+        nextEmailValue?: unknown
+    ) => {
+        const normalizedEmail = purpose === 'email_change'
+            ? normalizeStudentEmail(nextEmailValue)
+            : undefined;
+
+        return invokeManagedStudentFunction({
+            mode: 'request-security-otp',
+            purpose,
+            email: normalizedEmail
+        });
+    };
+
+    const confirmStudentSecurityEmailChange = async (nextEmailValue: unknown, otp: unknown) => {
+        if (!personalInfo.studentId) {
+            throw new Error('Your student profile is not loaded yet.');
+        }
+
+        const normalizedEmail = normalizeStudentEmail(nextEmailValue);
+        if (!normalizedEmail) {
+            throw new Error('Email is required.');
+        }
+
+        const { data: beforeProfile } = await supabaseClient
+            .from('students')
+            .select(STUDENT_LIST_COLUMNS)
+            .eq('student_id', personalInfo.studentId)
+            .maybeSingle();
+
+        await invokeManagedStudentFunction({
+            mode: 'confirm-email-change',
+            otp: String(otp || '').trim(),
+            email: normalizedEmail
+        });
+
+        syncStudentSession({
+            email: normalizedEmail,
+            auth_email: normalizedEmail,
+            user: {
+                ...(session?.user || {}),
+                id: session?.user?.id || session?.auth_user_id || null,
+                email: normalizedEmail
+            }
+        });
+
+        setPersonalInfo((prev: any) => ({
+            ...prev,
+            email: normalizedEmail
+        }));
+
+        await logStudentProfileUpdate({
+            action: 'Student Profile Updated',
+            beforeProfile,
+            afterPayload: { email: normalizedEmail },
+            fallbackName: `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim(),
+            fallbackStudentId: personalInfo.studentId
+        });
+
+        await refreshStudentProfile();
+    };
+
+    const confirmStudentPasswordChange = async (nextPasswordValue: unknown, otp: unknown) => {
+        const nextPassword = String(nextPasswordValue || '');
+        if (nextPassword.length < 8) {
+            throw new Error('Password must be at least 8 characters.');
+        }
+
+        await invokeManagedStudentFunction({
+            mode: 'confirm-password-change',
+            otp: String(otp || '').trim(),
+            password: nextPassword
+        });
     };
 
     // Upload profile picture to Supabase Storage & update DB
@@ -1283,11 +1438,10 @@ export default function StudentPortal() {
                 .from('profile-pictures')
                 .getPublicUrl(path);
             const publicUrl = urlData.publicUrl;
-            const { error: dbError } = await supabaseClient
-                .from('students')
-                .update({ profile_picture_url: publicUrl })
-                .eq('student_id', personalInfo.studentId);
-            if (dbError) throw dbError;
+            await invokeManagedStudentFunction({
+                mode: 'update-profile-picture',
+                profilePictureUrl: publicUrl
+            });
             await logStudentProfileUpdate({
                 action: 'Student Profile Picture Updated',
                 beforeProfile: { profile_picture_url: personalInfo.profile_picture_url || null },
@@ -1531,7 +1685,12 @@ export default function StudentPortal() {
     };
 
     const handleTimeOut = async (event: any) => {
+        const eventId = String(event?.id || '').trim();
+        if (eventId && timingOutEventId === eventId) return;
         if (!navigator.geolocation) { showToast("Geolocation is not supported.", 'error'); return; }
+        if (eventId) {
+            setTimingOutEventId(eventId);
+        }
 
         const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
         navigator.geolocation.getCurrentPosition(async (position: any) => {
@@ -1555,6 +1714,7 @@ export default function StudentPortal() {
 
             if (distance > MAX_DISTANCE_METERS) {
                 showToast(`You are too far from the venue (${Math.round(distance)}m).`, 'error');
+                if (eventId) setTimingOutEventId(null);
                 return;
             }
 
@@ -1577,8 +1737,11 @@ export default function StudentPortal() {
             } catch (err: any) {
                 console.error("Time Out Error:", err);
                 showToast("Error: " + err.message, 'error');
+            } finally {
+                if (eventId) setTimingOutEventId(null);
             }
         }, (error: any) => {
+            if (eventId) setTimingOutEventId(null);
             showToast("Location check failed. Please enable location services.", 'error');
         }, options);
     };
@@ -1594,11 +1757,13 @@ export default function StudentPortal() {
     };
 
     const submitRating = async () => {
+        if (isSubmittingEventRating) return;
         const scores = [ratingForm.q1, ratingForm.q2, ratingForm.q3, ratingForm.q4, ratingForm.q5, ratingForm.q6, ratingForm.q7];
         if (scores.some(s => s === 0)) { showToast("Please rate all evaluation criteria", 'error'); return; }
         if (ratedEvents.includes(ratingForm.eventId)) { showToast("You have already rated this event.", 'error'); setShowRatingModal(false); return; }
 
         const avgRating = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+        setIsSubmittingEventRating(true);
         try {
             const { error } = await supabaseClient.from('event_feedback').insert([{
                 event_id: ratingForm.eventId,
@@ -1625,6 +1790,7 @@ export default function StudentPortal() {
             setRatedEvents([...ratedEvents, ratingForm.eventId]);
             showToast("Evaluation submitted successfully!"); setShowRatingModal(false);
         } catch (err: any) { showToast("Error: " + err.message, 'error'); }
+        finally { setIsSubmittingEventRating(false); }
     };
 
     const colorMap = {
@@ -1676,6 +1842,12 @@ export default function StudentPortal() {
             setAssessmentForm({ responses: {}, other: '' });
             setCompletedForms((prev: any) => new Set([...prev, activeForm.id]));
         } catch (error: any) {
+            if (error?.code === '23505' || String(error?.message || '').toLowerCase().includes('duplicate')) {
+                setCompletedForms((prev: any) => new Set([...prev, activeForm.id]));
+                setShowAssessmentModal(false);
+                showToast('You have already completed this assessment.', 'error');
+                return;
+            }
             showToast("Error submitting assessment: " + error.message, 'error');
         } finally { setIsSubmitting(false); }
     };
@@ -1768,7 +1940,9 @@ export default function StudentPortal() {
     const handleOfficeTimeIn = async () => { setShowTimeInModal(true); };
 
     const submitTimeIn = async () => {
+        if (isSubmittingOfficeTimeIn) return;
         if (!selectedReason) { showToast("Please select a reason.", 'error'); return; }
+        setIsSubmittingOfficeTimeIn(true);
         try {
             const { data, error } = await supabaseClient.from('office_visits').insert([{ student_id: personalInfo.studentId, student_name: `${personalInfo.firstName} ${personalInfo.lastName}`, reason: selectedReason, status: 'Ongoing' }]).select().single();
             if (error) throw error;
@@ -1776,17 +1950,29 @@ export default function StudentPortal() {
             showToast("You have Timed In at the office.");
             setShowTimeInModal(false);
         } catch (err: any) { showToast(err.message, 'error'); }
+        finally { setIsSubmittingOfficeTimeIn(false); }
     };
 
     const handleOfficeTimeOut = async () => {
+        if (isCompletingOfficeVisit) return;
         if (!activeVisit) return;
         const visitReason = activeVisit.reason || '';
-        await supabaseClient.from('office_visits').update({ time_out: new Date().toISOString(), status: 'Completed' }).eq('id', activeVisit.id);
-        setActiveVisit(null);
-        showToast("You have Timed Out. Thank you for visiting!");
-        // Trigger feedback form with the visit reason pre-filled
-        setTimeOutVisitReason(visitReason);
-        setShowTimeOutFeedback(true);
+        setIsCompletingOfficeVisit(true);
+        try {
+            await invokeManagedStudentFunction({
+                mode: 'complete-office-visit',
+                officeVisitId: activeVisit.id
+            });
+            setActiveVisit(null);
+            showToast("You have Timed Out. Thank you for visiting!");
+            // Trigger feedback form with the visit reason pre-filled
+            setTimeOutVisitReason(visitReason);
+            setShowTimeOutFeedback(true);
+        } catch (err: any) {
+            showToast(err.message || 'Failed to complete your office visit.', 'error');
+        } finally {
+            setIsCompletingOfficeVisit(false);
+        }
     };
 
     const sidebarLinks = [
@@ -1817,8 +2003,8 @@ export default function StudentPortal() {
             highlightId: null
         },
         {
-            title: "Needs Assessment Test (NAT)",
-            description: "The NAT helps us understand your needs better. You can take the test and view your results here.",
+            title: "Needs Assessment",
+            description: "Complete available needs assessment forms and submit your responses here.",
             icon: <Icons.Assessment />,
             highlightId: "nav-assessment"
         },
@@ -1859,7 +2045,9 @@ export default function StudentPortal() {
             setShowTour(false);
             setHasSeenTourState(true);
             try {
-                await supabaseClient.from('students').update({ has_seen_tour: true }).eq('student_id', personalInfo.studentId);
+                await invokeManagedStudentFunction({
+                    mode: 'mark-tour-seen'
+                });
                 syncStudentSession({ has_seen_tour: true });
             } catch (err) {
                 console.error("Failed to save tour completion.", err);
@@ -2284,13 +2472,7 @@ export default function StudentPortal() {
             <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-student-sidebar transform transition-all duration-500 ease-out lg:static lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
                 <div className="p-6 flex items-center justify-between border-b border-white/10">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-sky-400 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/30 text-sm">SP</div>
-                        <div>
-                            <h1 className="font-bold text-white text-lg tracking-tight">Student</h1>
-                            <p className="text-sky-300/70 text-xs font-medium">NORSU Portal</p>
-                        </div>
-                    </div>
+                    <NorsuBrand title="Student Portal" subtitle="NORSU-G CARE student services" accent="blue" size="sm" className="min-w-0" />
                     <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-sky-300/60 hover:text-white transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg></button>
                 </div>
 
@@ -2320,9 +2502,13 @@ export default function StudentPortal() {
                 <header className="h-16 glass gradient-border-blue relative flex items-center justify-between px-6 lg:px-10 z-10">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-                        <h2 className="text-xl font-bold gradient-text-blue">{(viewLabels as any)[activeView] || activeView}</h2>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-500/70">NORSU-G CARE</p>
+                            <h2 className="text-xl font-bold gradient-text-blue">{(viewLabels as any)[activeView] || activeView}</h2>
+                        </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        <img src="/carecenter.png" alt="NORSU-G CARE" className="hidden h-10 w-10 rounded-full border border-blue-100 bg-white object-cover shadow-sm md:block" />
                         <button
                             type="button"
                             onClick={handleRefreshCurrentView}
@@ -2369,6 +2555,8 @@ export default function StudentPortal() {
                             selectedReason={selectedReason}
                             setSelectedReason={setSelectedReason}
                             submitTimeIn={submitTimeIn}
+                            isSubmittingOfficeTimeIn={isSubmittingOfficeTimeIn}
+                            isCompletingOfficeVisit={isCompletingOfficeVisit}
                             showTimeOutFeedback={showTimeOutFeedback}
                             setShowTimeOutFeedback={setShowTimeOutFeedback}
                             timeOutVisitReason={timeOutVisitReason}
@@ -2389,6 +2577,8 @@ export default function StudentPortal() {
                             handleRateEvent={handleRateEvent}
                             ratedEvents={ratedEvents}
                             isTimingIn={isTimingIn}
+                            timingOutEventId={timingOutEventId}
+                            isSubmittingEventRating={isSubmittingEventRating}
                             setProofFile={setProofFile}
                             selectedEvent={selectedEvent}
                             setSelectedEvent={setSelectedEvent}
@@ -2415,7 +2605,7 @@ export default function StudentPortal() {
                     )}
 
                     {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
-                    {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
+            {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, isApplyingScholarshipId, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
                 </div>
 
                 {/* FAB TRIGGER FOR COMMAND HUB */}

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { Trash2, AlertTriangle, AlertCircle, CheckCircle, Plus, RefreshCw } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 
@@ -10,7 +12,6 @@ const STAFF_ACCOUNT_SELECT = 'id, username, full_name, role, department, email, 
 export default function AdminDashboard() {
     const navigate = useNavigate();
     const { session, isAuthenticated, logout } = useAuth() as any;
-    const functionJwt = import.meta.env.VITE_SUPABASE_ANON_KEY;
     const [loading, setLoading] = useState<boolean>(false);
     const [isCreatingAccount, setIsCreatingAccount] = useState<boolean>(false);
     const [form, setForm] = useState<any>({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
@@ -19,30 +20,41 @@ export default function AdminDashboard() {
     const [showStudentResetModal, setShowStudentResetModal] = useState<boolean>(false);
     const [newDeptName, setNewDeptName] = useState<string>('');
     const [isRefreshingData, setIsRefreshingData] = useState<boolean>(false);
+    const [isMigratingAuthEmails, setIsMigratingAuthEmails] = useState<boolean>(false);
+    const [emailDrafts, setEmailDrafts] = useState<Record<string, string>>({});
+    const [savingAccountEmailId, setSavingAccountEmailId] = useState<string | null>(null);
+    const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+    const [isAddingDepartment, setIsAddingDepartment] = useState(false);
+    const [deletingDepartmentId, setDeletingDepartmentId] = useState<string | null>(null);
 
     // Use custom hook for real-time data fetching
     const { data: accounts, refetch: refetchAccounts } = useSupabaseData({
         table: 'staff_accounts',
         select: STAFF_ACCOUNT_SELECT,
-        order: { column: 'created_at', ascending: false }
+        order: { column: 'created_at', ascending: false },
+        subscribe: true
     });
 
     const { data: departmentsData, refetch: refetchDepartments } = useSupabaseData({
         table: 'departments',
-        order: { column: 'name', ascending: true }
+        order: { column: 'name', ascending: true },
+        subscribe: true
     });
     const { data: coursesData, refetch: refetchCourses } = useSupabaseData({
         table: 'courses',
         select: 'id, name, department_id',
-        order: { column: 'name', ascending: true }
+        order: { column: 'name', ascending: true },
+        subscribe: true
     });
     const { data: studentsData, refetch: refetchStudents } = useSupabaseData({
         table: 'students',
-        select: 'id, student_id, first_name, last_name, status, auth_user_id'
+        select: 'id, student_id, first_name, last_name, status, auth_user_id',
+        subscribe: true
     });
     const { data: applicationsData, refetch: refetchApplications } = useSupabaseData({
         table: 'applications',
-        select: 'id, student_id, first_name, last_name, status'
+        select: 'id, student_id, first_name, last_name, status',
+        subscribe: true
     });
     const departments = departmentsData.map(d => d.name);
     const linkedStudentCount = studentsData.filter((student: any) => Boolean(student.auth_user_id)).length;
@@ -50,8 +62,22 @@ export default function AdminDashboard() {
     const activeStudentCount = studentsData.filter((student: any) => student.status === 'Active').length;
     const probationStudentCount = studentsData.filter((student: any) => student.status === 'Probation').length;
     const recentStudents = studentsData.slice(0, 8);
+    const unlinkedStaffAccountCount = accounts.filter((account: any) => !account.auth_user_id).length;
+    const staffAccountsMissingEmailCount = accounts.filter((account: any) => !String(account.email || '').trim()).length;
+    const departmentHeadsMissingDepartmentCount = accounts.filter((account: any) =>
+        String(account.role || '').trim() === 'Department Head'
+        && !String(account.department || '').trim()
+    ).length;
+    const adminAlerts = [
+        { label: 'Unlinked staff accounts', value: unlinkedStaffAccountCount, tone: 'border-blue-100 bg-blue-50 text-blue-700' },
+        { label: 'Staff accounts missing email', value: staffAccountsMissingEmailCount, tone: 'border-amber-100 bg-amber-50 text-amber-700' },
+        { label: 'Students needing auth', value: authPendingStudentCount, tone: 'border-purple-100 bg-purple-50 text-purple-700' },
+        { label: 'Department heads without college', value: departmentHeadsMissingDepartmentCount, tone: 'border-rose-100 bg-rose-50 text-rose-700' }
+    ];
     const formatStudentName = (student: any) =>
         [student?.first_name, student?.last_name].filter(Boolean).join(' ').trim() || 'Unnamed Student';
+    const getAccountEmailDraft = (account: any) =>
+        emailDrafts[String(account.id)] ?? String(account.email || '');
 
     const getDepartmentCourses = (departmentId: number | string) => {
         const normalizedDepartmentId = Number(departmentId);
@@ -80,111 +106,46 @@ export default function AdminDashboard() {
             || normalized.includes('not found');
     };
 
-    const readFunctionErrorMessage = async (response: any) => {
-        if (!response) return '';
-
-        try {
-            const payload = await response.clone().json();
-            if (payload?.error) return String(payload.error);
-            if (payload?.message) return String(payload.message);
-        } catch {
-            try {
-                const text = await response.clone().text();
-                return String(text || '').trim();
-            } catch {
-                return '';
-            }
-        }
-
-        return '';
-    };
-
     const invokeManagedStaffFunction = async (body: any) => {
-        const { data, error, response } = await supabase.functions.invoke('manage-staff-accounts', {
+        return invokeEdgeFunction('manage-staff-accounts', {
             body,
-            headers: functionJwt
-                ? {
-                    Authorization: `Bearer ${functionJwt}`,
-                    apikey: functionJwt
-                }
-                : undefined
+            requireAuth: true,
+            non2xxMessage: 'Your admin session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to manage staff account.'
         });
-
-        if (error) {
-            const status = response?.status || error?.context?.status || null;
-            const detailedMessage = await readFunctionErrorMessage(response || error?.context);
-            const nextError = new Error(detailedMessage || error.message || 'Failed to manage staff account.');
-            (nextError as any).status = status;
-            (nextError as any).errorName = error?.name || null;
-            throw nextError;
-        }
-
-        if (!data?.success) {
-            throw new Error(data?.error || 'Failed to manage staff account.');
-        }
-
-        return data;
     };
 
     const invokeManagedStudentFunction = async (body: any) => {
-        const { data, error, response } = await supabase.functions.invoke('manage-student-accounts', {
+        return invokeEdgeFunction('manage-student-accounts', {
             body,
-            headers: functionJwt
-                ? {
-                    Authorization: `Bearer ${functionJwt}`,
-                    apikey: functionJwt
-                }
-                : undefined
+            requireAuth: true,
+            non2xxMessage: 'Your admin session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to manage student accounts.'
         });
-
-        if (error) {
-            const status = response?.status || error?.context?.status || null;
-            const detailedMessage = await readFunctionErrorMessage(response || error?.context);
-            const nextError = new Error(detailedMessage || error.message || 'Failed to manage student accounts.');
-            (nextError as any).status = status;
-            (nextError as any).errorName = error?.name || null;
-            throw nextError;
-        }
-
-        if (!data?.success) {
-            throw new Error(data?.error || 'Failed to manage student accounts.');
-        }
-
-        return data;
     };
 
     const handleCreate = async (e: any) => {
         e.preventDefault();
         const payload = { ...form };
         payload.username = payload.username.trim();
+        payload.email = String(payload.email || '').trim().toLowerCase();
         if (payload.role !== 'Department Head') delete payload.department;
         setIsCreatingAccount(true);
 
         try {
-            const { data, error, response } = await supabase.functions.invoke('provision-staff-account', {
+            const result = await invokeEdgeFunction('provision-staff-account', {
                 body: payload,
-                headers: functionJwt
-                    ? {
-                        Authorization: `Bearer ${functionJwt}`,
-                        apikey: functionJwt
-                    }
-                    : undefined
+                requireAuth: true,
+                non2xxMessage: 'Your admin session could not be verified. Please sign in again.',
+                fallbackMessage: 'Failed to provision staff account.'
             });
 
-            if (error) {
-                const status = response?.status || error?.context?.status || null;
-                const detailedMessage = await readFunctionErrorMessage(response || error?.context);
-                const nextError = new Error(detailedMessage || error.message || 'Failed to provision staff account.');
-                (nextError as any).status = status;
-                (nextError as any).errorName = error?.name || null;
-                throw nextError;
-            }
-
-            if (!data?.success) {
-                throw new Error(data?.error || 'Failed to provision staff account.');
-            }
-
             showToast('Account created and linked to Supabase Auth.');
+            void sendTransactionalEmailNotification(result?.emailPayload, 'Failed to send credential email.').then((emailResult) => {
+                if (emailResult.emailSent === false) {
+                    showToast(`Account created, but credential email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
+                }
+            });
             setForm({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
             refetchAccounts();
         } catch (error: any) {
@@ -204,6 +165,8 @@ export default function AdminDashboard() {
     };
 
     const handleDelete = async (account: any) => {
+        const nextAccountId = String(account?.id || '').trim();
+        if (!nextAccountId || deletingAccountId === nextAccountId) return;
         if (account.id === session.id) {
             showToast('You cannot delete the account you are currently using.', 'error');
             return;
@@ -213,11 +176,12 @@ export default function AdminDashboard() {
             ? 'Delete this linked account? Its Supabase Auth login will also be removed.'
             : 'Delete this account?';
         if (!confirm(confirmMessage)) return;
+        setDeletingAccountId(nextAccountId);
 
         try {
             const result = await invokeManagedStaffFunction({
                 mode: 'delete-account',
-                staffAccountId: account.id
+                staffAccountId: nextAccountId
             });
 
             if (result?.authCleanupWarning) {
@@ -249,6 +213,8 @@ export default function AdminDashboard() {
 
             showToast('Legacy staff account deleted.');
             refetchAccounts();
+        } finally {
+            setDeletingAccountId(null);
         }
     };
 
@@ -326,7 +292,6 @@ export default function AdminDashboard() {
                 'scholarships',          // Standalone
                 'events',               // Standalone (parent of event_feedback/attendance)
                 'audit_logs',           // Standalone
-                'needs_assessments',    // Standalone
             ];
 
             for (const table of tables) {
@@ -443,14 +408,22 @@ export default function AdminDashboard() {
 
     const handleAddDepartment = async () => {
         const name = newDeptName.trim();
+        if (isAddingDepartment) return;
         if (!name) return;
         if (departments.includes(name)) { showToast('College already exists.', 'error'); return; }
-        const { error } = await supabase.from('departments').insert([{ name }]);
-        if (error) showToast(error.message, 'error');
-        else { showToast(`College "${name}" added.`); setNewDeptName(''); refetchDepartments(); }
+        setIsAddingDepartment(true);
+        try {
+            const { error } = await supabase.from('departments').insert([{ name }]);
+            if (error) showToast(error.message, 'error');
+            else { showToast(`College "${name}" added.`); setNewDeptName(''); refetchDepartments(); }
+        } finally {
+            setIsAddingDepartment(false);
+        }
     };
 
     const handleDeleteDepartment = async (dept: any) => {
+        const nextDepartmentId = String(dept?.id || '').trim();
+        if (!nextDepartmentId || deletingDepartmentId === nextDepartmentId) return;
         const linkedCourses = getDepartmentCourses(dept.id);
 
         if (linkedCourses.length > 0) {
@@ -468,18 +441,23 @@ export default function AdminDashboard() {
         }
 
         if (!confirm(`Remove college "${dept.name}"? This will NOT delete accounts or students linked to it.`)) return;
-        const { error } = await supabase.from('departments').delete().eq('id', dept.id);
-        if (error) {
-            if (String(error.message || '').includes('courses_department_id_fkey')) {
-                showToast(`Cannot delete college "${dept.name}" because it still has linked courses. Delete or reassign those courses first.`, 'error');
-                refetchCourses();
-                return;
+        setDeletingDepartmentId(nextDepartmentId);
+        try {
+            const { error } = await supabase.from('departments').delete().eq('id', nextDepartmentId);
+            if (error) {
+                if (String(error.message || '').includes('courses_department_id_fkey')) {
+                    showToast(`Cannot delete college "${dept.name}" because it still has linked courses. Delete or reassign those courses first.`, 'error');
+                    refetchCourses();
+                    return;
+                }
+                showToast(error.message, 'error');
             }
-            showToast(error.message, 'error');
-        }
-        else {
-            showToast(`College "${dept.name}" removed.`);
-            refetchDepartments();
+            else {
+                showToast(`College "${dept.name}" removed.`);
+                refetchDepartments();
+            }
+        } finally {
+            setDeletingDepartmentId(null);
         }
     };
 
@@ -498,6 +476,73 @@ export default function AdminDashboard() {
             showToast(error?.message || 'Failed to refresh admin data.', 'error');
         } finally {
             setIsRefreshingData(false);
+        }
+    };
+
+    const handleMigrateAuthEmails = async () => {
+        setIsMigratingAuthEmails(true);
+        try {
+            const staffResult = await invokeManagedStaffFunction({ mode: 'sync-all-auth-emails' });
+            const studentResult = await invokeManagedStudentFunction({ mode: 'sync-all-auth-emails' });
+
+            await Promise.all([
+                refetchAccounts(),
+                refetchStudents()
+            ]);
+
+            const staffWarnings = Array.isArray(staffResult?.warnings) ? staffResult.warnings.length : 0;
+            const studentWarnings = Array.isArray(studentResult?.warnings) ? studentResult.warnings.length : 0;
+
+            showToast(
+                `Auth migration complete. Staff updated: ${staffResult?.updatedCount || 0}, already synced: ${staffResult?.alreadySyncedCount || 0}. Students updated: ${studentResult?.updatedCount || 0}, already synced: ${studentResult?.alreadySyncedCount || 0}.${staffWarnings || studentWarnings ? ` Warnings: ${staffWarnings + studentWarnings}.` : ''}`,
+                staffWarnings || studentWarnings ? 'error' : 'success'
+            );
+
+            if (staffWarnings || studentWarnings) {
+                console.warn('Auth migration warnings', {
+                    staffWarnings: staffResult?.warnings || [],
+                    studentWarnings: studentResult?.warnings || []
+                });
+            }
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to migrate linked auth emails.', 'error');
+        } finally {
+            setIsMigratingAuthEmails(false);
+        }
+    };
+
+    const handleSaveAccountEmail = async (account: any) => {
+        const normalizedEmail = getAccountEmailDraft(account).trim().toLowerCase();
+        if (!normalizedEmail) {
+            showToast('Enter a real email before saving.', 'error');
+            return;
+        }
+
+        setSavingAccountEmailId(String(account.id));
+        try {
+            const result = await invokeManagedStaffFunction({
+                mode: 'update-account-email',
+                staffAccountId: account.id,
+                email: normalizedEmail
+            });
+
+            await refetchAccounts();
+            setEmailDrafts((prev) => {
+                const next = { ...prev };
+                delete next[String(account.id)];
+                return next;
+            });
+
+            showToast(
+                result?.warning
+                    ? `Saved ${account.username}'s email. ${result.warning}`
+                    : `Saved ${account.username}'s email.`,
+                result?.warning ? 'error' : 'success'
+            );
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to save the account email.', 'error');
+        } finally {
+            setSavingAccountEmailId(null);
         }
     };
 
@@ -522,8 +567,31 @@ export default function AdminDashboard() {
                             <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
                             <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
                         </button>
-                        <button onClick={() => setShowResetModal(true)} className="text-red-600 font-bold hover:underline">Reset System</button>
+                        <button
+                            onClick={handleMigrateAuthEmails}
+                            disabled={isMigratingAuthEmails}
+                            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-100 disabled:opacity-50"
+                        >
+                            <RefreshCw size={16} className={isMigratingAuthEmails ? 'animate-spin' : ''} />
+                            <span>{isMigratingAuthEmails ? 'Migrating Auth...' : 'Migrate Auth Emails'}</span>
+                        </button>
+                        <button onClick={() => setShowResetModal(true)} disabled={loading} className="text-red-600 font-bold hover:underline disabled:opacity-60">Reset System</button>
                         <button onClick={handleLogout} className="text-gray-600 font-bold hover:underline">Logout</button>
+                    </div>
+                </div>
+
+                <div className="mb-8">
+                    <div className="mb-3">
+                        <h2 className="text-lg font-bold text-gray-900">Role-Based Alerts</h2>
+                        <p className="text-sm text-gray-500">Simple admin-only counts for account setup and access cleanup.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {adminAlerts.map((alert) => (
+                            <div key={alert.label} className={`rounded-xl border p-4 ${alert.tone}`}>
+                                <p className="text-xs font-bold uppercase tracking-wide">{alert.label}</p>
+                                <p className="mt-3 text-3xl font-bold text-gray-900">{alert.value}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
@@ -536,7 +604,7 @@ export default function AdminDashboard() {
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Full Name</label><input required className="w-full border p-2 rounded" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Username</label><input required className="w-full border p-2 rounded" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Password</label><input required type="password" autoComplete="new-password" className="w-full border p-2 rounded" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Email (Optional)</label><input className="w-full border p-2 rounded" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Email</label><input required type="email" className="w-full border p-2 rounded" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
 
                             {form.role === 'Department Head' && (
                                 <div><label className="block text-xs font-bold text-gray-500 mb-1">College</label><select className="w-full border p-2 rounded" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}><option value="">Select College</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
@@ -550,7 +618,10 @@ export default function AdminDashboard() {
 
                     {/* Account List */}
                     <div className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div className="p-6 border-b"><h2 className="font-bold text-lg">Existing Accounts ({accounts.length})</h2></div>
+                        <div className="p-6 border-b">
+                            <h2 className="font-bold text-lg">Existing Accounts ({accounts.length})</h2>
+                            <p className="mt-1 text-sm text-gray-500">If an account has no real email yet, add it here first, then run `Migrate Auth Emails` again.</p>
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 border-b"><tr><th className="p-4">Name</th><th className="p-4">Role</th><th className="p-4">Details</th><th className="p-4">Username</th><th className="p-4">Auth</th><th className="p-4 text-right">Action</th></tr></thead>
@@ -561,7 +632,30 @@ export default function AdminDashboard() {
                                             <td className="p-4"><span className={`px-2 py-1 rounded text-xs text-white ${acc.role === 'Admin' ? 'bg-red-500' : acc.role === 'Care Staff' ? 'bg-purple-500' : 'bg-green-500'}`}>{acc.role === 'Care Staff' ? 'CARE Staff' : acc.role}</span></td>
                                             <td className="p-4 text-gray-500">
                                                 <div>{acc.department || '-'}</div>
-                                                {acc.email && <div className="text-xs text-gray-400">{acc.email}</div>}
+                                                {acc.email ? (
+                                                    <div className="text-xs text-gray-400 break-all">{acc.email}</div>
+                                                ) : (
+                                                    <div className="mt-2 flex min-w-[260px] flex-col gap-2">
+                                                        <input
+                                                            type="email"
+                                                            value={getAccountEmailDraft(acc)}
+                                                            onChange={(e) => setEmailDrafts((prev) => ({
+                                                                ...prev,
+                                                                [String(acc.id)]: e.target.value
+                                                            }))}
+                                                            placeholder="Add real email"
+                                                            className="w-full rounded border border-amber-200 px-3 py-2 text-xs text-gray-700 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleSaveAccountEmail(acc)}
+                                                            disabled={savingAccountEmailId === String(acc.id)}
+                                                            className="inline-flex w-fit items-center rounded bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+                                                        >
+                                                            {savingAccountEmailId === String(acc.id) ? 'Saving...' : 'Save Email'}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-4 font-mono">{acc.username}</td>
                                             <td className="p-4">
@@ -571,7 +665,7 @@ export default function AdminDashboard() {
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="inline-flex items-center gap-3">
-                                                    <button onClick={() => handleDelete(acc)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                                                    <button disabled={deletingAccountId === String(acc.id)} onClick={() => handleDelete(acc)} className="text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"><Trash2 className={`w-4 h-4 ${deletingAccountId === String(acc.id) ? 'animate-spin' : ''}`} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -695,8 +789,8 @@ export default function AdminDashboard() {
                     <div className="p-6 border-b flex items-center justify-between">
                         <h2 className="font-bold text-lg">Colleges ({departmentsData.length})</h2>
                         <div className="flex gap-2">
-                            <input className="border p-2 rounded text-sm w-64" placeholder="New college name…" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDepartment()} />
-                            <button onClick={handleAddDepartment} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 flex items-center gap-1 text-sm"><Plus className="w-4 h-4" /> Add</button>
+                            <input disabled={isAddingDepartment} className="border p-2 rounded text-sm w-64 disabled:opacity-60" placeholder="New college name…" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDepartment()} />
+                            <button disabled={isAddingDepartment} onClick={handleAddDepartment} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 flex items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-60"><Plus className={`w-4 h-4 ${isAddingDepartment ? 'animate-spin' : ''}`} /> {isAddingDepartment ? 'Adding...' : 'Add'}</button>
                         </div>
                     </div>
                     <div className="p-6 flex flex-wrap gap-2">
@@ -714,13 +808,14 @@ export default function AdminDashboard() {
                                     )}
                                     <button
                                         onClick={() => handleDeleteDepartment(dept)}
-                                        className="text-red-400 hover:text-red-600"
+                                        disabled={deletingDepartmentId === String(dept.id)}
+                                        className="text-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
                                         title={linkedCourseCount > 0
                                             ? `Delete blocked: ${linkedCourseCount} course(s) still assigned`
                                             : `Delete ${dept.name}`
                                         }
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className={`w-3.5 h-3.5 ${deletingDepartmentId === String(dept.id) ? 'animate-spin' : ''}`} />
                                     </button>
                                 </span>
                             );
@@ -743,8 +838,8 @@ export default function AdminDashboard() {
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">Danger Zone</h3>
                                 <p className="text-gray-500 text-sm mb-6">This will wipe ALL data — Students, Events, Forms, Logs, uploaded files (profile pictures, attendance proofs, support documents) — and ALL other Staff Accounts. Only your Admin account will remain.</p>
                                 <div className="flex gap-3">
-                                    <button onClick={() => setShowResetModal(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50">Cancel</button>
-                                    <button onClick={handleReset} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-lg shadow-red-200">Confirm Reset</button>
+                                    <button disabled={loading} onClick={() => setShowResetModal(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 disabled:opacity-60">Cancel</button>
+                                    <button disabled={loading} onClick={handleReset} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-lg shadow-red-200 disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Resetting...' : 'Confirm Reset'}</button>
                                 </div>
                             </div>
                         </div>
@@ -759,8 +854,8 @@ export default function AdminDashboard() {
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">Reset Student Data</h3>
                                 <p className="text-gray-500 text-sm mb-6">This prototype clears student-facing data only: students, applications, enrolled students, student requests, notifications, attendance, form submissions, and linked student auth accounts. Staff, colleges, courses, forms, and events will stay.</p>
                                 <div className="flex gap-3">
-                                    <button onClick={() => setShowStudentResetModal(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50">Cancel</button>
-                                    <button onClick={handleResetStudents} className="flex-1 px-4 py-2.5 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600 shadow-lg shadow-amber-200">Confirm Student Reset</button>
+                                    <button disabled={loading} onClick={() => setShowStudentResetModal(false)} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 disabled:opacity-60">Cancel</button>
+                                    <button disabled={loading} onClick={handleResetStudents} className="flex-1 px-4 py-2.5 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600 shadow-lg shadow-amber-200 disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Resetting...' : 'Confirm Student Reset'}</button>
                                 </div>
                             </div>
                         </div>

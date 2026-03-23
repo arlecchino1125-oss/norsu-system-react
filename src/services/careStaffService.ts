@@ -3,6 +3,8 @@ import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
 import type { PageResult } from '../types/pagination';
 import type { PageParams, SortParams, StudentFilters } from '../types/query';
 
+const PAGED_LIST_COUNT_MODE = 'planned';
+
 export const STUDENT_LIST_COLUMNS = [
     'id',
     'created_at',
@@ -143,7 +145,7 @@ export const getStudentsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('students')
-        .select(STUDENT_LIST_COLUMNS, { count: 'exact' });
+        .select(STUDENT_LIST_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     query = applyStudentFilters(query, filters);
     query = applySort(query, sort || { column: 'created_at', ascending: false });

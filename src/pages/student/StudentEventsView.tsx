@@ -102,6 +102,8 @@ const StudentEventsView = ({
     handleRateEvent,
     ratedEvents,
     isTimingIn,
+    timingOutEventId,
+    isSubmittingEventRating,
     setProofFile,
     selectedEvent,
     setSelectedEvent,
@@ -156,6 +158,7 @@ const StudentEventsView = ({
                         const record = attendanceMap[item.id];
                         const isTimedIn = Boolean(record?.time_in);
                         const isTimedOut = Boolean(record?.time_out);
+                        const isTimingOut = timingOutEventId === String(item.id);
                         const { start, end } = getEventWindow(item);
                         const now = new Date();
                         const canTimeIn = item.type === 'Event' && Boolean(start) && now >= (start as Date) && !isTimedIn;
@@ -225,16 +228,16 @@ const StudentEventsView = ({
                                                 {isTimedIn ? 'Checked In' : (isTimingIn ? 'Processing...' : (start ? `Time In opens ${formatTimeLabel(item.event_time)}` : 'Time In unavailable'))}
                                             </button>
                                             <button
-                                                disabled={!canTimeOut}
+                                                disabled={!canTimeOut || isTimingOut}
                                                 onClick={() => handleTimeOut(item)}
                                                 className={`flex-1 rounded-xl py-3 text-xs font-bold transition-all ${isTimedOut
                                                     ? 'cursor-default bg-gray-100 text-gray-400'
-                                                    : (!canTimeOut
+                                                    : (!canTimeOut || isTimingOut
                                                         ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
                                                         : 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:from-red-400 hover:to-rose-500')
                                                     }`}
                                             >
-                                                {isTimedOut ? 'Completed' : (end ? `Time Out after ${formatTimeLabel(item.end_time || '')}` : 'Time Out unavailable')}
+                                                {isTimedOut ? 'Completed' : (isTimingOut ? 'Processing...' : (end ? `Time Out after ${formatTimeLabel(item.end_time || '')}` : 'Time Out unavailable'))}
                                             </button>
                                         </div>
 
@@ -267,6 +270,7 @@ const StudentEventsView = ({
                 const record = attendanceMap[selectedEvent.id];
                 const isTimedIn = Boolean(record?.time_in);
                 const isTimedOut = Boolean(record?.time_out);
+                const isTimingOut = timingOutEventId === String(selectedEvent.id);
                 const { start, end } = getEventWindow(selectedEvent);
                 const now = new Date();
                 const canTimeIn = selectedEvent.type === 'Event' && Boolean(start) && now >= (start as Date) && !isTimedIn;
@@ -376,14 +380,14 @@ const StudentEventsView = ({
                                                     You are already checked in for this event.
                                                 </div>
                                                 <button
-                                                    disabled={!canTimeOut}
+                                                    disabled={!canTimeOut || isTimingOut}
                                                     onClick={() => handleTimeOut(selectedEvent)}
-                                                    className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${!canTimeOut
+                                                    className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${!canTimeOut || isTimingOut
                                                         ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                                                         : 'bg-red-600 text-white hover:bg-red-700'
                                                         }`}
                                                 >
-                                                    {canTimeOut ? 'Time Out' : `Time Out available after ${formatTimeLabel(selectedEvent.end_time || '')}`}
+                                                    {isTimingOut ? 'Processing...' : (canTimeOut ? 'Time Out' : `Time Out available after ${formatTimeLabel(selectedEvent.end_time || '')}`)}
                                                 </button>
                                             </div>
                                         ) : (
@@ -556,9 +560,10 @@ const StudentEventsView = ({
                         <div className="flex shrink-0 gap-3 border-t border-gray-100 bg-gray-50/50 px-8 py-4">
                             <button
                                 onClick={submitRating}
-                                className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-blue-500/30"
+                                disabled={isSubmittingEventRating}
+                                className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                Submit Evaluation
+                                {isSubmittingEventRating ? 'Submitting...' : 'Submit Evaluation'}
                             </button>
                             <button
                                 onClick={() => setShowRatingModal(false)}

@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import { previewTransactionalEmailNotification, sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { useDeptData } from '../hooks/dept/useDeptData';
+import { getDepartmentApplicationsPage, getDepartmentInterviewQueue } from '../services/deptService';
 import { exportPDF, exportToExcel } from '../utils/dashboardUtils';
 import {
     COUNSELING_STATUS,
-    DEPT_SUPPORT_VISIBLE_STATUSES,
     SUPPORT_STATUS,
     isCounselingAwaitingDept,
     isWithCareStaffCounseling
@@ -19,64 +21,225 @@ import DeptSupportApprovalsPage from './dept/DeptSupportApprovalsPage';
 import DeptEventsPage from './dept/DeptEventsPage';
 import DeptStudentsPage from './dept/DeptStudentsPage';
 import DeptCounseledPage from './dept/DeptCounseledPage';
-import DeptReportsPage from './dept/DeptReportsPage';
 import DeptSettingsPage from './dept/DeptSettingsPage';
 import DeptAdmissionsPage from './dept/DeptAdmissionsPage';
+import DeptInterviewQueuePage from './dept/DeptInterviewQueuePage';
+import StaffCalendarPage from './shared/StaffCalendarPage';
+import StaffExportCenterPage from './shared/StaffExportCenterPage';
+import NorsuBrand from '../components/NorsuBrand';
 import { renderDeptModals } from './dept/modals/DeptModals';
 import {
     LayoutDashboard, CalendarDays, HeartHandshake, Settings, Users, ClipboardList,
     LogOut, UserCircle, Menu, FileText, CheckCircle, XCircle, Info,
     UserPlus, BarChart3, AlertCircle, User, MapPin, GraduationCap, Bell, Download, RefreshCw
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-} from 'chart.js';
-import 'jspdf-autotable';
-
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend
-);
+const DeptReportsPage = lazy(() => import('./dept/DeptReportsPage'));
+const READY_FOR_INTERVIEW_STATUSES = [
+    'Qualified for Interview (1st Choice)',
+    'Forwarded to 2nd Choice for Interview',
+    'Forwarded to 3rd Choice for Interview'
+];
 
 // ─── Live Clock Hook ───
-const useLiveClock = () => {
-    const [currentTime, setCurrentTime] = useState(new Date());
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
-    const hours = currentTime.getHours();
-    const greeting = hours < 12 ? 'Good Morning' : hours < 18 ? 'Good Afternoon' : 'Good Evening';
-    const timeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-    const dateString = currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const [timePart, ampm] = timeString.split(' ');
-    const [h, m, s] = timePart.split(':');
-    return { greeting, h, m, s, ampm, dateString };
-};
-
 export default function DeptDashboard() {
     const navigate = useNavigate();
-    const { session, isAuthenticated, logout } = useAuth() as any;
-    const clock = useLiveClock();
+    const { session, isAuthenticated, updateSession, logout } = useAuth() as any;
     const [activeModule, setActiveModule] = useState<string>('dashboard');
     const {
-        data, setData, eventsList, counselingRequests,
+        data, setData, eventsList, counselingRequests, setCounselingRequests,
         supportRequests, setSupportRequests, admissionApplicants,
         lastSeenSupportCount, setLastSeenSupportCount, toast, setToast, refreshAllData, showToastMessage,
-        admissionsState
+        admissionsState,
+        counselingState
     } = useDeptData(session, isAuthenticated);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
+
+    const getApplicantFullName = (application: any) =>
+        [application?.first_name, application?.last_name]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+            .join(' ')
+        || 'Applicant';
+
+    const getCourseNameForChoice = (application: any, choice?: number) => {
+        const currentChoice = Number(choice || application?.current_choice || 1);
+        if (currentChoice === 2) return String(application?.alt_course_1 || '').trim() || null;
+        if (currentChoice === 3) return String(application?.alt_course_2 || '').trim() || null;
+        return String(application?.priority_course || '').trim() || null;
+    };
+
+    const getChoiceLabel = (choice: number) => {
+        if (choice === 2) return '2nd Choice';
+        if (choice === 3) return '3rd Choice';
+        return '1st Choice';
+    };
+
+    const shouldKeepAdmissionRow = (nextStatus: string, application: any, nextChoice?: number) => {
+        const normalizedStatus = String(nextStatus || '').trim();
+        if (normalizedStatus === 'Interview Scheduled') return true;
+        if (normalizedStatus === 'Approved for Enrollment') return false;
+        if (normalizedStatus === 'Application Unsuccessful') return false;
+        if (!normalizedStatus.includes('Forwarded to')) return true;
+
+        const routedChoice = Number(nextChoice || application?.current_choice || 1);
+        const routedCourse = getCourseNameForChoice(application, routedChoice);
+        const normalizedCourse = String(routedCourse || '').trim().toLowerCase();
+        const routedDepartment = data?.courseMap?.[normalizedCourse];
+
+        if (!routedCourse || !routedDepartment) {
+            return true;
+        }
+
+        return String(routedDepartment || '').trim() === String(data?.profile?.department || '').trim();
+    };
+
+    const patchAdmissionRows = useCallback((updater: (rows: any[]) => any[]) => {
+        admissionsState.setRows((prev: any[]) => updater(Array.isArray(prev) ? prev : []));
+    }, [admissionsState]);
+
+    const patchCounselingRows = useCallback((updater: (rows: any[]) => any[]) => {
+        setCounselingRequests((prev: any[]) => updater(Array.isArray(prev) ? prev : []));
+    }, [setCounselingRequests]);
+
+    const patchSupportRows = useCallback((updater: (rows: any[]) => any[]) => {
+        setSupportRequests((prev: any[]) => updater(Array.isArray(prev) ? prev : []));
+    }, [setSupportRequests]);
+
+    const invokeManagedAdmissionsFunction = useCallback(async (body: any) => {
+        return invokeEdgeFunction('manage-department-admissions', {
+            body,
+            requireAuth: true,
+            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to manage department admissions.'
+        });
+    }, []);
+
+    const sendAdmissionsEmailNotification = useCallback(async (payload: any) => {
+        return sendTransactionalEmailNotification(payload, 'Failed to send applicant email.');
+    }, []);
+
+    const invokeManagedDepartmentServicesFunction = useCallback(async (body: any) => {
+        return invokeEdgeFunction('manage-department-services', {
+            body,
+            requireAuth: true,
+            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to manage department services.'
+        });
+    }, []);
+
+    const syncStaffSession = useCallback((patch: Record<string, unknown>) => {
+        updateSession?.((prev: any) => ({
+            ...(prev || {}),
+            ...(patch || {}),
+            user: {
+                ...(prev?.user || {}),
+                ...((patch as any)?.user || {})
+            }
+        }));
+    }, [updateSession]);
+
+    const requestStaffSecurityOtp = useCallback(async (
+        purpose: 'password_change' | 'email_change',
+        nextEmailValue?: string
+    ) => {
+        return invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'request-security-otp',
+                purpose,
+                email: purpose === 'email_change'
+                    ? String(nextEmailValue || '').trim().toLowerCase()
+                    : undefined
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to send the security OTP.'
+        });
+    }, []);
+
+    const confirmStaffSecurityEmailChange = useCallback(async (nextEmailValue: string, otp: string) => {
+        const normalizedEmail = String(nextEmailValue || '').trim().toLowerCase();
+        if (!normalizedEmail) {
+            throw new Error('Email is required.');
+        }
+
+        await invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'confirm-email-change',
+                email: normalizedEmail,
+                otp: String(otp || '').trim()
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to update your department login email.'
+        });
+
+        syncStaffSession({
+            email: normalizedEmail,
+            auth_email: normalizedEmail,
+            user: {
+                ...(session?.user || {}),
+                email: normalizedEmail
+            }
+        });
+        setData((prev: any) => ({
+            ...prev,
+            profile: {
+                ...(prev?.profile || {}),
+                email: normalizedEmail
+            }
+        }));
+    }, [session?.user, setData, syncStaffSession]);
+
+    const confirmStaffPasswordChange = useCallback(async (nextPasswordValue: string, otp: string) => {
+        await invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'confirm-password-change',
+                password: String(nextPasswordValue || ''),
+                otp: String(otp || '').trim()
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to update your department password.'
+        });
+    }, []);
+
+    const updateStaffProfileName = useCallback(async (nextNameValue: string) => {
+        const normalizedName = String(nextNameValue || '').trim().replace(/\s+/g, ' ');
+        if (normalizedName.length < 2) {
+            throw new Error('A valid profile name is required.');
+        }
+
+        await invokeEdgeFunction('manage-staff-accounts', {
+            body: {
+                mode: 'update-self-profile',
+                payload: {
+                    full_name: normalizedName
+                }
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to update your department profile.'
+        });
+
+        syncStaffSession({
+            full_name: normalizedName
+        });
+        setData((prev: any) => ({
+            ...prev,
+            profile: {
+                ...(prev?.profile || {}),
+                name: normalizedName
+            }
+        }));
+    }, [setData, syncStaffSession]);
+
+    const queueProcessEmailNotification = useCallback((payload: any, context: string) => {
+        void sendTransactionalEmailNotification(payload).then((emailResult) => {
+            if (emailResult.emailSent === false) {
+                showToastMessage(`${context} Email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
+            }
+        });
+    }, [showToastMessage]);
 
     // Modals
     const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
@@ -103,8 +266,25 @@ export default function DeptDashboard() {
     const [deptAttendees, setDeptAttendees] = useState<any[]>([]);
     const [yearLevelFilter, setYearLevelFilter] = useState<string>('All');
     const [showApplicantScheduleModal, setShowApplicantScheduleModal] = useState<boolean>(false);
-    const [applicantScheduleData, setApplicantScheduleData] = useState<any>({ date: '', time: '', notes: '' });
-    const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
+    const [applicantScheduleMode, setApplicantScheduleMode] = useState<'schedule' | 'reschedule'>('schedule');
+    const [applicantScheduleData, setApplicantScheduleData] = useState<any>({ date: '', time: '', venue: '', panel: '', notes: '' });
+    const [isSchedulingApplicant, setIsSchedulingApplicant] = useState(false);
+    const [isProcessingBulkApplicantAction, setIsProcessingBulkApplicantAction] = useState(false);
+    const [isLoadingEmailPreview, setIsLoadingEmailPreview] = useState(false);
+    const [isConfirmingEmailPreview, setIsConfirmingEmailPreview] = useState(false);
+    const [emailPreviewState, setEmailPreviewState] = useState<any>(null);
+    const [pendingApplicantActionId, setPendingApplicantActionId] = useState<string | null>(null);
+    const [selectedApplicants, setSelectedApplicants] = useState<any[]>([]);
+    const [interviewQueueDate, setInterviewQueueDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+    const [interviewQueueRows, setInterviewQueueRows] = useState<any[]>([]);
+    const [isInterviewQueueLoading, setIsInterviewQueueLoading] = useState(false);
+    const [interviewQueueError, setInterviewQueueError] = useState<string | null>(null);
+    const [admissionsDashboardCounts, setAdmissionsDashboardCounts] = useState({
+        readyForInterview: 0,
+        scheduled: 0,
+        approved: 0,
+        unsuccessful: 0
+    });
     const [viewFormRecord, setViewFormRecord] = useState<any>(null);
     const [viewFormMode, setViewFormMode] = useState<string>('student');
 
@@ -118,6 +298,10 @@ export default function DeptDashboard() {
     const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
     const [rejectNotes, setRejectNotes] = useState<string>('');
     const [forwardingToStaff, setForwardingToStaff] = useState<boolean>(false);
+    const [isSubmittingCounselingSchedule, setIsSubmittingCounselingSchedule] = useState(false);
+    const [isSubmittingCounselingReject, setIsSubmittingCounselingReject] = useState(false);
+    const [pendingCounselingCompletionId, setPendingCounselingCompletionId] = useState<string | null>(null);
+    const [isSubmittingReferral, setIsSubmittingReferral] = useState(false);
     const [referralSearchQuery, setReferralSearchQuery] = useState<string>('');
 
     // Filters & Inputs
@@ -132,9 +316,14 @@ export default function DeptDashboard() {
 
     // Forms
     const [profileForm, setProfileForm] = useState<any>({});
+    const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
     const [referralForm, setReferralForm] = useState<any>({ student: '', type: '', notes: '', referrer_contact_number: '', relationship_with_student: '', reason_for_referral: '', actions_made: '', date_duration_of_observations: '' });
     const sigCanvasRef = useRef<any>(null);
+    const [isSubmittingSupportSchedule, setIsSubmittingSupportSchedule] = useState(false);
+    const [pendingSupportRejectId, setPendingSupportRejectId] = useState<string | null>(null);
+    const [isSubmittingSupportResolve, setIsSubmittingSupportResolve] = useState(false);
+    const [isSubmittingSupportRefer, setIsSubmittingSupportRefer] = useState(false);
 
     // Mark support requests as seen
     useEffect(() => {
@@ -163,11 +352,101 @@ export default function DeptDashboard() {
         return items.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()).slice(0, 30);
     }, [counselingRequests, supportRequests]);
 
-    if (!data) return null;
+    const refreshInterviewQueue = useCallback(async () => {
+        const departmentName = String(data?.profile?.department || '').trim();
+        if (!departmentName) return;
+
+        setIsInterviewQueueLoading(true);
+        setInterviewQueueError(null);
+        try {
+            const rows = await getDepartmentInterviewQueue(departmentName, interviewQueueDate);
+            setInterviewQueueRows(rows);
+        } catch (error: any) {
+            setInterviewQueueError(error?.message || 'Failed to load interview queue.');
+        } finally {
+            setIsInterviewQueueLoading(false);
+        }
+    }, [data?.profile?.department, interviewQueueDate]);
+
+    const refreshAdmissionsDashboardCounts = useCallback(async () => {
+        const departmentName = String(data?.profile?.department || '').trim();
+        if (!departmentName) return;
+
+        try {
+            const [
+                readyResult,
+                scheduledResult,
+                approvedResult,
+                unsuccessfulResult
+            ] = await Promise.all([
+                getDepartmentApplicationsPage(
+                    departmentName,
+                    { status: READY_FOR_INTERVIEW_STATUSES },
+                    { page: 1, pageSize: 1 }
+                ),
+                getDepartmentApplicationsPage(
+                    departmentName,
+                    { status: ['Interview Scheduled'] },
+                    { page: 1, pageSize: 1 }
+                ),
+                getDepartmentApplicationsPage(
+                    departmentName,
+                    { status: ['Approved for Enrollment'] },
+                    { page: 1, pageSize: 1 }
+                ),
+                getDepartmentApplicationsPage(
+                    departmentName,
+                    { status: ['Application Unsuccessful'] },
+                    { page: 1, pageSize: 1 }
+                )
+            ]);
+
+            setAdmissionsDashboardCounts({
+                readyForInterview: Number(readyResult?.total || 0),
+                scheduled: Number(scheduledResult?.total || 0),
+                approved: Number(approvedResult?.total || 0),
+                unsuccessful: Number(unsuccessfulResult?.total || 0)
+            });
+        } catch (error) {
+            console.error('Failed to load department admissions dashboard counts:', error);
+        }
+    }, [READY_FOR_INTERVIEW_STATUSES, data?.profile?.department]);
+
+    useEffect(() => {
+        if (activeModule !== 'interview_queue' || !data?.profile?.department) return;
+        void refreshInterviewQueue();
+    }, [activeModule, data?.profile?.department, refreshInterviewQueue]);
+
+    useEffect(() => {
+        if (!data?.profile?.department) return;
+        void refreshAdmissionsDashboardCounts();
+    }, [data?.profile?.department, refreshAdmissionsDashboardCounts]);
+
+    const matchesInterviewQueueDate = (value: unknown) => {
+        const text = String(value || '').trim();
+        return Boolean(text && String(interviewQueueDate || '').trim() && text.startsWith(interviewQueueDate));
+    };
+
+    const shouldRefreshInterviewQueueForDateChange = (previousValue: unknown, nextValue: unknown) =>
+        matchesInterviewQueueDate(previousValue) || matchesInterviewQueueDate(nextValue);
+
+    const parseInterviewDateTime = (value: unknown) => {
+        const text = String(value || '').trim();
+        if (!text) {
+            return { date: '', time: '' };
+        }
+
+        const [datePart, ...timeParts] = text.split(' ');
+        return {
+            date: datePart || '',
+            time: timeParts.join(' ').trim()
+        };
+    };
 
     const getFilteredData = () => {
-        const dept = data.profile.department;
-        const filteredStudents = data.students.filter((s: any) =>
+        const dept = String(data?.profile?.department || '').trim();
+        const students = Array.isArray(data?.students) ? data.students : [];
+        const filteredStudents = students.filter((s: any) =>
             s.department === dept
             && Boolean(s.course)
             && Boolean(s.year)
@@ -181,14 +460,52 @@ export default function DeptDashboard() {
             '4th Year': activeStudents.filter((s: any) => s.year === '4th Year').length,
         };
 
-        return { ...data, students: filteredStudents, requests: counselingRequests, populationStats: populationByYear };
+        return {
+            ...(data || {}),
+            students: filteredStudents,
+            requests: Array.isArray(counselingRequests) ? counselingRequests : [],
+            populationStats: populationByYear
+        };
     };
 
     const filteredData = getFilteredData();
+    const departmentAlertItems = [
+        {
+            key: 'admissions-ready',
+            label: 'Admissions ready for interview scheduling',
+            count: admissionApplicants.filter((app: any) => READY_FOR_INTERVIEW_STATUSES.includes(String(app?.status || '').trim())).length,
+            module: 'admissions',
+            tone: 'border-blue-200 bg-blue-50 text-blue-700'
+        },
+        {
+            key: 'admissions-absent',
+            label: 'Applicants marked absent',
+            count: admissionApplicants.filter((app: any) =>
+                String(app?.status || '').trim() === 'Interview Scheduled'
+                && String(app?.interview_queue_status || '').trim() === 'Absent'
+            ).length,
+            module: 'admissions',
+            tone: 'border-amber-200 bg-amber-50 text-amber-700'
+        },
+        {
+            key: 'counseling-review',
+            label: 'Counseling requests awaiting department review',
+            count: counselingRequests.filter((request: any) => isCounselingAwaitingDept(request?.status)).length,
+            module: 'counseling_queue',
+            tone: 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        },
+        {
+            key: 'support-forwarded',
+            label: 'Support cases forwarded to the department',
+            count: supportRequests.filter((request: any) => String(request?.status || '').trim() === SUPPORT_STATUS.FORWARDED_TO_DEPT).length,
+            module: 'support_approvals',
+            tone: 'border-purple-200 bg-purple-50 text-purple-700'
+        }
+    ];
 
     // Derived cascading filter options — pull ALL courses belonging to this college from courseMap
-    const dept = data.profile.department;
-    const deptCourses = data.courseMap
+    const dept = String(data?.profile?.department || '').trim();
+    const deptCourses = data?.courseMap
         ? [...new Set(Object.entries(data.courseMap).filter(([_, d]) => d === dept).map(([courseName]) => courseName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')))].sort()
         : [...new Set(filteredData.students.map((s: any) => s.course).filter(Boolean))].sort();
 
@@ -259,41 +576,91 @@ export default function DeptDashboard() {
     // ─── Counseling Queue Actions ───
     const handleApproveAndSchedule = async (e: any) => {
         e.preventDefault();
-        if (!selectedCounselingReq) return;
+        if (!selectedCounselingReq || isSubmittingCounselingSchedule) return;
+        setIsSubmittingCounselingSchedule(true);
         try {
-            await supabase.from('counseling_requests').update({
-                status: COUNSELING_STATUS.SCHEDULED,
-                scheduled_date: `${scheduleData.date} ${scheduleData.time}`,
-                resolution_notes: scheduleData.notes
-            }).eq('id', selectedCounselingReq.id);
-            // Notify student
-            await supabase.from('notifications').insert([{ student_id: selectedCounselingReq.student_id, message: `Your counseling request has been approved and scheduled for ${scheduleData.date} at ${scheduleData.time} by ${data.profile.department}.` }]);
+            const scheduledDate = `${scheduleData.date} ${scheduleData.time}`;
+            const result = await invokeManagedDepartmentServicesFunction({
+                mode: 'schedule-counseling',
+                requestId: selectedCounselingReq.id,
+                date: scheduleData.date,
+                time: scheduleData.time,
+                notes: scheduleData.notes
+            });
+            patchCounselingRows((rows) => rows.map((row: any) => (
+                String(row.id) === String(selectedCounselingReq.id)
+                    ? {
+                        ...row,
+                        status: COUNSELING_STATUS.SCHEDULED,
+                        scheduled_date: scheduledDate,
+                        resolution_notes: scheduleData.notes || null
+                    }
+                    : row
+            )));
             showToastMessage('Request approved and session scheduled.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request approved and session scheduled.');
             setShowScheduleModal(false);
             setShowCounselingViewModal(false);
             setScheduleData({ date: '', time: '', notes: '' });
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+        } finally {
+            setIsSubmittingCounselingSchedule(false);
+        }
     };
 
     const handleRejectRequest = async () => {
-        if (!selectedCounselingReq) return;
+        if (!selectedCounselingReq || isSubmittingCounselingReject) return;
+        setIsSubmittingCounselingReject(true);
         try {
-            await supabase.from('counseling_requests').update({ status: COUNSELING_STATUS.REJECTED, resolution_notes: rejectNotes }).eq('id', selectedCounselingReq.id);
-            await supabase.from('notifications').insert([{ student_id: selectedCounselingReq.student_id, message: `Your counseling request has been reviewed and was not approved by ${data.profile.department}.${rejectNotes ? ' Reason: ' + rejectNotes : ''}` }]);
+            const result = await invokeManagedDepartmentServicesFunction({
+                mode: 'reject-counseling',
+                requestId: selectedCounselingReq.id,
+                notes: rejectNotes
+            });
+            patchCounselingRows((rows) => rows.map((row: any) => (
+                String(row.id) === String(selectedCounselingReq.id)
+                    ? {
+                        ...row,
+                        status: COUNSELING_STATUS.REJECTED,
+                        resolution_notes: rejectNotes || null
+                    }
+                    : row
+            )));
             showToastMessage('Request rejected.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request rejected.');
             setShowRejectModal(false);
             setShowCounselingViewModal(false);
             setRejectNotes('');
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+        } finally {
+            setIsSubmittingCounselingReject(false);
+        }
     };
 
     const handleCompleteRequest = async (req: any) => {
+        const nextRequestId = String(req?.id || '').trim();
+        if (!nextRequestId || pendingCounselingCompletionId === nextRequestId) return;
+        setPendingCounselingCompletionId(nextRequestId);
         try {
-            await supabase.from('counseling_requests').update({ status: COUNSELING_STATUS.COMPLETED }).eq('id', req.id);
-            await supabase.from('notifications').insert([{ student_id: req.student_id, message: `Your counseling session has been resolved and marked as Completed by ${data.profile.department}.` }]);
+            const result = await invokeManagedDepartmentServicesFunction({
+                mode: 'complete-counseling',
+                requestId: nextRequestId
+            });
+            patchCounselingRows((rows) => rows.map((row: any) => (
+                String(row.id) === nextRequestId
+                    ? { ...row, status: COUNSELING_STATUS.COMPLETED }
+                    : row
+            )));
             showToastMessage('Request marked as completed.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request marked as completed.');
             setShowCounselingViewModal(false);
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+        } finally {
+            setPendingCounselingCompletionId(null);
+        }
     };
 
     const handleStartForward = (req: any) => {
@@ -325,68 +692,737 @@ export default function DeptDashboard() {
     };
 
     const deleteRequest = async (id: any) => {
-        if (!confirm('Delete this record?')) return;
-        try {
-            const { error } = await supabase.from('counseling_requests').delete().eq('id', id);
-            if (error) throw error;
-            showToastMessage('Record deleted.');
-        } catch (err: any) {
-            showToastMessage("Error deleting: " + err.message, 'error');
-        }
+        void id;
+        showToastMessage('Direct counseling deletion is no longer supported from this page.', 'error');
     };
 
+    const closeEmailPreviewModal = useCallback(() => {
+        setEmailPreviewState(null);
+        setIsLoadingEmailPreview(false);
+        setIsConfirmingEmailPreview(false);
+    }, []);
+
+    const previewAdmissionsEmails = useCallback(async (payloads: any[]) => {
+        return Promise.all((Array.isArray(payloads) ? payloads : []).map(async (payload: any) => {
+            const normalizedEmail = String(payload?.email || '').trim().toLowerCase();
+            if (!normalizedEmail) {
+                return {
+                    type: String(payload?.type || '').trim(),
+                    email: '',
+                    name: String(payload?.name || 'Applicant').trim() || 'Applicant',
+                    subject: 'Email address missing',
+                    html: '<p>No email address is available for this recipient, so no preview could be generated.</p>'
+                };
+            }
+
+            return previewTransactionalEmailNotification(payload, 'Failed to preview applicant email.');
+        }));
+    }, []);
+
+    const openAdmissionsEmailPreview = useCallback(async ({
+        title,
+        confirmLabel,
+        payloads,
+        onConfirm
+    }: {
+        title: string;
+        confirmLabel: string;
+        payloads: any[];
+        onConfirm: () => Promise<void>;
+    }) => {
+        setIsLoadingEmailPreview(true);
+        try {
+            const previews = await previewAdmissionsEmails(payloads);
+            setEmailPreviewState({
+                title,
+                confirmLabel,
+                previews,
+                recipientCount: previews.length,
+                onConfirm
+            });
+        } catch (error: any) {
+            showToastMessage(error?.message || 'Failed to load email preview.', 'error');
+        } finally {
+            setIsLoadingEmailPreview(false);
+        }
+    }, [previewAdmissionsEmails, showToastMessage]);
+
+    const handleConfirmEmailPreview = useCallback(async () => {
+        if (!emailPreviewState?.onConfirm || isConfirmingEmailPreview) return;
+
+        setIsConfirmingEmailPreview(true);
+        try {
+            await emailPreviewState.onConfirm();
+            closeEmailPreviewModal();
+        } finally {
+            setIsConfirmingEmailPreview(false);
+        }
+    }, [closeEmailPreviewModal, emailPreviewState, isConfirmingEmailPreview]);
+
+    const buildScheduleEmailPayloads = useCallback(() => {
+        if (selectedApplicants.length === 0) {
+            throw new Error('No applicant is selected for scheduling.');
+        }
+        if (!applicantScheduleData.date || !applicantScheduleData.time) {
+            throw new Error('Interview date and time are required.');
+        }
+
+        const isReschedule = applicantScheduleMode === 'reschedule';
+        const interviewDate = `${applicantScheduleData.date} ${applicantScheduleData.time}`;
+        const interviewVenue = String(applicantScheduleData.venue || '').trim();
+        const interviewPanel = String(applicantScheduleData.panel || '').trim();
+
+        return selectedApplicants.map((application: any) => ({
+            type: isReschedule ? 'APPLICANT_INTERVIEW_RESCHEDULED' : 'APPLICANT_INTERVIEW_SCHEDULED',
+            email: application?.email,
+            name: getApplicantFullName(application),
+            referenceId: application?.reference_id,
+            course: getCourseNameForChoice(application),
+            interviewDate,
+            department: data?.profile?.department,
+            venue: interviewVenue,
+            panel: interviewPanel
+        }));
+    }, [applicantScheduleData.date, applicantScheduleData.panel, applicantScheduleData.time, applicantScheduleData.venue, applicantScheduleMode, data?.profile?.department, selectedApplicants]);
+
     // ─── Admissions Actions ───
+    if (!data) return null;
+
+    const closeApplicantScheduleModal = () => {
+        setShowApplicantScheduleModal(false);
+        setApplicantScheduleMode('schedule');
+        setApplicantScheduleData({ date: '', time: '', venue: '', panel: '', notes: '' });
+        setSelectedApplicants([]);
+    };
+
     const handleScheduleInterview = (app: any) => {
-        setSelectedApplicant(app);
+        setSelectedApplicants(app ? [app] : []);
+        setApplicantScheduleMode('schedule');
+        setApplicantScheduleData({ date: '', time: '', venue: '', panel: '', notes: '' });
         setShowApplicantScheduleModal(true);
+    };
+
+    const handleBulkScheduleInterviews = (applications: any[]) => {
+        const nextApplicants = Array.isArray(applications) ? applications.filter(Boolean) : [];
+        if (nextApplicants.length === 0) {
+            showToastMessage('Select at least one applicant to bulk schedule.', 'error');
+            return;
+        }
+
+        setSelectedApplicants(nextApplicants);
+        setApplicantScheduleMode('schedule');
+        setApplicantScheduleData({ date: '', time: '', venue: '', panel: '', notes: '' });
+        setShowApplicantScheduleModal(true);
+    };
+
+    const handleRescheduleInterview = (app: any) => {
+        const nextApplicant = app || null;
+        if (!nextApplicant) return;
+        if (String(nextApplicant?.interview_queue_status || '').trim() !== 'Absent') {
+            showToastMessage('Only applicants marked absent can be rescheduled.', 'error');
+            return;
+        }
+
+        const { date, time } = parseInterviewDateTime(nextApplicant?.interview_date);
+        setSelectedApplicants([nextApplicant]);
+        setApplicantScheduleMode('reschedule');
+        setApplicantScheduleData({
+            date,
+            time,
+            venue: String(nextApplicant?.interview_venue || ''),
+            panel: String(nextApplicant?.interview_panel || ''),
+            notes: ''
+        });
+        setShowApplicantScheduleModal(true);
+    };
+
+    const executeApplicantSchedule = async () => {
+        if (isSchedulingApplicant) return;
+        setIsSchedulingApplicant(true);
+        try {
+            if (selectedApplicants.length === 0) {
+                throw new Error('No applicant is selected for scheduling.');
+            }
+
+            const interviewDate = `${applicantScheduleData.date} ${applicantScheduleData.time}`;
+            const interviewVenue = String(applicantScheduleData.venue || '').trim();
+            const interviewPanel = String(applicantScheduleData.panel || '').trim();
+            const selectedApplicationIds = selectedApplicants
+                .map((app: any) => String(app?.id || '').trim())
+                .filter(Boolean);
+
+            console.log('[DEPT] Scheduling interview(s) for:', selectedApplicationIds, applicantScheduleData);
+
+            let scheduledIds: string[] = [];
+            let skipped: Array<Record<string, unknown>> = [];
+            const isReschedule = applicantScheduleMode === 'reschedule';
+
+            if (isReschedule) {
+                await invokeManagedAdmissionsFunction({
+                    mode: 'reschedule-interview',
+                    applicationId: selectedApplicationIds[0],
+                    date: applicantScheduleData.date,
+                    time: applicantScheduleData.time,
+                    venue: interviewVenue,
+                    panel: interviewPanel
+                });
+                scheduledIds = selectedApplicationIds;
+            } else if (selectedApplicants.length === 1) {
+                await invokeManagedAdmissionsFunction({
+                    mode: 'schedule-interview',
+                    applicationId: selectedApplicationIds[0],
+                    date: applicantScheduleData.date,
+                    time: applicantScheduleData.time,
+                    venue: interviewVenue,
+                    panel: interviewPanel
+                });
+                scheduledIds = selectedApplicationIds;
+            } else {
+                const result = await invokeManagedAdmissionsFunction({
+                    mode: 'bulk-schedule-interviews',
+                    applicationIds: selectedApplicationIds,
+                    date: applicantScheduleData.date,
+                    time: applicantScheduleData.time,
+                    venue: interviewVenue,
+                    panel: interviewPanel
+                });
+                scheduledIds = Array.isArray(result?.scheduledIds)
+                    ? result.scheduledIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                    : [];
+                skipped = Array.isArray(result?.skipped) ? result.skipped : [];
+            }
+
+            if (scheduledIds.length === 0) {
+                const skippedMessage = skipped.length > 0
+                    ? String(skipped[0]?.reason || 'No applicants could be scheduled.')
+                    : 'No applicants could be scheduled.';
+                throw new Error(skippedMessage);
+            }
+
+            const scheduledIdSet = new Set(scheduledIds.map((id) => String(id)));
+            const scheduledApplicants = selectedApplicants.filter((app: any) => scheduledIdSet.has(String(app?.id || '')));
+
+            patchAdmissionRows((rows) => rows.map((row: any) => (
+                scheduledIdSet.has(String(row?.id || ''))
+                    ? {
+                        ...row,
+                        status: 'Interview Scheduled',
+                        interview_date: interviewDate,
+                        interview_venue: interviewVenue || null,
+                        interview_panel: interviewPanel || null,
+                        interview_queue_status: null
+                    }
+                    : row
+            )));
+
+            const successMessage = isReschedule
+                ? 'Interview rescheduled successfully.'
+                : scheduledApplicants.length === 1
+                    ? 'Interview scheduled successfully.'
+                    : `${scheduledApplicants.length} interviews scheduled successfully.`;
+            showToastMessage(successMessage, 'success');
+
+            if (skipped.length > 0) {
+                showToastMessage(`${skipped.length} applicant${skipped.length !== 1 ? 's were' : ' was'} skipped because they were no longer schedulable.`, 'error');
+            }
+
+            closeApplicantScheduleModal();
+
+            if (
+                isReschedule
+                    ? shouldRefreshInterviewQueueForDateChange(selectedApplicants[0]?.interview_date, interviewDate)
+                    : applicantScheduleData.date === interviewQueueDate
+            ) {
+                void refreshInterviewQueue();
+            }
+
+            if (scheduledApplicants.length > 0) {
+                void refreshAdmissionsDashboardCounts();
+                void Promise.allSettled(scheduledApplicants.map((application: any) => (
+                    sendAdmissionsEmailNotification({
+                        type: isReschedule ? 'APPLICANT_INTERVIEW_RESCHEDULED' : 'APPLICANT_INTERVIEW_SCHEDULED',
+                        email: application?.email,
+                        name: getApplicantFullName(application),
+                        referenceId: application?.reference_id,
+                        course: getCourseNameForChoice(application),
+                        interviewDate,
+                        department: data?.profile?.department,
+                        venue: interviewVenue,
+                        panel: interviewPanel
+                    })
+                ))).then((results) => {
+                    const failedCount = results.filter((result) =>
+                        result.status === 'fulfilled'
+                            ? result.value?.emailSent === false
+                            : true
+                    ).length;
+
+                    if (failedCount > 0) {
+                        showToastMessage(
+                            `${successMessage} ${failedCount} applicant email${failedCount !== 1 ? 's' : ''} failed to send.`,
+                            'error'
+                        );
+                    }
+                });
+            }
+        } catch (err: any) {
+            console.error('[DEPT] Schedule exception:', err);
+            showToastMessage(err.message, 'error');
+        } finally {
+            setIsSchedulingApplicant(false);
+        }
     };
 
     const confirmApplicantSchedule = async (e: any) => {
         e.preventDefault();
         try {
-            console.log('[DEPT] Scheduling interview for:', selectedApplicant?.id, applicantScheduleData);
-            const { error } = await supabase.from('applications').update({
-                status: 'Interview Scheduled',
-                interview_date: `${applicantScheduleData.date} ${applicantScheduleData.time}`
-            }).eq('id', selectedApplicant.id);
-            if (error) {
-                console.error('[DEPT] Schedule update error:', error);
-                showToastMessage('Failed to schedule: ' + error.message, 'error');
-                return;
-            }
-            console.log('[DEPT] Interview scheduled successfully');
-            showToastMessage('Interview scheduled successfully.', 'success');
-            setShowApplicantScheduleModal(false);
-            setApplicantScheduleData({ date: '', time: '', notes: '' });
-            admissionsState.refresh();
-        } catch (err: any) {
-            console.error('[DEPT] Schedule exception:', err);
-            showToastMessage(err.message, 'error');
+            const isReschedule = applicantScheduleMode === 'reschedule';
+            const previewPayloads = buildScheduleEmailPayloads();
+            await openAdmissionsEmailPreview({
+                title: isReschedule
+                    ? 'Preview Reschedule Email'
+                    : selectedApplicants.length > 1
+                        ? 'Preview Bulk Schedule Emails'
+                        : 'Preview Schedule Email',
+                confirmLabel: isReschedule ? 'Confirm Reschedule and Send' : 'Confirm Schedule and Send',
+                payloads: previewPayloads,
+                onConfirm: executeApplicantSchedule
+            });
+        } catch (error: any) {
+            showToastMessage(error?.message || 'Failed to open email preview.', 'error');
         }
     };
 
-    const handleApproveApplicant = async (app: any) => {
-        if (!window.confirm(`Approve ${app.first_name} for enrollment in your department?`)) return;
+    const handleBulkApproveApplicants = async (
+        applications: any[],
+        options: { skipPreview?: boolean } = {}
+    ) => {
+        const nextApplicants = Array.isArray(applications) ? applications.filter(Boolean) : [];
+        if (nextApplicants.length === 0 || isProcessingBulkApplicantAction) return;
+        if (!options.skipPreview) {
+            await openAdmissionsEmailPreview({
+                title: 'Preview Bulk Approval Emails',
+                confirmLabel: 'Confirm Approval and Send',
+                payloads: nextApplicants.map((application: any) => ({
+                    type: 'APPLICANT_APPROVED_FOR_ENROLLMENT',
+                    email: application?.email,
+                    name: getApplicantFullName(application),
+                    referenceId: application?.reference_id,
+                    course: getCourseNameForChoice(application),
+                    department: data?.profile?.department
+                })),
+                onConfirm: () => handleBulkApproveApplicants(nextApplicants, { skipPreview: true })
+            });
+            return;
+        }
+
+        setIsProcessingBulkApplicantAction(true);
+        try {
+            const applicationIds = nextApplicants
+                .map((app: any) => String(app?.id || '').trim())
+                .filter(Boolean);
+            const result = await invokeManagedAdmissionsFunction({
+                mode: 'bulk-approve-applications',
+                applicationIds
+            });
+            const updatedIds = Array.isArray(result?.updatedIds)
+                ? result.updatedIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                : [];
+            const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
+
+            if (updatedIds.length === 0) {
+                throw new Error(String(skipped[0]?.reason || 'No applicants could be approved.'));
+            }
+
+            const updatedIdSet = new Set(updatedIds);
+            const updatedApplicants = nextApplicants.filter((app: any) => updatedIdSet.has(String(app?.id || '')));
+
+            patchAdmissionRows((rows) => rows.filter((row: any) => !updatedIdSet.has(String(row?.id || ''))));
+            setInterviewQueueRows((rows) => rows.map((row: any) => (
+                updatedIdSet.has(String(row?.id || ''))
+                    ? { ...row, status: 'Approved for Enrollment', interview_queue_status: null }
+                    : row
+            )));
+
+            if (updatedApplicants.some((app: any) => matchesInterviewQueueDate(app?.interview_date))) {
+                void refreshInterviewQueue();
+            }
+
+            const successMessage = `${updatedApplicants.length} applicant${updatedApplicants.length !== 1 ? 's' : ''} approved for enrollment.`;
+            showToastMessage(successMessage, 'success');
+            void refreshAdmissionsDashboardCounts();
+
+            if (skipped.length > 0) {
+                showToastMessage(`${skipped.length} applicant${skipped.length !== 1 ? 's were' : ' was'} skipped during bulk approval.`, 'error');
+            }
+
+            void Promise.allSettled(updatedApplicants.map((application: any) => (
+                sendAdmissionsEmailNotification({
+                    type: 'APPLICANT_APPROVED_FOR_ENROLLMENT',
+                    email: application?.email,
+                    name: getApplicantFullName(application),
+                    referenceId: application?.reference_id,
+                    course: getCourseNameForChoice(application),
+                    department: data?.profile?.department
+                })
+            ))).then((results) => {
+                const failedCount = results.filter((emailResult) =>
+                    emailResult.status === 'fulfilled'
+                        ? emailResult.value?.emailSent === false
+                        : true
+                ).length;
+
+                if (failedCount > 0) {
+                    showToastMessage(`${successMessage} ${failedCount} applicant email${failedCount !== 1 ? 's' : ''} failed to send.`, 'error');
+                }
+            });
+        } catch (err: any) {
+            showToastMessage(err?.message || 'Failed to bulk approve applicants.', 'error');
+        } finally {
+            setIsProcessingBulkApplicantAction(false);
+        }
+    };
+
+    const handleBulkForwardApplicants = async (
+        applications: any[],
+        options: { skipPreview?: boolean } = {}
+    ) => {
+        const nextApplicants = Array.isArray(applications) ? applications.filter(Boolean) : [];
+        if (nextApplicants.length === 0 || isProcessingBulkApplicantAction) return;
+        if (!options.skipPreview) {
+            await openAdmissionsEmailPreview({
+                title: 'Preview Bulk Forward Emails',
+                confirmLabel: 'Confirm Forward and Send',
+                payloads: nextApplicants.map((application: any) => {
+                    const currentChoice = Number(application?.current_choice || 1);
+                    const nextChoice = currentChoice + 1;
+                    return {
+                        type: 'APPLICANT_FORWARDED_TO_NEXT_CHOICE',
+                        email: application?.email,
+                        name: getApplicantFullName(application),
+                        referenceId: application?.reference_id,
+                        fromChoice: getChoiceLabel(currentChoice),
+                        toChoice: getChoiceLabel(nextChoice),
+                        nextCourse: getCourseNameForChoice(application, nextChoice),
+                        department: data?.profile?.department
+                    };
+                }),
+                onConfirm: () => handleBulkForwardApplicants(nextApplicants, { skipPreview: true })
+            });
+            return;
+        }
+
+        setIsProcessingBulkApplicantAction(true);
+        try {
+            const applicationIds = nextApplicants
+                .map((app: any) => String(app?.id || '').trim())
+                .filter(Boolean);
+            const result = await invokeManagedAdmissionsFunction({
+                mode: 'bulk-forward-applications',
+                applicationIds
+            });
+            const updatedIds = Array.isArray(result?.updatedIds)
+                ? result.updatedIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                : [];
+            const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
+
+            if (updatedIds.length === 0) {
+                throw new Error(String(skipped[0]?.reason || 'No applicants could be forwarded.'));
+            }
+
+            const updatedIdSet = new Set(updatedIds);
+            const updatedApplicants = nextApplicants.filter((app: any) => updatedIdSet.has(String(app?.id || '')));
+
+            patchAdmissionRows((rows) => rows.flatMap((row: any) => {
+                if (!updatedIdSet.has(String(row?.id || ''))) {
+                    return [row];
+                }
+
+                const nextChoice = Number(row?.current_choice || 1) + 1;
+                const nextStatus = nextChoice === 2
+                    ? 'Forwarded to 2nd Choice for Interview'
+                    : 'Forwarded to 3rd Choice for Interview';
+
+                return shouldKeepAdmissionRow(nextStatus, row, nextChoice)
+                    ? [{
+                        ...row,
+                        status: nextStatus,
+                        current_choice: nextChoice,
+                        interview_queue_status: null
+                    }]
+                    : [];
+            }));
+            setInterviewQueueRows((rows) => rows.filter((row: any) => !updatedIdSet.has(String(row?.id || ''))));
+
+            if (updatedApplicants.some((app: any) => matchesInterviewQueueDate(app?.interview_date))) {
+                void refreshInterviewQueue();
+            }
+
+            const successMessage = `${updatedApplicants.length} applicant${updatedApplicants.length !== 1 ? 's' : ''} forwarded to the next course choice.`;
+            showToastMessage(successMessage, 'success');
+            void refreshAdmissionsDashboardCounts();
+
+            if (skipped.length > 0) {
+                showToastMessage(`${skipped.length} applicant${skipped.length !== 1 ? 's were' : ' was'} skipped during bulk forwarding.`, 'error');
+            }
+
+            void Promise.allSettled(updatedApplicants.map((application: any) => {
+                const currentChoice = Number(application?.current_choice || 1);
+                const nextChoice = currentChoice + 1;
+
+                return sendAdmissionsEmailNotification({
+                    type: 'APPLICANT_FORWARDED_TO_NEXT_CHOICE',
+                    email: application?.email,
+                    name: getApplicantFullName(application),
+                    referenceId: application?.reference_id,
+                    fromChoice: getChoiceLabel(currentChoice),
+                    toChoice: getChoiceLabel(nextChoice),
+                    nextCourse: getCourseNameForChoice(application, nextChoice),
+                    department: data?.profile?.department
+                });
+            })).then((results) => {
+                const failedCount = results.filter((emailResult) =>
+                    emailResult.status === 'fulfilled'
+                        ? emailResult.value?.emailSent === false
+                        : true
+                ).length;
+
+                if (failedCount > 0) {
+                    showToastMessage(`${successMessage} ${failedCount} applicant email${failedCount !== 1 ? 's' : ''} failed to send.`, 'error');
+                }
+            });
+        } catch (err: any) {
+            showToastMessage(err?.message || 'Failed to bulk forward applicants.', 'error');
+        } finally {
+            setIsProcessingBulkApplicantAction(false);
+        }
+    };
+
+    const handleBulkMarkApplicantsUnsuccessful = async (
+        applications: any[],
+        options: { skipPreview?: boolean } = {}
+    ) => {
+        const nextApplicants = Array.isArray(applications) ? applications.filter(Boolean) : [];
+        if (nextApplicants.length === 0 || isProcessingBulkApplicantAction) return;
+        if (!options.skipPreview) {
+            await openAdmissionsEmailPreview({
+                title: 'Preview Bulk Unsuccessful Emails',
+                confirmLabel: 'Confirm Unsuccessful and Send',
+                payloads: nextApplicants.map((application: any) => ({
+                    type: 'APPLICANT_UNSUCCESSFUL',
+                    email: application?.email,
+                    name: getApplicantFullName(application),
+                    referenceId: application?.reference_id,
+                    course: getCourseNameForChoice(application, application?.current_choice || 1),
+                    department: data?.profile?.department
+                })),
+                onConfirm: () => handleBulkMarkApplicantsUnsuccessful(nextApplicants, { skipPreview: true })
+            });
+            return;
+        }
+
+        setIsProcessingBulkApplicantAction(true);
+        try {
+            const applicationIds = nextApplicants
+                .map((app: any) => String(app?.id || '').trim())
+                .filter(Boolean);
+            const result = await invokeManagedAdmissionsFunction({
+                mode: 'bulk-mark-unsuccessful-applications',
+                applicationIds
+            });
+            const updatedIds = Array.isArray(result?.updatedIds)
+                ? result.updatedIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                : [];
+            const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
+
+            if (updatedIds.length === 0) {
+                throw new Error(String(skipped[0]?.reason || 'No applicants could be marked unsuccessful.'));
+            }
+
+            const updatedIdSet = new Set(updatedIds);
+            const updatedApplicants = nextApplicants.filter((app: any) => updatedIdSet.has(String(app?.id || '')));
+
+            patchAdmissionRows((rows) => rows.filter((row: any) => !updatedIdSet.has(String(row?.id || ''))));
+            setInterviewQueueRows((rows) => rows.filter((row: any) => !updatedIdSet.has(String(row?.id || ''))));
+
+            if (updatedApplicants.some((app: any) => matchesInterviewQueueDate(app?.interview_date))) {
+                void refreshInterviewQueue();
+            }
+
+            const successMessage = `${updatedApplicants.length} applicant${updatedApplicants.length !== 1 ? 's' : ''} marked unsuccessful.`;
+            showToastMessage(successMessage, 'success');
+            void refreshAdmissionsDashboardCounts();
+
+            if (skipped.length > 0) {
+                showToastMessage(`${skipped.length} applicant${skipped.length !== 1 ? 's were' : ' was'} skipped during bulk unsuccessful marking.`, 'error');
+            }
+
+            void Promise.allSettled(updatedApplicants.map((application: any) => (
+                sendAdmissionsEmailNotification({
+                    type: 'APPLICANT_UNSUCCESSFUL',
+                    email: application?.email,
+                    name: getApplicantFullName(application),
+                    referenceId: application?.reference_id,
+                    course: getCourseNameForChoice(application, application?.current_choice || 1),
+                    department: data?.profile?.department
+                })
+            ))).then((results) => {
+                const failedCount = results.filter((emailResult) =>
+                    emailResult.status === 'fulfilled'
+                        ? emailResult.value?.emailSent === false
+                        : true
+                ).length;
+
+                if (failedCount > 0) {
+                    showToastMessage(`${successMessage} ${failedCount} applicant email${failedCount !== 1 ? 's' : ''} failed to send.`, 'error');
+                }
+            });
+        } catch (err: any) {
+            showToastMessage(err?.message || 'Failed to bulk mark applicants unsuccessful.', 'error');
+        } finally {
+            setIsProcessingBulkApplicantAction(false);
+        }
+    };
+
+    const handleApproveApplicant = async (
+        app: any,
+        options: { skipPreview?: boolean } = {}
+    ) => {
+        const nextApplicationId = String(app?.id || '').trim();
+        if (!nextApplicationId || pendingApplicantActionId === nextApplicationId) return;
+        if (!options.skipPreview) {
+            await openAdmissionsEmailPreview({
+                title: 'Preview Approval Email',
+                confirmLabel: 'Confirm Approval and Send',
+                payloads: [{
+                    type: 'APPLICANT_APPROVED_FOR_ENROLLMENT',
+                    email: app?.email,
+                    name: getApplicantFullName(app),
+                    referenceId: app?.reference_id,
+                    course: getCourseNameForChoice(app),
+                    department: data?.profile?.department
+                }],
+                onConfirm: () => handleApproveApplicant(app, { skipPreview: true })
+            });
+            return;
+        }
+        setPendingApplicantActionId(nextApplicationId);
         try {
             console.log('[DEPT] Approving applicant:', app.id);
-            const { error } = await supabase.from('applications').update({ status: 'Approved for Enrollment' }).eq('id', app.id);
-            if (error) {
-                console.error('[DEPT] Approve error:', error);
-                showToastMessage('Failed to approve: ' + error.message, 'error');
-                return;
+            const emailPayload = {
+                type: 'APPLICANT_APPROVED_FOR_ENROLLMENT',
+                email: app?.email,
+                name: getApplicantFullName(app),
+                referenceId: app?.reference_id,
+                course: getCourseNameForChoice(app),
+                department: data?.profile?.department
+            };
+            await invokeManagedAdmissionsFunction({
+                mode: 'approve-application',
+                applicationId: app.id
+            });
+            showToastMessage('Applicant approved for enrollment.', 'success');
+            void refreshAdmissionsDashboardCounts();
+            patchAdmissionRows((rows) => rows.filter((row: any) => String(row.id) !== String(app.id)));
+            setInterviewQueueRows((rows) => rows.map((row: any) => (
+                String(row.id) === String(app.id)
+                    ? { ...row, status: 'Approved for Enrollment' }
+                    : row
+            )));
+            if (matchesInterviewQueueDate(app?.interview_date)) {
+                void refreshInterviewQueue();
             }
-            showToastMessage(`Applicant approved for enrollment.`, 'success');
-            admissionsState.refresh();
+            void sendAdmissionsEmailNotification(emailPayload).then((emailResult) => {
+                if (emailResult.emailSent === false) {
+                    showToastMessage(`Applicant approved, but email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
+                }
+            });
         } catch (err: any) {
             console.error('[DEPT] Approve exception:', err);
             showToastMessage(err.message, 'error');
+        } finally {
+            setPendingApplicantActionId(null);
         }
     };
 
-    const handleRejectApplicant = async (app: any) => {
-        if (!window.confirm(`Reject ${app.first_name}? They will be forwarded to their next course choice.`)) return;
+    const handleMarkApplicantAbsent = async (app: any) => {
+        const nextApplicationId = String(app?.id || '').trim();
+        if (!nextApplicationId || pendingApplicantActionId === nextApplicationId) return;
+        if (!window.confirm(`Mark ${app.first_name} as absent for the scheduled interview?`)) return;
+
+        setPendingApplicantActionId(nextApplicationId);
         try {
-            const nextChoice = (app.current_choice || 1) + 1;
+            await invokeManagedAdmissionsFunction({
+                mode: 'set-interview-queue-status',
+                applicationId: nextApplicationId,
+                queueStatus: 'Absent'
+            });
+
+            patchAdmissionRows((rows) => rows.map((row: any) => (
+                String(row.id) === nextApplicationId
+                    ? { ...row, interview_date: null, interview_queue_status: 'Absent' }
+                    : row
+            )));
+            setInterviewQueueRows((rows) => rows.filter((row: any) => String(row?.id || '') !== nextApplicationId));
+
+            if (matchesInterviewQueueDate(app?.interview_date)) {
+                void refreshInterviewQueue();
+            }
+
+            showToastMessage('Applicant marked absent.', 'success');
+        } catch (err: any) {
+            showToastMessage(err?.message || 'Failed to mark applicant absent.', 'error');
+        } finally {
+            setPendingApplicantActionId(null);
+        }
+    };
+
+    const handleRejectApplicant = async (
+        app: any,
+        options: { skipPreview?: boolean } = {}
+    ) => {
+        const nextApplicationId = String(app?.id || '').trim();
+        if (!nextApplicationId || pendingApplicantActionId === nextApplicationId) return;
+        const nextChoice = (app.current_choice || 1) + 1;
+        const previewStatus = nextChoice === 2 && app.alt_course_1
+            ? 'Forwarded to 2nd Choice for Interview'
+            : nextChoice === 3 && app.alt_course_2
+                ? 'Forwarded to 3rd Choice for Interview'
+                : 'Application Unsuccessful';
+        if (!options.skipPreview) {
+            const previewPayload = previewStatus === 'Application Unsuccessful'
+                ? {
+                    type: 'APPLICANT_UNSUCCESSFUL',
+                    email: app?.email,
+                    name: getApplicantFullName(app),
+                    referenceId: app?.reference_id,
+                    course: getCourseNameForChoice(app, app.current_choice || 1),
+                    department: data?.profile?.department
+                }
+                : {
+                    type: 'APPLICANT_FORWARDED_TO_NEXT_CHOICE',
+                    email: app?.email,
+                    name: getApplicantFullName(app),
+                    referenceId: app?.reference_id,
+                    fromChoice: getChoiceLabel(app.current_choice || 1),
+                    toChoice: getChoiceLabel(nextChoice),
+                    nextCourse: getCourseNameForChoice(app, nextChoice),
+                    department: data?.profile?.department
+                };
+            await openAdmissionsEmailPreview({
+                title: previewStatus === 'Application Unsuccessful'
+                    ? 'Preview Unsuccessful Email'
+                    : 'Preview Forward Email',
+                confirmLabel: previewStatus === 'Application Unsuccessful'
+                    ? 'Confirm Unsuccessful and Send'
+                    : 'Confirm Forward and Send',
+                payloads: [previewPayload],
+                onConfirm: () => handleRejectApplicant(app, { skipPreview: true })
+            });
+            return;
+        }
+        setPendingApplicantActionId(nextApplicationId);
+        try {
             let newStatus = '';
 
             if (nextChoice === 2 && app.alt_course_1) {
@@ -398,27 +1434,74 @@ export default function DeptDashboard() {
             }
 
             console.log('[DEPT] Rejecting applicant:', app.id, '→', newStatus);
-            const { error } = await supabase.from('applications').update({
-                status: newStatus,
-                current_choice: nextChoice
-            }).eq('id', app.id);
+            await invokeManagedAdmissionsFunction({
+                mode: 'reject-application',
+                applicationId: app.id
+            });
 
-            if (error) {
-                console.error('[DEPT] Reject error:', error);
-                showToastMessage('Failed to reject: ' + error.message, 'error');
-                return;
+            const emailPayload = newStatus === 'Application Unsuccessful'
+                ? {
+                    type: 'APPLICANT_UNSUCCESSFUL',
+                    email: app?.email,
+                    name: getApplicantFullName(app),
+                    referenceId: app?.reference_id,
+                    course: getCourseNameForChoice(app, app.current_choice || 1),
+                    department: data?.profile?.department
+                }
+                : {
+                    type: 'APPLICANT_FORWARDED_TO_NEXT_CHOICE',
+                    email: app?.email,
+                    name: getApplicantFullName(app),
+                    referenceId: app?.reference_id,
+                    fromChoice: getChoiceLabel(app.current_choice || 1),
+                    toChoice: getChoiceLabel(nextChoice),
+                    nextCourse: getCourseNameForChoice(app, nextChoice),
+                    department: data?.profile?.department
+                };
+
+            const successMessage = newStatus === 'Application Unsuccessful'
+                ? 'Applicant marked unsuccessful.'
+                : 'Applicant forwarded to next choice.';
+
+            showToastMessage(successMessage, 'success');
+            void refreshAdmissionsDashboardCounts();
+            patchAdmissionRows((rows) => {
+                if (!shouldKeepAdmissionRow(newStatus, app, nextChoice)) {
+                    return rows.filter((row: any) => String(row.id) !== String(app.id));
+                }
+
+                return rows.map((row: any) => (
+                    String(row.id) === String(app.id)
+                        ? {
+                            ...row,
+                            status: newStatus,
+                            current_choice: nextChoice,
+                            interview_queue_status: null
+                        }
+                        : row
+                ));
+            });
+            setInterviewQueueRows((rows) => rows.filter((row: any) => String(row.id) !== String(app.id)));
+            if (matchesInterviewQueueDate(app?.interview_date)) {
+                void refreshInterviewQueue();
             }
-
-            showToastMessage(`Applicant forwarded to next choice.`, 'success');
-            admissionsState.refresh();
+            void sendAdmissionsEmailNotification(emailPayload).then((backgroundEmailResult) => {
+                if (backgroundEmailResult.emailSent === false) {
+                    showToastMessage(`${successMessage} Email failed: ${backgroundEmailResult.emailError || 'Unknown email error.'}`, 'error');
+                }
+            });
         } catch (err: any) {
             console.error('[DEPT] Reject exception:', err);
             showToastMessage(err.message, 'error');
+        } finally {
+            setPendingApplicantActionId(null);
         }
     };
 
     const handleProfileSubmit = async (e: any) => {
         e.preventDefault();
+        if (isUpdatingProfile) return;
+        setIsUpdatingProfile(true);
         try {
             const { error } = await supabase
                 .from('staff_accounts')
@@ -437,6 +1520,8 @@ export default function DeptDashboard() {
             showToastMessage('Profile updated.');
         } catch (err: any) {
             showToastMessage("Error updating profile: " + err.message, 'error');
+        } finally {
+            setIsUpdatingProfile(false);
         }
     };
 
@@ -449,6 +1534,8 @@ export default function DeptDashboard() {
         setIsRefreshingData(true);
         try {
             await refreshAllData();
+            await refreshAdmissionsDashboardCounts();
+            await refreshInterviewQueue();
             showToastMessage('Department data refreshed.', 'success');
         } catch (error: any) {
             showToastMessage(error?.message || 'Failed to refresh department data.', 'error');
@@ -459,54 +1546,68 @@ export default function DeptDashboard() {
 
     const handleReferralSubmit = async (e: any) => {
         e.preventDefault();
+        if (isSubmittingReferral) return;
+        setIsSubmittingReferral(true);
         try {
             if (forwardingToStaff && selectedCounselingReq) {
-                // Forward existing request to care staff
                 const signatureData = sigCanvasRef.current && !sigCanvasRef.current.isEmpty() ? sigCanvasRef.current.getCanvas().toDataURL('image/png') : null;
-                await supabase.from('counseling_requests').update({
-                    status: COUNSELING_STATUS.REFERRED,
-                    referred_by: data.profile.name,
-                    referrer_contact_number: referralForm.referrer_contact_number,
-                    relationship_with_student: referralForm.relationship_with_student,
-                    reason_for_referral: referralForm.reason_for_referral,
-                    actions_made: referralForm.actions_made,
-                    date_duration_of_observations: referralForm.date_duration_of_observations,
-                    referrer_signature: signatureData
-                }).eq('id', selectedCounselingReq.id);
-                // Notify student
-                await supabase.from('notifications').insert([{ student_id: selectedCounselingReq.student_id, message: `Your counseling request has been forwarded to CARE Staff by ${data.profile.department} for further assistance.` }]);
+                const result = await invokeManagedDepartmentServicesFunction({
+                    mode: 'forward-counseling-to-care',
+                    requestId: selectedCounselingReq.id,
+                    referrerContactNumber: referralForm.referrer_contact_number,
+                    relationshipWithStudent: referralForm.relationship_with_student,
+                    reasonForReferral: referralForm.reason_for_referral,
+                    actionsMade: referralForm.actions_made,
+                    dateDurationOfObservations: referralForm.date_duration_of_observations,
+                    referrerSignature: signatureData
+                });
+                patchCounselingRows((rows) => rows.map((row: any) => (
+                    String(row.id) === String(selectedCounselingReq.id)
+                        ? {
+                            ...row,
+                            status: COUNSELING_STATUS.REFERRED,
+                            referred_by: data.profile.name,
+                            referrer_contact_number: referralForm.referrer_contact_number || null,
+                            relationship_with_student: referralForm.relationship_with_student || null,
+                            reason_for_referral: referralForm.reason_for_referral || row.reason_for_referral || row.description || null,
+                            actions_made: referralForm.actions_made || null,
+                            date_duration_of_observations: referralForm.date_duration_of_observations || null,
+                            referrer_signature: signatureData || null
+                        }
+                        : row
+                )));
                 showToastMessage('Request forwarded to CARE Staff.', 'success');
+                queueProcessEmailNotification(result?.emailPayload, 'Request forwarded to CARE Staff.');
             } else {
-                // Direct referral by dept head (new request)
                 const studentObj = filteredData.students.find((s: any) => s.name === referralForm.student);
                 const sigData = sigCanvasRef.current && !sigCanvasRef.current.isEmpty() ? sigCanvasRef.current.getCanvas().toDataURL('image/png') : null;
-                await supabase.from('counseling_requests').insert([{
-                    student_id: studentObj?.id || 'UNKNOWN',
-                    student_name: referralForm.student,
-                    course_year: studentObj ? `${studentObj.course || ''} - ${studentObj.year || ''}` : '',
-                    contact_number: studentObj?.mobile || '',
-                    request_type: 'Dean Referral',
-                    description: referralForm.reason_for_referral,
-                    referred_by: data.profile.name,
-                    referrer_contact_number: referralForm.referrer_contact_number,
-                    relationship_with_student: referralForm.relationship_with_student,
-                    reason_for_referral: referralForm.reason_for_referral,
-                    actions_made: referralForm.actions_made,
-                    date_duration_of_observations: referralForm.date_duration_of_observations,
-                    referrer_signature: sigData,
-                    department: data.profile.department,
-                    status: COUNSELING_STATUS.REFERRED
-                }]);
-                if (studentObj) await supabase.from('notifications').insert([{ student_id: studentObj.id, message: `You have been referred for counseling by ${data.profile.department}.` }]);
+                const result = await invokeManagedDepartmentServicesFunction({
+                    mode: 'create-counseling-referral',
+                    studentId: studentObj?.id || '',
+                    studentName: referralForm.student,
+                    courseYear: studentObj ? `${studentObj.course || ''} - ${studentObj.year || ''}` : '',
+                    contactNumber: studentObj?.mobile || '',
+                    reasonForReferral: referralForm.reason_for_referral,
+                    referrerContactNumber: referralForm.referrer_contact_number,
+                    relationshipWithStudent: referralForm.relationship_with_student,
+                    actionsMade: referralForm.actions_made,
+                    dateDurationOfObservations: referralForm.date_duration_of_observations,
+                    referrerSignature: sigData
+                });
+                await counselingState.refresh();
                 showToastMessage('Referral submitted.');
+                queueProcessEmailNotification(result?.emailPayload, 'Referral submitted.');
             }
-        } catch (err: any) { showToastMessage("Error: " + err.message, 'error'); }
-
-        setShowReferralModal(false);
-        setForwardingToStaff(false);
-        setSelectedCounselingReq(null);
-        setReferralForm({ student: '', type: '', notes: '', referrer_contact_number: '', relationship_with_student: '', reason_for_referral: '', actions_made: '', date_duration_of_observations: '' });
-        if (sigCanvasRef.current) sigCanvasRef.current.clear();
+            setShowReferralModal(false);
+            setForwardingToStaff(false);
+            setSelectedCounselingReq(null);
+            setReferralForm({ student: '', type: '', notes: '', referrer_contact_number: '', relationship_with_student: '', reason_for_referral: '', actions_made: '', date_duration_of_observations: '' });
+            if (sigCanvasRef.current) sigCanvasRef.current.clear();
+        } catch (err: any) {
+            showToastMessage("Error: " + err.message, 'error');
+        } finally {
+            setIsSubmittingReferral(false);
+        }
     };
 
     const addReason = () => {
@@ -568,87 +1669,103 @@ export default function DeptDashboard() {
     };
 
     const submitDecision = async () => {
-        const { id, type: decision, notes } = decisionData;
-        try {
-            const { error } = await supabase.from('support_requests')
-                .update({ status: decision, dept_notes: notes })
-                .eq('id', id);
-            if (error) throw error;
-            showToastMessage(`Request ${decision}`);
-            setSupportRequests(prev => prev.filter((r: any) => r.id !== id));
-            setShowDecisionModal(false);
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+        showToastMessage('This legacy support decision modal is no longer used. Please use the current support workflow actions.', 'error');
+        setShowDecisionModal(false);
     };
 
     // ── Support Approval Actions ──
     const handleSupportApproveAndSchedule = async () => {
-        const { id, student_id, date, time, notes } = approveScheduleData;
+        const { id, date, time, notes } = approveScheduleData;
+        if (isSubmittingSupportSchedule) return;
         if (!date || !time) { showToastMessage('Please select date and time.', 'error'); return; }
+        setIsSubmittingSupportSchedule(true);
         try {
-            const requestStudentId = student_id || supportRequests.find((r: any) => r.id === id)?.student_id || null;
-            const { error } = await supabase.from('support_requests')
-                .update({ status: SUPPORT_STATUS.VISIT_SCHEDULED, dept_notes: JSON.stringify({ scheduled_date: `${date} ${time}`, approval_notes: notes }) })
-                .eq('id', id);
-            if (error) throw error;
-            if (requestStudentId) {
-                await supabase.from('notifications').insert([{ student_id: requestStudentId, message: `Your support request has been approved and scheduled for ${date} at ${time} by ${data.profile.department}.` }]);
-            }
+            const scheduledDate = `${date} ${time}`;
+            const deptNotes = JSON.stringify({
+                scheduled_date: scheduledDate,
+                approval_notes: notes
+            });
+            const result = await invokeManagedDepartmentServicesFunction({
+                mode: 'approve-support-and-schedule',
+                requestId: id,
+                date,
+                time,
+                notes
+            });
             showToastMessage('Visit scheduled successfully.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Visit scheduled successfully.');
             setShowApproveScheduleModal(false);
             setApproveScheduleData({ id: null, student_id: null, date: '', time: '', notes: '' });
-            // Re-fetch to update list with new statuses
-            const { data: reqs } = await supabase.from('support_requests').select('*').eq('department', data.profile.department).in('status', [...DEPT_SUPPORT_VISIBLE_STATUSES]).order('created_at', { ascending: false });
-            if (reqs) setSupportRequests(reqs);
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+            patchSupportRows((rows) => rows.map((row: any) => (
+                String(row.id) === String(id)
+                    ? {
+                        ...row,
+                        status: SUPPORT_STATUS.VISIT_SCHEDULED,
+                        dept_notes: deptNotes
+                    }
+                    : row
+            )));
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+        } finally {
+            setIsSubmittingSupportSchedule(false);
+        }
     };
 
     const handleRejectSupport = async (id: string, notes: string) => {
+        const nextRequestId = String(id || '').trim();
+        if (!nextRequestId || pendingSupportRejectId === nextRequestId) return;
+        setPendingSupportRejectId(nextRequestId);
         try {
-            const requestStudentId = supportRequests.find((r: any) => r.id === id)?.student_id || null;
-            const { error } = await supabase.from('support_requests')
-                .update({ status: SUPPORT_STATUS.REJECTED, dept_notes: notes })
-                .eq('id', id);
-            if (error) throw error;
-            if (requestStudentId) {
-                await supabase.from('notifications').insert([{
-                    student_id: requestStudentId,
-                    message: `Your support request has been reviewed and was not approved by ${data.profile.department}.${notes ? ` Reason: ${notes}` : ''}`
-                }]);
-            }
+            const result = await invokeManagedDepartmentServicesFunction({
+                mode: 'reject-support',
+                requestId: nextRequestId,
+                notes
+            });
             showToastMessage('Request rejected.', 'success');
-            setSupportRequests(prev => prev.map((r: any) => (
-                r.id === id
+            queueProcessEmailNotification(result?.emailPayload, 'Request rejected.');
+            patchSupportRows((rows) => rows.map((r: any) => (
+                String(r.id) === nextRequestId
                     ? { ...r, status: SUPPORT_STATUS.REJECTED, dept_notes: notes }
                     : r
             )));
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+        } finally {
+            setPendingSupportRejectId(null);
+        }
     };
 
     const handleResolveSupport = async () => {
-        const { id, student_id, notes } = resolveData;
+        const { id, notes } = resolveData;
+        if (isSubmittingSupportResolve) return;
         if (!notes.trim()) { showToastMessage('Please add resolution notes.', 'error'); return; }
+        setIsSubmittingSupportResolve(true);
         try {
-            const requestStudentId = student_id || supportRequests.find((r: any) => r.id === id)?.student_id || null;
-            const { error } = await supabase.from('support_requests')
-                .update({ status: SUPPORT_STATUS.RESOLVED_BY_DEPT, dept_notes: notes })
-                .eq('id', id);
-            if (error) throw error;
-            if (requestStudentId) {
-                await supabase.from('notifications').insert([{ student_id: requestStudentId, message: `Your support request has been marked as resolved by ${data.profile.department}.` }]);
-            }
+            const result = await invokeManagedDepartmentServicesFunction({
+                mode: 'resolve-support',
+                requestId: id,
+                notes
+            });
             showToastMessage('Request marked as resolved and sent to CARE.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request marked as resolved and sent to CARE.');
             setShowResolveModal(false);
             setResolveData({ id: null, student_id: null, notes: '' });
-            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: SUPPORT_STATUS.RESOLVED_BY_DEPT, dept_notes: notes } : r));
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+            patchSupportRows((rows) => rows.map((r: any) => String(r.id) === String(id) ? { ...r, status: SUPPORT_STATUS.RESOLVED_BY_DEPT, dept_notes: notes } : r));
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+        } finally {
+            setIsSubmittingSupportResolve(false);
+        }
     };
 
     const handleReferToCare = async () => {
-        const { id, student_id, date_acted, actions_taken, comments } = referCareForm;
+        const { id, date_acted, actions_taken, comments } = referCareForm;
+        if (isSubmittingSupportRefer) return;
         if (!actions_taken.trim()) { showToastMessage('Please describe actions taken.', 'error'); return; }
         const sigData = sigCanvasRefSupport.current && !sigCanvasRefSupport.current.isEmpty() ? sigCanvasRefSupport.current.toDataURL() : null;
+        setIsSubmittingSupportRefer(true);
         try {
-            const requestStudentId = student_id || supportRequests.find((r: any) => r.id === id)?.student_id || null;
             const referralData = JSON.stringify({
                 referred_by: data.profile.name,
                 date_acted,
@@ -656,18 +1773,24 @@ export default function DeptDashboard() {
                 comments,
                 signature: sigData
             });
-            const { error } = await supabase.from('support_requests')
-                .update({ status: SUPPORT_STATUS.REFERRED_TO_CARE, dept_notes: referralData })
-                .eq('id', id);
-            if (error) throw error;
-            if (requestStudentId) {
-                await supabase.from('notifications').insert([{ student_id: requestStudentId, message: `Your support request case has been referred back to CARE Staff by ${data.profile.department} for further intervention.` }]);
-            }
+            const result = await invokeManagedDepartmentServicesFunction({
+                mode: 'refer-support-to-care',
+                requestId: id,
+                dateActed: date_acted,
+                actionsTaken: actions_taken,
+                comments,
+                signature: sigData
+            });
             showToastMessage('Request referred to CARE Staff.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request referred to CARE Staff.');
             setShowReferCareModal(false);
             setReferCareForm({ id: null, student_id: null, student_name: '', date_acted: '', actions_taken: '', comments: '' });
-            setSupportRequests(prev => prev.map((r: any) => r.id === id ? { ...r, status: SUPPORT_STATUS.REFERRED_TO_CARE, dept_notes: referralData } : r));
-        } catch (err: any) { showToastMessage(err.message, 'error'); }
+            patchSupportRows((rows) => rows.map((r: any) => String(r.id) === String(id) ? { ...r, status: SUPPORT_STATUS.REFERRED_TO_CARE, dept_notes: referralData } : r));
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+        } finally {
+            setIsSubmittingSupportRefer(false);
+        }
     };
 
     const renderDetailedDescription = (desc: any) => {
@@ -686,6 +1809,9 @@ export default function DeptDashboard() {
     const moduleLabels = {
         dashboard: 'Home',
         admissions: 'Admissions Screening',
+        interview_queue: 'Interview Queue',
+        calendar: 'Calendar',
+        export_center: 'Export Center',
         counseling_queue: 'Counseling Requests',
         events: 'College Events',
         support_approvals: 'Support Approvals',
@@ -695,6 +1821,14 @@ export default function DeptDashboard() {
         reports: 'Reports',
     };
 
+    const moduleLoadingFallback = (
+        <div className="rounded-2xl border border-emerald-100 bg-white/80 p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500" />
+            <p className="text-sm font-semibold text-gray-700">Loading report module...</p>
+            <p className="mt-1 text-xs text-gray-500">Preparing charts and analytics for this page.</p>
+        </div>
+    );
+
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 text-gray-800 font-sans overflow-hidden">
             {/* Mobile Overlay */}
@@ -703,15 +1837,14 @@ export default function DeptDashboard() {
             {/* Premium Sidebar */}
             <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-dept-sidebar transform transition-all duration-500 ease-out lg:static lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-emerald-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
-                <div className="p-6 flex items-center justify-between border-b border-white/10">
-                    <div onClick={() => { setProfileForm(data.profile); setShowProfileModal(true); }} className="flex items-center gap-3 cursor-pointer">
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-600/30 text-sm">DN</div>
-                        <div>
-                            <h1 className="font-bold text-white text-lg tracking-tight">{data.profile.name}</h1>
-                            <p className="text-emerald-300/70 text-xs font-medium truncate max-w-[160px]">{data.profile.department}</p>
+                <div className="p-6 border-b border-white/10">
+                    <div className="flex items-center justify-between">
+                        <div onClick={() => setActiveModule('settings')} className="cursor-pointer group">
+                            <NorsuBrand title={data.profile.name} subtitle={data.profile.department} accent="emerald" size="sm" className="min-w-0" />
+                            <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/50 transition-colors group-hover:text-emerald-100/80">Open Profile & Settings</p>
                         </div>
+                        <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                     </div>
-                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                 </div>
 
                 {/* Navigation */}
@@ -728,6 +1861,7 @@ export default function DeptDashboard() {
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
                         {[
                             { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling Requests', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
+                            { id: 'calendar', icon: <CalendarDays size={18} />, label: 'Calendar' },
                             { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
                             { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Support Approvals', hasIndicator: supportRequests.length > lastSeenSupportCount },
                         ].map((item: any) => (
@@ -742,6 +1876,8 @@ export default function DeptDashboard() {
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Management</p>
                         {[
                             { id: 'admissions', icon: <UserPlus size={18} />, label: 'Admissions Screening', hasIndicator: admissionApplicants.length > 0 },
+                            { id: 'interview_queue', icon: <CalendarDays size={18} />, label: 'Interview Queue' },
+                            { id: 'export_center', icon: <Download size={18} />, label: 'Export Center' },
                             { id: 'students', icon: <Users size={18} />, label: 'Students' },
                             { id: 'counseled', icon: <ClipboardList size={18} />, label: 'Counseled Students' },
                         ].map((item: any) => (
@@ -778,9 +1914,13 @@ export default function DeptDashboard() {
                 <header className="h-16 glass gradient-border-green flex items-center justify-between px-6 lg:px-10 relative z-10">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"><Menu /></button>
-                        <h2 className="text-xl font-bold gradient-text-green capitalize">{(moduleLabels as any)[activeModule] || activeModule}</h2>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-500/70">NORSU-G CARE</p>
+                            <h2 className="text-xl font-bold gradient-text-green capitalize">{(moduleLabels as any)[activeModule] || activeModule}</h2>
+                        </div>
                     </div>
                     <div className="flex items-center gap-4">
+                        <img src="/carecenter.png" alt="NORSU-G CARE" className="hidden h-10 w-10 rounded-full border border-emerald-100 bg-white object-cover shadow-sm md:block" />
                         <button
                             onClick={handleRefreshData}
                             disabled={isRefreshingData}
@@ -798,9 +1938,10 @@ export default function DeptDashboard() {
                     {/* DASHBOARD / HOME */}
                     {activeModule === 'dashboard' && (
                         <DeptHomePage
-                            clock={clock}
                             filteredData={filteredData}
                             counselingRequests={counselingRequests}
+                            admissionsDashboardCounts={admissionsDashboardCounts}
+                            departmentAlertItems={departmentAlertItems}
                             setActiveModule={setActiveModule}
                             setForwardingToStaff={setForwardingToStaff}
                             setReferralForm={setReferralForm}
@@ -834,6 +1975,9 @@ export default function DeptDashboard() {
                             handleRejectRequest={handleRejectRequest}
                             handleCompleteRequest={handleCompleteRequest}
                             handleStartForward={handleStartForward}
+                            isSubmittingCounselingSchedule={isSubmittingCounselingSchedule}
+                            isSubmittingCounselingReject={isSubmittingCounselingReject}
+                            pendingCounselingCompletionId={pendingCounselingCompletionId}
                         />
                     )}
 
@@ -843,13 +1987,52 @@ export default function DeptDashboard() {
                             applicants={admissionApplicants}
                             handleApproveApplicant={handleApproveApplicant}
                             handleRejectApplicant={handleRejectApplicant}
+                            handleMarkApplicantAbsent={handleMarkApplicantAbsent}
+                            handleBulkApproveApplicants={handleBulkApproveApplicants}
+                            handleBulkForwardApplicants={handleBulkForwardApplicants}
+                            handleBulkMarkApplicantsUnsuccessful={handleBulkMarkApplicantsUnsuccessful}
+                            handleRescheduleInterview={handleRescheduleInterview}
                             handleScheduleInterview={handleScheduleInterview}
+                            handleBulkScheduleInterviews={handleBulkScheduleInterviews}
+                            pendingApplicantActionId={pendingApplicantActionId}
+                            isSchedulingApplicant={isSchedulingApplicant}
+                            isProcessingBulkApplicantAction={isProcessingBulkApplicantAction}
+                        />
+                    )}
+
+                    {activeModule === 'interview_queue' && (
+                        <DeptInterviewQueuePage
+                            queueDate={interviewQueueDate}
+                            setQueueDate={setInterviewQueueDate}
+                            queueRows={interviewQueueRows}
+                            isLoadingQueue={isInterviewQueueLoading}
+                            queueError={interviewQueueError}
+                            refreshInterviewQueue={refreshInterviewQueue}
+                        />
+                    )}
+
+                    {activeModule === 'calendar' && (
+                        <StaffCalendarPage
+                            scope="department"
+                            departmentName={data?.profile?.department}
+                            accent="emerald"
+                        />
+                    )}
+
+                    {activeModule === 'export_center' && (
+                        <StaffExportCenterPage
+                            scope="department"
+                            departmentName={data?.profile?.department}
+                            accent="emerald"
+                            showToast={showToastMessage}
                         />
                     )}
 
                     {/* REPORTS */}
                     {activeModule === 'reports' && (
-                        <DeptReportsPage chartData={chartData} />
+                        <Suspense fallback={moduleLoadingFallback}>
+                            <DeptReportsPage chartData={chartData} />
+                        </Suspense>
                     )}
 
                     {/* SETTINGS */}
@@ -861,6 +2044,12 @@ export default function DeptDashboard() {
                             setNewReason={setNewReason}
                             addReason={addReason}
                             deleteReason={deleteReason}
+                            authEmail={session?.user?.email || session?.auth_email || data?.profile?.email || ''}
+                            requestStaffSecurityOtp={requestStaffSecurityOtp}
+                            confirmStaffSecurityEmailChange={confirmStaffSecurityEmailChange}
+                            confirmStaffPasswordChange={confirmStaffPasswordChange}
+                            updateStaffProfileName={updateStaffProfileName}
+                            showToast={showToastMessage}
                         />
                     )}
 
@@ -879,6 +2068,7 @@ export default function DeptDashboard() {
                             setApproveScheduleData={setApproveScheduleData}
                             handleSupportApproveAndSchedule={handleSupportApproveAndSchedule}
                             handleRejectSupport={handleRejectSupport}
+                            pendingSupportRejectId={pendingSupportRejectId}
                             showResolveModal={showResolveModal}
                             setShowResolveModal={setShowResolveModal}
                             resolveData={resolveData}
@@ -890,6 +2080,9 @@ export default function DeptDashboard() {
                             setReferCareForm={setReferCareForm}
                             handleReferToCare={handleReferToCare}
                             sigCanvasRefSupport={sigCanvasRefSupport}
+                            isSubmittingSupportSchedule={isSubmittingSupportSchedule}
+                            isSubmittingSupportResolve={isSubmittingSupportResolve}
+                            isSubmittingSupportRefer={isSubmittingSupportRefer}
                         />
                     )}
 
@@ -935,9 +2128,9 @@ export default function DeptDashboard() {
             {renderDeptModals({
                 data,
                 counselingRequests,
-                showProfileModal, setShowProfileModal, profileForm, setProfileForm, handleProfileSubmit,
+                showProfileModal, setShowProfileModal, profileForm, setProfileForm, handleProfileSubmit, isUpdatingProfile,
                 showReferralModal, setShowReferralModal, forwardingToStaff, setForwardingToStaff,
-                referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq,
+                referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq, isSubmittingReferral,
                 referralSearchQuery, setReferralSearchQuery, sigCanvasRef,
                 showHistoryModal, setShowHistoryModal, selectedHistoryStudent, exportPDF: (name: string) => exportPDF(name, counselingRequests),
                 showStudentModal, setShowStudentModal, selectedStudent,
@@ -945,10 +2138,89 @@ export default function DeptDashboard() {
                 yearLevelFilter, setYearLevelFilter, deptCourseFilter, setDeptCourseFilter,
                 deptSectionFilter, setDeptSectionFilter, exportToExcel,
                 showDecisionModal, setShowDecisionModal, decisionData, setDecisionData, submitDecision,
-                showApplicantScheduleModal, setShowApplicantScheduleModal, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule,
+                showApplicantScheduleModal, closeApplicantScheduleModal, applicantScheduleMode, applicantScheduleData, setApplicantScheduleData, confirmApplicantSchedule, isSchedulingApplicant: (isSchedulingApplicant || isLoadingEmailPreview || isConfirmingEmailPreview), selectedApplicants,
                 viewFormRecord, setViewFormRecord,
                 viewFormMode, setViewFormMode
             })}
+
+            {emailPreviewState && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
+                        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">{emailPreviewState.title || 'Email Preview'}</h3>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Read-only preview of recipients and email content before sending.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeEmailPreviewModal}
+                                disabled={isConfirmingEmailPreview}
+                                className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                            >
+                                <XCircle size={22} />
+                            </button>
+                        </div>
+
+                        <div className="border-b border-gray-100 px-6 py-3 text-sm text-gray-600">
+                            {emailPreviewState.recipientCount || 0} recipient{emailPreviewState.recipientCount === 1 ? '' : 's'}
+                        </div>
+
+                        <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 py-5">
+                            {(emailPreviewState.previews || []).map((preview: any, index: number) => (
+                                <div key={`${preview.email || 'missing-email'}-${index}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                        <div>
+                                            <p className="font-semibold text-gray-900">{preview.name || 'Applicant'}</p>
+                                            <p className="text-xs text-gray-500">{preview.email || 'No email address available'}</p>
+                                        </div>
+                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${preview.email ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {preview.email ? 'Ready to Send' : 'Missing Email'}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Subject</p>
+                                        <div className="mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                                            {preview.subject || 'No subject available'}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Email Content</p>
+                                        <div
+                                            className="mt-1 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 space-y-2"
+                                            dangerouslySetInnerHTML={{ __html: preview.html || '<p>No preview available.</p>' }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 md:flex-row md:justify-end">
+                            <button
+                                type="button"
+                                onClick={closeEmailPreviewModal}
+                                disabled={isConfirmingEmailPreview}
+                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void handleConfirmEmailPreview()}
+                                disabled={isConfirmingEmailPreview}
+                                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                                {isConfirmingEmailPreview
+                                    ? 'Sending...'
+                                    : (emailPreviewState.confirmLabel || 'Confirm and Send')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div >
     );

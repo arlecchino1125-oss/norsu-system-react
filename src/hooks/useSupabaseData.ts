@@ -25,6 +25,28 @@ export function useSupabaseData<T = any>({
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
+    const isSafeRealtimeSelect = !/[():]/.test(select);
+
+    const matchesEqFilter = (row: any) => {
+        if (!eq) return true;
+        return row?.[eq.column] === eq.value;
+    };
+
+    const sortRows = (rows: T[]) => {
+        if (!order?.column) return rows;
+
+        const direction = order.ascending === false ? -1 : 1;
+        return [...rows].sort((left: any, right: any) => {
+            const leftValue = left?.[order.column];
+            const rightValue = right?.[order.column];
+
+            if (leftValue === rightValue) return 0;
+            if (leftValue == null) return -1 * direction;
+            if (rightValue == null) return 1 * direction;
+            return leftValue > rightValue ? direction : -1 * direction;
+        });
+    };
+
     const fetchData = async () => {
         setLoading(true);
         let query = supabase.from(table).select(select);
@@ -57,8 +79,31 @@ export function useSupabaseData<T = any>({
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: table },
-                    () => {
-                        fetchData();
+                    (payload: any) => {
+                        if (!isSafeRealtimeSelect) {
+                            fetchData();
+                            return;
+                        }
+
+                        const rowId = payload.new?.id ?? payload.old?.id;
+                        if (rowId == null) {
+                            fetchData();
+                            return;
+                        }
+
+                        setData((prev) => {
+                            const filtered = prev.filter((row: any) => row?.id !== rowId);
+
+                            if (payload.eventType === 'DELETE') {
+                                return sortRows(filtered);
+                            }
+
+                            if (!matchesEqFilter(payload.new)) {
+                                return sortRows(filtered);
+                            }
+
+                            return sortRows([payload.new as T, ...filtered]);
+                        });
                     }
                 )
                 .subscribe();
