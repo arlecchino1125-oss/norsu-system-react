@@ -67,12 +67,12 @@ export default function CareStaffLogin() {
                     >
                         <motion.div
                             whileHover={{ scale: 1.05, rotate: -5 }}
-                            className="w-32 h-32 overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 rounded-[2.25rem] flex items-center justify-center text-white mb-8 shadow-xl shadow-purple-500/20"
+                            className="w-28 h-28 overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500 rounded-[2rem] flex items-center justify-center text-white mb-8 shadow-xl shadow-purple-500/20"
                         >
                             <img
                                 src="/carecenter.png"
                                 alt="CARE Center Logo"
-                                className="h-full w-full scale-[1.18] object-cover drop-shadow-sm"
+                                className="h-full w-full scale-[1.42] object-cover drop-shadow-sm"
                             />
                         </motion.div>
 
