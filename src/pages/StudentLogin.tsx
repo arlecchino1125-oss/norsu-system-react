@@ -6,6 +6,7 @@ import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import { getStudentActivationPolicy } from '../lib/studentActivationPolicy';
 
 export default function StudentLogin() {
     const navigate = useNavigate();
@@ -24,6 +25,23 @@ export default function StudentLogin() {
     const [toast, setToast] = useState<any>(null);
     const [courses, setCourses] = useState<any[]>([]);
     const [generatedCredentials, setGeneratedCredentials] = useState<any>(null);
+    const [studentActivationPolicy, setStudentActivationPolicy] = useState({
+        requireEnrollmentKey: true,
+        updatedAt: null as string | null,
+        updatedBy: null as string | null
+    });
+    const [isLoadingActivationPolicy, setIsLoadingActivationPolicy] = useState<boolean>(false);
+    const [enrollmentWarning, setEnrollmentWarning] = useState<{
+        visible: boolean;
+        studentId: string;
+        course: string;
+        resolve: ((decision: boolean) => void) | null;
+    }>({
+        visible: false,
+        studentId: '',
+        course: '',
+        resolve: null
+    });
 
     // Wizard State
     const [activationStep, setActivationStep] = useState<number>(1);
@@ -88,13 +106,38 @@ export default function StudentLogin() {
     const STEP_LABELS = ['Verify', 'Personal', 'Family', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
 
     useEffect(() => {
-        if (showActivateModal && courses.length === 0) {
-            const fetchCourses = async () => {
+        if (!showActivateModal) return;
+
+        let isActive = true;
+
+        const loadActivationResources = async () => {
+            if (courses.length === 0) {
                 const { data } = await supabase.from('courses').select('name').order('name');
-                if (data) setCourses(data);
-            };
-            fetchCourses();
-        }
+                if (isActive && data) {
+                    setCourses(data);
+                }
+            }
+
+            setIsLoadingActivationPolicy(true);
+            try {
+                const policy = await getStudentActivationPolicy();
+                if (isActive) {
+                    setStudentActivationPolicy(policy);
+                }
+            } catch (error) {
+                console.error('Failed to load student activation policy.', error);
+            } finally {
+                if (isActive) {
+                    setIsLoadingActivationPolicy(false);
+                }
+            }
+        };
+
+        void loadActivationResources();
+
+        return () => {
+            isActive = false;
+        };
     }, [showActivateModal, courses.length]);
 
     const showToast = (msg: string, type: string = 'success') => {
@@ -179,11 +222,12 @@ export default function StudentLogin() {
 
         setLoading(true);
         try {
-            const data = await invokeEdgeFunction('activate-student-account', {
+            const runStudentActivation = (allowEnrollmentCreate = false) => invokeEdgeFunction('activate-student-account', {
                 body: {
                     mode: 'student-profile-activation',
                     studentId: formData.studentId,
                     course: formData.course,
+                    allowEnrollmentCreate,
                     profile: {
                         firstName: formData.firstName,
                         lastName: formData.lastName,
@@ -259,6 +303,34 @@ export default function StudentLogin() {
                 },
                 fallbackMessage: 'Account activation failed.'
             });
+
+            let data;
+
+            try {
+                data = await runStudentActivation(false);
+            } catch (error: any) {
+                const missingEnrollment = String(error?.message || '').includes('Student ID not found in the enrollment list.');
+                const canContinueWithoutKey = missingEnrollment && !studentActivationPolicy.requireEnrollmentKey;
+
+                if (!canContinueWithoutKey) {
+                    throw error;
+                }
+
+                const confirmed = await new Promise<boolean>((resolve) => {
+                    setEnrollmentWarning({
+                        visible: true,
+                        studentId: formData.studentId,
+                        course: formData.course,
+                        resolve
+                    });
+                });
+
+                if (!confirmed) {
+                    return;
+                }
+
+                data = await runStudentActivation(true);
+            }
 
             const username = data.studentId || formData.studentId;
             const password = data.password;
@@ -542,8 +614,27 @@ export default function StudentLogin() {
                                                 <motion.div key="step1" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-6">
                                                     <div className="mb-4">
                                                         <h3 className="text-xl font-bold text-slate-800">Enrollment Details</h3>
-                                                        <p className="text-slate-500 text-sm">We need to verify your enrollment status first.</p>
+                                                        <p className="text-slate-500 text-sm">
+                                                            {studentActivationPolicy.requireEnrollmentKey
+                                                                ? 'We need to verify your uploaded enrollment key before you can continue.'
+                                                                : 'We will check your uploaded enrollment key first. If none is found, you can review a warning before continuing activation.'}
+                                                        </p>
                                                     </div>
+                                                    {isLoadingActivationPolicy ? (
+                                                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-xs font-semibold text-indigo-700">
+                                                            Checking the current student activation policy...
+                                                        </div>
+                                                    ) : (
+                                                        <div className={`rounded-2xl border px-4 py-3 text-xs leading-relaxed ${
+                                                            studentActivationPolicy.requireEnrollmentKey
+                                                                ? 'border-emerald-100 bg-emerald-50/70 text-emerald-700'
+                                                                : 'border-amber-100 bg-amber-50/80 text-amber-800'
+                                                        }`}>
+                                                            {studentActivationPolicy.requireEnrollmentKey
+                                                                ? 'Strict mode is on. CARE Staff must upload or sync your enrollment key before Student Portal activation can finish.'
+                                                                : 'Warning mode is on. If your key is still missing, the portal can warn you and continue activation after your confirmation.'}
+                                                        </div>
+                                                    )}
                                                     <div className="space-y-5">
                                                         <div className="space-y-2">
                                                             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Student ID <span className="text-rose-500">*</span></label>
@@ -814,6 +905,7 @@ export default function StudentLogin() {
                                     ) : (
                                         <button
                                             type="submit"
+                                            form="activationForm"
                                             disabled={loading}
                                             className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-sky-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 hover:shadow-xl disabled:opacity-50 flex items-center gap-2 hover:-translate-y-0.5 transition-all"
                                         >
@@ -823,6 +915,80 @@ export default function StudentLogin() {
                                 </div>
                             )}
 
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {enrollmentWarning.visible && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+                            className="w-full max-w-lg overflow-hidden rounded-[2rem] border border-amber-200/60 bg-white shadow-2xl"
+                        >
+                            <div className="border-b border-amber-100 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100 px-6 py-5">
+                                <div className="flex items-start gap-4">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-200">
+                                        <AlertCircle className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-600/80">Enrollment Warning</p>
+                                        <h3 className="mt-1 text-xl font-bold text-slate-900">Enrollment key not found yet</h3>
+                                        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                                            We could not find an uploaded enrollment key for the details below. Since warning mode is currently enabled,
+                                            you may continue activation and let the system create the enrollment record during activation.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-4 px-6 py-5">
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Review these details</p>
+                                    <div className="mt-3 space-y-2 text-sm text-slate-700">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold">Student ID:</span>
+                                            <span className="rounded border border-slate-200 bg-white px-2 py-0.5 font-mono">{enrollmentWarning.studentId}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold">Course:</span>
+                                            <span className="rounded border border-slate-200 bg-white px-2 py-0.5">{enrollmentWarning.course}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-xs leading-relaxed text-slate-500">
+                                    Continue only if these details are correct. If not, cancel and wait for CARE Staff to upload or sync your enrollment key.
+                                </p>
+                            </div>
+                            <div className="flex gap-3 border-t border-slate-100 bg-slate-50 px-6 py-5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        enrollmentWarning.resolve?.(false);
+                                        setEnrollmentWarning({ visible: false, studentId: '', course: '', resolve: null });
+                                    }}
+                                    className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        enrollmentWarning.resolve?.(true);
+                                        setEnrollmentWarning({ visible: false, studentId: '', course: '', resolve: null });
+                                    }}
+                                    className="flex-1 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-amber-200 transition-colors hover:bg-amber-600"
+                                >
+                                    Continue Activation
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}
