@@ -489,14 +489,14 @@ export default function DeptDashboard() {
         },
         {
             key: 'counseling-review',
-            label: 'Counseling requests awaiting department review',
+            label: 'Counseling awaiting department review',
             count: counselingRequests.filter((request: any) => isCounselingAwaitingDept(request?.status)).length,
             module: 'counseling_queue',
             tone: 'border-emerald-200 bg-emerald-50 text-emerald-700'
         },
         {
             key: 'support-forwarded',
-            label: 'Support cases forwarded to the department',
+            label: 'Additional support cases forwarded to the department',
             count: supportRequests.filter((request: any) => String(request?.status || '').trim() === SUPPORT_STATUS.FORWARDED_TO_DEPT).length,
             module: 'support_approvals',
             tone: 'border-purple-200 bg-purple-50 text-purple-700'
@@ -1812,9 +1812,9 @@ export default function DeptDashboard() {
         interview_queue: 'Interview Queue',
         calendar: 'Calendar',
         export_center: 'Export Center',
-        counseling_queue: 'Counseling Requests',
+        counseling_queue: 'Counseling',
         events: 'College Events',
-        support_approvals: 'Support Approvals',
+        support_approvals: 'Additional Support',
         settings: 'Settings',
         students: 'Students',
         counseled: 'Counseled Students',
@@ -1860,10 +1860,10 @@ export default function DeptDashboard() {
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
                         {[
-                            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling Requests', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
+                            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
                             { id: 'calendar', icon: <CalendarDays size={18} />, label: 'Calendar' },
                             { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
-                            { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Support Approvals', hasIndicator: supportRequests.length > lastSeenSupportCount },
+                            { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Additional Support', hasIndicator: supportRequests.length > lastSeenSupportCount },
                         ].map((item: any) => (
                             <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                 {item.icon} {item.label}
@@ -1961,6 +1961,9 @@ export default function DeptDashboard() {
                             getStudentForRequest={getStudentForRequest}
                             selectedCounselingReq={selectedCounselingReq}
                             setSelectedCounselingReq={setSelectedCounselingReq}
+                            setForwardingToStaff={setForwardingToStaff}
+                            setReferralForm={setReferralForm}
+                            setShowReferralModal={setShowReferralModal}
                             showCounselingViewModal={showCounselingViewModal}
                             setShowCounselingViewModal={setShowCounselingViewModal}
                             showScheduleModal={showScheduleModal}

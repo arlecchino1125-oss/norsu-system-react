@@ -46,64 +46,25 @@ export default function StudentLogin() {
     // Wizard State
     const [activationStep, setActivationStep] = useState<number>(1);
 
-    // COMPREHENSIVE FORM DATA (matching all categories from student profile form)
+    // MINIMAL FORM DATA — only fields needed during activation
+    // All remaining profile fields are collected post-login via the completion modal
     const [formData, setFormData] = useState<any>({
         // Step 1: Enrollment Keys
         studentId: '', course: '',
 
-        // Step 2: Personal Information
+        // Step 2: Personal Information (minimum only)
         firstName: '', lastName: '', middleName: '', suffix: '',
         street: '', city: '', province: '', zipCode: '',
         mobile: '', email: '',
-        dob: '', age: '', placeOfBirth: '',
-        sex: '', genderIdentity: '',
-        yearLevelApplying: '1st Year', section: '',
-        civilStatus: '',
-        facebookUrl: '',
-        religion: '',
-        nationality: 'Filipino',
-        schoolLastAttended: '',
-        supporter: [], supporterContact: '',
-        isWorkingStudent: 'No', workingStudentType: '',
-        isPwd: 'No', pwdType: '',
-        isIndigenous: 'No', indigenousGroup: '',
-        witnessedConflict: 'No',
-        isSafeInCommunity: 'Yes',
-        isSoloParent: 'No', isChildOfSoloParent: 'No',
+        dob: '', age: '',
+        sex: '',
 
-        // Step 3: Family Background
-        motherLastName: '', motherGivenName: '', motherMiddleName: '', motherOccupation: '', motherContact: '',
-        fatherLastName: '', fatherGivenName: '', fatherMiddleName: '', fatherOccupation: '', fatherContact: '',
-        parentAddress: '',
-        numBrothers: '', numSisters: '',
-        birthOrder: '',
-        spouseName: '', spouseOccupation: '', numChildren: '',
-
-        // Step 4: Guardian
-        guardianName: '', guardianAddress: '', guardianContact: '', guardianRelation: '',
-
-        // Step 5: Emergency Contact
-        emergencyName: '', emergencyAddress: '', emergencyRelationship: '', emergencyNumber: '',
-
-        // Step 6: Educational Background
-        elemSchool: '', elemYearGraduated: '',
-        juniorHighSchool: '', juniorHighYearGraduated: '',
-        seniorHighSchool: '', seniorHighYearGraduated: '',
-        collegeSchool: '', collegeYearGraduated: '',
-        honorsAwards: '',
-
-        // Step 7: Extra-Curricular
-        extracurricularActivities: '',
-
-        // Step 8: Scholarships
-        scholarshipsAvailed: '',
-
-        // Step 9: Privacy
+        // Step 3: Privacy
         agreedToPrivacy: false
     });
 
-    const TOTAL_STEPS = 9;
-    const STEP_LABELS = ['Verify', 'Personal', 'Family', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
+    const TOTAL_STEPS = 3;
+    const STEP_LABELS = ['Verify', 'Personal', 'Finish'];
 
     useEffect(() => {
         if (!showActivateModal) return;
@@ -222,84 +183,30 @@ export default function StudentLogin() {
 
         setLoading(true);
         try {
+            // Minimal activation profile — remaining fields are collected post-login
+            const activationProfile = {
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                middleName: formData.middleName,
+                suffix: formData.suffix,
+                street: formData.street,
+                city: formData.city,
+                province: formData.province,
+                zipCode: formData.zipCode,
+                mobile: formData.mobile,
+                email: formData.email,
+                dob: formData.dob,
+                age: formData.age,
+                sex: formData.sex,
+            };
+
             const runStudentActivation = (allowEnrollmentCreate = false) => invokeEdgeFunction('activate-student-account', {
                 body: {
                     mode: 'student-profile-activation',
                     studentId: formData.studentId,
                     course: formData.course,
                     allowEnrollmentCreate,
-                    profile: {
-                        firstName: formData.firstName,
-                        lastName: formData.lastName,
-                        middleName: formData.middleName,
-                        suffix: formData.suffix,
-                        street: formData.street,
-                        city: formData.city,
-                        province: formData.province,
-                        zipCode: formData.zipCode,
-                        mobile: formData.mobile,
-                        email: formData.email,
-                        dob: formData.dob,
-                        age: formData.age,
-                        placeOfBirth: formData.placeOfBirth,
-                        sex: formData.sex,
-                        genderIdentity: formData.genderIdentity,
-                        yearLevelApplying: formData.yearLevelApplying,
-                        section: formData.section,
-                        civilStatus: formData.civilStatus,
-                        facebookUrl: formData.facebookUrl,
-                        religion: formData.religion,
-                        nationality: formData.nationality,
-                        schoolLastAttended: formData.schoolLastAttended,
-                        supporter: formData.supporter,
-                        supporterContact: formData.supporterContact,
-                        isWorkingStudent: formData.isWorkingStudent,
-                        workingStudentType: formData.workingStudentType,
-                        isPwd: formData.isPwd,
-                        pwdType: formData.pwdType,
-                        isIndigenous: formData.isIndigenous,
-                        indigenousGroup: formData.indigenousGroup,
-                        witnessedConflict: formData.witnessedConflict,
-                        isSafeInCommunity: formData.isSafeInCommunity,
-                        isSoloParent: formData.isSoloParent,
-                        isChildOfSoloParent: formData.isChildOfSoloParent,
-                        motherLastName: formData.motherLastName,
-                        motherGivenName: formData.motherGivenName,
-                        motherMiddleName: formData.motherMiddleName,
-                        motherOccupation: formData.motherOccupation,
-                        motherContact: formData.motherContact,
-                        fatherLastName: formData.fatherLastName,
-                        fatherGivenName: formData.fatherGivenName,
-                        fatherMiddleName: formData.fatherMiddleName,
-                        fatherOccupation: formData.fatherOccupation,
-                        fatherContact: formData.fatherContact,
-                        parentAddress: formData.parentAddress,
-                        numBrothers: formData.numBrothers,
-                        numSisters: formData.numSisters,
-                        birthOrder: formData.birthOrder,
-                        spouseName: formData.spouseName,
-                        spouseOccupation: formData.spouseOccupation,
-                        numChildren: formData.numChildren,
-                        guardianName: formData.guardianName,
-                        guardianAddress: formData.guardianAddress,
-                        guardianContact: formData.guardianContact,
-                        guardianRelation: formData.guardianRelation,
-                        emergencyName: formData.emergencyName,
-                        emergencyAddress: formData.emergencyAddress,
-                        emergencyRelationship: formData.emergencyRelationship,
-                        emergencyNumber: formData.emergencyNumber,
-                        elemSchool: formData.elemSchool,
-                        elemYearGraduated: formData.elemYearGraduated,
-                        juniorHighSchool: formData.juniorHighSchool,
-                        juniorHighYearGraduated: formData.juniorHighYearGraduated,
-                        seniorHighSchool: formData.seniorHighSchool,
-                        seniorHighYearGraduated: formData.seniorHighYearGraduated,
-                        collegeSchool: formData.collegeSchool,
-                        collegeYearGraduated: formData.collegeYearGraduated,
-                        honorsAwards: formData.honorsAwards,
-                        extracurricularActivities: formData.extracurricularActivities,
-                        scholarshipsAvailed: formData.scholarshipsAvailed
-                    }
+                    profile: activationProfile
                 },
                 fallbackMessage: 'Account activation failed.'
             });
@@ -582,7 +489,7 @@ export default function StudentLogin() {
                                             <CheckCircle className="w-12 h-12 text-emerald-600" />
                                         </div>
                                         <h3 className="text-3xl font-black text-slate-800 mb-2">Activation Successful!</h3>
-                                        <p className="text-slate-500 mb-8 max-w-sm mx-auto font-medium">Your credentials have been securely generated. Please save them.</p>
+                                        <p className="text-slate-500 mb-8 max-w-sm mx-auto font-medium">Your account is activated. Save these credentials, then sign in to complete the remaining profile details.</p>
 
                                         <div className="max-w-sm mx-auto bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 mb-8 shadow-inner">
                                             <div className="space-y-4">
@@ -654,7 +561,10 @@ export default function StudentLogin() {
                                             {/* STEP 2: PERSONAL INFORMATION */}
                                             {activationStep === 2 && (
                                                 <motion.div key="step2" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
-                                                    <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Personal Information</h3></div>
+                                                    <div className="mb-2">
+                                                        <h3 className="text-xl font-bold text-slate-800">Personal Information</h3>
+                                                        <p className="text-slate-500 text-sm mt-1">Any remaining profile details will be completed after your first login.</p>
+                                                    </div>
                                                     {/* Name */}
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Last Name *</label><input required name="lastName" value={formData.lastName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm" /></div>
@@ -679,175 +589,20 @@ export default function StudentLogin() {
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Age</label><input type="number" name="age" value={formData.age} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm" readOnly /></div>
                                                         <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Sex *</label><select required name="sex" value={formData.sex} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
                                                     </div>
-                                                    {/* Gender, Year, Civil, etc */}
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Gender</label><select name="genderIdentity" value={formData.genderIdentity} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm"><option value="">Select</option><option value="Cis-gender">Cis-gender</option><option value="Transgender">Transgender</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Level</label><select name="yearLevelApplying" value={formData.yearLevelApplying} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm"><option value="1st Year">I</option><option value="2nd Year">II</option><option value="3rd Year">III</option><option value="4th Year">IV</option></select></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Civil Status</label><select name="civilStatus" value={formData.civilStatus} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm"><option value="">Select</option><option value="Single">Single</option><option value="Married">Married</option><option value="Separated Legally">Separated Legally</option><option value="Separated Physically">Separated Physically</option><option value="With Live-In Partner">With Live-In Partner</option><option value="Divorced">Divorced</option><option value="Widow/er">Widow/er</option></select></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Nationality</label><input name="nationality" value={formData.nationality} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">FB Account Link</label><input name="facebookUrl" value={formData.facebookUrl} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Place of Birth</label><input name="placeOfBirth" value={formData.placeOfBirth} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Religion</label><input name="religion" value={formData.religion} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">School Last Attended</label><input name="schoolLastAttended" value={formData.schoolLastAttended} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm" /></div>
-                                                    </div>
-                                                    {/* Supporter */}
-                                                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase block">Person who supported your studies aside from parents</label>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            {['Uncle', 'Aunt', 'Grandfather', 'Grandmother', 'Brother', 'Sister', 'Partner', 'Scholarship Grants'].map(opt => (
-                                                                <label key={opt} className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" value={opt} checked={(formData.supporter || []).includes(opt)} onChange={e => handleCheckboxGroup(e, 'supporter')} className="w-4 h-4 text-indigo-600" />{opt}</label>
-                                                            ))}
-                                                        </div>
-                                                        <input name="supporterContact" placeholder="Supporter Contact Info" value={formData.supporterContact} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all text-sm mt-2" />
-                                                    </div>
-                                                    {/* Working Student */}
-                                                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase block">Are you a Working Student?</label>
-                                                        <div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isWorkingStudent" value={o} checked={formData.isWorkingStudent === o} onChange={handleChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div>
-                                                        {formData.isWorkingStudent === 'Yes' && <select name="workingStudentType" value={formData.workingStudentType} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select Type</option><option value="House help">House help</option><option value="Call Center Agent/BPO employee">Call Center Agent/BPO employee</option><option value="Fast food/Restaurant">Fast food/Restaurant</option><option value="Online employee/Freelancer">Online employee/Freelancer</option><option value="Self-employed">Self-employed</option></select>}
-                                                    </div>
-                                                    {/* PWD */}
-                                                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase block">Are you a Person with a Disability (PWD)?</label>
-                                                        <div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isPwd" value={o} checked={formData.isPwd === o} onChange={handleChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div>
-                                                        {formData.isPwd === 'Yes' && <select name="pwdType" value={formData.pwdType} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select Type</option><option value="Visual impairment">Visual impairment</option><option value="Hearing impairment">Hearing impairment</option><option value="Physical/Orthopedic disability">Physical/Orthopedic disability</option><option value="Chronic illness">Chronic illness</option><option value="Psychosocial disability">Psychosocial disability</option><option value="Communication disability">Communication disability</option></select>}
-                                                    </div>
-                                                    {/* Indigenous */}
-                                                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                                                        <label className="text-xs font-bold text-slate-500 uppercase block">Are you a member of any Indigenous Group?</label>
-                                                        <div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isIndigenous" value={o} checked={formData.isIndigenous === o} onChange={handleChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div>
-                                                        {formData.isIndigenous === 'Yes' && <select name="indigenousGroup" value={formData.indigenousGroup} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select Group</option><option value="Bukidnon">Bukidnon</option><option value="Tabihanon Group">Tabihanon Group</option><option value="ATA">ATA</option><option value="IFUGAO">IFUGAO</option><option value="Kalahing Kulot">Kalahing Kulot</option><option value="Lumad">Lumad</option></select>}
-                                                    </div>
-                                                    {/* Conflict & Solo Parent */}
-                                                    <div className="pt-3 border-t border-slate-100 space-y-3">
-                                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Have you witnessed armed conflict or insurgency in your community?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="witnessedConflict" value={o} checked={formData.witnessedConflict === o} onChange={handleChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
-                                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Do you feel safe in your community?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isSafeInCommunity" value={o} checked={formData.isSafeInCommunity === o} onChange={handleChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
-                                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Are you a Solo Parent?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isSoloParent" value={o} checked={formData.isSoloParent === o} onChange={handleChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
-                                                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Are you a son/daughter of a solo parent?</label><div className="flex gap-4">{['Yes', 'No'].map(o => <label key={o} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="isChildOfSoloParent" value={o} checked={formData.isChildOfSoloParent === o} onChange={handleChange} className="w-4 h-4" /><span className="text-sm">{o}</span></label>)}</div></div>
-                                                    </div>
                                                 </motion.div>
                                             )}
 
-                                            {/* STEP 3: FAMILY BACKGROUND */}
-                                            {activationStep === 3 && (
-                                                <motion.div key="step3" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
-                                                    <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Family Background</h3></div>
-                                                    <div className="grid grid-cols-3 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Last Name</label><input name="motherLastName" placeholder="N/A if not applicable" value={formData.motherLastName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Given Name</label><input name="motherGivenName" placeholder="N/A if not applicable" value={formData.motherGivenName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Middle Name</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={formData.motherMiddleName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Occupation</label><input name="motherOccupation" placeholder="N/A if not applicable" value={formData.motherOccupation} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Mother's Contact</label><input name="motherContact" placeholder="N/A if not applicable" value={formData.motherContact} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-3 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Last Name</label><input name="fatherLastName" placeholder="N/A if not applicable" value={formData.fatherLastName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Given Name</label><input name="fatherGivenName" placeholder="N/A if not applicable" value={formData.fatherGivenName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Middle Name</label><input name="fatherMiddleName" placeholder="N/A if not applicable" value={formData.fatherMiddleName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Occupation</label><input name="fatherOccupation" placeholder="N/A if not applicable" value={formData.fatherOccupation} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Father's Contact</label><input name="fatherContact" placeholder="N/A if not applicable" value={formData.fatherContact} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Parent's Address</label><input name="parentAddress" placeholder="N/A if not applicable" value={formData.parentAddress} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    <div className="grid grid-cols-3 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">No. of Brothers</label><input name="numBrothers" placeholder="N/A" value={formData.numBrothers} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">No. of Sisters</label><input name="numSisters" placeholder="N/A" value={formData.numSisters} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Birth Order</label><select name="birthOrder" value={formData.birthOrder} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option>{['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Only child', 'Legally adopted', 'Simulated', 'Foster child'].map(v => <option key={v} value={v}>{v}</option>)}</select></div>
-                                                    </div>
-                                                    <div className="pt-3 border-t border-slate-100">
-                                                        <p className="text-xs text-slate-400 mb-2 italic">If married, fill the fields below. Type N/A if not applicable.</p>
-                                                        <div className="grid grid-cols-3 gap-3">
-                                                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Spouse Name</label><input name="spouseName" placeholder="N/A" value={formData.spouseName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Spouse Occupation</label><input name="spouseOccupation" placeholder="N/A" value={formData.spouseOccupation} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">No. of Children</label><input name="numChildren" placeholder="N/A" value={formData.numChildren} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
-                                            )}
 
-                                            {/* STEP 4: GUARDIAN */}
-                                            {activationStep === 4 && (
-                                                <motion.div key="step4" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
-                                                    <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Guardian</h3></div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Full Name</label><input name="guardianName" value={formData.guardianName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Address</label><input name="guardianAddress" value={formData.guardianAddress} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Contact Number</label><input name="guardianContact" value={formData.guardianContact} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Relation to Guardian</label><select name="guardianRelation" value={formData.guardianRelation} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm"><option value="">Select</option><option value="Relative">Relative</option><option value="Not relative">Not relative</option><option value="Landlord">Landlord</option><option value="Landlady">Landlady</option></select></div>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-
-                                            {/* STEP 5: EMERGENCY CONTACT */}
-                                            {activationStep === 5 && (
-                                                <motion.div key="step5" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
-                                                    <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Person to Contact (In Case of Emergency)</h3></div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Full Name</label><input name="emergencyName" value={formData.emergencyName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Address</label><input name="emergencyAddress" value={formData.emergencyAddress} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Relationship</label><input name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Contact Number</label><input name="emergencyNumber" value={formData.emergencyNumber} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-
-                                            {/* STEP 6: EDUCATIONAL BACKGROUND */}
-                                            {activationStep === 6 && (
-                                                <motion.div key="step6" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
-                                                    <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Educational Background</h3></div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Elementary</label><input name="elemSchool" value={formData.elemSchool} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated</label><input name="elemYearGraduated" value={formData.elemYearGraduated} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Junior High School</label><input name="juniorHighSchool" value={formData.juniorHighSchool} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated</label><input name="juniorHighYearGraduated" value={formData.juniorHighYearGraduated} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Senior High School</label><input name="seniorHighSchool" value={formData.seniorHighSchool} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated</label><input name="seniorHighYearGraduated" value={formData.seniorHighYearGraduated} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">College</label><input name="collegeSchool" value={formData.collegeSchool} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Year Graduated / Continuing</label><input name="collegeYearGraduated" value={formData.collegeYearGraduated} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                    </div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Honor/Award Received</label><input name="honorsAwards" placeholder="N/A if not applicable" value={formData.honorsAwards} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" /></div>
-                                                </motion.div>
-                                            )}
-
-                                            {/* STEP 7: EXTRA-CURRICULAR INVOLVEMENT */}
-                                            {activationStep === 7 && (
-                                                <motion.div key="step7" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
-                                                    <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Extra-Curricular Involvement</h3></div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Name of Activities</label><textarea name="extracurricularActivities" placeholder="N/A if not applicable" value={formData.extracurricularActivities} onChange={handleChange} rows={4} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm resize-none" /></div>
-                                                </motion.div>
-                                            )}
-
-                                            {/* STEP 8: SCHOLARSHIPS */}
-                                            {activationStep === 8 && (
-                                                <motion.div key="step8" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-4">
-                                                    <div className="mb-2"><h3 className="text-xl font-bold text-slate-800">Scholarships</h3></div>
-                                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase">Name of Scholarship Availed</label><textarea name="scholarshipsAvailed" placeholder="N/A if not applicable" value={formData.scholarshipsAvailed} onChange={handleChange} rows={4} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm resize-none" /></div>
-                                                </motion.div>
-                                            )}
 
                                             {/* STEP 9: FINISH */}
-                                            {activationStep === 9 && (
-                                                <motion.div key="step9" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-6">
+                                            {activationStep === 3 && (
+                                                <motion.div key="step3" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-6">
                                                     <div className="mb-4 text-center">
                                                         <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-slate-200">
                                                             <Lock className="w-8 h-8 text-slate-400" />
                                                         </div>
                                                         <h3 className="text-2xl font-bold text-slate-800">Final Step</h3>
-                                                        <p className="text-slate-500 text-sm mt-1">Please agree to the data privacy terms to finalize your account creation.</p>
+                                                        <p className="text-slate-500 text-sm mt-1">Please agree to the data privacy terms to finish account activation.</p>
                                                     </div>
                                                     <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 text-left">
                                                         <h4 className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> DATA PRIVACY ACT DISCLAIMER</h4>
@@ -863,7 +618,7 @@ export default function StudentLogin() {
                                                         </label>
                                                     </div>
                                                     <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 text-center">
-                                                        <p className="text-xs text-emerald-700 italic leading-relaxed">"Thank you for taking the time to complete this form. Your responses will help us serve you better. If you have any questions or need further assistance, please feel free to reach out. We appreciate your time and cooperation!"</p>
+                                                        <p className="text-xs text-emerald-700 italic leading-relaxed">"After activation, sign in with your student portal account to complete the remaining profile information."</p>
                                                     </div>
                                                 </motion.div>
                                             )}

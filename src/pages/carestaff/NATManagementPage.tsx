@@ -7,6 +7,7 @@ import { formatDate, formatDateTime, formatTime, generateExportFilename } from '
 import StatusBadge from '../../components/StatusBadge';
 import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
 import { getAdmissionSchedules, getApplicationsPage, getCoursesForNat, getNatAttendanceSupport, isMissingNatAttendanceColumnsError } from '../../services/natService';
+import { getApplicationDetailsById } from '../../services/applicationDetailsService';
 import { buildEdgeFunctionHeaders } from '../../lib/functionHeaders';
 
 const PASS_STATUS = 'Qualified for Interview (1st Choice)';
@@ -108,6 +109,7 @@ const NATManagementPage = ({ showToast }: any) => {
     // Modals
     const [showModal, setShowModal] = useState(false);
     const [selectedApp, setSelectedApp] = useState(null);
+    const [isLoadingSelectedApp, setIsLoadingSelectedApp] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<any | null>(null);
     const [isScheduleDateLocked, setIsScheduleDateLocked] = useState(false);
@@ -250,6 +252,30 @@ const NATManagementPage = ({ showToast }: any) => {
             showToast('NAT data refreshed.', 'success');
         } finally {
             setIsRefreshingData(false);
+        }
+    };
+
+    const closeSelectedAppModal = () => {
+        setShowModal(false);
+        setSelectedApp(null);
+        setIsLoadingSelectedApp(false);
+    };
+
+    const openApplicantDetails = async (application: any) => {
+        const applicationId = String(application?.id || '').trim();
+        if (!applicationId) return;
+
+        setSelectedApp(application);
+        setShowModal(true);
+        setIsLoadingSelectedApp(true);
+
+        try {
+            const details = await getApplicationDetailsById(applicationId);
+            setSelectedApp(details as any);
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to load applicant details.', 'error');
+        } finally {
+            setIsLoadingSelectedApp(false);
         }
     };
 
@@ -995,13 +1021,13 @@ const NATManagementPage = ({ showToast }: any) => {
                                 <thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="p-4">Student</th><th className="p-4">Status</th><th className="p-4">Course</th><th className="p-4">Action</th></tr></thead>
                                 <tbody className="divide-y">
                                     {filteredApplications.map(app => (
-                                        <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setSelectedApp(app); setShowModal(true); }}>
+                                        <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
                                             <td className="p-4 font-bold">{app.first_name} {app.last_name}<div className="text-xs text-gray-400 font-normal">{app.reference_id}</div></td>
                                             <td className="p-4"><StatusBadge status={app.status} /></td>
                                             <td className="p-4">{app.priority_course}</td>
                                             <td className="p-4">
                                                 <div className="flex gap-2">
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, FAIL_STATUS); }} className="text-red-600 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-slate-400 font-bold text-xs cursor-pointer hover:bg-red-50 hover:text-red-600 px-2 py-1 rounded transition-colors">Del</button>
@@ -1084,7 +1110,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                     {filteredResults.length === 0 ? (
                                         <tr><td colSpan={supportsAttendance ? 8 : 7} className="p-8 text-center text-gray-400 text-sm">{supportsAttendance ? 'No timed attendance records yet. Applicants appear here after they time in and time out.' : 'No finished NAT records yet. Applicants move here after they are marked as `Test Taken`.'}</td></tr>
                                     ) : filteredResults.map(r => (
-                                        <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setSelectedApp(r); setShowModal(true); }}>
+                                        <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(r); }}>
                                             <td className="p-4 font-bold">{r.first_name} {r.last_name}</td>
                                             <td className="p-4 text-xs text-gray-400 font-mono">{r.reference_id}</td>
                                             <td className="p-4">{r.priority_course}</td>
@@ -1100,7 +1126,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                             <td className="p-4"><StatusBadge status={r.status} /></td>
                                             <td className="p-4">
                                                 <div className="flex gap-2">
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedApp(r); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(r); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, FAIL_STATUS); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
                                                 </div>
@@ -1176,7 +1202,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                         {(activeStatusSection?.rows || []).length === 0 ? (
                                             <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-sm">No applicants are in this NAT status yet.</td></tr>
                                         ) : (activeStatusSection?.rows || []).map((app: any) => (
-                                            <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setSelectedApp(app); setShowModal(true); }}>
+                                            <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
                                                 <td className="p-4 font-bold">
                                                     {buildApplicantName(app)}
                                                     <div className="text-xs text-gray-400 font-normal">{app.student_id || 'Student ID pending'}</div>
@@ -1190,7 +1216,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                                         : formatDate(app.test_date)}
                                                 </td>
                                                 <td className="p-4">
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -1237,7 +1263,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                     {completedApplications.length === 0 ? (
                                         <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-sm">No completed logs yet.</td></tr>
                                     ) : completedApplications.map(app => (
-                                        <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setSelectedApp(app); setShowModal(true); }}>
+                                        <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
                                             <td className="p-4 font-bold">{app.first_name} {app.last_name}</td>
                                             <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
                                             <td className="p-4">{app.priority_course}</td>
@@ -1245,7 +1271,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                             <td className="p-4 text-gray-500 text-xs">{formatDate(app.created_at)}</td>
                                             <td className="p-4">
                                                 <div className="flex gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setShowModal(true); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                    <button onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
                                                     <button onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Delete</button>
                                                 </div>
                                             </td>
@@ -1435,11 +1461,15 @@ const NATManagementPage = ({ showToast }: any) => {
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <StatusBadge status={selectedApp.status} />
-                                        <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                                        <button onClick={closeSelectedAppModal} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                                     </div>
                                 </div>
 
-                                <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-6 flex items-center gap-3">
+                                {isLoadingSelectedApp ? (
+                                    <div className="py-16 text-center text-sm font-medium text-gray-500">Loading applicant details...</div>
+                                ) : (
+                                    <>
+                                        <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-6 flex items-center gap-3">
                                     <span className="text-xs font-bold text-blue-800 uppercase">Reference ID:</span>
                                     <span className="font-mono font-bold text-blue-900">{selectedApp.reference_id}</span>
                                 </div>
@@ -1514,7 +1544,8 @@ const NATManagementPage = ({ showToast }: any) => {
                                         )}
                                     </div>
                                 </div>
-
+                                    </>
+                                )}
                             </div>
 
                             <div className="p-6 border-t border-gray-100 flex flex-wrap gap-3 sticky bottom-0 bg-white rounded-b-2xl">
@@ -1524,7 +1555,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                         <button onClick={() => updateStatus(selectedApp, FAIL_STATUS)} className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-200/50 hover:shadow-xl transition-all">Fail</button>
                                     </>
                                 )}
-                                <button onClick={() => setShowModal(false)} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
+                                <button onClick={closeSelectedAppModal} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
                             </div>
                         </div>
                     </div>

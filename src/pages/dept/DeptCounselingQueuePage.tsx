@@ -1,4 +1,4 @@
-import { XCircle } from 'lucide-react';
+import { UserPlus, XCircle } from 'lucide-react';
 import {
     COUNSELING_STATUS,
     getCounselingScheduledDate,
@@ -15,6 +15,9 @@ const DeptCounselingQueuePage = ({
     getStudentForRequest,
     selectedCounselingReq,
     setSelectedCounselingReq,
+    setForwardingToStaff,
+    setReferralForm,
+    setShowReferralModal,
     showCounselingViewModal,
     setShowCounselingViewModal,
     showScheduleModal,
@@ -33,6 +36,22 @@ const DeptCounselingQueuePage = ({
     isSubmittingCounselingReject,
     pendingCounselingCompletionId
 }: any) => {
+    const openDirectReferral = () => {
+        setForwardingToStaff(false);
+        setSelectedCounselingReq(null);
+        setReferralForm({
+            student: '',
+            type: '',
+            notes: '',
+            referrer_contact_number: '',
+            relationship_with_student: '',
+            reason_for_referral: '',
+            actions_made: '',
+            date_duration_of_observations: ''
+        });
+        setShowReferralModal(true);
+    };
+
     const matchesCounselingTab = (request: any) => {
         if (counselingTab === 'WithCare') return isWithCareStaffCounseling(request.status);
         if (counselingTab === COUNSELING_STATUS.SUBMITTED) return isCounselingAwaitingDept(request.status);
@@ -51,6 +70,19 @@ const DeptCounselingQueuePage = ({
                 <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-100/80 shadow-sm">
                     {cascadeFilterBar}
                 </div>
+
+                <button
+                    onClick={openDirectReferral}
+                    className="card-hover w-full text-left p-4 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 hover:border-emerald-200 shadow-sm flex items-start gap-4 group"
+                >
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-200/50 group-hover:scale-105 transition-transform">
+                        <UserPlus size={18} />
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-gray-900 text-sm group-hover:text-purple-700 transition-colors">Refer Student</h4>
+                        <p className="text-xs text-gray-500">Direct referral to CARE Staff</p>
+                    </div>
+                </button>
 
                 {/* Stats bar */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

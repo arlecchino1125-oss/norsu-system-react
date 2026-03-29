@@ -29,6 +29,5 @@ export const getStudentEmergencyContact = (student?: {
 
 export const getStudentSex = (student?: {
     sex?: string | null;
-    gender?: string | null;
 } | null) =>
-    String(student?.sex || student?.gender || '').trim();
+    String(student?.sex || '').trim();

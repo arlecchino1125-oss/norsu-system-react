@@ -1,5 +1,9 @@
 import { loadJsPdf, loadJsPdfAutoTable, loadXlsx } from '../lib/exportVendors';
 
+export const savePdf = (doc: any, fileName: string) => {
+    doc.save(fileName);
+};
+
 /**
  * Export a single counseling request as a PDF form.
  */
@@ -86,7 +90,7 @@ export const exportRequestPDF = async (record: any) => {
         addSection('Resolution Notes', record.resolution_notes);
     }
 
-    doc.save(`${record.student_name || 'Student'}_Counseling_Form.pdf`);
+    savePdf(doc, `${record.student_name || 'Student'}_Counseling_Form.pdf`);
 };
 
 /**
@@ -107,7 +111,7 @@ export const exportPDF = async (studentName: string, requests: any[]) => {
         ]),
         startY: 30,
     });
-    doc.save(`${studentName}_History.pdf`);
+    savePdf(doc, `${studentName}_History.pdf`);
 };
 
 export const exportToExcel = async (headers: string[], rows: any[][], fileName: string) => {
@@ -159,7 +163,7 @@ export const exportTablePdf = async (
             fillColor: [31, 41, 55]
         }
     });
-    doc.save(fileName);
+    savePdf(doc, fileName);
 };
 
 const escapeHtml = (value: unknown) => String(value ?? '')
@@ -215,8 +219,4 @@ export const printTableDocument = (
         printWindow.print();
         printWindow.close();
     }, 250);
-};
-
-export const savePdf = (doc: any, fileName: string) => {
-    doc.save(fileName);
 };

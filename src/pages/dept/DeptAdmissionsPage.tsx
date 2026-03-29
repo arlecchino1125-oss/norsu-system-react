@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, CheckCircle, Mail, MapPin, Phone, Users, XCircle } from 'lucide-react';
+import { getApplicationDetailsById } from '../../services/applicationDetailsService';
 
 const SCHEDULABLE_STATUSES = new Set([
     'Qualified for Interview (1st Choice)',
@@ -54,6 +55,16 @@ const formatCreatedAtLabel = (value: unknown) => {
 
     return parsed.toLocaleString();
 };
+
+const getApplicantFullName = (app: any) => [
+    app?.first_name,
+    app?.middle_name,
+    app?.last_name,
+    app?.suffix
+]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(' ');
 
 const buildApplicantTimeline = (app: any) => {
     const currentChoice = Number(app?.current_choice || 1);
@@ -146,6 +157,7 @@ const DeptAdmissionsPage = ({
     const [courseFilter, setCourseFilter] = useState('All');
     const [selectedApplicantIds, setSelectedApplicantIds] = useState<string[]>([]);
     const [selectedApplicantDetails, setSelectedApplicantDetails] = useState<any>(null);
+    const [isLoadingApplicantDetails, setIsLoadingApplicantDetails] = useState(false);
 
     const allApplicants = Array.isArray(applicants) ? applicants : [];
 
@@ -204,6 +216,28 @@ const DeptAdmissionsPage = ({
 
             return Array.from(new Set([...prev, ...filteredIds]));
         });
+    };
+
+    const closeApplicantDetails = () => {
+        setSelectedApplicantDetails(null);
+        setIsLoadingApplicantDetails(false);
+    };
+
+    const openApplicantDetails = async (application: any) => {
+        const applicationId = String(application?.id || '').trim();
+        if (!applicationId) return;
+
+        setSelectedApplicantDetails(application);
+        setIsLoadingApplicantDetails(true);
+
+        try {
+            const details = await getApplicationDetailsById(applicationId);
+            setSelectedApplicantDetails(details);
+        } catch (error) {
+            console.error('Failed to load department applicant details:', error);
+        } finally {
+            setIsLoadingApplicantDetails(false);
+        }
     };
 
     return (
@@ -394,7 +428,7 @@ const DeptAdmissionsPage = ({
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setSelectedApplicantDetails(app)}
+                                                onClick={() => { void openApplicantDetails(app); }}
                                                 className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
                                             >
                                                 View Details
@@ -447,7 +481,7 @@ const DeptAdmissionsPage = ({
                                             )}
                                             <button
                                                 type="button"
-                                                onClick={() => setSelectedApplicantDetails(app)}
+                                                onClick={() => { void openApplicantDetails(app); }}
                                                 className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
                                             >
                                                 View Details
@@ -462,15 +496,15 @@ const DeptAdmissionsPage = ({
             </div>
 
             {selectedApplicantDetails && (() => {
-                const applicantTimeline = buildApplicantTimeline(selectedApplicantDetails);
+                const applicantFullName = getApplicantFullName(selectedApplicantDetails) || 'Applicant';
 
                 return (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
-                        <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+                        <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
                             <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-900">
-                                        {`${selectedApplicantDetails?.first_name || ''} ${selectedApplicantDetails?.last_name || ''}`.trim() || 'Applicant'}
+                                        {applicantFullName}
                                     </h3>
                                     <p className="mt-1 text-xs text-gray-500">
                                         {selectedApplicantDetails?.reference_id || 'No reference ID'} | {getStatusLabel(String(selectedApplicantDetails?.status || '').trim())}
@@ -478,55 +512,94 @@ const DeptAdmissionsPage = ({
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setSelectedApplicantDetails(null)}
+                                    onClick={closeApplicantDetails}
                                     className="text-gray-400 hover:text-gray-600"
                                 >
                                     <XCircle size={22} />
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-5 px-5 py-5 lg:grid-cols-[1fr_1.2fr]">
-                                <div className="space-y-4">
-                                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Applicant Details</p>
-                                        <div className="mt-3 space-y-2 text-sm text-gray-700">
-                                            <p><span className="font-semibold text-gray-900">Course:</span> {getActiveCourseName(selectedApplicantDetails) || 'Not set'}</p>
-                                            <p><span className="font-semibold text-gray-900">Priority:</span> {selectedApplicantDetails?.current_choice || 1}</p>
-                                            <p><span className="font-semibold text-gray-900">Email:</span> {selectedApplicantDetails?.email || 'Not set'}</p>
-                                            <p><span className="font-semibold text-gray-900">Mobile:</span> {selectedApplicantDetails?.mobile || 'Not set'}</p>
-                                            <p><span className="font-semibold text-gray-900">Submitted:</span> {formatCreatedAtLabel(selectedApplicantDetails?.created_at)}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Current Interview Details</p>
-                                        <div className="mt-3 space-y-2 text-sm text-gray-700">
-                                            <p><span className="font-semibold text-gray-900">Schedule:</span> {selectedApplicantDetails?.interview_date ? formatDateTimeLabel(selectedApplicantDetails?.interview_date) : 'No active interview schedule'}</p>
-                                            <p><span className="font-semibold text-gray-900">Venue:</span> {selectedApplicantDetails?.interview_venue || 'Not set'}</p>
-                                            <p><span className="font-semibold text-gray-900">Panel:</span> {selectedApplicantDetails?.interview_panel || 'Not set'}</p>
-                                            <p><span className="font-semibold text-gray-900">Attendance:</span> {String(selectedApplicantDetails?.interview_queue_status || '').trim() === 'Absent' ? 'Marked Absent' : 'Not marked absent'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                                        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Applicant Timeline / History</p>
-                                        <div className="mt-4 space-y-4">
-                                            {applicantTimeline.map((item, index) => (
-                                                <div key={`${item.title}-${index}`} className="relative pl-6">
-                                                    <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                                                    {index !== applicantTimeline.length - 1 && (
-                                                        <div className="absolute left-[4px] top-4 h-[calc(100%+0.5rem)] w-px bg-emerald-200" />
-                                                    )}
-                                                    <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                                                    <p className="mt-1 text-sm text-gray-600">{item.detail}</p>
-                                                    <p className="mt-1 text-xs font-medium text-gray-400">{item.timestamp}</p>
+                            <div className="px-5 py-5">
+                                {isLoadingApplicantDetails ? (
+                                    <div className="py-16 text-center text-sm font-medium text-gray-500">Loading applicant details...</div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                                            <div className="space-y-4">
+                                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Personal Information</p>
+                                                    <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">First Name</label><p className="text-sm font-bold text-gray-800">{selectedApplicantDetails?.first_name || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Last Name</label><p className="text-sm font-bold text-gray-800">{selectedApplicantDetails?.last_name || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Middle Name</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.middle_name || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Suffix</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.suffix || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Student ID</label><p className="text-sm font-mono text-gray-700">{selectedApplicantDetails?.student_id || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Date of Birth</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.dob || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Age</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.age || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Place of Birth</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.place_of_birth || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Nationality</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.nationality || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Sex</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.sex || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Gender Identity</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.gender_identity || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Civil Status</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.civil_status || '—'}</p></div>
+                                                    </div>
                                                 </div>
-                                            ))}
+
+                                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Address</p>
+                                                    <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Street</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.street || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">City/Municipality</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.city || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Province</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.province || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Zip Code</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.zip_code || '—'}</p></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Contact Information</p>
+                                                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Mobile</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.mobile || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Email</label><p className="text-sm break-all text-gray-700">{selectedApplicantDetails?.email || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Facebook URL</label><p className="text-sm break-all text-gray-700">{selectedApplicantDetails?.facebook_url || '—'}</p></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Educational Background</p>
+                                                    <div className="mt-3 grid grid-cols-1 gap-3">
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Reason for Applying</label><p className="text-sm whitespace-pre-wrap text-gray-700">{selectedApplicantDetails?.reason || '—'}</p></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Course Preferences</p>
+                                                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                        <div className="md:col-span-2"><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Priority Course</label><p className="text-sm font-bold text-purple-700">{selectedApplicantDetails?.priority_course || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Alternative Course 1</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.alt_course_1 || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Alternative Course 2</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.alt_course_2 || '—'}</p></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Test Schedule</p>
+                                                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Test Date</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.test_date || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Test Slot</label><p className="text-sm text-gray-700">{selectedApplicantDetails?.test_time || '—'}</p></div>
+                                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Date Submitted</label><p className="text-sm text-gray-700">{formatCreatedAtLabel(selectedApplicantDetails?.created_at)}</p></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 h-fit">
+                                                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Interview Details</p>
+                                                <div className="mt-3 space-y-2 text-sm text-gray-700">
+                                                    <p><span className="font-semibold text-gray-900">Interview Schedule:</span> {selectedApplicantDetails?.interview_date ? formatDateTimeLabel(selectedApplicantDetails?.interview_date) : 'Not set'}</p>
+                                                    <p><span className="font-semibold text-gray-900">Interview Venue:</span> {selectedApplicantDetails?.interview_venue || 'Not set'}</p>
+                                                    <p><span className="font-semibold text-gray-900">Interview Panel:</span> {selectedApplicantDetails?.interview_panel || 'Not set'}</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>

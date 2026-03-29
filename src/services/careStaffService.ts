@@ -17,7 +17,6 @@ export const STUDENT_LIST_COLUMNS = [
     'age',
     'place_of_birth',
     'nationality',
-    'gender',
     'sex',
     'gender_identity',
     'civil_status',
