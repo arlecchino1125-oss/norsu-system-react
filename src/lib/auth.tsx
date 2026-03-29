@@ -40,7 +40,6 @@ const STUDENT_PROFILE_SELECT = [
     'department',
     'middle_name',
     'dob',
-    'gender',
     'civil_status',
     'nationality',
     'email',

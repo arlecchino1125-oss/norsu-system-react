@@ -12,8 +12,8 @@ type NorsuBrandProps = {
 const ACCENT_STYLES = {
     blue: {
         ring: 'ring-blue-100',
-        title: 'text-slate-900',
-        subtitle: 'text-slate-500',
+        title: 'text-white',
+        subtitle: 'text-sky-200/75',
         badge: 'bg-blue-50 text-blue-700 border-blue-100'
     },
     emerald: {

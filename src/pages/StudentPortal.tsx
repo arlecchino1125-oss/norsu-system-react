@@ -57,7 +57,6 @@ interface Student {
     age: string | number;
     placeOfBirth?: string;
     sex: string;
-    gender?: string;
     genderIdentity?: string;
     civilStatus?: string;
     nationality?: string;
@@ -254,7 +253,7 @@ export default function StudentPortal() {
         address: "", street: "", city: "", province: "", zipCode: "",
         mobile: "", email: "", facebookUrl: "", emergencyContact: "",
         dob: "", age: "", placeOfBirth: "",
-        sex: "", gender: "", genderIdentity: "",
+        sex: "", genderIdentity: "",
         civilStatus: "", nationality: "",
         priorityCourse: "", altCourse1: "", altCourse2: "",
         schoolLastAttended: "",
@@ -386,7 +385,6 @@ export default function StudentPortal() {
         place_of_birth: 'Place of Birth',
         nationality: 'Nationality',
         sex: 'Sex',
-        gender: 'Gender',
         gender_identity: 'Gender Identity',
         civil_status: 'Civil Status',
         address: 'Address',
@@ -1053,7 +1051,6 @@ export default function StudentPortal() {
                 age: studentData.age || '',
                 placeOfBirth: studentData.place_of_birth || '',
                 sex: getStudentSex(studentData),
-                gender: studentData.gender || '',
                 genderIdentity: studentData.gender_identity || '',
                 civilStatus: studentData.civil_status || '',
                 nationality: studentData.nationality || '',
@@ -1205,6 +1202,48 @@ export default function StudentPortal() {
                     fatherMiddleName: fatherParts.middle,
                     fatherOccupation: studentData.father_occupation || '',
                     fatherContact: studentData.father_contact || '',
+                    // --- Remaining fields (prevents overwrite with blanks) ---
+                    religion: studentData.religion || '',
+                    schoolLastAttended: studentData.school_last_attended || '',
+                    yearLevelApplying: studentData.year_level || '1st Year',
+                    supporter: studentData.supporter ? String(studentData.supporter).split(', ').filter(Boolean) : [],
+                    supporterContact: studentData.supporter_contact || '',
+                    isWorkingStudent: studentData.is_working_student ? 'Yes' : '',
+                    workingStudentType: studentData.working_student_type || '',
+                    isPwd: studentData.is_pwd ? 'Yes' : '',
+                    pwdType: studentData.pwd_type || '',
+                    isIndigenous: studentData.is_indigenous ? 'Yes' : '',
+                    indigenousGroup: studentData.indigenous_group || '',
+                    witnessedConflict: studentData.witnessed_conflict ? 'Yes' : '',
+                    isSafeInCommunity: studentData.is_safe_in_community ? 'Yes' : '',
+                    isSoloParent: studentData.is_solo_parent ? 'Yes' : '',
+                    isChildOfSoloParent: studentData.is_child_of_solo_parent ? 'Yes' : '',
+                    parentAddress: studentData.parent_address || '',
+                    numBrothers: studentData.num_brothers || '',
+                    numSisters: studentData.num_sisters || '',
+                    birthOrder: studentData.birth_order || '',
+                    spouseName: studentData.spouse_name || '',
+                    spouseOccupation: studentData.spouse_occupation || '',
+                    numChildren: studentData.num_children || '',
+                    guardianName: studentData.guardian_name || '',
+                    guardianAddress: studentData.guardian_address || '',
+                    guardianContact: studentData.guardian_contact || '',
+                    guardianRelation: studentData.guardian_relation || '',
+                    emergencyName: studentData.emergency_name || '',
+                    emergencyAddress: studentData.emergency_address || '',
+                    emergencyRelationship: studentData.emergency_relationship || '',
+                    emergencyNumber: studentData.emergency_number || '',
+                    elemSchool: studentData.elem_school || '',
+                    elemYearGraduated: studentData.elem_year_graduated || '',
+                    juniorHighSchool: studentData.junior_high_school || '',
+                    juniorHighYearGraduated: studentData.junior_high_year_graduated || '',
+                    seniorHighSchool: studentData.senior_high_school || '',
+                    seniorHighYearGraduated: studentData.senior_high_year_graduated || '',
+                    collegeSchool: studentData.college_school || '',
+                    collegeYearGraduated: studentData.college_year_graduated || '',
+                    honorsAwards: studentData.honors_awards || '',
+                    extracurricularActivities: studentData.extracurricular_activities || '',
+                    scholarshipsAvailed: studentData.scholarships_availed || '',
                 }));
             }
             setShowProfileCompletion(!profileCompleted);
@@ -2185,7 +2224,7 @@ export default function StudentPortal() {
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Sex *</label><select name="sex" value={profileFormData.sex} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Gender</label><select name="genderIdentity" value={profileFormData.genderIdentity} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Cis-gender">Cis-gender</option><option value="Transgender">Transgender</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Gender Identity</label><select name="genderIdentity" value={profileFormData.genderIdentity} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Cis-gender">Cis-gender</option><option value="Transgender">Transgender</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Civil Status</label><select name="civilStatus" value={profileFormData.civilStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Single">Single</option><option value="Married">Married</option><option value="Separated Legally">Separated Legally</option><option value="Separated Physically">Separated Physically</option><option value="With Live-In Partner">With Live-In Partner</option><option value="Divorced">Divorced</option><option value="Widow/er">Widow/er</option></select></div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>

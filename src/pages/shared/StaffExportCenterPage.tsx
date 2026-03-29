@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, FileText, Loader2, Printer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getDepartmentInterviewQueue } from '../../services/deptService';
@@ -61,13 +61,36 @@ const getActiveCourseName = (application: any) => {
     return String(application?.priority_course || '').trim() || '';
 };
 
+const normalizeInterviewPanel = (value: unknown) =>
+    String(value || '').trim().replace(/\s+/g, ' ');
+
+const buildInterviewPanelOptions = (values: unknown[]) => {
+    const unique = new Map<string, string>();
+    values.forEach((value) => {
+        const normalized = normalizeInterviewPanel(value);
+        if (!normalized) return;
+        const key = normalized.toLowerCase();
+        if (!unique.has(key)) {
+            unique.set(key, normalized);
+        }
+    });
+
+    return Array.from(unique.values()).sort((left, right) => left.localeCompare(right));
+};
+
 const StaffExportCenterPage = ({
     scope,
     departmentName,
     accent = 'emerald',
     showToast
 }: StaffExportCenterPageProps) => {
-    const [interviewDateFilter, setInterviewDateFilter] = useState('');
+    const [departmentDateFilters, setDepartmentDateFilters] = useState({
+        scheduledInterviews: '',
+        approvedApplicants: '',
+        printableMasterList: ''
+    });
+    const [masterListPanelFilter, setMasterListPanelFilter] = useState('');
+    const [masterListPanelOptions, setMasterListPanelOptions] = useState<string[]>([]);
     const [exportingKey, setExportingKey] = useState<string | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
     const styles = ACCENT_STYLES[accent];
@@ -78,21 +101,61 @@ const StaffExportCenterPage = ({
         }
     }, [showToast]);
 
-    const applyInterviewDateFilter = useCallback((rows: any[]) => {
-        if (!interviewDateFilter) return rows;
-        return rows.filter((row: any) => String(row?.interview_date || '').startsWith(interviewDateFilter));
-    }, [interviewDateFilter]);
+    useEffect(() => {
+        let ignore = false;
+
+        if (scope !== 'department' || !String(departmentName || '').trim()) {
+            setMasterListPanelOptions([]);
+            setMasterListPanelFilter('');
+            return undefined;
+        }
+
+        const loadPanelOptions = async () => {
+            try {
+                const rows = await getDepartmentInterviewQueue(String(departmentName || '').trim());
+                if (ignore) return;
+                const nextOptions = buildInterviewPanelOptions(rows.map((row: any) => row?.interview_panel));
+                setMasterListPanelOptions(nextOptions);
+                setMasterListPanelFilter((current) => (
+                    nextOptions.some((option) => option.toLowerCase() === current.toLowerCase()) ? current : ''
+                ));
+            } catch (error) {
+                console.error('Failed to load master list panel options:', error);
+            }
+        };
+
+        void loadPanelOptions();
+
+        return () => {
+            ignore = true;
+        };
+    }, [departmentName, scope]);
+
+    const setDepartmentDateFilter = useCallback((
+        key: 'scheduledInterviews' | 'approvedApplicants' | 'printableMasterList',
+        value: string
+    ) => {
+        setDepartmentDateFilters((prev) => ({ ...prev, [key]: value }));
+    }, []);
+
+    const applyInterviewDateFilter = useCallback((rows: any[], interviewDateFilter?: string) => {
+        const normalizedDate = String(interviewDateFilter || '').trim();
+        if (!normalizedDate) return rows;
+        return rows.filter((row: any) => String(row?.interview_date || '').startsWith(normalizedDate));
+    }, []);
 
     const getDepartmentAdmissionsPayload = useCallback(async (
-        status: 'Interview Scheduled' | 'Approved for Enrollment'
+        status: 'Interview Scheduled' | 'Approved for Enrollment',
+        interviewDateFilter?: string
     ): Promise<ExportPayload> => {
         const normalizedDepartment = String(departmentName || '').trim();
         if (!normalizedDepartment) {
             throw new Error('Department name is required for admissions exports.');
         }
 
-        const queueRows = await getDepartmentInterviewQueue(normalizedDepartment);
-        const filteredRows = applyInterviewDateFilter(queueRows).filter((row: any) => String(row?.status || '').trim() === status);
+        const queueRows = await getDepartmentInterviewQueue(normalizedDepartment, interviewDateFilter);
+        const filteredRows = applyInterviewDateFilter(queueRows, interviewDateFilter)
+            .filter((row: any) => String(row?.status || '').trim() === status);
 
         return {
             title: status === 'Interview Scheduled' ? 'Scheduled Interviews' : 'Approved for Enrollment',
@@ -116,16 +179,25 @@ const StaffExportCenterPage = ({
         if (!normalizedDepartment) {
             throw new Error('Department name is required for the printable master list.');
         }
+        const interviewDateFilter = String(departmentDateFilters.printableMasterList || '').trim();
         if (!interviewDateFilter) {
             throw new Error('Select an interview date first for the printable master list.');
         }
 
         const queueRows = await getDepartmentInterviewQueue(normalizedDepartment, interviewDateFilter);
-        const filteredRows = queueRows.filter((row: any) => String(row?.status || '').trim() === 'Interview Scheduled');
+        const normalizedPanelFilter = normalizeInterviewPanel(masterListPanelFilter).toLowerCase();
+        const filteredRows = queueRows
+            .filter((row: any) => String(row?.status || '').trim() === 'Interview Scheduled')
+            .filter((row: any) => (
+                !normalizedPanelFilter
+                || normalizeInterviewPanel(row?.interview_panel).toLowerCase() === normalizedPanelFilter
+            ));
 
         return {
             title: 'Interview Master List',
-            fileBase: `interview_master_list_${interviewDateFilter}`,
+            fileBase: masterListPanelFilter
+                ? `interview_master_list_${interviewDateFilter}_${masterListPanelFilter.replace(/\s+/g, '_').toLowerCase()}`
+                : `interview_master_list_${interviewDateFilter}`,
             headers: ['#', 'Applicant', 'Reference ID', 'Course', 'Schedule', 'Venue', 'Panel', 'Signature'],
             rows: filteredRows.map((row: any, index: number) => [
                 index + 1,
@@ -138,7 +210,7 @@ const StaffExportCenterPage = ({
                 ''
             ])
         };
-    }, [departmentName, interviewDateFilter]);
+    }, [departmentDateFilters.printableMasterList, departmentName, masterListPanelFilter]);
 
     const getDepartmentCounselingPayload = useCallback(async (): Promise<ExportPayload> => {
         const normalizedDepartment = String(departmentName || '').trim();
@@ -343,7 +415,10 @@ const StaffExportCenterPage = ({
                 payload.title,
                 payload.headers,
                 payload.rows,
-                `Interview date: ${interviewDateFilter}`
+                [
+                    `Interview date: ${departmentDateFilters.printableMasterList}`,
+                    masterListPanelFilter ? `Panel: ${masterListPanelFilter}` : null
+                ].filter(Boolean).join(' | ')
             );
             notify('Printable master list opened.', 'success');
         } catch (error: any) {
@@ -353,7 +428,7 @@ const StaffExportCenterPage = ({
         } finally {
             setExportingKey(null);
         }
-    }, [getPrintableMasterListPayload, interviewDateFilter, notify]);
+    }, [departmentDateFilters.printableMasterList, getPrintableMasterListPayload, masterListPanelFilter, notify]);
 
     const modules = useMemo(() => {
         if (scope === 'department') {
@@ -362,15 +437,19 @@ const StaffExportCenterPage = ({
                     id: 'scheduled-interviews',
                     title: 'Scheduled Interviews',
                     description: 'Export scheduled interview applicants for your department.',
-                    note: 'Uses the optional interview date filter below.',
-                    getPayload: () => getDepartmentAdmissionsPayload('Interview Scheduled')
+                    note: 'Optional date filter for this export only.',
+                    getPayload: () => getDepartmentAdmissionsPayload('Interview Scheduled', departmentDateFilters.scheduledInterviews),
+                    dateFilterValue: departmentDateFilters.scheduledInterviews,
+                    onDateFilterChange: (value: string) => setDepartmentDateFilter('scheduledInterviews', value)
                 },
                 {
                     id: 'approved-applicants',
                     title: 'Approved for Enrollment',
                     description: 'Export approved interview applicants for your department.',
-                    note: 'Uses the optional interview date filter below.',
-                    getPayload: () => getDepartmentAdmissionsPayload('Approved for Enrollment')
+                    note: 'Optional date filter for this export only.',
+                    getPayload: () => getDepartmentAdmissionsPayload('Approved for Enrollment', departmentDateFilters.approvedApplicants),
+                    dateFilterValue: departmentDateFilters.approvedApplicants,
+                    onDateFilterChange: (value: string) => setDepartmentDateFilter('approvedApplicants', value)
                 },
                 {
                     id: 'department-counseling',
@@ -434,6 +513,9 @@ const StaffExportCenterPage = ({
         getDepartmentCounselingPayload,
         getDepartmentSupportPayload,
         getEventsPayload,
+        departmentDateFilters.approvedApplicants,
+        departmentDateFilters.scheduledInterviews,
+        setDepartmentDateFilter,
         scope
     ]);
 
@@ -447,20 +529,6 @@ const StaffExportCenterPage = ({
                     </p>
                 </div>
 
-                {scope === 'department' && (
-                    <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
-                        <label htmlFor="interview-export-date" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Interview Date
-                        </label>
-                        <input
-                            id="interview-export-date"
-                            type="date"
-                            value={interviewDateFilter}
-                            onChange={(event) => setInterviewDateFilter(event.target.value)}
-                            className="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-700 outline-none focus:border-gray-300"
-                        />
-                    </div>
-                )}
             </div>
 
             {pageError && (
@@ -481,8 +549,39 @@ const StaffExportCenterPage = ({
                                 Interview-day attendance list for scheduled applicants only.
                             </p>
                             <p className="mt-2 text-xs text-gray-500">
-                                Requires the interview date filter and includes a blank signature column for check-in.
+                                Uses its own interview date and panel filters and includes a blank signature column for check-in.
                             </p>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                            <label htmlFor="master-list-date" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Interview Date
+                            </label>
+                            <input
+                                id="master-list-date"
+                                type="date"
+                                value={departmentDateFilters.printableMasterList}
+                                onChange={(event) => setDepartmentDateFilter('printableMasterList', event.target.value)}
+                                className="mt-2 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
+                            />
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                            <label htmlFor="master-list-panel" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Panel
+                            </label>
+                            <select
+                                id="master-list-panel"
+                                value={masterListPanelFilter}
+                                onChange={(event) => setMasterListPanelFilter(event.target.value)}
+                                className="mt-2 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
+                            >
+                                <option value="">All Panels</option>
+                                {masterListPanelOptions.map((panel) => (
+                                    <option key={panel} value={panel}>{panel}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
@@ -526,6 +625,21 @@ const StaffExportCenterPage = ({
                                 <p className="mt-2 text-xs text-gray-500">{module.note}</p>
                             </div>
                         </div>
+
+                        {scope === 'department' && typeof module.onDateFilterChange === 'function' && (
+                            <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                                <label htmlFor={`${module.id}-date-filter`} className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Interview Date
+                                </label>
+                                <input
+                                    id={`${module.id}-date-filter`}
+                                    type="date"
+                                    value={module.dateFilterValue || ''}
+                                    onChange={(event) => module.onDateFilterChange(event.target.value)}
+                                    className="mt-2 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-gray-300"
+                                />
+                            </div>
+                        )}
 
                         <div className="mt-5 flex flex-wrap gap-3">
                             <button

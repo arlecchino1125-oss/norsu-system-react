@@ -211,8 +211,8 @@ const DeptSupportApprovalsPage = ({
     return (
         <div className="space-y-6 animate-fade-in">
             <header>
-                <h1 className="text-2xl font-bold text-gray-900">Support Request Approvals</h1>
-                <p className="text-gray-500 text-sm mt-1">Review requests forwarded to {data.profile.department}</p>
+                <h1 className="text-2xl font-bold text-gray-900">Additional Support</h1>
+                <p className="text-gray-500 text-sm mt-1">Review additional support cases forwarded to {data.profile.department}</p>
             </header>
 
             {/* Tabs */}

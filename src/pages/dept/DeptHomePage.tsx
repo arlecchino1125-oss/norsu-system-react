@@ -161,7 +161,7 @@ const DeptHomePage = ({
                     <h3 className="font-bold text-gray-900 px-1 flex items-center gap-2"><Settings size={16} className="text-emerald-500" /> Quick Actions</h3>
                     <button onClick={() => setActiveModule('counseling_queue')} className="card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 flex items-start gap-4 group">
                         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200/50 group-hover:scale-105 transition-transform"><ClipboardList size={18} /></div>
-                        <div><h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors">Counseling Requests</h4><p className="text-xs text-gray-500">{counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length} pending review</p></div>
+                        <div><h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors">Counseling</h4><p className="text-xs text-gray-500">{counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length} pending review</p></div>
                     </button>
                     <button onClick={() => { setForwardingToStaff(false); setReferralForm({ student: '', type: '', notes: '', referrer_contact_number: '', relationship_with_student: '', reason_for_referral: '', actions_made: '', date_duration_of_observations: '' }); setShowReferralModal(true); }} className="card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 flex items-start gap-4 group">
                         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-200/50 group-hover:scale-105 transition-transform"><UserPlus size={18} /></div>
@@ -176,7 +176,7 @@ const DeptHomePage = ({
 
             {/* Recent Requests */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm card-hover">
-                <div className="p-6 border-b border-gray-100"><h3 className="font-bold text-gray-900 flex items-center gap-2"><FileText size={18} className="text-emerald-500" /> Recent Counseling Requests</h3></div>
+                <div className="p-6 border-b border-gray-100"><h3 className="font-bold text-gray-900 flex items-center gap-2"><FileText size={18} className="text-emerald-500" /> Recent Counseling</h3></div>
                 <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
                     {filteredData.requests.length === 0 ? <p className="text-center text-gray-400 py-4">No requests found.</p> : filteredData.requests.slice(0, 8).map(req => (
                         <div key={req.id} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="flex items-center justify-between p-3 bg-gray-50/80 rounded-xl border border-gray-100 hover:bg-white transition-colors cursor-pointer">
@@ -194,8 +194,8 @@ const DeptHomePage = ({
             <div className="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between text-white relative overflow-hidden shadow-xl shadow-emerald-200/30">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-2xl -mr-10 -mt-10" />
                 <div className="flex-1 relative z-10">
-                    <h3 className="text-lg font-bold mb-1">💡 Counseling Queue</h3>
-                    <p className="text-sm text-emerald-100/80">Review student counseling requests, schedule sessions, or refer students to CARE Staff.</p>
+                    <h3 className="text-lg font-bold mb-1">💡 Counseling</h3>
+                    <p className="text-sm text-emerald-100/80">Review counseling records, schedule sessions, or refer students to CARE Staff.</p>
                 </div>
                 <button onClick={() => setActiveModule('counseling_queue')} className="mt-4 md:mt-0 ml-0 md:ml-6 px-6 py-2.5 bg-white/15 backdrop-blur-sm border border-white/20 text-white rounded-xl font-semibold hover:bg-white/25 transition-all whitespace-nowrap">View Queue</button>
             </div>
