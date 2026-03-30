@@ -8,7 +8,7 @@ import StatusBadge from '../../components/StatusBadge';
 import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
 import { getAdmissionSchedules, getApplicationsPage, getCoursesForNat, getNatAttendanceSupport, isMissingNatAttendanceColumnsError } from '../../services/natService';
 import { getApplicationDetailsById } from '../../services/applicationDetailsService';
-import { buildEdgeFunctionHeaders } from '../../lib/functionHeaders';
+import { sendTransactionalEmailNotification } from '../../lib/transactionalEmail';
 
 const PASS_STATUS = 'Qualified for Interview (1st Choice)';
 const FAIL_STATUS = 'Failed';
@@ -303,15 +303,15 @@ const NATManagementPage = ({ showToast }: any) => {
             console.log("[DEBUG] Update successful!");
             try {
                 if (application?.email) {
-                    await supabase.functions.invoke('send-email', {
-                        body: {
-                            type: 'NAT_RESULT',
-                            email: application.email,
-                            name: [application.first_name, application.last_name].filter(Boolean).join(' ') || 'Applicant',
-                            status: newStatus
-                        },
-                        headers: buildEdgeFunctionHeaders()
-                    });
+                    const emailResult = await sendTransactionalEmailNotification({
+                        type: 'NAT_RESULT',
+                        email: application.email,
+                        name: [application.first_name, application.last_name].filter(Boolean).join(' ') || 'Applicant',
+                        status: newStatus
+                    }, 'Failed to send NAT result email.');
+                    if (!emailResult.emailSent) {
+                        console.error('[DEBUG] NAT result email failed:', emailResult.emailError);
+                    }
                 }
             } catch (emailError) {
                 console.error('[DEBUG] NAT result email failed:', emailError);

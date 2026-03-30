@@ -24,6 +24,11 @@ import { useStudentEventsData } from '../hooks/student/useStudentEventsData';
 import { useStudentFormsData } from '../hooks/student/useStudentFormsData';
 import { useStudentCounselingData } from '../hooks/student/useStudentCounselingData';
 import { useStudentSupportData } from '../hooks/student/useStudentSupportData';
+import {
+    clearPendingProfileCompletion,
+    getPendingProfileCompletionProfile,
+    shouldForceProfileCompletionPrompt
+} from '../lib/studentProfileCompletionPrompt';
 
 const supabaseClient = supabase;
 const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
@@ -32,6 +37,242 @@ const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
 
 const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
 const normalizeStudentEmail = (value: unknown) => String(value || '').trim().toLowerCase();
+const pickProfilePrefillValue = (primaryValue: unknown, fallbackValue: unknown) => {
+    if (primaryValue === null || primaryValue === undefined) {
+        return fallbackValue;
+    }
+
+    if (typeof primaryValue === 'string') {
+        return primaryValue.trim() !== '' ? primaryValue : fallbackValue;
+    }
+
+    return primaryValue;
+};
+const resolveProfileFormValue = (currentValue: unknown, ...candidateValues: unknown[]) =>
+    candidateValues.reduce(
+        (resolvedValue, candidateValue) => pickProfilePrefillValue(resolvedValue, candidateValue),
+        currentValue
+    );
+const applyPendingProfileToProfileForm = (
+    setProfileFormData: React.Dispatch<React.SetStateAction<any>>,
+    pendingProfile: Record<string, unknown> | null | undefined
+) => {
+    if (!pendingProfile) return;
+
+    setProfileFormData((prev: any) => ({
+        ...prev,
+        firstName: resolveProfileFormValue(prev.firstName, pendingProfile.firstName) || '',
+        lastName: resolveProfileFormValue(prev.lastName, pendingProfile.lastName) || '',
+        middleName: resolveProfileFormValue(prev.middleName, pendingProfile.middleName) || '',
+        suffix: resolveProfileFormValue(prev.suffix, pendingProfile.suffix) || '',
+        dob: resolveProfileFormValue(prev.dob, pendingProfile.dob) || '',
+        age: resolveProfileFormValue(prev.age, pendingProfile.age) || '',
+        sex: resolveProfileFormValue(prev.sex, pendingProfile.sex) || '',
+        street: resolveProfileFormValue(prev.street, pendingProfile.street) || '',
+        city: resolveProfileFormValue(prev.city, pendingProfile.city) || '',
+        province: resolveProfileFormValue(prev.province, pendingProfile.province) || '',
+        zipCode: resolveProfileFormValue(prev.zipCode, pendingProfile.zipCode) || '',
+        mobile: resolveProfileFormValue(prev.mobile, pendingProfile.mobile) || '',
+        email: resolveProfileFormValue(prev.email, pendingProfile.email) || ''
+    }));
+};
+const toYesNoChoice = (value: unknown) => {
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'yes') return 'Yes';
+        if (normalized === 'no') return 'No';
+    }
+
+    if (value === true) return 'Yes';
+    if (value === false) return 'No';
+    return '';
+};
+const hasFilledProfileValue = (value: unknown) => {
+    if (Array.isArray(value)) {
+        return value.some((entry) => String(entry ?? '').trim() !== '');
+    }
+
+    if (typeof value === 'boolean') {
+        return true;
+    }
+
+    if (typeof value === 'number') {
+        return !Number.isNaN(value);
+    }
+
+    return String(value ?? '').trim() !== '';
+};
+const hasAnsweredYesNo = (value: unknown) => {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === 'yes' || normalized === 'no';
+};
+const isProfileCompletionFormComplete = (profile: Record<string, any>) => {
+    const requiredFields = [
+        'firstName', 'lastName', 'middleName', 'suffix',
+        'dob', 'age', 'placeOfBirth', 'nationality', 'sex', 'genderIdentity', 'civilStatus',
+        'street', 'city', 'province', 'zipCode',
+        'mobile', 'email', 'facebookUrl',
+        'religion', 'schoolLastAttended', 'yearLevelApplying',
+        'supporter', 'supporterContact',
+        'motherLastName', 'motherGivenName', 'motherMiddleName', 'motherOccupation', 'motherContact',
+        'fatherLastName', 'fatherGivenName', 'fatherMiddleName', 'fatherOccupation', 'fatherContact',
+        'parentAddress', 'numBrothers', 'numSisters', 'birthOrder',
+        'spouseName', 'spouseOccupation', 'numChildren',
+        'guardianName', 'guardianAddress', 'guardianContact', 'guardianRelation',
+        'emergencyName', 'emergencyAddress', 'emergencyRelationship', 'emergencyNumber',
+        'elemSchool', 'elemYearGraduated',
+        'juniorHighSchool', 'juniorHighYearGraduated',
+        'seniorHighSchool', 'seniorHighYearGraduated',
+        'collegeSchool', 'collegeYearGraduated',
+        'honorsAwards', 'extracurricularActivities', 'scholarshipsAvailed'
+    ];
+    const yesNoFields = [
+        'isWorkingStudent',
+        'isPwd',
+        'isIndigenous',
+        'witnessedConflict',
+        'isSafeInCommunity',
+        'isSoloParent',
+        'isChildOfSoloParent'
+    ];
+
+    if (requiredFields.some((field) => !hasFilledProfileValue(profile[field]))) {
+        return false;
+    }
+
+    if (yesNoFields.some((field) => !hasAnsweredYesNo(profile[field]))) {
+        return false;
+    }
+
+    if (profile.isWorkingStudent === 'Yes' && !hasFilledProfileValue(profile.workingStudentType)) {
+        return false;
+    }
+
+    if (profile.isPwd === 'Yes' && !hasFilledProfileValue(profile.pwdType)) {
+        return false;
+    }
+
+    if (profile.isIndigenous === 'Yes' && !hasFilledProfileValue(profile.indigenousGroup)) {
+        return false;
+    }
+
+    return true;
+};
+const createInitialProfileFormData = () => ({
+    firstName: '', lastName: '', middleName: '', suffix: '',
+    dob: '', age: '', placeOfBirth: '',
+    nationality: '', sex: '', genderIdentity: '', civilStatus: '',
+    street: '', city: '', province: '', zipCode: '',
+    mobile: '', email: '', facebookUrl: '',
+    religion: '', schoolLastAttended: '', yearLevelApplying: '1st Year',
+    supporter: [] as string[], supporterContact: '',
+    isWorkingStudent: '', workingStudentType: '',
+    isPwd: '', pwdType: '',
+    isIndigenous: '', indigenousGroup: '',
+    witnessedConflict: '', isSafeInCommunity: '',
+    isSoloParent: '', isChildOfSoloParent: '',
+    motherLastName: '', motherGivenName: '', motherMiddleName: '', motherOccupation: '', motherContact: '',
+    fatherLastName: '', fatherGivenName: '', fatherMiddleName: '', fatherOccupation: '', fatherContact: '',
+    parentAddress: '', numBrothers: '', numSisters: '', birthOrder: '',
+    spouseName: '', spouseOccupation: '', numChildren: '',
+    guardianName: '', guardianAddress: '', guardianContact: '', guardianRelation: '',
+    emergencyName: '', emergencyAddress: '', emergencyRelationship: '', emergencyNumber: '',
+    elemSchool: '', elemYearGraduated: '',
+    juniorHighSchool: '', juniorHighYearGraduated: '',
+    seniorHighSchool: '', seniorHighYearGraduated: '',
+    collegeSchool: '', collegeYearGraduated: '',
+    honorsAwards: '',
+    extracurricularActivities: '', scholarshipsAvailed: '',
+    agreedToPrivacy: false,
+});
+const buildProfileCompletionFormSnapshot = ({
+    base,
+    studentData,
+    pendingActivationProfile,
+    sessionPrefillProfile,
+    motherParts,
+    fatherParts
+}: {
+    base: any;
+    studentData: any;
+    pendingActivationProfile: Record<string, any>;
+    sessionPrefillProfile: Record<string, any>;
+    motherParts: { last: string; given: string; middle: string; };
+    fatherParts: { last: string; given: string; middle: string; };
+}) => ({
+    ...base,
+    firstName: resolveProfileFormValue(base.firstName, studentData.first_name, pendingActivationProfile.firstName, sessionPrefillProfile.firstName) || '',
+    lastName: resolveProfileFormValue(base.lastName, studentData.last_name, pendingActivationProfile.lastName, sessionPrefillProfile.lastName) || '',
+    middleName: resolveProfileFormValue(base.middleName, studentData.middle_name, pendingActivationProfile.middleName, sessionPrefillProfile.middleName) || '',
+    suffix: resolveProfileFormValue(base.suffix, studentData.suffix, pendingActivationProfile.suffix, sessionPrefillProfile.suffix) || '',
+    dob: resolveProfileFormValue(base.dob, studentData.dob, pendingActivationProfile.dob, sessionPrefillProfile.dob) || '',
+    age: resolveProfileFormValue(base.age, studentData.age, pendingActivationProfile.age, sessionPrefillProfile.age) || '',
+    placeOfBirth: resolveProfileFormValue(base.placeOfBirth, studentData.place_of_birth) || '',
+    nationality: resolveProfileFormValue(base.nationality, studentData.nationality) || '',
+    sex: resolveProfileFormValue(base.sex, getStudentSex(studentData), pendingActivationProfile.sex, sessionPrefillProfile.sex) || '',
+    genderIdentity: resolveProfileFormValue(base.genderIdentity, studentData.gender_identity) || '',
+    civilStatus: resolveProfileFormValue(base.civilStatus, studentData.civil_status) || '',
+    street: resolveProfileFormValue(base.street, studentData.street, pendingActivationProfile.street, sessionPrefillProfile.street) || '',
+    city: resolveProfileFormValue(base.city, studentData.city, pendingActivationProfile.city, sessionPrefillProfile.city) || '',
+    province: resolveProfileFormValue(base.province, studentData.province, pendingActivationProfile.province, sessionPrefillProfile.province) || '',
+    zipCode: resolveProfileFormValue(base.zipCode, studentData.zip_code, pendingActivationProfile.zipCode, sessionPrefillProfile.zipCode) || '',
+    mobile: resolveProfileFormValue(base.mobile, studentData.mobile, pendingActivationProfile.mobile, sessionPrefillProfile.mobile) || '',
+    email: resolveProfileFormValue(base.email, studentData.email, pendingActivationProfile.email, sessionPrefillProfile.email) || '',
+    facebookUrl: resolveProfileFormValue(base.facebookUrl, studentData.facebook_url) || '',
+    motherLastName: resolveProfileFormValue(base.motherLastName, motherParts.last) || '',
+    motherGivenName: resolveProfileFormValue(base.motherGivenName, motherParts.given) || '',
+    motherMiddleName: resolveProfileFormValue(base.motherMiddleName, motherParts.middle) || '',
+    motherOccupation: resolveProfileFormValue(base.motherOccupation, studentData.mother_occupation) || '',
+    motherContact: resolveProfileFormValue(base.motherContact, studentData.mother_contact) || '',
+    fatherLastName: resolveProfileFormValue(base.fatherLastName, fatherParts.last) || '',
+    fatherGivenName: resolveProfileFormValue(base.fatherGivenName, fatherParts.given) || '',
+    fatherMiddleName: resolveProfileFormValue(base.fatherMiddleName, fatherParts.middle) || '',
+    fatherOccupation: resolveProfileFormValue(base.fatherOccupation, studentData.father_occupation) || '',
+    fatherContact: resolveProfileFormValue(base.fatherContact, studentData.father_contact) || '',
+    religion: resolveProfileFormValue(base.religion, studentData.religion) || '',
+    schoolLastAttended: resolveProfileFormValue(base.schoolLastAttended, studentData.school_last_attended) || '',
+    yearLevelApplying: resolveProfileFormValue(base.yearLevelApplying, studentData.year_level, '1st Year') || '1st Year',
+    supporter: Array.isArray(base.supporter) && base.supporter.length > 0
+        ? base.supporter
+        : (studentData.supporter ? String(studentData.supporter).split(', ').filter(Boolean) : []),
+    supporterContact: resolveProfileFormValue(base.supporterContact, studentData.supporter_contact) || '',
+    isWorkingStudent: resolveProfileFormValue(base.isWorkingStudent, toYesNoChoice(studentData.is_working_student)) || '',
+    workingStudentType: resolveProfileFormValue(base.workingStudentType, studentData.working_student_type) || '',
+    isPwd: resolveProfileFormValue(base.isPwd, toYesNoChoice(studentData.is_pwd)) || '',
+    pwdType: resolveProfileFormValue(base.pwdType, studentData.pwd_type) || '',
+    isIndigenous: resolveProfileFormValue(base.isIndigenous, toYesNoChoice(studentData.is_indigenous)) || '',
+    indigenousGroup: resolveProfileFormValue(base.indigenousGroup, studentData.indigenous_group) || '',
+    witnessedConflict: resolveProfileFormValue(base.witnessedConflict, toYesNoChoice(studentData.witnessed_conflict)) || '',
+    isSafeInCommunity: resolveProfileFormValue(base.isSafeInCommunity, toYesNoChoice(studentData.is_safe_in_community)) || '',
+    isSoloParent: resolveProfileFormValue(base.isSoloParent, toYesNoChoice(studentData.is_solo_parent)) || '',
+    isChildOfSoloParent: resolveProfileFormValue(base.isChildOfSoloParent, toYesNoChoice(studentData.is_child_of_solo_parent)) || '',
+    parentAddress: resolveProfileFormValue(base.parentAddress, studentData.parent_address) || '',
+    numBrothers: resolveProfileFormValue(base.numBrothers, studentData.num_brothers) || '',
+    numSisters: resolveProfileFormValue(base.numSisters, studentData.num_sisters) || '',
+    birthOrder: resolveProfileFormValue(base.birthOrder, studentData.birth_order) || '',
+    spouseName: resolveProfileFormValue(base.spouseName, studentData.spouse_name) || '',
+    spouseOccupation: resolveProfileFormValue(base.spouseOccupation, studentData.spouse_occupation) || '',
+    numChildren: resolveProfileFormValue(base.numChildren, studentData.num_children) || '',
+    guardianName: resolveProfileFormValue(base.guardianName, studentData.guardian_name) || '',
+    guardianAddress: resolveProfileFormValue(base.guardianAddress, studentData.guardian_address) || '',
+    guardianContact: resolveProfileFormValue(base.guardianContact, studentData.guardian_contact) || '',
+    guardianRelation: resolveProfileFormValue(base.guardianRelation, studentData.guardian_relation) || '',
+    emergencyName: resolveProfileFormValue(base.emergencyName, studentData.emergency_name) || '',
+    emergencyAddress: resolveProfileFormValue(base.emergencyAddress, studentData.emergency_address) || '',
+    emergencyRelationship: resolveProfileFormValue(base.emergencyRelationship, studentData.emergency_relationship) || '',
+    emergencyNumber: resolveProfileFormValue(base.emergencyNumber, studentData.emergency_number) || '',
+    elemSchool: resolveProfileFormValue(base.elemSchool, studentData.elem_school) || '',
+    elemYearGraduated: resolveProfileFormValue(base.elemYearGraduated, studentData.elem_year_graduated) || '',
+    juniorHighSchool: resolveProfileFormValue(base.juniorHighSchool, studentData.junior_high_school) || '',
+    juniorHighYearGraduated: resolveProfileFormValue(base.juniorHighYearGraduated, studentData.junior_high_year_graduated) || '',
+    seniorHighSchool: resolveProfileFormValue(base.seniorHighSchool, studentData.senior_high_school) || '',
+    seniorHighYearGraduated: resolveProfileFormValue(base.seniorHighYearGraduated, studentData.senior_high_year_graduated) || '',
+    collegeSchool: resolveProfileFormValue(base.collegeSchool, studentData.college_school) || '',
+    collegeYearGraduated: resolveProfileFormValue(base.collegeYearGraduated, studentData.college_year_graduated) || '',
+    honorsAwards: resolveProfileFormValue(base.honorsAwards, studentData.honors_awards) || '',
+    extracurricularActivities: resolveProfileFormValue(base.extracurricularActivities, studentData.extracurricular_activities) || '',
+    scholarshipsAvailed: resolveProfileFormValue(base.scholarshipsAvailed, studentData.scholarships_availed) || '',
+});
 
 interface Student {
     firstName: string;
@@ -294,6 +535,13 @@ export default function StudentPortal() {
 
     // Profile Completion Modal State
     const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+    const [forceProfileCompletionPrompt, setForceProfileCompletionPrompt] = useState(false);
+    const [hideProfileCompletionReminder, setHideProfileCompletionReminder] = useState(false);
+    const [profileServiceGate, setProfileServiceGate] = useState({
+        visible: false,
+        serviceLabel: '',
+        message: ''
+    });
     const [profileStep, setProfileStep] = useState(1);
     const PROFILE_TOTAL_STEPS = 8;
     const PROFILE_STEP_LABELS = ['Personal', 'Family', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
@@ -304,42 +552,31 @@ export default function StudentPortal() {
     const profileCompletionGridThreeClass = 'grid grid-cols-1 gap-3 sm:grid-cols-3';
     const profileCompletionRadioGroupClass = 'flex flex-col gap-3 sm:flex-row sm:gap-4';
     const profileCompletionCheckboxGridClass = 'grid grid-cols-1 gap-2 sm:grid-cols-2';
-    const [profileFormData, setProfileFormData] = useState<any>({
-        // Auto-filled from NAT
-        firstName: '', lastName: '', middleName: '', suffix: '',
-        dob: '', age: '', placeOfBirth: '',
-        nationality: '', sex: '', genderIdentity: '', civilStatus: '',
-        street: '', city: '', province: '', zipCode: '',
-        mobile: '', email: '', facebookUrl: '',
-        // New fields to collect
-        religion: '', schoolLastAttended: '', yearLevelApplying: '1st Year',
-        supporter: [] as string[], supporterContact: '',
-        isWorkingStudent: '', workingStudentType: '',
-        isPwd: '', pwdType: '',
-        isIndigenous: '', indigenousGroup: '',
-        witnessedConflict: '', isSafeInCommunity: '',
-        isSoloParent: '', isChildOfSoloParent: '',
-        // Family
-        motherLastName: '', motherGivenName: '', motherMiddleName: '', motherOccupation: '', motherContact: '',
-        fatherLastName: '', fatherGivenName: '', fatherMiddleName: '', fatherOccupation: '', fatherContact: '',
-        parentAddress: '', numBrothers: '', numSisters: '', birthOrder: '',
-        spouseName: '', spouseOccupation: '', numChildren: '',
-        // Guardian
-        guardianName: '', guardianAddress: '', guardianContact: '', guardianRelation: '',
-        // Emergency
-        emergencyName: '', emergencyAddress: '', emergencyRelationship: '', emergencyNumber: '',
-        // Education
-        elemSchool: '', elemYearGraduated: '',
-        juniorHighSchool: '', juniorHighYearGraduated: '',
-        seniorHighSchool: '', seniorHighYearGraduated: '',
-        collegeSchool: '', collegeYearGraduated: '',
-        honorsAwards: '',
-        // Extra-curricular & Scholarships
-        extracurricularActivities: '', scholarshipsAvailed: '',
-        agreedToPrivacy: false,
-    });
+    const [profileFormData, setProfileFormData] = useState<any>(createInitialProfileFormData);
     const [profileSaving, setProfileSaving] = useState(false);
     const [isSavingProfileChanges, setIsSavingProfileChanges] = useState(false);
+    const [profileCompletionStatusOverride, setProfileCompletionStatusOverride] = useState<boolean | null>(null);
+    const [profileFieldsComplete, setProfileFieldsComplete] = useState<boolean | null>(null);
+    const profileCompletionJustCompletedRef = useRef(false);
+    const refreshStudentProfileRequestRef = useRef(0);
+    const hasPendingForcedProfileCompletion = session?.userType === 'student'
+        && shouldForceProfileCompletionPrompt(session?.student_id);
+    const effectiveProfileCompleted = profileCompletionStatusOverride !== null
+        ? profileCompletionStatusOverride
+        : (session?.profile_completed === true ? true : session?.profile_completed === false ? false : null);
+    const profileCompletionReminderRequired = Boolean(
+        session?.userType === 'student' && (
+            forceProfileCompletionPrompt
+            || (profileFieldsComplete !== null ? !profileFieldsComplete : effectiveProfileCompleted === false)
+            || hasPendingForcedProfileCompletion
+        )
+    );
+    const profileCompletionGateActive = Boolean(
+        session?.userType === 'student' && showProfileCompletion
+    );
+    const profileCompletionReminderVisible = profileCompletionReminderRequired
+        && !profileCompletionGateActive
+        && !hideProfileCompletionReminder;
 
     const handleProfileFormChange = (e: any) => {
         const { name, value } = e.target;
@@ -357,6 +594,21 @@ export default function StudentPortal() {
     const handleProfileNextStep = () => {
         setProfileStep(prev => Math.min(prev + 1, PROFILE_TOTAL_STEPS));
     };
+    const openProfileCompletionModal = () => {
+        setShowProfileCompletion(true);
+        setHideProfileCompletionReminder(false);
+    };
+    const closeProfileServiceGate = React.useCallback(() => {
+        setProfileServiceGate({
+            visible: false,
+            serviceLabel: '',
+            message: ''
+        });
+    }, []);
+    const openProfileCompletionFromServiceGate = React.useCallback(() => {
+        closeProfileServiceGate();
+        openProfileCompletionModal();
+    }, [closeProfileServiceGate]);
 
     const getStoredParentParts = React.useCallback((studentData: any, prefix: 'mother' | 'father') => {
         const last = studentData?.[`${prefix}_last_name`] || '';
@@ -617,8 +869,16 @@ export default function StudentPortal() {
                 fallbackName: `${profileFormData.firstName || personalInfo.firstName || ''} ${profileFormData.lastName || personalInfo.lastName || ''}`.trim(),
                 fallbackStudentId: personalInfo.studentId
             });
-            await refreshStudentProfile();
+            const profileNowComplete = isProfileCompletionFormComplete(profileFormData);
+            profileCompletionJustCompletedRef.current = true;
+            setProfileFieldsComplete(profileNowComplete);
+            setProfileCompletionStatusOverride(true);
+            clearPendingProfileCompletion(personalInfo.studentId);
+            setForceProfileCompletionPrompt(false);
+            setShowProfileCompletion(false);
             setProfileStep(1);
+            syncStudentSession({ profile_completed: true });
+            await refreshStudentProfile();
             showToast('Profile completed successfully!');
         } catch (err: any) {
             console.error('Profile completion error:', err);
@@ -906,6 +1166,8 @@ export default function StudentPortal() {
     const refreshStudentProfile = React.useCallback(async () => {
         if (!session || session.userType !== 'student') return;
 
+        const refreshRequestId = refreshStudentProfileRequestRef.current + 1;
+        refreshStudentProfileRequestRef.current = refreshRequestId;
         const studentId = session.student_id || null;
         const authUserId = session.auth_user_id || session?.user?.id || null;
         const profileKey = String(authUserId || studentId || '').trim();
@@ -1025,6 +1287,7 @@ export default function StudentPortal() {
 
             const motherParts = getStoredParentParts(studentData, 'mother');
             const fatherParts = getStoredParentParts(studentData, 'father');
+            if (refreshRequestId !== refreshStudentProfileRequestRef.current) return;
 
             setPersonalInfo((prev: any) => ({
                 ...prev,
@@ -1170,100 +1433,147 @@ export default function StudentPortal() {
                 department: matchedDepartment
             });
 
-            const profileCompleted = studentData.profile_completed === true;
-            if (!profileCompleted) {
-                setProfileFormData((prev: any) => ({
-                    ...prev,
-                    firstName: studentData.first_name || '',
-                    lastName: studentData.last_name || '',
-                    middleName: studentData.middle_name || '',
-                    suffix: studentData.suffix || '',
-                    dob: studentData.dob || '',
-                    age: studentData.age || '',
-                    placeOfBirth: studentData.place_of_birth || '',
-                    nationality: studentData.nationality || '',
-                    sex: getStudentSex(studentData),
-                    genderIdentity: studentData.gender_identity || '',
-                    civilStatus: studentData.civil_status || '',
-                    street: studentData.street || '',
-                    city: studentData.city || '',
-                    province: studentData.province || '',
-                    zipCode: studentData.zip_code || '',
-                    mobile: studentData.mobile || '',
-                    email: studentData.email || '',
-                    facebookUrl: studentData.facebook_url || '',
-                    motherLastName: motherParts.last,
-                    motherGivenName: motherParts.given,
-                    motherMiddleName: motherParts.middle,
-                    motherOccupation: studentData.mother_occupation || '',
-                    motherContact: studentData.mother_contact || '',
-                    fatherLastName: fatherParts.last,
-                    fatherGivenName: fatherParts.given,
-                    fatherMiddleName: fatherParts.middle,
-                    fatherOccupation: studentData.father_occupation || '',
-                    fatherContact: studentData.father_contact || '',
-                    // --- Remaining fields (prevents overwrite with blanks) ---
-                    religion: studentData.religion || '',
-                    schoolLastAttended: studentData.school_last_attended || '',
-                    yearLevelApplying: studentData.year_level || '1st Year',
-                    supporter: studentData.supporter ? String(studentData.supporter).split(', ').filter(Boolean) : [],
-                    supporterContact: studentData.supporter_contact || '',
-                    isWorkingStudent: studentData.is_working_student ? 'Yes' : '',
-                    workingStudentType: studentData.working_student_type || '',
-                    isPwd: studentData.is_pwd ? 'Yes' : '',
-                    pwdType: studentData.pwd_type || '',
-                    isIndigenous: studentData.is_indigenous ? 'Yes' : '',
-                    indigenousGroup: studentData.indigenous_group || '',
-                    witnessedConflict: studentData.witnessed_conflict ? 'Yes' : '',
-                    isSafeInCommunity: studentData.is_safe_in_community ? 'Yes' : '',
-                    isSoloParent: studentData.is_solo_parent ? 'Yes' : '',
-                    isChildOfSoloParent: studentData.is_child_of_solo_parent ? 'Yes' : '',
-                    parentAddress: studentData.parent_address || '',
-                    numBrothers: studentData.num_brothers || '',
-                    numSisters: studentData.num_sisters || '',
-                    birthOrder: studentData.birth_order || '',
-                    spouseName: studentData.spouse_name || '',
-                    spouseOccupation: studentData.spouse_occupation || '',
-                    numChildren: studentData.num_children || '',
-                    guardianName: studentData.guardian_name || '',
-                    guardianAddress: studentData.guardian_address || '',
-                    guardianContact: studentData.guardian_contact || '',
-                    guardianRelation: studentData.guardian_relation || '',
-                    emergencyName: studentData.emergency_name || '',
-                    emergencyAddress: studentData.emergency_address || '',
-                    emergencyRelationship: studentData.emergency_relationship || '',
-                    emergencyNumber: studentData.emergency_number || '',
-                    elemSchool: studentData.elem_school || '',
-                    elemYearGraduated: studentData.elem_year_graduated || '',
-                    juniorHighSchool: studentData.junior_high_school || '',
-                    juniorHighYearGraduated: studentData.junior_high_year_graduated || '',
-                    seniorHighSchool: studentData.senior_high_school || '',
-                    seniorHighYearGraduated: studentData.senior_high_year_graduated || '',
-                    collegeSchool: studentData.college_school || '',
-                    collegeYearGraduated: studentData.college_year_graduated || '',
-                    honorsAwards: studentData.honors_awards || '',
-                    extracurricularActivities: studentData.extracurricular_activities || '',
-                    scholarshipsAvailed: studentData.scholarships_availed || '',
-                }));
+            const currentStudentId = String(studentData.student_id || studentId || '').trim();
+            const pendingActivationProfile = getPendingProfileCompletionProfile(currentStudentId)
+                || getPendingProfileCompletionProfile()
+                || {};
+            const sessionPrefillProfile = {
+                firstName: session?.first_name,
+                lastName: session?.last_name,
+                middleName: session?.middle_name,
+                suffix: session?.suffix,
+                dob: session?.dob,
+                age: session?.age,
+                sex: session?.sex,
+                street: session?.street,
+                city: session?.city,
+                province: session?.province,
+                zipCode: session?.zip_code,
+                mobile: session?.mobile,
+                email: session?.email
+            };
+            const profileCompletedFromStudent = studentData.profile_completed === true;
+            if (profileCompletedFromStudent) {
+                profileCompletionJustCompletedRef.current = false;
             }
-            setShowProfileCompletion(!profileCompleted);
+            const profileCompleted = profileCompletedFromStudent
+                || profileCompletionJustCompletedRef.current;
+            const shouldForceProfileCompletion = !profileCompleted && (
+                forceProfileCompletionPrompt
+                || shouldForceProfileCompletionPrompt(currentStudentId)
+            );
+            setProfileCompletionStatusOverride(profileCompleted);
+            if (profileCompleted) {
+                setForceProfileCompletionPrompt(false);
+                setShowProfileCompletion(false);
+            } else if (shouldForceProfileCompletion) {
+                setForceProfileCompletionPrompt(true);
+            }
+            const freshProfileFormSnapshot = buildProfileCompletionFormSnapshot({
+                base: createInitialProfileFormData(),
+                studentData,
+                pendingActivationProfile,
+                sessionPrefillProfile,
+                motherParts,
+                fatherParts
+            });
+            setProfileFormData((prev: any) => buildProfileCompletionFormSnapshot({
+                base: prev,
+                studentData,
+                pendingActivationProfile,
+                sessionPrefillProfile,
+                motherParts,
+                fatherParts
+            }));
+            setProfileFieldsComplete(isProfileCompletionFormComplete(freshProfileFormSnapshot));
             setHasSeenTourState(Boolean(studentData.has_seen_tour));
         } catch (error) {
             console.error('Failed to refresh student profile.', error);
         }
-    }, [session, syncStudentSession, getStoredParentParts, invokeManagedStudentFunction]);
+    }, [session, syncStudentSession, getStoredParentParts, invokeManagedStudentFunction, forceProfileCompletionPrompt]);
+
+    useEffect(() => {
+        profileCompletionJustCompletedRef.current = false;
+        setProfileCompletionStatusOverride(null);
+        setProfileFieldsComplete(null);
+        setProfileFormData(createInitialProfileFormData());
+    }, [session?.student_id, session?.auth_user_id]);
+
+    useEffect(() => {
+        setHideProfileCompletionReminder(false);
+    }, [session?.student_id, session?.auth_user_id]);
+
+    useEffect(() => {
+        if (session?.userType !== 'student') {
+            profileCompletionJustCompletedRef.current = false;
+            setForceProfileCompletionPrompt(false);
+            setHideProfileCompletionReminder(false);
+            setShowProfileCompletion(false);
+            setProfileCompletionStatusOverride(null);
+            setProfileFieldsComplete(null);
+            return;
+        }
+
+        applyPendingProfileToProfileForm(
+            setProfileFormData,
+            getPendingProfileCompletionProfile(session.student_id) || getPendingProfileCompletionProfile()
+        );
+
+        if (shouldForceProfileCompletionPrompt(session.student_id)) {
+            setForceProfileCompletionPrompt(true);
+        }
+    }, [session?.student_id, session?.userType]);
+
+    useEffect(() => {
+        if (!profileCompletionReminderRequired) {
+            setHideProfileCompletionReminder(false);
+            return;
+        }
+
+        if (hasPendingForcedProfileCompletion) {
+            setForceProfileCompletionPrompt(true);
+        }
+    }, [profileCompletionReminderRequired, hasPendingForcedProfileCompletion]);
+
+    useEffect(() => {
+        if (!profileCompletionReminderRequired) {
+            closeProfileServiceGate();
+        }
+    }, [closeProfileServiceGate, profileCompletionReminderRequired]);
 
     // Sync session to personalInfo
     useEffect(() => {
         refreshStudentProfile();
     }, [session?.auth_user_id, session?.user?.id, session?.student_id, session?.userType]);
 
+    useEffect(() => {
+        if (!profileCompletionGateActive) return;
+
+        setShowTour(false);
+        setTourStep(0);
+        setShowCommandHub(false);
+    }, [profileCompletionGateActive]);
+
     // Sequences the Tour to appear AFTER Profile Completion closes
     useEffect(() => {
-        if (!loading && session && !showProfileCompletion && !hasSeenTourState) {
+        if (!loading && session && !profileCompletionGateActive && !hasSeenTourState) {
             setShowTour(true);
         }
-    }, [loading, session, showProfileCompletion, hasSeenTourState]);
+    }, [loading, session, profileCompletionGateActive, hasSeenTourState]);
+
+    useEffect(() => {
+        if (!profileCompletionGateActive || typeof document === 'undefined') return;
+
+        const previousBodyOverflow = document.body.style.overflow;
+        const previousHtmlOverflow = document.documentElement.style.overflow;
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+
+        return () => {
+            document.body.style.overflow = previousBodyOverflow;
+            document.documentElement.style.overflow = previousHtmlOverflow;
+        };
+    }, [profileCompletionGateActive]);
 
     // Save Profile Changes to Supabase
     const saveProfileChanges = async (nextPersonalInfo = personalInfo) => {
@@ -1959,6 +2269,56 @@ export default function StudentPortal() {
         } finally { setIsSubmitting(false); }
     };
 
+    const requireCompletedProfileForService = React.useCallback((serviceLabel: string, message: string) => {
+        if (!profileCompletionReminderRequired) return false;
+        setProfileServiceGate({
+            visible: true,
+            serviceLabel,
+            message
+        });
+        return true;
+    }, [profileCompletionReminderRequired]);
+
+    const openAssessmentFormWithProfileGate = React.useCallback(async (form: any) => {
+        if (requireCompletedProfileForService(
+            'Needs Assessment',
+            'To start your needs assessment, please complete your student profile first. We need your emergency contact and remaining student information on file before you continue.'
+        )) {
+            return;
+        }
+        await openAssessmentForm(form);
+    }, [openAssessmentForm, requireCompletedProfileForService]);
+
+    const openCounselingFormWithProfileGate = React.useCallback(() => {
+        if (requireCompletedProfileForService(
+            'Counseling Request',
+            'To request counseling, you must complete your student profile first. Please add your emergency contact and other required profile details before using this service.'
+        )) {
+            return;
+        }
+        setShowCounselingForm(true);
+    }, [requireCompletedProfileForService]);
+
+    const openSupportFormWithProfileGate = React.useCallback(() => {
+        if (requireCompletedProfileForService(
+            'Additional Support Request',
+            'To request additional support, you must complete your student profile first. Please finish your profile details so the CARE team has the information they need to assist you.'
+        )) {
+            return;
+        }
+        setShowSupportModal(true);
+    }, [requireCompletedProfileForService]);
+
+    const handleApplyScholarshipWithProfileGate = React.useCallback(async (scholarship: any) => {
+        if (requireCompletedProfileForService(
+            'Scholarship Application',
+            'To apply for scholarships, you must complete your student profile first. Please provide your emergency contact and remaining required profile information before applying.'
+        )) {
+            return;
+        }
+        await handleApplyScholarship(scholarship);
+    }, [handleApplyScholarship, requireCompletedProfileForService]);
+
     const openRequestModal = (req: any) => {
         setSelectedRequest(req);
         setSessionFeedback({ rating: req.rating || 0, comment: req.feedback || '' });
@@ -2095,10 +2455,10 @@ export default function StudentPortal() {
     };
 
     return (
-        <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-gray-800 font-sans overflow-hidden relative">
+        <div className={`flex h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-gray-800 font-sans overflow-hidden relative ${profileCompletionGateActive ? 'pointer-events-none select-none' : ''}`}>
 
             {/* Onboarding Tour Overlay */}
-            {showTour && createPortal(
+            {showTour && !profileCompletionGateActive && !profileCompletionReminderVisible && createPortal(
                 <div className="fixed inset-0 z-[10000] overflow-hidden pointer-events-auto">
                     {/* Dark backdrop with cutout */}
                     <div className="absolute inset-0 bg-black/60 transition-all duration-300 pointer-events-none" style={
@@ -2167,8 +2527,8 @@ export default function StudentPortal() {
             )}
 
             {/* Profile Completion Modal */}
-            {showProfileCompletion && createPortal(
-                <div className="fixed inset-0 z-[9999] overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4 student-mobile-modal-overlay">
+            {profileCompletionGateActive && createPortal(
+                <div className="fixed inset-0 z-[10002] overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
                     <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
                     <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel">
                         {/* Header */}
@@ -2418,8 +2778,105 @@ export default function StudentPortal() {
                 document.body
             )}
 
+            {/* Floating Profile Completion Reminder */}
+            {profileCompletionReminderVisible && createPortal(
+                <div className="fixed bottom-4 right-4 z-[10003] w-[calc(100%-2rem)] max-w-sm pointer-events-auto sm:bottom-6 sm:right-6">
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={openProfileCompletionModal}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                openProfileCompletionModal();
+                            }
+                        }}
+                        className="cursor-pointer rounded-2xl border border-amber-200/80 bg-white/95 p-4 shadow-2xl shadow-amber-200/40 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:shadow-amber-200/60"
+                    >
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-200">
+                                <Icons.Profile />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-600/80">Profile Incomplete</p>
+                                        <h3 className="mt-1 text-base font-black text-slate-900">Please complete your profile</h3>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        aria-label="Dismiss profile reminder"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            setHideProfileCompletionReminder(true);
+                                        }}
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                                    >
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                                    Some required student information is still missing. Open the profile form to finish it.
+                                </p>
+                                <div className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-amber-700">
+                                    <span>Open Complete Profile</span>
+                                    <Icons.ArrowRight className="h-4 w-4" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {profileServiceGate.visible && createPortal(
+                <div className="fixed inset-0 z-[10004] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 pointer-events-auto student-mobile-modal-overlay">
+                    <div className="w-full max-w-md overflow-hidden rounded-[1.75rem] bg-white shadow-2xl student-mobile-modal-panel">
+                        <div className="border-b border-rose-100 bg-gradient-to-r from-rose-50 via-amber-50 to-white px-6 py-5">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-lg shadow-rose-200">
+                                    <Icons.Lock />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-600/80">Profile Required</p>
+                                    <h3 className="mt-1 text-xl font-black text-slate-900">Complete your profile to continue</h3>
+                                    <p className="mt-1 text-sm font-semibold text-slate-500">{profileServiceGate.serviceLabel}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-5">
+                            <p className="text-sm leading-relaxed text-slate-600">
+                                {profileServiceGate.message}
+                            </p>
+                            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                                Complete your profile once, then all locked campus services will be available on your next attempt.
+                            </div>
+                        </div>
+                        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                            <button
+                                type="button"
+                                onClick={closeProfileServiceGate}
+                                className="w-full rounded-xl px-5 py-3 text-sm font-bold text-slate-500 transition-colors hover:bg-slate-200 sm:w-auto sm:py-2.5"
+                            >
+                                Maybe later
+                            </button>
+                            <button
+                                type="button"
+                                onClick={openProfileCompletionFromServiceGate}
+                                className="w-full rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 sm:w-auto sm:py-2.5"
+                            >
+                                Open Complete Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
             {/* Forced Course/Year Confirmation Gate */}
-            {courseYearGate.visible && createPortal(
+            {!profileCompletionGateActive && courseYearGate.visible && createPortal(
                 <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 student-mobile-modal-overlay">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 student-mobile-modal-panel student-mobile-modal-scroll-panel">
                         <h3 className="text-lg font-extrabold text-slate-900">Course and Year Confirmation Required</h3>
@@ -2599,6 +3056,8 @@ export default function StudentPortal() {
                             showTimeOutFeedback={showTimeOutFeedback}
                             setShowTimeOutFeedback={setShowTimeOutFeedback}
                             timeOutVisitReason={timeOutVisitReason}
+                            showProfileCompletionBanner={profileCompletionReminderRequired}
+                            openProfileCompletionModal={openProfileCompletionModal}
                             showToast={showToast}
                         />
                     )}
@@ -2644,7 +3103,7 @@ export default function StudentPortal() {
                     )}
 
                     {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
-            {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, isApplyingScholarshipId, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
+            {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm: openAssessmentFormWithProfileGate, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, openCounselingForm: openCounselingFormWithProfileGate, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm: openSupportFormWithProfileGate, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship: handleApplyScholarshipWithProfileGate, isApplyingScholarshipId, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
                 </div>
 
                 {/* FAB TRIGGER FOR COMMAND HUB */}
@@ -2668,11 +3127,11 @@ export default function StudentPortal() {
                                 <button onClick={() => setShowCommandHub(false)} className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors bg-white/10 p-1 rounded-full"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                             <div className="p-4 grid grid-cols-2 gap-3">
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('counseling'); setShowCounselingForm(true); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-100 transition-all group">
+                                <button onClick={() => { setShowCommandHub(false); setActiveView('counseling'); openCounselingFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-100 transition-all group">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><Icons.Counseling /></div>
                                     <span className="text-xs font-bold text-gray-700">Counseling</span>
                                 </button>
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('support'); setShowSupportModal(true); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-100 transition-all group">
+                                <button onClick={() => { setShowCommandHub(false); setActiveView('support'); openSupportFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-100 transition-all group">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Icons.Support /></div>
                                     <span className="text-xs font-bold text-gray-700">Support</span>
                                 </button>
