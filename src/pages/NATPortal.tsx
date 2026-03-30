@@ -8,6 +8,7 @@ import {
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 
 // --- ASSETS & CONSTANTS ---
 const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
@@ -568,19 +569,19 @@ const NATPortal = () => {
 
             // Send Email Notification
             try {
-                await invokeEdgeFunction('send-email', {
-                    body: {
-                        type: 'NAT_SUBMISSION',
-                        email: formData.email,
-                        name: `${formData.firstName} ${formData.lastName}`,
-                        testDate: formData.testDate,
-                        testTime: formData.testTime,
-                        requirements: emailRequirements,
-                        username: username,
-                        password: password
-                    },
-                    fallbackMessage: 'Failed to send NAT submission email.'
-                });
+                const emailResult = await sendTransactionalEmailNotification({
+                    type: 'NAT_SUBMISSION',
+                    email: formData.email,
+                    name: `${formData.firstName} ${formData.lastName}`,
+                    testDate: formData.testDate,
+                    testTime: formData.testTime,
+                    requirements: emailRequirements,
+                    username: username,
+                    password: password
+                }, 'Failed to send NAT submission email.');
+                if (!emailResult.emailSent) {
+                    throw new Error(emailResult.emailError || 'Failed to send NAT submission email.');
+                }
             } catch (emailErr: any) {
                 console.error("Email notification failed:", emailErr);
                 showToast("Application saved, but email notification failed. Please save your credentials manually.", 'error'); // changed type to match HTML slightly or keep as warning
@@ -735,17 +736,18 @@ const NATPortal = () => {
 
             let emailSent = true;
             try {
-                await invokeEdgeFunction('send-email', {
-                    body: {
-                        type: 'STUDENT_ACTIVATION',
-                        email: currentUser.email,
-                        name: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
-                        studentId,
-                        password: data.password,
-                        loginUrl: `${window.location.origin}/student/login`
-                    },
-                    fallbackMessage: 'Failed to send activation email.'
-                });
+                const emailResult = await sendTransactionalEmailNotification({
+                    type: 'STUDENT_ACTIVATION',
+                    email: currentUser.email,
+                    name: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
+                    studentId,
+                    password: data.password,
+                    loginUrl: `${window.location.origin}/student/login`
+                }, 'Failed to send activation email.');
+                emailSent = emailResult.emailSent;
+                if (!emailResult.emailSent) {
+                    console.error('Activation email failed:', emailResult.emailError);
+                }
             } catch (emailErr: any) {
                 emailSent = false;
                 console.error('Activation email failed:', emailErr);

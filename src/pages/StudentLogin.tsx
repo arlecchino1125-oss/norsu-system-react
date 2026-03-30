@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
-import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User, MapPin, Info, Loader2, X, Check, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User, MapPin, Loader2, X, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { getStudentActivationPolicy } from '../lib/studentActivationPolicy';
+import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 
 export default function StudentLogin() {
     const navigate = useNavigate();
@@ -30,19 +31,6 @@ export default function StudentLogin() {
         updatedAt: null as string | null,
         updatedBy: null as string | null
     });
-    const [isLoadingActivationPolicy, setIsLoadingActivationPolicy] = useState<boolean>(false);
-    const [enrollmentWarning, setEnrollmentWarning] = useState<{
-        visible: boolean;
-        studentId: string;
-        course: string;
-        resolve: ((decision: boolean) => void) | null;
-    }>({
-        visible: false,
-        studentId: '',
-        course: '',
-        resolve: null
-    });
-
     // Wizard State
     const [activationStep, setActivationStep] = useState<number>(1);
 
@@ -57,10 +45,7 @@ export default function StudentLogin() {
         street: '', city: '', province: '', zipCode: '',
         mobile: '', email: '',
         dob: '', age: '',
-        sex: '',
-
-        // Step 3: Privacy
-        agreedToPrivacy: false
+        sex: ''
     });
 
     const TOTAL_STEPS = 3;
@@ -79,7 +64,6 @@ export default function StudentLogin() {
                 }
             }
 
-            setIsLoadingActivationPolicy(true);
             try {
                 const policy = await getStudentActivationPolicy();
                 if (isActive) {
@@ -87,10 +71,6 @@ export default function StudentLogin() {
                 }
             } catch (error) {
                 console.error('Failed to load student activation policy.', error);
-            } finally {
-                if (isActive) {
-                    setIsLoadingActivationPolicy(false);
-                }
             }
         };
 
@@ -168,19 +148,7 @@ export default function StudentLogin() {
     };
 
     // Handle Activation
-    const handleActivation = async (e: any) => {
-        e.preventDefault();
-
-        if (activationStep < TOTAL_STEPS) {
-            handleNextStep();
-            return;
-        }
-
-        if (!formData.agreedToPrivacy) {
-            showToast("You must agree to the Data Privacy Disclaimer.", 'error');
-            return;
-        }
-
+    const handleActivation = async () => {
         setLoading(true);
         try {
             // Minimal activation profile — remaining fields are collected post-login
@@ -211,50 +179,23 @@ export default function StudentLogin() {
                 fallbackMessage: 'Account activation failed.'
             });
 
-            let data;
-
-            try {
-                data = await runStudentActivation(false);
-            } catch (error: any) {
-                const missingEnrollment = String(error?.message || '').includes('Student ID not found in the enrollment list.');
-                const canContinueWithoutKey = missingEnrollment && !studentActivationPolicy.requireEnrollmentKey;
-
-                if (!canContinueWithoutKey) {
-                    throw error;
-                }
-
-                const confirmed = await new Promise<boolean>((resolve) => {
-                    setEnrollmentWarning({
-                        visible: true,
-                        studentId: formData.studentId,
-                        course: formData.course,
-                        resolve
-                    });
-                });
-
-                if (!confirmed) {
-                    return;
-                }
-
-                data = await runStudentActivation(true);
-            }
+            const data = await runStudentActivation(!studentActivationPolicy.requireEnrollmentKey);
 
             const username = data.studentId || formData.studentId;
             const password = data.password;
 
-            // Mock Email
             try {
-                await invokeEdgeFunction('send-email', {
-                    body: {
-                        type: 'STUDENT_ACTIVATION',
-                        email: formData.email,
-                        name: `${formData.firstName} ${formData.lastName}`,
-                        studentId: username,
-                        password: password,
-                        loginUrl: `${window.location.origin}/student/login`
-                    },
-                    fallbackMessage: 'Failed to send activation email.'
-                });
+                const emailResult = await sendTransactionalEmailNotification({
+                    type: 'STUDENT_ACTIVATION',
+                    email: formData.email,
+                    name: `${formData.firstName} ${formData.lastName}`,
+                    studentId: username,
+                    password: password,
+                    loginUrl: `${window.location.origin}/student/login`
+                }, 'Failed to send activation email.');
+                if (!emailResult.emailSent) {
+                    console.error("Email failed", emailResult.emailError);
+                }
             } catch (err) { console.error("Email failed", err); }
 
             setGeneratedCredentials({ username, password });
@@ -513,7 +454,7 @@ export default function StudentLogin() {
                                         </button>
                                     </motion.div>
                                 ) : (
-                                    <form id="activationForm" onSubmit={handleActivation} className="relative min-h-[300px]">
+                                    <form id="activationForm" onSubmit={(e) => e.preventDefault()} className="relative min-h-[300px]">
                                         <AnimatePresence mode="wait">
 
                                             {/* STEP 1: VERIFICATION */}
@@ -521,27 +462,7 @@ export default function StudentLogin() {
                                                 <motion.div key="step1" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-6">
                                                     <div className="mb-4">
                                                         <h3 className="text-xl font-bold text-slate-800">Enrollment Details</h3>
-                                                        <p className="text-slate-500 text-sm">
-                                                            {studentActivationPolicy.requireEnrollmentKey
-                                                                ? 'We need to verify your uploaded enrollment key before you can continue.'
-                                                                : 'We will check your uploaded enrollment key first. If none is found, you can review a warning before continuing activation.'}
-                                                        </p>
                                                     </div>
-                                                    {isLoadingActivationPolicy ? (
-                                                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-xs font-semibold text-indigo-700">
-                                                            Checking the current student activation policy...
-                                                        </div>
-                                                    ) : (
-                                                        <div className={`rounded-2xl border px-4 py-3 text-xs leading-relaxed ${
-                                                            studentActivationPolicy.requireEnrollmentKey
-                                                                ? 'border-emerald-100 bg-emerald-50/70 text-emerald-700'
-                                                                : 'border-amber-100 bg-amber-50/80 text-amber-800'
-                                                        }`}>
-                                                            {studentActivationPolicy.requireEnrollmentKey
-                                                                ? 'Strict mode is on. CARE Staff must upload or sync your enrollment key before Student Portal activation can finish.'
-                                                                : 'Warning mode is on. If your key is still missing, the portal can warn you and continue activation after your confirmation.'}
-                                                        </div>
-                                                    )}
                                                     <div className="space-y-5">
                                                         <div className="space-y-2">
                                                             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Student ID <span className="text-rose-500">*</span></label>
@@ -602,23 +523,12 @@ export default function StudentLogin() {
                                                             <Lock className="w-8 h-8 text-slate-400" />
                                                         </div>
                                                         <h3 className="text-2xl font-bold text-slate-800">Final Step</h3>
-                                                        <p className="text-slate-500 text-sm mt-1">Please agree to the data privacy terms to finish account activation.</p>
                                                     </div>
-                                                    <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 text-left">
-                                                        <h4 className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> DATA PRIVACY ACT DISCLAIMER</h4>
-                                                        <p className="text-xs text-indigo-800/80 mb-5 leading-relaxed">
-                                                            By submitting this form, I hereby authorize Negros Oriental State University (NORSU) to collect, process, and retain my personal and sensitive information for purposes of academic administration, student services, and university records in strict accordance with the Data Privacy Act of 2012 (RA 10173).
+                                                    <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-6 py-8 text-center shadow-sm">
+                                                        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-600/80">Important Note</p>
+                                                        <p className="mt-4 text-lg font-bold leading-relaxed text-emerald-900 sm:text-2xl">
+                                                            After activation, sign in with your student portal account to complete the remaining profile information.
                                                         </p>
-                                                        <label className="flex items-center gap-3 cursor-pointer group">
-                                                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${formData.agreedToPrivacy ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300 group-hover:border-indigo-400'}`}>
-                                                                {formData.agreedToPrivacy && <Check className="w-3.5 h-3.5 text-white" />}
-                                                            </div>
-                                                            <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
-                                                            <span className="text-sm font-bold text-slate-800">I have read and agree to the terms</span>
-                                                        </label>
-                                                    </div>
-                                                    <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 text-center">
-                                                        <p className="text-xs text-emerald-700 italic leading-relaxed">"After activation, sign in with your student portal account to complete the remaining profile information."</p>
                                                     </div>
                                                 </motion.div>
                                             )}
@@ -659,8 +569,8 @@ export default function StudentLogin() {
                                         </button>
                                     ) : (
                                         <button
-                                            type="submit"
-                                            form="activationForm"
+                                            type="button"
+                                            onClick={handleActivation}
                                             disabled={loading}
                                             className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-sky-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 hover:shadow-xl disabled:opacity-50 flex items-center gap-2 hover:-translate-y-0.5 transition-all"
                                         >
@@ -676,77 +586,6 @@ export default function StudentLogin() {
             </AnimatePresence>
 
             <AnimatePresence>
-                {enrollmentWarning.visible && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm"
-                    >
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
-                            className="w-full max-w-lg overflow-hidden rounded-[2rem] border border-amber-200/60 bg-white shadow-2xl"
-                        >
-                            <div className="border-b border-amber-100 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100 px-6 py-5">
-                                <div className="flex items-start gap-4">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-200">
-                                        <AlertCircle className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-600/80">Enrollment Warning</p>
-                                        <h3 className="mt-1 text-xl font-bold text-slate-900">Enrollment key not found yet</h3>
-                                        <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                                            We could not find an uploaded enrollment key for the details below. Since warning mode is currently enabled,
-                                            you may continue activation and let the system create the enrollment record during activation.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="space-y-4 px-6 py-5">
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Review these details</p>
-                                    <div className="mt-3 space-y-2 text-sm text-slate-700">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold">Student ID:</span>
-                                            <span className="rounded border border-slate-200 bg-white px-2 py-0.5 font-mono">{enrollmentWarning.studentId}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold">Course:</span>
-                                            <span className="rounded border border-slate-200 bg-white px-2 py-0.5">{enrollmentWarning.course}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <p className="text-xs leading-relaxed text-slate-500">
-                                    Continue only if these details are correct. If not, cancel and wait for CARE Staff to upload or sync your enrollment key.
-                                </p>
-                            </div>
-                            <div className="flex gap-3 border-t border-slate-100 bg-slate-50 px-6 py-5">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        enrollmentWarning.resolve?.(false);
-                                        setEnrollmentWarning({ visible: false, studentId: '', course: '', resolve: null });
-                                    }}
-                                    className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        enrollmentWarning.resolve?.(true);
-                                        setEnrollmentWarning({ visible: false, studentId: '', course: '', resolve: null });
-                                    }}
-                                    className="flex-1 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-amber-200 transition-colors hover:bg-amber-600"
-                                >
-                                    Continue Activation
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
             </AnimatePresence>
 
             {/* Custom Toast Notification */}

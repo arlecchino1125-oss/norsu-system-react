@@ -258,12 +258,34 @@ const StudentDashboardView = ({
     showTimeOutFeedback,
     setShowTimeOutFeedback,
     timeOutVisitReason,
+    showProfileCompletionBanner,
+    openProfileCompletionModal,
     showToast,
 }: any) => (
     <>
         <div className="space-y-8 page-transition">
             {/* Hero Banner (Optimized) */}
             <StudentHero firstName={personalInfo.firstName} />
+            {showProfileCompletionBanner && (
+                <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-white p-5 shadow-sm animate-fade-in-up">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-3xl">
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-600/80">Action Required</p>
+                            <h3 className="mt-1 text-xl font-black text-slate-900">Please complete your student profile to unlock all campus services.</h3>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                                You can still browse announcements and your dashboard, but counseling, additional support, scholarship applications, and needs assessment stay locked until your required profile fields are completed.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={openProfileCompletionModal}
+                            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800"
+                        >
+                            Complete Profile
+                        </button>
+                    </div>
+                </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '100ms' }}>
