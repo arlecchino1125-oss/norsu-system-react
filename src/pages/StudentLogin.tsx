@@ -8,6 +8,7 @@ import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { getStudentActivationPolicy } from '../lib/studentActivationPolicy';
 import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
+import { rememberPendingProfileCompletion } from '../lib/studentProfileCompletionPrompt';
 
 export default function StudentLogin() {
     const navigate = useNavigate();
@@ -50,6 +51,7 @@ export default function StudentLogin() {
 
     const TOTAL_STEPS = 3;
     const STEP_LABELS = ['Verify', 'Personal', 'Finish'];
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     useEffect(() => {
         if (!showActivateModal) return;
@@ -109,6 +111,25 @@ export default function StudentLogin() {
             if (checked) return { ...prev, [field]: [...current, value] };
             return { ...prev, [field]: current.filter((item: any) => item !== value) };
         });
+    };
+
+    const attemptAutoLoginAfterActivation = async (studentId: string, password: string) => {
+        let lastError = 'Automatic sign-in failed.';
+
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            const result = await loginStudent(studentId, password);
+            if (result?.success) {
+                return { success: true };
+            }
+
+            lastError = result?.error || lastError;
+
+            if (attempt < 2) {
+                await wait(700);
+            }
+        }
+
+        return { success: false, error: lastError };
     };
 
     // Handle Login
@@ -184,8 +205,11 @@ export default function StudentLogin() {
             const username = data.studentId || formData.studentId;
             const password = data.password;
 
-            try {
-                const emailResult = await sendTransactionalEmailNotification({
+            rememberPendingProfileCompletion(username, activationProfile);
+            setLoginId(username);
+            setLoginPassword(password);
+
+            void sendTransactionalEmailNotification({
                     type: 'STUDENT_ACTIVATION',
                     email: formData.email,
                     name: `${formData.firstName} ${formData.lastName}`,
@@ -193,13 +217,23 @@ export default function StudentLogin() {
                     password: password,
                     loginUrl: `${window.location.origin}/student/login`
                 }, 'Failed to send activation email.');
-                if (!emailResult.emailSent) {
-                    console.error("Email failed", emailResult.emailError);
-                }
-            } catch (err) { console.error("Email failed", err); }
+            const autoLoginResult = await attemptAutoLoginAfterActivation(username, password);
+
+            if (autoLoginResult.success) {
+                setGeneratedCredentials(null);
+                setShowActivateModal(false);
+                showToast('Account activated. Signing you in...', 'success');
+                setTimeout(() => navigate('/student'), 700);
+                return;
+            }
 
             setGeneratedCredentials({ username, password });
-            showToast("Account Activated Successfully!", 'success');
+            showToast(
+                autoLoginResult.error
+                    ? `Account activated, but automatic sign-in failed. ${autoLoginResult.error}`
+                    : 'Account activated, but automatic sign-in failed. Use the credentials below to continue.',
+                'error'
+            );
 
         } catch (error: any) {
             showToast(error.message, 'error');
@@ -430,7 +464,7 @@ export default function StudentLogin() {
                                             <CheckCircle className="w-12 h-12 text-emerald-600" />
                                         </div>
                                         <h3 className="text-3xl font-black text-slate-800 mb-2">Activation Successful!</h3>
-                                        <p className="text-slate-500 mb-8 max-w-sm mx-auto font-medium">Your account is activated. Save these credentials, then sign in to complete the remaining profile details.</p>
+                                        <p className="text-slate-500 mb-8 max-w-sm mx-auto font-medium">Your account is activated, but automatic sign-in could not be completed. Save these credentials, then sign in to complete the remaining profile details.</p>
 
                                         <div className="max-w-sm mx-auto bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 mb-8 shadow-inner">
                                             <div className="space-y-4">
@@ -447,7 +481,11 @@ export default function StudentLogin() {
                                             </div>
                                         </div>
                                         <button
-                                            onClick={() => { setShowActivateModal(false); setLoginId(generatedCredentials.username); }}
+                                            onClick={() => {
+                                                setShowActivateModal(false);
+                                                setLoginId(generatedCredentials.username);
+                                                setLoginPassword(generatedCredentials.password);
+                                            }}
                                             className="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:-translate-y-1 w-full max-w-sm"
                                         >
                                             Return to Login
