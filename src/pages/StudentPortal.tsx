@@ -1,13 +1,11 @@
 
-import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
-import StudentDashboardView from './student/StudentDashboardView';
-import StudentEventsView from './student/StudentEventsView';
-import { renderRemainingViews, ServiceIntroModal } from './student/StudentPortalViews';
+import { renderRemainingViews } from './student/StudentPortalViewRouter';
 import DatePicker from '../components/ui/DatePicker';
 import {
     getAttendanceHistory,
@@ -32,9 +30,29 @@ import {
 
 const supabaseClient = supabase;
 const ProfileCompletionModal = lazy(() => import('./student/forms/ProfileCompletionModal'));
+const StudentDashboardView = lazy(() => import('./student/StudentDashboardView'));
+const StudentEventsView = lazy(() => import('./student/StudentEventsView'));
 const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
 const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
+const DATASET_REFRESH_TTL_MS = {
+    activeVisit: 60 * 1000,
+    counselingRequests: 2 * 60 * 1000,
+    events: 5 * 60 * 1000,
+    forms: 5 * 60 * 1000,
+    history: 2 * 60 * 1000,
+    notifications: 60 * 1000,
+    scholarshipApplications: 2 * 60 * 1000,
+    scholarships: 5 * 60 * 1000,
+    supportRequests: 2 * 60 * 1000,
+    visitReasons: 60 * 60 * 1000
+} as const;
+
+type StudentDatasetRefreshKey = keyof typeof DATASET_REFRESH_TTL_MS;
+type DatasetRefreshCacheEntry = {
+    loaded: boolean;
+    refreshedAt: number;
+};
 
 const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
 const normalizeStudentEmail = (value: unknown) => String(value || '').trim().toLowerCase();
@@ -77,6 +95,18 @@ const applyPendingProfileToProfileForm = (
         email: resolveProfileFormValue(prev.email, pendingProfile.email) || ''
     }));
 };
+const createStudentDatasetRefreshCache = (): Record<StudentDatasetRefreshKey, DatasetRefreshCacheEntry> => ({
+    activeVisit: { loaded: false, refreshedAt: 0 },
+    counselingRequests: { loaded: false, refreshedAt: 0 },
+    events: { loaded: false, refreshedAt: 0 },
+    forms: { loaded: false, refreshedAt: 0 },
+    history: { loaded: false, refreshedAt: 0 },
+    notifications: { loaded: false, refreshedAt: 0 },
+    scholarshipApplications: { loaded: false, refreshedAt: 0 },
+    scholarships: { loaded: false, refreshedAt: 0 },
+    supportRequests: { loaded: false, refreshedAt: 0 },
+    visitReasons: { loaded: false, refreshedAt: 0 }
+});
 const toYesNoChoice = (value: unknown) => {
     if (typeof value === 'string') {
         const normalized = value.trim().toLowerCase();
@@ -388,9 +418,69 @@ const Icons = {
 // Isolated Hero Component to prevent full page re-renders
 const StudentHero = ({ firstName }: any) => {
     const [time, setTime] = useState(new Date());
+    const [isCompactHeroLayout, setIsCompactHeroLayout] = useState(() => (
+        typeof window !== 'undefined' ? window.innerWidth < 640 : false
+    ));
+
     useEffect(() => {
-        const timer = setInterval(() => setTime(new Date()), 1000);
-        return () => clearInterval(timer);
+        if (typeof window === 'undefined') return;
+
+        let intervalId: number | null = null;
+        let startDelayId: number | null = null;
+        let minuteSyncId: number | null = null;
+        const syncTime = () => setTime(new Date());
+        const startLiveClock = () => {
+            syncTime();
+            const now = new Date();
+            const msUntilNextMinute = Math.max((((59 - now.getSeconds()) * 1000) + (1000 - now.getMilliseconds())), 250);
+
+            minuteSyncId = window.setTimeout(() => {
+                syncTime();
+                intervalId = window.setInterval(syncTime, 60 * 1000);
+            }, msUntilNextMinute);
+        };
+
+        const startClockWithDelay = () => {
+            startDelayId = window.setTimeout(() => {
+                startLiveClock();
+            }, 1800);
+        };
+
+        if (isCompactHeroLayout) {
+            startClockWithDelay();
+        } else {
+            setTime(new Date());
+            startLiveClock();
+        }
+
+        return () => {
+            if (startDelayId !== null) {
+                window.clearTimeout(startDelayId);
+            }
+
+            if (minuteSyncId !== null) {
+                window.clearTimeout(minuteSyncId);
+            }
+
+            if (intervalId !== null) {
+                window.clearInterval(intervalId);
+            }
+        };
+    }, [isCompactHeroLayout]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const syncCompactLayout = () => {
+            setIsCompactHeroLayout(window.innerWidth < 640);
+        };
+
+        syncCompactLayout();
+        window.addEventListener('resize', syncCompactLayout);
+
+        return () => {
+            window.removeEventListener('resize', syncCompactLayout);
+        };
     }, []);
 
     const formatFullDate = (date: any) => {
@@ -401,13 +491,12 @@ const StudentHero = ({ firstName }: any) => {
         const formatter = new Intl.DateTimeFormat('en-US', {
             hour: '2-digit',
             minute: '2-digit',
-            second: '2-digit',
             hour12: true
         });
         const parts = formatter.formatToParts(new Date(date));
         const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
         return {
-            time: `${values.hour || '--'}:${values.minute || '--'}:${values.second || '--'}`,
+            time: `${values.hour || '--'}:${values.minute || '--'}`,
             period: String(values.dayPeriod || '').toUpperCase()
         };
     };
@@ -415,9 +504,9 @@ const StudentHero = ({ firstName }: any) => {
     const { time: formattedTime, period } = formatTimeParts(time);
 
     return (
-        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-6 sm:p-8 text-white flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between shadow-2xl shadow-blue-500/20 relative overflow-hidden animate-fade-in-up">
-            <div className="absolute top-0 right-0 w-72 h-72 bg-sky-400/20 rounded-full -mr-20 -mt-20 blur-3xl animate-float"></div>
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/15 rounded-full -ml-10 -mb-10 blur-3xl animate-blob"></div>
+        <div className={`bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-6 sm:p-8 text-white flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between shadow-2xl shadow-blue-500/20 relative overflow-hidden ${isCompactHeroLayout ? '' : 'animate-fade-in-up'}`}>
+            <div className={`absolute top-0 right-0 w-72 h-72 bg-sky-400/20 rounded-full -mr-20 -mt-20 blur-3xl ${isCompactHeroLayout ? '' : 'animate-float'}`}></div>
+            <div className={`absolute bottom-0 left-0 w-48 h-48 bg-blue-400/15 rounded-full -ml-10 -mb-10 blur-3xl ${isCompactHeroLayout ? '' : 'animate-blob'}`}></div>
             <div className="relative z-10 max-w-full">
                 <h2 className="text-2xl font-extrabold leading-tight sm:text-3xl sm:leading-tight">
                     Welcome back, <span className="bg-gradient-to-r from-sky-200 to-white bg-clip-text text-transparent">{firstName}</span>!
@@ -445,6 +534,9 @@ export default function StudentPortal() {
 
     const [activeView, setActiveView] = useState('dashboard');
     const [profileTab, setProfileTab] = useState('personal');
+    const [isCompactPortalLayout, setIsCompactPortalLayout] = useState(() => (
+        typeof window !== 'undefined' ? window.innerWidth < 640 : false
+    ));
     // Timer removed from main component
     const [feedbackType, setFeedbackType] = useState('service');
     const [rating, setRating] = useState(0);
@@ -947,6 +1039,64 @@ export default function StudentPortal() {
     const [scholarshipsList, setScholarshipsList] = useState<any[]>([]);
     const [myApplications, setMyApplications] = useState<any[]>([]);
     const [isRefreshingView, setIsRefreshingView] = useState(false);
+    const datasetRefreshCacheRef = useRef<Record<StudentDatasetRefreshKey, DatasetRefreshCacheEntry>>(createStudentDatasetRefreshCache());
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const syncCompactLayout = () => {
+            setIsCompactPortalLayout(window.innerWidth < 640);
+        };
+
+        syncCompactLayout();
+        window.addEventListener('resize', syncCompactLayout);
+
+        return () => {
+            window.removeEventListener('resize', syncCompactLayout);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+
+        document.body.classList.toggle('student-portal-compact-mobile', isCompactPortalLayout);
+
+        return () => {
+            document.body.classList.remove('student-portal-compact-mobile');
+        };
+    }, [isCompactPortalLayout]);
+
+    useEffect(() => {
+        datasetRefreshCacheRef.current = createStudentDatasetRefreshCache();
+    }, [personalInfo.studentId]);
+
+    const runDatasetRefresh = useCallback(async (
+        key: StudentDatasetRefreshKey,
+        refreshFn: () => Promise<unknown>,
+        options?: { force?: boolean }
+    ) => {
+        const force = Boolean(options?.force);
+        const cacheEntry = datasetRefreshCacheRef.current[key];
+        const ttl = DATASET_REFRESH_TTL_MS[key];
+        const now = Date.now();
+
+        if (!force && cacheEntry.loaded && now - cacheEntry.refreshedAt < ttl) {
+            return false;
+        }
+
+        await refreshFn();
+        datasetRefreshCacheRef.current[key] = {
+            loaded: true,
+            refreshedAt: Date.now()
+        };
+        return true;
+    }, []);
+
+    const transitionToView = useCallback((nextView: string) => {
+        startTransition(() => {
+            setActiveView(nextView);
+        });
+    }, []);
 
     const { refreshEvents } = useStudentEventsData({ setEventsList });
     const { refreshForms } = useStudentFormsData({
@@ -969,12 +1119,40 @@ export default function StudentPortal() {
         setVisitReasons,
         setNotifications
     });
+    const refreshCounselingRequestsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('counselingRequests', refreshCounselingRequests, options),
+        [refreshCounselingRequests, runDatasetRefresh]
+    );
+    const refreshNotificationsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('notifications', refreshNotifications, options),
+        [refreshNotifications, runDatasetRefresh]
+    );
+    const refreshEventsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('events', refreshEvents, options),
+        [refreshEvents, runDatasetRefresh]
+    );
+    const refreshActiveVisitCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('activeVisit', refreshActiveVisit, options),
+        [refreshActiveVisit, runDatasetRefresh]
+    );
+    const refreshVisitReasonsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('visitReasons', refreshVisitReasons, options),
+        [refreshVisitReasons, runDatasetRefresh]
+    );
+    const refreshFormsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('forms', refreshForms, options),
+        [refreshForms, runDatasetRefresh]
+    );
+    const refreshSupportRequestsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('supportRequests', refreshSupportRequests, options),
+        [refreshSupportRequests, runDatasetRefresh]
+    );
     const handleCounselingSubmitted = useCallback(async () => {
-        await refreshCounselingRequests();
-    }, [refreshCounselingRequests]);
+        await refreshCounselingRequestsCached({ force: true });
+    }, [refreshCounselingRequestsCached]);
     const handleSupportSubmitted = useCallback(async () => {
-        await refreshSupportRequests();
-    }, [refreshSupportRequests]);
+        await refreshSupportRequestsCached({ force: true });
+    }, [refreshSupportRequestsCached]);
 
     const refreshScholarships = useCallback(async () => {
         const { data } = await supabaseClient
@@ -983,6 +1161,10 @@ export default function StudentPortal() {
             .order('deadline', { ascending: true });
         setScholarshipsList(data || []);
     }, []);
+    const refreshScholarshipsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('scholarships', refreshScholarships, options),
+        [refreshScholarships, runDatasetRefresh]
+    );
 
     const refreshScholarshipApplications = useCallback(async () => {
         if (!personalInfo.studentId) {
@@ -997,6 +1179,10 @@ export default function StudentPortal() {
 
         setMyApplications(data || []);
     }, [personalInfo.studentId]);
+    const refreshScholarshipApplicationsCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('scholarshipApplications', refreshScholarshipApplications, options),
+        [refreshScholarshipApplications, runDatasetRefresh]
+    );
 
     const handleApplyScholarship = async (scholarship: any) => {
         if (!scholarship) return;
@@ -1867,51 +2053,57 @@ export default function StudentPortal() {
 
         setRatedEvents(ratingData || []);
     }, [personalInfo.studentId]);
+    const fetchHistoryCached = useCallback(
+        (options?: { force?: boolean }) => runDatasetRefresh('history', fetchHistory, options),
+        [fetchHistory, runDatasetRefresh]
+    );
 
-    const refreshCurrentView = useCallback(async () => {
+    const refreshCurrentView = useCallback(async (options?: { force?: boolean }) => {
         if (profileCompletionGateActive) {
             return;
         }
 
+        const force = Boolean(options?.force);
+
         switch (activeView) {
             case 'dashboard':
                 await Promise.all([
-                    refreshCounselingRequests(),
-                    refreshNotifications(),
-                    refreshEvents(),
-                    refreshActiveVisit(),
-                    refreshVisitReasons(),
-                    fetchHistory()
+                    refreshCounselingRequestsCached({ force }),
+                    refreshNotificationsCached({ force }),
+                    refreshEventsCached({ force }),
+                    refreshActiveVisitCached({ force }),
+                    refreshVisitReasonsCached({ force }),
+                    fetchHistoryCached({ force })
                 ]);
                 break;
             case 'profile':
                 await Promise.all([
-                    refreshActiveVisit(),
-                    refreshVisitReasons()
+                    refreshActiveVisitCached({ force }),
+                    refreshVisitReasonsCached({ force })
                 ]);
                 break;
             case 'assessment':
-                await refreshForms();
+                await refreshFormsCached({ force });
                 break;
             case 'counseling':
                 await Promise.all([
-                    refreshCounselingRequests(),
-                    refreshNotifications()
+                    refreshCounselingRequestsCached({ force }),
+                    refreshNotificationsCached({ force })
                 ]);
                 break;
             case 'support':
-                await refreshSupportRequests();
+                await refreshSupportRequestsCached({ force });
                 break;
             case 'scholarship':
                 await Promise.all([
-                    refreshScholarships(),
-                    refreshScholarshipApplications()
+                    refreshScholarshipsCached({ force }),
+                    refreshScholarshipApplicationsCached({ force })
                 ]);
                 break;
             case 'events':
                 await Promise.all([
-                    refreshEvents(),
-                    fetchHistory()
+                    refreshEventsCached({ force }),
+                    fetchHistoryCached({ force })
                 ]);
                 break;
             default:
@@ -1919,27 +2111,27 @@ export default function StudentPortal() {
         }
     }, [
         activeView,
-        fetchHistory,
-        refreshActiveVisit,
-        refreshCounselingRequests,
-        refreshEvents,
-        refreshForms,
-        refreshNotifications,
+        fetchHistoryCached,
         profileCompletionGateActive,
-        refreshScholarshipApplications,
-        refreshScholarships,
-        refreshSupportRequests,
-        refreshVisitReasons
+        refreshActiveVisitCached,
+        refreshCounselingRequestsCached,
+        refreshEventsCached,
+        refreshFormsCached,
+        refreshNotificationsCached,
+        refreshScholarshipApplicationsCached,
+        refreshScholarshipsCached,
+        refreshSupportRequestsCached,
+        refreshVisitReasonsCached
     ]);
 
     useEffect(() => {
-        refreshCurrentView();
+        void refreshCurrentView();
     }, [refreshCurrentView]);
 
     const handleRefreshCurrentView = useCallback(async () => {
         setIsRefreshingView(true);
         try {
-            await refreshCurrentView();
+            await refreshCurrentView({ force: true });
             showToast('View refreshed.');
         } catch (error: any) {
             showToast(error?.message || 'Failed to refresh this view.', 'error');
@@ -2130,7 +2322,7 @@ export default function StudentPortal() {
                 }
                 setAttendanceMap((prev: any) => ({ ...prev, [event.id]: data[0] }));
                 showToast("Time Out Successful!");
-                fetchHistory();
+                await fetchHistoryCached({ force: true });
             } catch (err: any) {
                 console.error("Time Out Error:", err);
                 showToast("Error: " + err.message, 'error');
@@ -2941,7 +3133,7 @@ export default function StudentPortal() {
                         <div key={group} className={gi > 0 ? 'pt-5 mt-4 border-t border-white/5' : ''}>
                             <p className="px-4 text-[10px] font-bold text-blue-400/50 uppercase tracking-[0.15em] mb-3">{group}</p>
                             {sidebarLinks.filter(link => link.group === group).map((link: any) => (
-                                <button key={link.id} id={`nav-${link.id}`} onClick={() => { setActiveView(link.id); setIsEditing(false); setIsSidebarOpen(false); }} className={`nav-item nav-item-student w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeView === link.id ? 'nav-item-active text-sky-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                <button key={link.id} id={`nav-${link.id}`} onClick={() => { transitionToView(link.id); setIsEditing(false); setIsSidebarOpen(false); }} className={`nav-item nav-item-student w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeView === link.id ? 'nav-item-active text-sky-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                     <link.icon /> {link.label}
                                 </button>
                             ))}
@@ -2958,7 +3150,7 @@ export default function StudentPortal() {
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full overflow-hidden">
                 {/* Premium Header */}
-                <header className="h-14 glass gradient-border-blue relative flex items-center justify-between px-4 z-10 sm:h-16 sm:px-6 lg:px-10">
+                <header className={`h-14 relative flex items-center justify-between px-4 z-10 sm:h-16 sm:px-6 lg:px-10 ${isCompactPortalLayout ? 'bg-white border-b border-blue-100/70' : 'glass gradient-border-blue'}`}>
                     <div className="flex items-center gap-3 sm:gap-4">
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
                         <div>
@@ -2989,90 +3181,93 @@ export default function StudentPortal() {
                 </header>
 
                 <div
-                    key={activeView}
-                    className={`flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' ? '' : 'page-transition'}`}
+                    className={`flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' || isCompactPortalLayout ? '' : 'page-transition'}`}
                     style={activeView === 'profile' ? { transform: 'none' } : undefined}
                 >
 
 
                     {/* DASHBOARD */}
                     {activeView === 'dashboard' && (
-                        <StudentDashboardView
-                            personalInfo={personalInfo}
-                            activeVisit={activeVisit}
-                            handleOfficeTimeIn={handleOfficeTimeIn}
-                            handleOfficeTimeOut={handleOfficeTimeOut}
-                            notifications={notifications}
-                            colorMap={colorMap}
-                            setActiveView={setActiveView}
-                            eventsList={eventsList}
-                            attendanceMap={attendanceMap}
-                            StudentHero={StudentHero}
-                            showTimeInModal={showTimeInModal}
-                            setShowTimeInModal={setShowTimeInModal}
-                            visitReasons={visitReasons}
-                            selectedReason={selectedReason}
-                            setSelectedReason={setSelectedReason}
-                            submitTimeIn={submitTimeIn}
-                            isSubmittingOfficeTimeIn={isSubmittingOfficeTimeIn}
-                            isCompletingOfficeVisit={isCompletingOfficeVisit}
-                            showTimeOutFeedback={showTimeOutFeedback}
-                            setShowTimeOutFeedback={setShowTimeOutFeedback}
-                            timeOutVisitReason={timeOutVisitReason}
-                            showProfileCompletionBanner={profileCompletionReminderRequired}
-                            openProfileCompletionModal={openProfileCompletionModal}
-                            showToast={showToast}
-                        />
+                        <Suspense fallback={null}>
+                            <StudentDashboardView
+                                personalInfo={personalInfo}
+                                activeVisit={activeVisit}
+                                handleOfficeTimeIn={handleOfficeTimeIn}
+                                handleOfficeTimeOut={handleOfficeTimeOut}
+                                notifications={notifications}
+                                colorMap={colorMap}
+                                setActiveView={transitionToView}
+                                eventsList={eventsList}
+                                attendanceMap={attendanceMap}
+                                StudentHero={StudentHero}
+                                showTimeInModal={showTimeInModal}
+                                setShowTimeInModal={setShowTimeInModal}
+                                visitReasons={visitReasons}
+                                selectedReason={selectedReason}
+                                setSelectedReason={setSelectedReason}
+                                submitTimeIn={submitTimeIn}
+                                isSubmittingOfficeTimeIn={isSubmittingOfficeTimeIn}
+                                isCompletingOfficeVisit={isCompletingOfficeVisit}
+                                showTimeOutFeedback={showTimeOutFeedback}
+                                setShowTimeOutFeedback={setShowTimeOutFeedback}
+                                timeOutVisitReason={timeOutVisitReason}
+                                showProfileCompletionBanner={profileCompletionReminderRequired}
+                                openProfileCompletionModal={openProfileCompletionModal}
+                                showToast={showToast}
+                            />
+                        </Suspense>
                     )}
 
                     {/* EVENTS */}
                     {activeView === 'events' && (
-                        <StudentEventsView
-                            eventsList={eventsList}
-                            eventFilter={eventFilter}
-                            setEventFilter={setEventFilter}
-                            attendanceMap={attendanceMap}
-                            fetchHistory={fetchHistory}
-                            handleTimeIn={handleTimeIn}
-                            handleTimeOut={handleTimeOut}
-                            handleRateEvent={handleRateEvent}
-                            ratedEvents={ratedEvents}
-                            isTimingIn={isTimingIn}
-                            timingOutEventId={timingOutEventId}
-                            isSubmittingEventRating={isSubmittingEventRating}
-                            setProofFile={setProofFile}
-                            selectedEvent={selectedEvent}
-                            setSelectedEvent={setSelectedEvent}
-                            showRatingModal={showRatingModal}
-                            setShowRatingModal={setShowRatingModal}
-                            ratingForm={ratingForm}
-                            setRatingForm={setRatingForm}
-                            submitRating={submitRating}
-                            showTimeInModal={showTimeInModal}
-                            setShowTimeInModal={setShowTimeInModal}
-                            visitReasons={visitReasons}
-                            selectedReason={selectedReason}
-                            setSelectedReason={setSelectedReason}
-                            submitTimeIn={submitTimeIn}
-                            personalInfo={personalInfo}
-                            toast={toast}
-                            Icons={Icons}
-                            showCommandHub={showCommandHub}
-                            setShowCommandHub={setShowCommandHub}
-                            setActiveView={setActiveView}
-                            setShowCounselingForm={setShowCounselingForm}
-                            setShowSupportModal={setShowSupportModal}
-                        />
+                        <Suspense fallback={null}>
+                            <StudentEventsView
+                                eventsList={eventsList}
+                                eventFilter={eventFilter}
+                                setEventFilter={setEventFilter}
+                                attendanceMap={attendanceMap}
+                                fetchHistory={fetchHistory}
+                                handleTimeIn={handleTimeIn}
+                                handleTimeOut={handleTimeOut}
+                                handleRateEvent={handleRateEvent}
+                                ratedEvents={ratedEvents}
+                                isTimingIn={isTimingIn}
+                                timingOutEventId={timingOutEventId}
+                                isSubmittingEventRating={isSubmittingEventRating}
+                                setProofFile={setProofFile}
+                                selectedEvent={selectedEvent}
+                                setSelectedEvent={setSelectedEvent}
+                                showRatingModal={showRatingModal}
+                                setShowRatingModal={setShowRatingModal}
+                                ratingForm={ratingForm}
+                                setRatingForm={setRatingForm}
+                                submitRating={submitRating}
+                                showTimeInModal={showTimeInModal}
+                                setShowTimeInModal={setShowTimeInModal}
+                                visitReasons={visitReasons}
+                                selectedReason={selectedReason}
+                                setSelectedReason={setSelectedReason}
+                                submitTimeIn={submitTimeIn}
+                                personalInfo={personalInfo}
+                                toast={toast}
+                                Icons={Icons}
+                                showCommandHub={showCommandHub}
+                                setShowCommandHub={setShowCommandHub}
+                                setActiveView={transitionToView}
+                                setShowCounselingForm={setShowCounselingForm}
+                                setShowSupportModal={setShowSupportModal}
+                            />
+                        </Suspense>
                     )}
 
                     {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
-            {renderRemainingViews({ activeView, activeForm, loadingForm, formsList, openAssessmentForm: openAssessmentFormWithProfileGate, showAssessmentModal, setShowAssessmentModal, onAssessmentSubmitted: handleAssessmentSubmitted, showSuccessModal, setShowSuccessModal, showCounselingForm, setShowCounselingForm, openCounselingForm: openCounselingFormWithProfileGate, onCounselingSubmitted: handleCounselingSubmitted, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm: openSupportFormWithProfileGate, onSupportSubmitted: handleSupportSubmitted, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, personalInfo, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship: handleApplyScholarshipWithProfileGate, isApplyingScholarshipId, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
+            {renderRemainingViews({ activeView, activeForm, loadingForm, formsList, openAssessmentForm: openAssessmentFormWithProfileGate, showAssessmentModal, setShowAssessmentModal, onAssessmentSubmitted: handleAssessmentSubmitted, showSuccessModal, setShowSuccessModal, showCounselingForm, setShowCounselingForm, openCounselingForm: openCounselingFormWithProfileGate, onCounselingSubmitted: handleCounselingSubmitted, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm: openSupportFormWithProfileGate, onSupportSubmitted: handleSupportSubmitted, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, personalInfo, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship: handleApplyScholarshipWithProfileGate, isApplyingScholarshipId, uploadProfilePicture, setActiveView: transitionToView, feedbackPrefill, setFeedbackPrefill, showToast })}
                 </div>
 
                 {/* FAB TRIGGER FOR COMMAND HUB */}
                 <button
                     onClick={() => setShowCommandHub(true)}
-                    className={`fixed bottom-4 right-4 z-40 h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-110 transition-all duration-300 flex items-center justify-center group sm:bottom-6 sm:right-6 sm:h-14 sm:w-14 ${showCommandHub ? 'hidden' : 'animate-float'}`}
+                    className={`fixed bottom-4 right-4 z-40 h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-110 transition-all duration-300 flex items-center justify-center group sm:bottom-6 sm:right-6 sm:h-14 sm:w-14 ${showCommandHub ? 'hidden' : (isCompactPortalLayout ? '' : 'animate-float')}`}
                 >
                     <svg className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -3084,31 +3279,31 @@ export default function StudentPortal() {
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-backdrop student-mobile-modal-overlay" onClick={() => setShowCommandHub(false)}>
                         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden animate-scale-in border border-white/20 student-mobile-modal-panel student-mobile-modal-scroll-panel sm:max-w-sm" onClick={(e: any) => e.stopPropagation()}>
                             <div className="p-5 bg-gradient-to-br from-blue-600 to-blue-800 text-white relative overflow-hidden sm:p-6">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl animate-float"></div>
+                                <div className={`absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl ${isCompactPortalLayout ? '' : 'animate-float'}`}></div>
                                 <h3 className="text-xl font-extrabold relative z-10">Student Hub</h3>
                                 <p className="text-blue-200 text-xs relative z-10">Quick access to student services</p>
                                 <button onClick={() => setShowCommandHub(false)} className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors bg-white/10 p-1 rounded-full"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                             <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4">
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('counseling'); openCounselingFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-purple-50 border border-purple-100 p-3 transition-all group hover:bg-purple-100 sm:p-4">
+                                <button onClick={() => { setShowCommandHub(false); transitionToView('counseling'); openCounselingFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-purple-50 border border-purple-100 p-3 transition-all group hover:bg-purple-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><Icons.Counseling /></div>
                                     <span className="text-xs font-bold text-gray-700">Counseling</span>
                                 </button>
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('support'); openSupportFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-blue-50 border border-blue-100 p-3 transition-all group hover:bg-blue-100 sm:p-4">
+                                <button onClick={() => { setShowCommandHub(false); transitionToView('support'); openSupportFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-blue-50 border border-blue-100 p-3 transition-all group hover:bg-blue-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Icons.Support /></div>
                                     <span className="text-xs font-bold text-gray-700">Support</span>
                                 </button>
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('feedback'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-pink-50 border border-pink-100 p-3 transition-all group hover:bg-pink-100 sm:p-4">
+                                <button onClick={() => { setShowCommandHub(false); transitionToView('feedback'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-pink-50 border border-pink-100 p-3 transition-all group hover:bg-pink-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-pink-500 group-hover:scale-110 transition-transform"><Icons.Feedback /></div>
                                     <span className="text-xs font-bold text-gray-700">Feedback</span>
                                 </button>
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('scholarship'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 transition-all group hover:bg-emerald-100 sm:p-4">
+                                <button onClick={() => { setShowCommandHub(false); transitionToView('scholarship'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 transition-all group hover:bg-emerald-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><Icons.Scholarship /></div>
                                     <span className="text-xs font-bold text-gray-700">Scholarships</span>
                                 </button>
                             </div>
                             <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('profile'); }} className="w-full py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm">
+                                <button onClick={() => { setShowCommandHub(false); transitionToView('profile'); }} className="w-full py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm">
                                     <Icons.Profile /> View My Profile
                                 </button>
                             </div>

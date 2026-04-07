@@ -267,7 +267,7 @@ const StudentDashboardView = ({
             {/* Hero Banner (Optimized) */}
             <StudentHero firstName={personalInfo.firstName} />
             {showProfileCompletionBanner && (
-                <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-white p-4 shadow-sm animate-fade-in-up sm:p-5">
+                <div className="student-action-banner rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-white p-4 shadow-sm animate-fade-in-up sm:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="max-w-3xl">
                             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-600/80">Action Required</p>
@@ -288,7 +288,7 @@ const StudentDashboardView = ({
             )}
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-8">
                 <div className="lg:col-span-2 space-y-5 sm:space-y-6">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '100ms' }}>
+                    <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '100ms' }}>
                         <h3 className="font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-blue-500 to-sky-400 text-white rounded-xl shadow-lg shadow-blue-500/20">🔔</span> Latest Announcements</h3>
                         {(() => {
                             const announcements = eventsList.filter((e: any) => e.type === 'Announcement').slice(0, 3);
@@ -308,7 +308,7 @@ const StudentDashboardView = ({
                             ));
                         })()}
                     </div>
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '200ms' }}>
+                    <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '200ms' }}>
                         <h3 className="font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-xl shadow-lg shadow-violet-500/20">🏢</span> Office Logbook</h3>
                         {activeVisit ? (<div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center"><p className="text-sm font-bold text-emerald-800 mb-1">You are currently at the office</p><p className="text-xs text-emerald-600 mb-3">Reason: {activeVisit.reason}</p><button disabled={isCompletingOfficeVisit} onClick={handleOfficeTimeOut} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs hover:from-red-400 hover:to-rose-500 shadow-lg shadow-red-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isCompletingOfficeVisit ? 'Timing Out...' : 'Time Out'}</button></div>) : <button onClick={handleOfficeTimeIn} className="w-full bg-gradient-to-r from-blue-500 to-sky-400 text-white py-3 rounded-xl font-bold text-sm hover:from-blue-400 hover:to-sky-300 shadow-lg shadow-blue-500/20 btn-press transition-all">Time In for Office Visit</button>}
                     </div>

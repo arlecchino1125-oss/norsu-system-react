@@ -137,7 +137,7 @@ const StudentEventsView = ({
                         <Icons.Clock />
                         Refresh
                     </button>
-                    <div className="flex w-full gap-1 rounded-xl border border-purple-100/50 bg-white/80 p-1 shadow-sm backdrop-blur-sm sm:w-auto">
+                    <div className="student-filter-shell flex w-full gap-1 rounded-xl border border-purple-100/50 bg-white/80 p-1 shadow-sm backdrop-blur-sm sm:w-auto">
                         {['All', 'Events', 'Announcements'].map((filterName: string) => (
                             <button
                                 key={filterName}
@@ -168,7 +168,7 @@ const StudentEventsView = ({
                             <div
                                 key={item.id}
                                 onClick={() => setSelectedEvent(item)}
-                                className={`card-hover relative cursor-pointer rounded-2xl border-l-4 bg-white/80 p-5 shadow-sm backdrop-blur-sm animate-fade-in-up sm:p-8 ${item.type === 'Event' ? 'border-l-purple-500' : 'border-l-indigo-400'}`}
+                                className={`student-events-card card-hover relative cursor-pointer rounded-2xl border-l-4 bg-white/80 p-5 shadow-sm backdrop-blur-sm animate-fade-in-up sm:p-8 ${item.type === 'Event' ? 'border-l-purple-500' : 'border-l-indigo-400'}`}
                                 style={{ animationDelay: `${idx * 100}ms` }}
                             >
                                 <div className="mb-5 flex items-start justify-between sm:mb-6">
@@ -282,7 +282,7 @@ const StudentEventsView = ({
                         onClick={() => setSelectedEvent(null)}
                     >
                         <div
-                            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel"
+                            className="student-detail-modal-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel"
                             onClick={(event: any) => event.stopPropagation()}
                         >
                             <div className={`h-2 w-full rounded-t-3xl ${selectedEvent.type === 'Event' ? 'bg-gradient-to-r from-blue-600 to-sky-500' : 'bg-gradient-to-r from-slate-800 to-slate-600'}`} />
@@ -316,14 +316,14 @@ const StudentEventsView = ({
                                 </div>
 
                                 <div className={`grid gap-4 ${selectedEvent.type === 'Event' ? 'sm:grid-cols-2 md:grid-cols-3' : 'sm:grid-cols-2 md:grid-cols-2'}`}>
-                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                                    <div className="student-modal-section-card rounded-2xl border border-slate-100 bg-slate-50 p-5">
                                         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Date</p>
                                         <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
                                             <Icons.Events />
                                             {getDisplayDate(selectedEvent)}
                                         </p>
                                     </div>
-                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                                    <div className="student-modal-section-card rounded-2xl border border-slate-100 bg-slate-50 p-5">
                                         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                                             {selectedEvent.type === 'Event' ? 'Time' : 'Posted'}
                                         </p>
@@ -333,7 +333,7 @@ const StudentEventsView = ({
                                         </p>
                                     </div>
                                     {selectedEvent.type === 'Event' && (
-                                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                                        <div className="student-modal-section-card rounded-2xl border border-slate-100 bg-slate-50 p-5">
                                             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Location</p>
                                             <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
                                                 <Icons.Support />
@@ -366,7 +366,7 @@ const StudentEventsView = ({
                                         )}
 
                                         {isTimedIn && isTimedOut ? (
-                                            <div className="rounded-2xl border border-green-100 bg-green-50 p-5 text-center">
+                                            <div className="student-modal-section-card rounded-2xl border border-green-100 bg-green-50 p-5 text-center">
                                                 <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-green-600 shadow-sm">
                                                     <Icons.CheckCircle />
                                                 </div>
@@ -436,7 +436,7 @@ const StudentEventsView = ({
             {showRatingModal && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 student-mobile-modal-overlay">
                     <div className="absolute inset-0 animate-backdrop bg-black/60 backdrop-blur-sm" onClick={() => setShowRatingModal(false)} />
-                    <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scale-in student-mobile-modal-panel">
+                    <div className="student-rating-modal-panel relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scale-in student-mobile-modal-panel">
                         <div className="shrink-0 bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white sm:px-8 sm:py-5">
                             <div className="flex items-start justify-between">
                                 <div>
