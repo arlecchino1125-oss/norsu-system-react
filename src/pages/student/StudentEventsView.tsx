@@ -125,24 +125,24 @@ const StudentEventsView = ({
     return (
         <>
             <div className="page-transition">
-                <div className="mb-8 flex flex-wrap items-start justify-between gap-4 animate-fade-in-up">
+                <div className="mb-6 flex flex-col gap-4 animate-fade-in-up sm:mb-8 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div>
-                        <h2 className="mb-1 text-2xl font-extrabold text-gray-800">Events & Announcements</h2>
+                        <h2 className="mb-1 text-xl font-extrabold text-gray-800 sm:text-2xl">Events & Announcements</h2>
                         <p className="text-sm text-gray-400">Stay updated with campus activities and important news.</p>
                     </div>
                     <button
                         onClick={fetchHistory}
-                        className="flex items-center gap-1 text-xs font-bold text-purple-600 transition-colors hover:text-purple-800"
+                        className="flex items-center gap-1 self-start text-xs font-bold text-purple-600 transition-colors hover:text-purple-800"
                     >
                         <Icons.Clock />
                         Refresh
                     </button>
-                    <div className="flex gap-1 rounded-xl border border-purple-100/50 bg-white/80 p-1 shadow-sm backdrop-blur-sm">
+                    <div className="flex w-full gap-1 rounded-xl border border-purple-100/50 bg-white/80 p-1 shadow-sm backdrop-blur-sm sm:w-auto">
                         {['All', 'Events', 'Announcements'].map((filterName: string) => (
                             <button
                                 key={filterName}
                                 onClick={() => setEventFilter(filterName)}
-                                className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all ${eventFilter === filterName
+                                className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all sm:flex-none sm:px-4 ${eventFilter === filterName
                                     ? 'bg-gradient-to-r from-blue-500 to-sky-400 text-white shadow-lg shadow-blue-500/20'
                                     : 'text-gray-500 hover:bg-purple-50 hover:text-gray-900'
                                     }`}
@@ -153,7 +153,7 @@ const StudentEventsView = ({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-8">
                     {filteredEvents.map((item: any, idx: number) => {
                         const record = attendanceMap[item.id];
                         const isTimedIn = Boolean(record?.time_in);
@@ -168,10 +168,10 @@ const StudentEventsView = ({
                             <div
                                 key={item.id}
                                 onClick={() => setSelectedEvent(item)}
-                                className={`card-hover relative cursor-pointer rounded-2xl border-l-4 bg-white/80 p-8 shadow-sm backdrop-blur-sm animate-fade-in-up ${item.type === 'Event' ? 'border-l-purple-500' : 'border-l-indigo-400'}`}
+                                className={`card-hover relative cursor-pointer rounded-2xl border-l-4 bg-white/80 p-5 shadow-sm backdrop-blur-sm animate-fade-in-up sm:p-8 ${item.type === 'Event' ? 'border-l-purple-500' : 'border-l-indigo-400'}`}
                                 style={{ animationDelay: `${idx * 100}ms` }}
                             >
-                                <div className="mb-6 flex items-start justify-between">
+                                <div className="mb-5 flex items-start justify-between sm:mb-6">
                                     <span className="rounded-lg bg-gradient-to-r from-slate-800 to-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white">
                                         {item.type}
                                     </span>
@@ -183,10 +183,10 @@ const StudentEventsView = ({
                                     )}
                                 </div>
 
-                                <h3 className="mb-4 text-xl font-bold text-gray-800">{item.title}</h3>
-                                <p className="mb-8 line-clamp-3 text-sm leading-relaxed text-gray-500">{item.description || 'No additional details provided.'}</p>
+                                <h3 className="mb-3 text-lg font-bold text-gray-800 sm:mb-4 sm:text-xl">{item.title}</h3>
+                                <p className="mb-6 line-clamp-3 text-sm leading-relaxed text-gray-500 sm:mb-8">{item.description || 'No additional details provided.'}</p>
 
-                                <div className="mb-8 space-y-3">
+                                <div className="mb-6 space-y-3 sm:mb-8">
                                     <p className="flex items-center gap-3 text-xs font-medium text-gray-400">
                                         <Icons.Events />
                                         {getDisplayDate(item)}
@@ -214,7 +214,7 @@ const StudentEventsView = ({
                                             />
                                         )}
 
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col gap-2 sm:flex-row">
                                             <button
                                                 disabled={!canTimeIn || isTimingIn || isTimedIn}
                                                 onClick={() => handleTimeIn(item)}
@@ -260,7 +260,7 @@ const StudentEventsView = ({
                 </div>
 
                 {filteredEvents.length === 0 && (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-10 text-center text-sm text-slate-500">
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-6 text-center text-sm text-slate-500 sm:p-10">
                         No {eventFilter === 'All' ? 'items' : eventFilter.toLowerCase()} available right now.
                     </div>
                 )}
@@ -287,8 +287,8 @@ const StudentEventsView = ({
                         >
                             <div className={`h-2 w-full rounded-t-3xl ${selectedEvent.type === 'Event' ? 'bg-gradient-to-r from-blue-600 to-sky-500' : 'bg-gradient-to-r from-slate-800 to-slate-600'}`} />
 
-                            <div className="p-8">
-                                <div className="mb-6 flex items-start justify-between gap-4">
+                            <div className="p-5 sm:p-8">
+                                <div className="mb-5 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <div className="mb-3 flex items-center gap-3">
                                             <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
@@ -301,8 +301,8 @@ const StudentEventsView = ({
                                                 </span>
                                             )}
                                         </div>
-                                        <h2 className="text-3xl font-extrabold text-slate-900">{selectedEvent.title}</h2>
-                                        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                                        <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">{selectedEvent.title}</h2>
+                                        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:leading-7">
                                             {selectedEvent.description || 'No additional details provided.'}
                                         </p>
                                     </div>
@@ -315,7 +315,7 @@ const StudentEventsView = ({
                                     </button>
                                 </div>
 
-                                <div className={`grid gap-4 ${selectedEvent.type === 'Event' ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+                                <div className={`grid gap-4 ${selectedEvent.type === 'Event' ? 'sm:grid-cols-2 md:grid-cols-3' : 'sm:grid-cols-2 md:grid-cols-2'}`}>
                                     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
                                         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Date</p>
                                         <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
@@ -437,7 +437,7 @@ const StudentEventsView = ({
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 student-mobile-modal-overlay">
                     <div className="absolute inset-0 animate-backdrop bg-black/60 backdrop-blur-sm" onClick={() => setShowRatingModal(false)} />
                     <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scale-in student-mobile-modal-panel">
-                        <div className="shrink-0 bg-gradient-to-r from-blue-600 to-blue-800 px-8 py-5 text-white">
+                        <div className="shrink-0 bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white sm:px-8 sm:py-5">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <p className="mb-1 text-[10px] uppercase tracking-widest text-blue-200">Negros Oriental State University - CARE Center</p>
@@ -453,8 +453,8 @@ const StudentEventsView = ({
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                        <div className="flex-1 overflow-y-auto p-5 space-y-6 sm:p-8 sm:space-y-8">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                                 <div>
                                     <label className="mb-1 block text-[10px] font-bold uppercase text-gray-400">Name</label>
                                     <p className="text-sm font-bold text-gray-800">{personalInfo.firstName} {personalInfo.lastName}</p>
@@ -557,7 +557,7 @@ const StudentEventsView = ({
                             </div>
                         </div>
 
-                        <div className="flex shrink-0 gap-3 border-t border-gray-100 bg-gray-50/50 px-8 py-4">
+                        <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50/50 px-5 py-4 sm:flex-row sm:px-8">
                             <button
                                 onClick={submitRating}
                                 disabled={isSubmittingEventRating}
@@ -567,7 +567,7 @@ const StudentEventsView = ({
                             </button>
                             <button
                                 onClick={() => setShowRatingModal(false)}
-                                className="rounded-xl border border-gray-200 bg-white px-6 py-3.5 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50"
+                                className="w-full rounded-xl border border-gray-200 bg-white px-6 py-3.5 text-sm font-bold text-gray-600 transition-all hover:bg-gray-50 sm:w-auto"
                             >
                                 Cancel
                             </button>
@@ -578,7 +578,7 @@ const StudentEventsView = ({
             )}
 
             {toast && (
-                <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl px-6 py-4 text-white shadow-2xl backdrop-blur-sm animate-slide-in-right ${toast.type === 'error' ? 'bg-red-600/90' : 'bg-gradient-to-r from-emerald-500 to-green-600'}`}>
+                <div className={`fixed bottom-4 left-4 right-4 z-50 flex items-center gap-3 rounded-xl px-4 py-3 text-white shadow-2xl backdrop-blur-sm animate-slide-in-right sm:bottom-6 sm:left-auto sm:right-6 sm:px-6 sm:py-4 ${toast.type === 'error' ? 'bg-red-600/90' : 'bg-gradient-to-r from-emerald-500 to-green-600'}`}>
                     <div className="text-xl">{toast.type === 'error' ? '!' : 'OK'}</div>
                     <div>
                         <p className="text-sm font-bold">{toast.type === 'error' ? 'Error' : 'Success'}</p>

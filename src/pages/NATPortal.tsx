@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 import {
     GraduationCap, ArrowLeft, FileText, Info, Check, User, Key,
     Calendar, MapPin, Loader2, X, Clock, HelpCircle, LogOut, Mail, Phone, ArrowRight, ChevronDown
@@ -9,6 +10,7 @@ import { motion, Variants, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
+import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
 
 // --- ASSETS & CONSTANTS ---
 const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
@@ -164,6 +166,7 @@ const hasNatAttendanceColumns = (record: any) => {
 
 const NATPortal = () => {
     const navigate = useNavigate();
+    const { loginStudent } = useAuth() as any;
     // Start at 'welcome' screen
     const [currentScreen, setCurrentScreen] = useState<string>('welcome');
     const [currentStep, setCurrentStep] = useState<number>(1);
@@ -171,7 +174,7 @@ const NATPortal = () => {
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
     const [activationConfirm, setActivationConfirm] = useState<{ visible: boolean; studentId: string; course: string }>({ visible: false, studentId: '', course: '' });
-    const [activationSuccess, setActivationSuccess] = useState<{ visible: boolean; studentId: string; course: string; emailSent: boolean; password: string }>({ visible: false, studentId: '', course: '', emailSent: true, password: '' });
+    const [activationSuccess, setActivationSuccess] = useState<{ visible: boolean; studentId: string; course: string; emailSent: boolean; password: string; viewed: boolean }>({ visible: false, studentId: '', course: '', emailSent: true, password: '', viewed: false });
     const [enrollConfirm, setEnrollConfirm] = useState<{ visible: boolean; studentId: string; course: string; resolve: ((v: boolean) => void) | null }>({ visible: false, studentId: '', course: '', resolve: null });
 
     // Auth & User State
@@ -759,10 +762,11 @@ const NATPortal = () => {
                 studentId,
                 course,
                 emailSent,
-                password: String(data?.password || '')
+                password: String(data?.password || ''),
+                viewed: false
             });
         } catch (error: any) {
-            showToast('Activation Failed: ' + error.message, 'error');
+            showToast(`Activation Failed: ${getSafeStudentActivationErrorMessage(error)}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -788,10 +792,40 @@ const NATPortal = () => {
     };
 
     const handleActivationSuccessContinue = () => {
-        setActivationSuccess({ visible: false, studentId: '', course: '', emailSent: true, password: '' });
+        setActivationSuccess({ visible: false, studentId: '', course: '', emailSent: true, password: '', viewed: false });
         setCurrentUser(null);
         setCredentials(null);
         navigate('/student/login');
+    };
+
+    const handleActivationSuccessLogin = async () => {
+        if (!activationSuccess.studentId || !activationSuccess.password) {
+            handleActivationSuccessContinue();
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const result = await loginStudent(activationSuccess.studentId, activationSuccess.password);
+
+            if (result?.success) {
+                setActivationSuccess({ visible: false, studentId: '', course: '', emailSent: true, password: '', viewed: false });
+                setCurrentUser(null);
+                setCredentials(null);
+                showToast('Login Successful', 'success');
+                setTimeout(() => navigate('/student'), 700);
+                return;
+            }
+
+            showToast(
+                result?.error || 'Automatic sign-in failed. Use the account details you saved on the student login page.',
+                'error'
+            );
+            handleActivationSuccessContinue();
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleNatLogout = () => {
@@ -1356,34 +1390,64 @@ const NATPortal = () => {
                                     <p className="text-green-50 text-sm mt-2">Your student portal account is now ready.</p>
                                 </div>
                                 <div className="p-6 space-y-4">
-                                    <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
-                                        <div className="flex items-center gap-2 text-sm text-gray-800">
-                                            <span className="font-bold">Student ID:</span>
-                                            <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{activationSuccess.studentId}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm text-gray-800">
-                                            <span className="font-bold">Course:</span>
-                                            <span className="bg-white px-2 py-0.5 rounded border border-gray-200">{activationSuccess.course}</span>
-                                        </div>
-                                    </div>
                                     <p className="text-sm text-gray-600 leading-relaxed">
                                         {activationSuccess.emailSent
-                                            ? 'A confirmation email with your login details has been sent. You can continue to the student login page now.'
-                                            : 'Your account was activated, but the confirmation email could not be sent. Use the generated student portal password below when you continue to the student login page.'}
+                                            ? 'A confirmation email with your login details has been sent. Review the account details below first for backup before you log in.'
+                                            : 'Your account was activated, but the confirmation email could not be sent. Review the account details below for backup before you log in.'}
                                     </p>
-                                    {!activationSuccess.emailSent && activationSuccess.password && (
-                                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                                            <span className="font-bold">Temporary Password:</span>{' '}
-                                            <span className="font-mono">{activationSuccess.password}</span>
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                        <p className="font-bold uppercase tracking-wider text-xs mb-1">Reminder</p>
+                                        <p className="leading-relaxed">Take a screenshot or save these account details in a secure place. Do not share your password with anyone.</p>
+                                    </div>
+                                    {activationSuccess.viewed ? (
+                                        <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
+                                            <div className="flex items-center gap-2 text-sm text-gray-800">
+                                                <span className="font-bold">Student ID:</span>
+                                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{activationSuccess.studentId}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-800">
+                                                <span className="font-bold">Course:</span>
+                                                <span className="bg-white px-2 py-0.5 rounded border border-gray-200">{activationSuccess.course}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-800">
+                                                <span className="font-bold">Temporary Password:</span>
+                                                <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{activationSuccess.password}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-600">
+                                            Tap <span className="font-bold text-slate-800">View Account</span> to reveal your student portal login details.
                                         </div>
                                     )}
-                                    <button
-                                        type="button"
-                                        onClick={handleActivationSuccessContinue}
-                                        className="w-full py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 hover:-translate-y-1 transition-all"
-                                    >
-                                        Continue to Student Login
-                                    </button>
+                                    <div className="space-y-3">
+                                        {!activationSuccess.viewed ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setActivationSuccess((prev) => ({ ...prev, viewed: true }))}
+                                                className="w-full py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 hover:-translate-y-1 transition-all"
+                                            >
+                                                View Account
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    disabled={loading}
+                                                    onClick={handleActivationSuccessLogin}
+                                                    className="w-full py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 hover:-translate-y-1 transition-all disabled:opacity-70"
+                                                >
+                                                    {loading ? 'Logging In...' : 'Log In to Student Portal'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleActivationSuccessContinue}
+                                                    className="w-full py-3 rounded-xl font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all"
+                                                >
+                                                    Return to Student Login
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

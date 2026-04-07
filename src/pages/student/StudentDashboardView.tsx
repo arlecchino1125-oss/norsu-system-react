@@ -75,7 +75,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
     if (submitted) {
         return createPortal(
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
-                <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl text-center animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
+                <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel sm:p-8">
                     <div className="w-16 h-16 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
                     <h3 className="font-extrabold text-lg mb-2 text-gray-900">Thank You!</h3>
                     <p className="text-sm text-gray-500 mb-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
@@ -90,8 +90,8 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
             <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fade-in-up student-mobile-modal-panel">
                 {/* Header */}
-                <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white flex-shrink-0">
-                    <div className="flex justify-between items-start">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white flex-shrink-0 sm:px-8 sm:py-5">
+                    <div className="flex justify-between items-start gap-3">
                         <div>
                             <p className="text-[10px] uppercase tracking-widest text-blue-200 mb-1">Office Visit Completed</p>
                             <h3 className="text-lg font-extrabold tracking-tight">Client Satisfaction Feedback</h3>
@@ -104,7 +104,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 space-y-5 sm:p-6 sm:space-y-6">
                     {/* Info Banner */}
                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                         <p className="text-xs text-blue-700 leading-relaxed">Your feedback on your <span className="font-bold">recently concluded office visit</span> will help us provide better service. You may also skip this form.</p>
@@ -124,7 +124,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                                     ))}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Sex</label><div className="flex gap-2">{['Male', 'Female'].map(s => (<button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all ${form.sex === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white border-gray-200 text-gray-600'}`}>{s}</button>))}</div></div>
                                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Age</label><input type="number" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" /></div>
                                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Region</label><input type="text" value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region" /></div>
@@ -222,11 +222,11 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0 flex gap-3">
+                <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50/50 px-4 py-4 flex-shrink-0 sm:flex-row sm:px-6">
                     <button onClick={handleSubmit} disabled={submitting} className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all disabled:opacity-50">
                         {submitting ? 'Submitting...' : 'Submit Feedback'}
                     </button>
-                    <button onClick={onClose} className="px-6 py-3.5 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all">
+                    <button onClick={onClose} className="w-full px-6 py-3.5 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all sm:w-auto">
                         Skip
                     </button>
                 </div>
@@ -263,15 +263,15 @@ const StudentDashboardView = ({
     showToast,
 }: any) => (
     <>
-        <div className="space-y-8 page-transition">
+        <div className="space-y-6 page-transition sm:space-y-8">
             {/* Hero Banner (Optimized) */}
             <StudentHero firstName={personalInfo.firstName} />
             {showProfileCompletionBanner && (
-                <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-white p-5 shadow-sm animate-fade-in-up">
+                <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-white p-4 shadow-sm animate-fade-in-up sm:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="max-w-3xl">
                             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-600/80">Action Required</p>
-                            <h3 className="mt-1 text-xl font-black text-slate-900">Please complete your student profile to unlock all campus services.</h3>
+                            <h3 className="mt-1 text-lg font-black text-slate-900 sm:text-xl">Please complete your student profile to unlock all campus services.</h3>
                             <p className="mt-2 text-sm leading-relaxed text-slate-600">
                                 You can still browse announcements and your dashboard, but counseling, additional support, scholarship applications, and needs assessment stay locked until your required profile fields are completed.
                             </p>
@@ -279,16 +279,16 @@ const StudentDashboardView = ({
                         <button
                             type="button"
                             onClick={openProfileCompletionModal}
-                            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800"
+                            className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 sm:w-auto"
                         >
                             Complete Profile
                         </button>
                     </div>
                 </div>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-8">
+                <div className="lg:col-span-2 space-y-5 sm:space-y-6">
+                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '100ms' }}>
                         <h3 className="font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-blue-500 to-sky-400 text-white rounded-xl shadow-lg shadow-blue-500/20">🔔</span> Latest Announcements</h3>
                         {(() => {
                             const announcements = eventsList.filter((e: any) => e.type === 'Announcement').slice(0, 3);
@@ -296,30 +296,30 @@ const StudentDashboardView = ({
                                 return <p className="text-sm text-gray-400 p-4 text-center">No recent announcements.</p>;
                             }
                             return announcements.map((ann: any) => (
-                                <div key={ann.id} className="border border-purple-100 bg-purple-50/50 p-4 rounded-xl flex justify-between items-start mb-3 last:mb-0">
-                                    <div>
+                                <div key={ann.id} className="mb-3 flex flex-col gap-2 rounded-xl border border-purple-100 bg-purple-50/50 p-4 last:mb-0 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
                                         <h4 className="font-bold text-purple-900 text-sm">{ann.title}</h4>
                                         <p className="text-xs text-purple-700/70 mt-1 line-clamp-2">{ann.description}</p>
                                     </div>
-                                    <span className="text-[10px] font-bold text-purple-400/60 ml-4 shrink-0 whitespace-nowrap">
+                                    <span className="text-[10px] font-bold text-purple-400/60 shrink-0 whitespace-nowrap sm:ml-4">
                                         {new Date(ann.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </span>
                                 </div>
                             ));
                         })()}
                     </div>
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '200ms' }}>
                         <h3 className="font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-xl shadow-lg shadow-violet-500/20">🏢</span> Office Logbook</h3>
                         {activeVisit ? (<div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center"><p className="text-sm font-bold text-emerald-800 mb-1">You are currently at the office</p><p className="text-xs text-emerald-600 mb-3">Reason: {activeVisit.reason}</p><button disabled={isCompletingOfficeVisit} onClick={handleOfficeTimeOut} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs hover:from-red-400 hover:to-rose-500 shadow-lg shadow-red-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isCompletingOfficeVisit ? 'Timing Out...' : 'Time Out'}</button></div>) : <button onClick={handleOfficeTimeIn} className="w-full bg-gradient-to-r from-blue-500 to-sky-400 text-white py-3 rounded-xl font-bold text-sm hover:from-blue-400 hover:to-sky-300 shadow-lg shadow-blue-500/20 btn-press transition-all">Time In for Office Visit</button>}
                     </div>
-                    {notifications.length > 0 && (<div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-orange-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '300ms' }}><h3 className="font-bold flex items-center gap-2 mb-4 text-orange-600"><span className="p-2 bg-gradient-to-br from-orange-400 to-amber-500 text-white rounded-xl shadow-lg shadow-orange-500/20">📢</span> Notifications</h3><div className="space-y-2">{notifications.map((n: any) => <div key={n.id} className="text-xs p-3 bg-orange-50 border border-orange-100 rounded-xl text-gray-700">{n.message}</div>)}</div></div>)}
+                    {notifications.length > 0 && (<div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-orange-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '300ms' }}><h3 className="font-bold flex items-center gap-2 mb-4 text-orange-600"><span className="p-2 bg-gradient-to-br from-orange-400 to-amber-500 text-white rounded-xl shadow-lg shadow-orange-500/20">📢</span> Notifications</h3><div className="space-y-2">{notifications.map((n: any) => <div key={n.id} className="text-xs p-3 bg-orange-50 border border-orange-100 rounded-xl text-gray-700">{n.message}</div>)}</div></div>)}
                 </div>
-                <div className="space-y-6">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '200ms' }}><h3 className="font-bold mb-4 flex items-center gap-2"><span className="p-2 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-xl shadow-lg shadow-emerald-500/20">⚡</span> Quick Access</h3><div className="space-y-3">{[{ id: 'assessment', label: 'Needs Assessment', color: 'blue', desc: 'Submit your yearly assessment' }, { id: 'scholarship', label: 'Scholarship', color: 'green', desc: 'Check eligibility & apply' }, { id: 'counseling', label: 'Counseling', color: 'purple', desc: 'Request support or advice' }].map((item: any) => { const colors = (colorMap as any)[item.color]; return (<button key={item.label} onClick={() => setActiveView(item.id)} className="w-full text-left p-3 rounded-xl border border-purple-100/30 hover:border-blue-200 transition-all group flex items-center gap-3 hover:bg-purple-50/50"><div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${colors.bg} ${colors.text} ${colors.hoverBg} group-hover:text-white transition-colors shadow-sm`}>&gt;</div><div><div className="text-xs font-bold">{item.label}</div><div className="text-[10px] text-gray-400">{item.desc}</div></div></button>); })}</div></div>
-                    <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 rounded-2xl p-6 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden animate-fade-in-up" style={{ animationDelay: '350ms' }}><div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl"></div><h4 className="font-bold text-sm mb-2 relative z-10">💡 Campus Tip</h4><p className="text-xs text-purple-200/60 leading-relaxed font-light relative z-10">"Always remember to time-in and time-out of events to ensure your attendance is credited."</p></div>
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+                <div className="space-y-5 sm:space-y-6">
+                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '200ms' }}><h3 className="font-bold mb-4 flex items-center gap-2"><span className="p-2 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-xl shadow-lg shadow-emerald-500/20">⚡</span> Quick Access</h3><div className="space-y-3">{[{ id: 'assessment', label: 'Needs Assessment', color: 'blue', desc: 'Submit your yearly assessment' }, { id: 'scholarship', label: 'Scholarship', color: 'green', desc: 'Check eligibility & apply' }, { id: 'counseling', label: 'Counseling', color: 'purple', desc: 'Request support or advice' }].map((item: any) => { const colors = (colorMap as any)[item.color]; return (<button key={item.label} onClick={() => setActiveView(item.id)} className="w-full text-left p-3 rounded-xl border border-purple-100/30 hover:border-blue-200 transition-all group flex items-center gap-3 hover:bg-purple-50/50"><div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${colors.bg} ${colors.text} ${colors.hoverBg} group-hover:text-white transition-colors shadow-sm`}>&gt;</div><div><div className="text-xs font-bold">{item.label}</div><div className="text-[10px] text-gray-400">{item.desc}</div></div></button>); })}</div></div>
+                    <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 rounded-2xl p-4 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden animate-fade-in-up sm:p-6" style={{ animationDelay: '350ms' }}><div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl"></div><h4 className="font-bold text-sm mb-2 relative z-10">💡 Campus Tip</h4><p className="text-xs text-purple-200/60 leading-relaxed font-light relative z-10">"Always remember to time-in and time-out of events to ensure your attendance is credited."</p></div>
+                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '400ms' }}>
                         <h3 className="font-bold mb-4 flex items-center gap-2"><span className="p-2 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-xl shadow-lg shadow-indigo-500/20">📅</span> Events for You</h3>
-                        {eventsList.length > 0 && eventsList[0].type === 'Event' ? (<div className="border border-purple-100/50 rounded-2xl p-5 bg-gradient-to-br from-white to-purple-50/50"><span className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase">{eventsList[0].location || 'Campus Event'}</span><h4 className="font-bold mt-3">{eventsList[0].title}</h4><p className="text-[11px] text-gray-500 mt-1">{eventsList[0].event_time}</p><p className="text-xs text-gray-600 mt-3 leading-relaxed line-clamp-2">{eventsList[0].description}</p><button onClick={() => setActiveView('events')} className={`w-full mt-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all btn-press ${attendanceMap[eventsList[0].id]?.time_in ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-500/20'}`}>{attendanceMap[eventsList[0].id]?.time_in ? 'Checked In' : 'View Event'}</button></div>) : <p className="text-sm text-gray-400">No upcoming events.</p>}
+                        {eventsList.length > 0 && eventsList[0].type === 'Event' ? (<div className="border border-purple-100/50 rounded-2xl p-4 bg-gradient-to-br from-white to-purple-50/50 sm:p-5"><span className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase">{eventsList[0].location || 'Campus Event'}</span><h4 className="font-bold mt-3">{eventsList[0].title}</h4><p className="text-[11px] text-gray-500 mt-1">{eventsList[0].event_time}</p><p className="text-xs text-gray-600 mt-3 leading-relaxed line-clamp-2">{eventsList[0].description}</p><button onClick={() => setActiveView('events')} className={`w-full mt-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all btn-press ${attendanceMap[eventsList[0].id]?.time_in ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-500/20'}`}>{attendanceMap[eventsList[0].id]?.time_in ? 'Checked In' : 'View Event'}</button></div>) : <p className="text-sm text-gray-400">No upcoming events.</p>}
                     </div>
                 </div>
             </div>
@@ -328,7 +328,7 @@ const StudentDashboardView = ({
         {/* OFFICE VISIT TIME IN MODAL */}
         {showTimeInModal && (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
-                <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel">
+                <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel sm:p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-lg">Office Visit</h3>
                         <button onClick={() => setShowTimeInModal(false)} className="text-gray-400 text-xl">✕</button>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../lib/auth';
@@ -31,6 +31,7 @@ import {
 } from '../lib/studentProfileCompletionPrompt';
 
 const supabaseClient = supabase;
+const ProfileCompletionModal = lazy(() => import('./student/forms/ProfileCompletionModal'));
 const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
 const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
@@ -396,16 +397,44 @@ const StudentHero = ({ firstName }: any) => {
         return new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     };
 
-    const formatTime = (date: any) => {
-        return new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const formatTimeParts = (date: any) => {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        const parts = formatter.formatToParts(new Date(date));
+        const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+        return {
+            time: `${values.hour || '--'}:${values.minute || '--'}:${values.second || '--'}`,
+            period: String(values.dayPeriod || '').toUpperCase()
+        };
     };
 
+    const { time: formattedTime, period } = formatTimeParts(time);
+
     return (
-        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-8 text-white flex justify-between items-center shadow-2xl shadow-blue-500/20 relative overflow-hidden animate-fade-in-up">
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-6 sm:p-8 text-white flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between shadow-2xl shadow-blue-500/20 relative overflow-hidden animate-fade-in-up">
             <div className="absolute top-0 right-0 w-72 h-72 bg-sky-400/20 rounded-full -mr-20 -mt-20 blur-3xl animate-float"></div>
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/15 rounded-full -ml-10 -mb-10 blur-3xl animate-blob"></div>
-            <div className="relative z-10"><h2 className="text-3xl font-extrabold mb-1">Welcome back, <span className="bg-gradient-to-r from-sky-200 to-white bg-clip-text text-transparent">{firstName}</span>!</h2><p className="text-blue-200/60 font-medium">{formatFullDate(time)}</p></div>
-            <div className="text-right relative z-10"><div className="text-5xl font-black tracking-tighter bg-gradient-to-b from-white to-sky-200 bg-clip-text text-transparent">{formatTime(time)}</div><p className="text-[10px] font-bold uppercase tracking-widest text-blue-200/50 mt-1">Current System Time</p></div>
+            <div className="relative z-10 max-w-full">
+                <h2 className="text-2xl font-extrabold leading-tight sm:text-3xl sm:leading-tight">
+                    Welcome back, <span className="bg-gradient-to-r from-sky-200 to-white bg-clip-text text-transparent">{firstName}</span>!
+                </h2>
+                <p className="mt-1 text-sm font-medium text-blue-200/70 sm:text-base">{formatFullDate(time)}</p>
+            </div>
+            <div className="relative z-10 w-full text-left sm:w-auto sm:text-right">
+                <div className="flex items-end gap-2 sm:justify-end sm:gap-3">
+                    <span className="text-[clamp(2rem,10vw,3.75rem)] font-black leading-none tracking-[-0.06em] tabular-nums bg-gradient-to-b from-white to-sky-200 bg-clip-text text-transparent">
+                        {formattedTime}
+                    </span>
+                    <span className="pb-1 text-lg font-black leading-none tracking-[0.12em] text-sky-100/90 sm:pb-1.5 sm:text-2xl">
+                        {period}
+                    </span>
+                </div>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-blue-200/50 sm:text-right">Current System Time</p>
+            </div>
         </div>
     );
 };
@@ -430,17 +459,15 @@ export default function StudentPortal() {
     const [toast, setToast] = useState<any>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showCommandHub, setShowCommandHub] = useState(false);
+    const showToast = (message: string, type: string = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+    };
 
     // Assessment State
-    const [assessmentForm, setAssessmentForm] = useState<any>({
-        responses: {},
-        other: ''
-    });
     const [activeForm, setActiveForm] = useState<any>(null);
     const [formsList, setFormsList] = useState<any[]>([]);
-    const [formQuestions, setFormQuestions] = useState<any[]>([]);
     const [loadingForm, setLoadingForm] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [showAssessmentModal, setShowAssessmentModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [completedForms, setCompletedForms] = useState<Set<any>>(new Set());
@@ -454,15 +481,9 @@ export default function StudentPortal() {
 
     // Modals & Dynamic States
     const [showCounselingForm, setShowCounselingForm] = useState(false);
-    const [counselingForm, setCounselingForm] = useState<any>({ reason_for_referral: '', personal_actions_taken: '', date_duration_of_concern: '' });
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [showCounselingRequestsModal, setShowCounselingRequestsModal] = useState(false);
     const [showSupportRequestsModal, setShowSupportRequestsModal] = useState(false);
-    const [supportForm, setSupportForm] = useState<any>({
-        categories: [], otherCategory: '',
-        q1: '', q2: '', q3: '', q4: '',
-        files: [] as File[]
-    });
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
     const [selectedScholarship, setSelectedScholarship] = useState<any>(null);
 
@@ -542,18 +563,7 @@ export default function StudentPortal() {
         serviceLabel: '',
         message: ''
     });
-    const [profileStep, setProfileStep] = useState(1);
-    const PROFILE_TOTAL_STEPS = 8;
-    const PROFILE_STEP_LABELS = ['Personal', 'Family', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
-    const profileCompletionInputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[16px] leading-5 text-slate-700 outline-none placeholder:text-slate-300 sm:py-2.5 sm:text-sm';
-    const profileCompletionTextareaClass = `${profileCompletionInputClass} min-h-[8rem] resize-none`;
-    const profileCompletionLabelClass = 'text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500';
-    const profileCompletionGridTwoClass = 'grid grid-cols-1 gap-3 sm:grid-cols-2';
-    const profileCompletionGridThreeClass = 'grid grid-cols-1 gap-3 sm:grid-cols-3';
-    const profileCompletionRadioGroupClass = 'flex flex-col gap-3 sm:flex-row sm:gap-4';
-    const profileCompletionCheckboxGridClass = 'grid grid-cols-1 gap-2 sm:grid-cols-2';
-    const [profileFormData, setProfileFormData] = useState<any>(createInitialProfileFormData);
-    const [profileSaving, setProfileSaving] = useState(false);
+    const [profileCompletionInitialData, setProfileCompletionInitialData] = useState<any>(createInitialProfileFormData);
     const [isSavingProfileChanges, setIsSavingProfileChanges] = useState(false);
     const [profileCompletionStatusOverride, setProfileCompletionStatusOverride] = useState<boolean | null>(null);
     const [profileFieldsComplete, setProfileFieldsComplete] = useState<boolean | null>(null);
@@ -580,22 +590,6 @@ export default function StudentPortal() {
         && !profileCompletionGateActive
         && !hideProfileCompletionReminder;
 
-    const handleProfileFormChange = (e: any) => {
-        const { name, value } = e.target;
-        setProfileFormData((prev: any) => ({ ...prev, [name]: value }));
-    };
-    const handleProfileCheckboxGroup = (e: any, field: string) => {
-        const val = e.target.value;
-        const checked = e.target.checked;
-        setProfileFormData((prev: any) => {
-            const arr = prev[field] || [];
-            return { ...prev, [field]: checked ? [...arr, val] : arr.filter((v: string) => v !== val) };
-        });
-    };
-
-    const handleProfileNextStep = () => {
-        setProfileStep(prev => Math.min(prev + 1, PROFILE_TOTAL_STEPS));
-    };
     const openProfileCompletionModal = () => {
         setShowProfileCompletion(true);
         setHideProfileCompletionReminder(false);
@@ -769,118 +763,182 @@ export default function StudentPortal() {
         }
     };
 
-    const handleProfileCompletion = async () => {
-        if (!profileFormData.agreedToPrivacy) return;
-        setProfileSaving(true);
-        try {
-            const normalizedEmail = normalizeStudentEmail(profileFormData.email);
-            if (!normalizedEmail) {
-                throw new Error('Email is required.');
-            }
+    const syncStudentSession = React.useCallback((studentPatch: any) => {
+        if (!studentPatch || session?.userType !== 'student') return;
+        updateSession?.((prev: any) => ({
+            ...(prev || {}),
+            ...studentPatch,
+            userType: 'student',
+            role: 'Student'
+        }));
+    }, [session?.userType, updateSession]);
 
-            const { data: beforeProfile } = await supabaseClient
-                .from('students')
-                .select(STUDENT_LIST_COLUMNS)
-                .eq('student_id', personalInfo.studentId)
-                .maybeSingle();
+    const handleAssessmentSubmitted = useCallback(async (formId: any, wasNewSubmission: boolean) => {
+        setCompletedForms((prev) => new Set([...prev, formId]));
+        setShowAssessmentModal(false);
+        setActiveForm((current: any) => (current?.id === formId ? null : current));
 
-            await syncStudentAuthEmailIfNeeded(normalizedEmail);
-
-            const payload: any = {
-                // Personal (auto-filled + new)
-                first_name: profileFormData.firstName, last_name: profileFormData.lastName,
-                middle_name: profileFormData.middleName, suffix: profileFormData.suffix,
-                dob: profileFormData.dob || null, age: profileFormData.age || null,
-                place_of_birth: profileFormData.placeOfBirth, nationality: profileFormData.nationality,
-                sex: profileFormData.sex, gender_identity: profileFormData.genderIdentity,
-                civil_status: profileFormData.civilStatus,
-                street: profileFormData.street, city: profileFormData.city,
-                province: profileFormData.province, zip_code: profileFormData.zipCode,
-                mobile: profileFormData.mobile, email: normalizedEmail,
-                facebook_url: profileFormData.facebookUrl,
-                religion: profileFormData.religion, school_last_attended: profileFormData.schoolLastAttended,
-                year_level: profileFormData.yearLevelApplying,
-                supporter: (profileFormData.supporter || []).join(', '),
-                supporter_contact: profileFormData.supporterContact,
-                is_working_student: profileFormData.isWorkingStudent === 'Yes',
-                working_student_type: profileFormData.workingStudentType,
-                is_pwd: profileFormData.isPwd === 'Yes', pwd_type: profileFormData.pwdType,
-                is_indigenous: profileFormData.isIndigenous === 'Yes', indigenous_group: profileFormData.indigenousGroup,
-                witnessed_conflict: profileFormData.witnessedConflict === 'Yes', is_safe_in_community: profileFormData.isSafeInCommunity === 'Yes',
-                is_solo_parent: profileFormData.isSoloParent === 'Yes',
-                is_child_of_solo_parent: profileFormData.isChildOfSoloParent === 'Yes',
-                // Family
-                mother_name: joinNameParts({
-                    given: profileFormData.motherGivenName,
-                    middle: profileFormData.motherMiddleName,
-                    last: profileFormData.motherLastName
-                }) || null,
-                mother_last_name: profileFormData.motherLastName || null,
-                mother_given_name: profileFormData.motherGivenName || null,
-                mother_middle_name: profileFormData.motherMiddleName || null,
-                mother_occupation: profileFormData.motherOccupation,
-                mother_contact: profileFormData.motherContact,
-                father_name: joinNameParts({
-                    given: profileFormData.fatherGivenName,
-                    middle: profileFormData.fatherMiddleName,
-                    last: profileFormData.fatherLastName
-                }) || null,
-                father_last_name: profileFormData.fatherLastName || null,
-                father_given_name: profileFormData.fatherGivenName || null,
-                father_middle_name: profileFormData.fatherMiddleName || null,
-                father_occupation: profileFormData.fatherOccupation,
-                father_contact: profileFormData.fatherContact,
-                parent_address: profileFormData.parentAddress,
-                num_brothers: profileFormData.numBrothers, num_sisters: profileFormData.numSisters,
-                birth_order: profileFormData.birthOrder,
-                spouse_name: profileFormData.spouseName, spouse_occupation: profileFormData.spouseOccupation,
-                num_children: profileFormData.numChildren,
-                // Guardian
-                guardian_name: profileFormData.guardianName, guardian_address: profileFormData.guardianAddress,
-                guardian_contact: profileFormData.guardianContact, guardian_relation: profileFormData.guardianRelation,
-                // Emergency
-                emergency_name: profileFormData.emergencyName, emergency_address: profileFormData.emergencyAddress,
-                emergency_relationship: profileFormData.emergencyRelationship, emergency_number: profileFormData.emergencyNumber,
-                // Education
-                elem_school: profileFormData.elemSchool, elem_year_graduated: profileFormData.elemYearGraduated,
-                junior_high_school: profileFormData.juniorHighSchool, junior_high_year_graduated: profileFormData.juniorHighYearGraduated,
-                senior_high_school: profileFormData.seniorHighSchool, senior_high_year_graduated: profileFormData.seniorHighYearGraduated,
-                college_school: profileFormData.collegeSchool, college_year_graduated: profileFormData.collegeYearGraduated,
-                honors_awards: profileFormData.honorsAwards,
-                // Activities & Scholarships
-                extracurricular_activities: profileFormData.extracurricularActivities,
-                scholarships_availed: profileFormData.scholarshipsAvailed,
-                profile_completed: true,
-            };
-            await invokeManagedStudentFunction({
-                mode: 'update-profile-completion',
-                payload
-            });
-            await logStudentProfileUpdate({
-                action: 'Student Profile Completed',
-                beforeProfile,
-                afterPayload: payload,
-                fallbackName: `${profileFormData.firstName || personalInfo.firstName || ''} ${profileFormData.lastName || personalInfo.lastName || ''}`.trim(),
-                fallbackStudentId: personalInfo.studentId
-            });
-            const profileNowComplete = isProfileCompletionFormComplete(profileFormData);
-            profileCompletionJustCompletedRef.current = true;
-            setProfileFieldsComplete(profileNowComplete);
-            setProfileCompletionStatusOverride(true);
-            clearPendingProfileCompletion(personalInfo.studentId);
-            setForceProfileCompletionPrompt(false);
-            setShowProfileCompletion(false);
-            setProfileStep(1);
-            syncStudentSession({ profile_completed: true });
-            await refreshStudentProfile();
-            showToast('Profile completed successfully!');
-        } catch (err: any) {
-            console.error('Profile completion error:', err);
-            showToast(err.message || 'Error saving profile', 'error');
-        } finally {
-            setProfileSaving(false);
+        if (wasNewSubmission) {
+            setShowSuccessModal(true);
         }
-    };
+    }, []);
+
+    const handleProfileCompletionSuccess = useCallback(async ({
+        submittedProfile,
+        updatedStudent
+    }: {
+        submittedProfile: any;
+        updatedStudent: any;
+    }) => {
+        if (!updatedStudent?.student_id) {
+            throw new Error('Profile saved, but the latest student record was not returned.');
+        }
+
+        const matchedDepartment = updatedStudent.department || personalInfo.department || session?.department || 'Unassigned';
+        const motherParts = getStoredParentParts(updatedStudent, 'mother');
+        const fatherParts = getStoredParentParts(updatedStudent, 'father');
+        const sessionPrefillProfile = {
+            firstName: session?.first_name,
+            lastName: session?.last_name,
+            middleName: session?.middle_name,
+            suffix: session?.suffix,
+            dob: session?.dob,
+            age: session?.age,
+            sex: session?.sex,
+            street: session?.street,
+            city: session?.city,
+            province: session?.province,
+            zipCode: session?.zip_code,
+            mobile: session?.mobile,
+            email: session?.email
+        };
+        const pendingActivationProfile = getPendingProfileCompletionProfile(updatedStudent.student_id)
+            || getPendingProfileCompletionProfile()
+            || {};
+        const nextProfileSnapshot = buildProfileCompletionFormSnapshot({
+            base: createInitialProfileFormData(),
+            studentData: updatedStudent,
+            pendingActivationProfile,
+            sessionPrefillProfile,
+            motherParts,
+            fatherParts
+        });
+
+        setPersonalInfo((prev: any) => ({
+            ...prev,
+            firstName: updatedStudent.first_name || '',
+            lastName: updatedStudent.last_name || '',
+            middleName: updatedStudent.middle_name || '',
+            suffix: updatedStudent.suffix || '',
+            studentId: updatedStudent.student_id,
+            course: updatedStudent.course || prev.course || '',
+            year: updatedStudent.year_level || '',
+            status: updatedStudent.status || prev.status || 'Active',
+            department: matchedDepartment,
+            section: updatedStudent.section || '',
+            email: updatedStudent.email || '',
+            mobile: updatedStudent.mobile || '',
+            facebookUrl: updatedStudent.facebook_url || '',
+            address: buildStudentAddress(updatedStudent),
+            street: updatedStudent.street || '',
+            city: updatedStudent.city || '',
+            province: updatedStudent.province || '',
+            zipCode: updatedStudent.zip_code || '',
+            emergencyContact: getStudentEmergencyContact(updatedStudent),
+            dob: updatedStudent.dob || '',
+            age: updatedStudent.age || '',
+            placeOfBirth: updatedStudent.place_of_birth || '',
+            sex: getStudentSex(updatedStudent),
+            genderIdentity: updatedStudent.gender_identity || '',
+            civilStatus: updatedStudent.civil_status || '',
+            nationality: updatedStudent.nationality || '',
+            schoolLastAttended: updatedStudent.school_last_attended || '',
+            isWorkingStudent: updatedStudent.is_working_student || false,
+            workingStudentType: updatedStudent.working_student_type || '',
+            supporter: updatedStudent.supporter || '',
+            supporterContact: updatedStudent.supporter_contact || '',
+            isPwd: updatedStudent.is_pwd || false,
+            pwdType: updatedStudent.pwd_type || '',
+            isIndigenous: updatedStudent.is_indigenous || false,
+            indigenousGroup: updatedStudent.indigenous_group || '',
+            witnessedConflict: updatedStudent.witnessed_conflict ? 'Yes' : 'No',
+            isSoloParent: updatedStudent.is_solo_parent || false,
+            isChildOfSoloParent: updatedStudent.is_child_of_solo_parent || false,
+            religion: updatedStudent.religion || '',
+            isSafeInCommunity: updatedStudent.is_safe_in_community ? 'Yes' : 'No',
+            motherLastName: motherParts.last,
+            motherGivenName: motherParts.given,
+            motherMiddleName: motherParts.middle,
+            motherOccupation: updatedStudent.mother_occupation || '',
+            motherContact: updatedStudent.mother_contact || '',
+            fatherLastName: fatherParts.last,
+            fatherGivenName: fatherParts.given,
+            fatherMiddleName: fatherParts.middle,
+            fatherOccupation: updatedStudent.father_occupation || '',
+            fatherContact: updatedStudent.father_contact || '',
+            parentAddress: updatedStudent.parent_address || '',
+            numBrothers: updatedStudent.num_brothers || '',
+            numSisters: updatedStudent.num_sisters || '',
+            birthOrder: updatedStudent.birth_order || '',
+            spouseName: updatedStudent.spouse_name || '',
+            spouseOccupation: updatedStudent.spouse_occupation || '',
+            numChildren: updatedStudent.num_children || '',
+            guardianName: updatedStudent.guardian_name || '',
+            guardianAddress: updatedStudent.guardian_address || '',
+            guardianContact: updatedStudent.guardian_contact || '',
+            guardianRelation: updatedStudent.guardian_relation || '',
+            emergencyName: updatedStudent.emergency_name || '',
+            emergencyAddress: updatedStudent.emergency_address || '',
+            emergencyRelationship: updatedStudent.emergency_relationship || '',
+            emergencyNumber: updatedStudent.emergency_number || '',
+            elemSchool: updatedStudent.elem_school || '',
+            elemYearGraduated: updatedStudent.elem_year_graduated || '',
+            juniorHighSchool: updatedStudent.junior_high_school || '',
+            juniorHighYearGraduated: updatedStudent.junior_high_year_graduated || '',
+            seniorHighSchool: updatedStudent.senior_high_school || '',
+            seniorHighYearGraduated: updatedStudent.senior_high_year_graduated || '',
+            collegeSchool: updatedStudent.college_school || '',
+            collegeYearGraduated: updatedStudent.college_year_graduated || '',
+            honorsAwards: updatedStudent.honors_awards || '',
+            extracurricularActivities: updatedStudent.extracurricular_activities || '',
+            scholarshipsAvailed: updatedStudent.scholarships_availed || '',
+            courseYearWindowStart: updatedStudent.course_year_window_start || null,
+            courseYearWindowEnd: updatedStudent.course_year_window_end || null
+        }));
+        setProfileCompletionInitialData(nextProfileSnapshot);
+        profileCompletionJustCompletedRef.current = true;
+        setProfileFieldsComplete(isProfileCompletionFormComplete(nextProfileSnapshot));
+        setProfileCompletionStatusOverride(true);
+        clearPendingProfileCompletion(updatedStudent.student_id || personalInfo.studentId);
+        setForceProfileCompletionPrompt(false);
+        setShowProfileCompletion(false);
+        syncStudentSession({
+            ...updatedStudent,
+            department: matchedDepartment,
+            profile_completed: true
+        });
+        showToast('Profile completed successfully!');
+    }, [
+        getStoredParentParts,
+        personalInfo.department,
+        personalInfo.studentId,
+        session?.age,
+        session?.city,
+        session?.department,
+        session?.dob,
+        session?.email,
+        session?.first_name,
+        session?.last_name,
+        session?.middle_name,
+        session?.mobile,
+        session?.province,
+        session?.sex,
+        session?.street,
+        session?.suffix,
+        session?.zip_code,
+        showToast,
+        syncStudentSession
+    ]);
 
     const [eventsList, setEventsList] = useState<any[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
@@ -911,6 +969,12 @@ export default function StudentPortal() {
         setVisitReasons,
         setNotifications
     });
+    const handleCounselingSubmitted = useCallback(async () => {
+        await refreshCounselingRequests();
+    }, [refreshCounselingRequests]);
+    const handleSupportSubmitted = useCallback(async () => {
+        await refreshSupportRequests();
+    }, [refreshSupportRequests]);
 
     const refreshScholarships = useCallback(async () => {
         const { data } = await supabaseClient
@@ -966,21 +1030,6 @@ export default function StudentPortal() {
             }
         }
     };
-
-    const showToast = (message: string, type: string = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
-    };
-
-    const syncStudentSession = React.useCallback((studentPatch: any) => {
-        if (!studentPatch || session?.userType !== 'student') return;
-        updateSession?.((prev: any) => ({
-            ...(prev || {}),
-            ...studentPatch,
-            userType: 'student',
-            role: 'Student'
-        }));
-    }, [session?.userType, updateSession]);
 
     const invokeManagedStudentFunction = useCallback(async (body: any) => {
         return invokeEdgeFunction('manage-student-accounts', {
@@ -1471,7 +1520,7 @@ export default function StudentPortal() {
                 motherParts,
                 fatherParts
             });
-            setProfileFormData((prev: any) => buildProfileCompletionFormSnapshot({
+            setProfileCompletionInitialData((prev: any) => buildProfileCompletionFormSnapshot({
                 base: prev,
                 studentData,
                 pendingActivationProfile,
@@ -1490,7 +1539,7 @@ export default function StudentPortal() {
         profileCompletionJustCompletedRef.current = false;
         setProfileCompletionStatusOverride(null);
         setProfileFieldsComplete(null);
-        setProfileFormData(createInitialProfileFormData());
+        setProfileCompletionInitialData(createInitialProfileFormData());
     }, [session?.student_id, session?.auth_user_id]);
 
     useEffect(() => {
@@ -1509,7 +1558,7 @@ export default function StudentPortal() {
         }
 
         applyPendingProfileToProfileForm(
-            setProfileFormData,
+            setProfileCompletionInitialData,
             getPendingProfileCompletionProfile(session.student_id) || getPendingProfileCompletionProfile()
         );
 
@@ -1820,6 +1869,10 @@ export default function StudentPortal() {
     }, [personalInfo.studentId]);
 
     const refreshCurrentView = useCallback(async () => {
+        if (profileCompletionGateActive) {
+            return;
+        }
+
         switch (activeView) {
             case 'dashboard':
                 await Promise.all([
@@ -1872,6 +1925,7 @@ export default function StudentPortal() {
         refreshEvents,
         refreshForms,
         refreshNotifications,
+        profileCompletionGateActive,
         refreshScholarshipApplications,
         refreshScholarships,
         refreshSupportRequests,
@@ -2142,125 +2196,13 @@ export default function StudentPortal() {
         purple: { bg: 'bg-purple-50', text: 'text-purple-600', hoverBg: 'group-hover:bg-purple-600' }
     };
 
-    const handleInventoryChange = (questionId: any, value: any) => {
-        setAssessmentForm((prev: any) => {
-            const parsed = typeof value === 'number' ? value : (isNaN(Number(value)) ? value : parseInt(value));
-            return { ...prev, responses: { ...prev.responses, [questionId]: parsed } };
-        });
-    };
-
     const openAssessmentForm = async (form: any) => {
         if (completedForms.has(form.id)) {
             showToast('You have already completed this assessment.', 'error');
             return;
         }
         setActiveForm(form);
-        setAssessmentForm({ responses: {}, other: '' });
-        setFormQuestions([]);
         setShowAssessmentModal(true);
-        const { data: qs } = await supabaseClient
-            .from('questions')
-            .select('id, form_id, question_text, question_type, scale_min, scale_max, order_index')
-            .eq('form_id', form.id)
-            .order('order_index');
-        setFormQuestions(qs || []);
-    };
-
-    const submitAssessment = async () => {
-        if (!activeForm) return;
-        setIsSubmitting(true);
-        try {
-            const { data: subData, error: subError } = await supabaseClient
-                .from('submissions')
-                .insert([{ form_id: activeForm.id, student_id: personalInfo.studentId, submitted_at: new Date().toISOString() }])
-                .select().single();
-            if (subError) throw subError;
-            const answersPayload = Object.entries(assessmentForm.responses).map(([qId, val]) => ({ submission_id: subData.id, question_id: parseInt(qId), answer_value: val }));
-            if (answersPayload.length > 0) {
-                const { error: ansError } = await supabaseClient.from('answers').insert(answersPayload);
-                if (ansError) throw ansError;
-            }
-            setShowAssessmentModal(false);
-            setShowSuccessModal(true);
-            setAssessmentForm({ responses: {}, other: '' });
-            setCompletedForms((prev: any) => new Set([...prev, activeForm.id]));
-        } catch (error: any) {
-            if (error?.code === '23505' || String(error?.message || '').toLowerCase().includes('duplicate')) {
-                setCompletedForms((prev: any) => new Set([...prev, activeForm.id]));
-                setShowAssessmentModal(false);
-                showToast('You have already completed this assessment.', 'error');
-                return;
-            }
-            showToast("Error submitting assessment: " + error.message, 'error');
-        } finally { setIsSubmitting(false); }
-    };
-
-    const submitCounselingRequest = async () => {
-        if (!counselingForm.reason_for_referral.trim()) { showToast("Please provide your reason for requesting counseling.", 'error'); return; }
-        setIsSubmitting(true);
-        try {
-            const payload = {
-                student_id: personalInfo.studentId,
-                student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
-                course_year: `${personalInfo.course || ''} - ${personalInfo.year || ''}`,
-                contact_number: personalInfo.mobile || '',
-                request_type: 'Self-Referral',
-                description: counselingForm.reason_for_referral,
-                reason_for_referral: counselingForm.reason_for_referral,
-                personal_actions_taken: counselingForm.personal_actions_taken,
-                date_duration_of_concern: counselingForm.date_duration_of_concern,
-                department: personalInfo.department,
-                status: 'Submitted'
-            } as any;
-
-            let { error } = await supabaseClient.from('counseling_requests').insert([payload]);
-            if (error) throw error;
-            showToast("Counseling Request Submitted!");
-            setShowCounselingForm(false);
-            setCounselingForm({ reason_for_referral: '', personal_actions_taken: '', date_duration_of_concern: '' });
-        } catch (error: any) {
-            showToast("Error: " + error.message, 'error');
-        } finally { setIsSubmitting(false); }
-    };
-
-    const submitSupportRequest = async () => {
-        if (supportForm.categories.length === 0 && !supportForm.otherCategory) { showToast("Please select at least one category.", 'error'); return; }
-        setIsSubmitting(true);
-        try {
-            // Upload multiple files (up to 4)
-            const docUrls: string[] = [];
-            if (supportForm.files && supportForm.files.length > 0) {
-                for (const file of supportForm.files) {
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = `${personalInfo.studentId}_support_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${fileExt}`;
-                    const { error: uploadError } = await supabaseClient.storage.from('support_documents').upload(fileName, file);
-                    if (uploadError) throw uploadError;
-                    docUrls.push(fileName);
-                }
-            }
-            const description = `[Q1 Description]: ${supportForm.q1}\n[Q2 Previous Support]: ${supportForm.q2}\n[Q3 Required Support]: ${supportForm.q3}\n[Q4 Other Needs]: ${supportForm.q4}`.trim();
-            const finalCategories = [...supportForm.categories];
-            if (supportForm.otherCategory) finalCategories.push(`Other: ${supportForm.otherCategory}`);
-            const documentsValue = docUrls.length > 0 ? JSON.stringify(docUrls) : null;
-            const payload = {
-                student_id: personalInfo.studentId,
-                student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
-                department: personalInfo.department,
-                support_type: finalCategories.join(', '),
-                description: description,
-                documents_url: documentsValue,
-                status: 'Submitted'
-            } as any;
-            let { error } = await supabaseClient.from('support_requests').insert([payload]);
-            if (error) throw error;
-            showToast("Support Request Submitted!");
-            setShowSupportModal(false);
-            setSupportForm({ categories: [], otherCategory: '', q1: '', q2: '', q3: '', q4: '', files: [] });
-            // Immediately refresh support requests list for live update
-            await refreshSupportRequests();
-        } catch (error: any) {
-            showToast("Error: " + error.message, 'error');
-        } finally { setIsSubmitting(false); }
     };
 
     const requireCompletedProfileForService = React.useCallback((serviceLabel: string, message: string) => {
@@ -2447,6 +2389,24 @@ export default function StudentPortal() {
             }
         }
     };
+    const PROFILE_TOTAL_STEPS = 8;
+    const PROFILE_STEP_LABELS = ['Personal', 'Family', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
+    const profileCompletionInputClass = '';
+    const profileCompletionTextareaClass = '';
+    const profileCompletionLabelClass = '';
+    const profileCompletionGridTwoClass = '';
+    const profileCompletionGridThreeClass = '';
+    const profileCompletionRadioGroupClass = '';
+    const profileCompletionCheckboxGridClass = '';
+    const profileFormData = profileCompletionInitialData;
+    const setProfileFormData = setProfileCompletionInitialData;
+    const profileSaving = false;
+    const profileStep: number = 1;
+    const setProfileStep = (..._args: any[]) => undefined;
+    const handleProfileFormChange = (..._args: any[]) => undefined;
+    const handleProfileCheckboxGroup = (..._args: any[]) => undefined;
+    const handleProfileNextStep = (..._args: any[]) => undefined;
+    const handleProfileCompletion = (..._args: any[]) => undefined;
 
     return (
         <div className={`flex h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-gray-800 font-sans overflow-hidden relative ${profileCompletionGateActive ? 'pointer-events-none select-none' : ''}`}>
@@ -2520,10 +2480,19 @@ export default function StudentPortal() {
                 document.body
             )}
 
-            {/* Profile Completion Modal */}
-            {profileCompletionGateActive && createPortal(
-                <div className="fixed inset-0 z-[10002] overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
-                    <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
+            {profileCompletionGateActive && (
+                <Suspense fallback={null}>
+                    <ProfileCompletionModal
+                        isOpen={profileCompletionGateActive}
+                        initialData={profileCompletionInitialData}
+                        personalInfo={personalInfo}
+                        showToast={showToast}
+                        onCompleted={handleProfileCompletionSuccess}
+                    />
+                </Suspense>
+            )}
+            {false && createPortal(
+                <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
                     <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel">
                         {/* Header */}
                         <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
@@ -2767,7 +2736,6 @@ export default function StudentPortal() {
                             </div>
                         </div>
                     </div>
-                    </div>
                 </div>,
                 document.body
             )}
@@ -2824,6 +2792,7 @@ export default function StudentPortal() {
                 </div>,
                 document.body
             )}
+
 
             {profileServiceGate.visible && createPortal(
                 <div className="fixed inset-0 z-[10004] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 pointer-events-auto student-mobile-modal-overlay">
@@ -2959,15 +2928,15 @@ export default function StudentPortal() {
             {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 lg:hidden animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-student-sidebar transform transition-all duration-500 ease-out lg:static lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>
+            <aside className={`fixed inset-y-0 left-0 z-30 w-[17rem] bg-gradient-student-sidebar transform transition-all duration-500 ease-out sm:w-72 lg:static lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
-                <div className="p-6 flex items-center justify-between border-b border-white/10">
+                <div className="p-4 flex items-center justify-between border-b border-white/10 sm:p-6">
                     <NorsuBrand title="Student Portal" subtitle="NORSU-G CARE student services" accent="blue" size="sm" className="min-w-0" />
                     <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-sky-300/60 hover:text-white transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg></button>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                <nav className="flex-1 overflow-y-auto p-3 space-y-1 sm:p-4">
                     {['Core', 'Academic', 'Services', 'Activities'].map((group, gi) => (
                         <div key={group} className={gi > 0 ? 'pt-5 mt-4 border-t border-white/5' : ''}>
                             <p className="px-4 text-[10px] font-bold text-blue-400/50 uppercase tracking-[0.15em] mb-3">{group}</p>
@@ -2989,21 +2958,21 @@ export default function StudentPortal() {
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full overflow-hidden">
                 {/* Premium Header */}
-                <header className="h-16 glass gradient-border-blue relative flex items-center justify-between px-6 lg:px-10 z-10">
-                    <div className="flex items-center gap-4">
+                <header className="h-14 glass gradient-border-blue relative flex items-center justify-between px-4 z-10 sm:h-16 sm:px-6 lg:px-10">
+                    <div className="flex items-center gap-3 sm:gap-4">
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-500/70">NORSU-G CARE</p>
-                            <h2 className="text-xl font-bold gradient-text-blue">{(viewLabels as any)[activeView] || activeView}</h2>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-sky-500/70 sm:text-[10px] sm:tracking-[0.18em]">NORSU-G CARE</p>
+                            <h2 className="text-lg font-bold gradient-text-blue sm:text-xl">{(viewLabels as any)[activeView] || activeView}</h2>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                         <img src="/carecenter.png" alt="NORSU-G CARE" className="hidden h-10 w-10 rounded-full border border-blue-100 bg-white object-cover shadow-sm md:block" />
                         <button
                             type="button"
                             onClick={handleRefreshCurrentView}
                             disabled={isRefreshingView}
-                            className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm font-semibold text-blue-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-2.5 py-2 text-xs font-semibold text-blue-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:text-sm"
                         >
                             <svg
                                 className={`h-4 w-4 ${isRefreshingView ? 'animate-spin' : ''}`}
@@ -3013,7 +2982,7 @@ export default function StudentPortal() {
                             >
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h5M20 20v-5h-5M5.64 18.36A9 9 0 1118.36 5.64" />
                             </svg>
-                            {isRefreshingView ? 'Refreshing...' : 'Refresh View'}
+                            <span className="hidden sm:inline">{isRefreshingView ? 'Refreshing...' : 'Refresh View'}</span>
                         </button>
                         <NotificationBell notifications={notifications} accentColor="blue" />
                     </div>
@@ -3021,7 +2990,7 @@ export default function StudentPortal() {
 
                 <div
                     key={activeView}
-                    className={`flex-1 overflow-y-auto p-6 lg:p-10 ${activeView === 'profile' ? '' : 'page-transition'}`}
+                    className={`flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' ? '' : 'page-transition'}`}
                     style={activeView === 'profile' ? { transform: 'none' } : undefined}
                 >
 
@@ -3097,15 +3066,15 @@ export default function StudentPortal() {
                     )}
 
                     {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
-            {renderRemainingViews({ activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm: openAssessmentFormWithProfileGate, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, openCounselingForm: openCounselingFormWithProfileGate, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm: openSupportFormWithProfileGate, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship: handleApplyScholarshipWithProfileGate, isApplyingScholarshipId, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
+            {renderRemainingViews({ activeView, activeForm, loadingForm, formsList, openAssessmentForm: openAssessmentFormWithProfileGate, showAssessmentModal, setShowAssessmentModal, onAssessmentSubmitted: handleAssessmentSubmitted, showSuccessModal, setShowSuccessModal, showCounselingForm, setShowCounselingForm, openCounselingForm: openCounselingFormWithProfileGate, onCounselingSubmitted: handleCounselingSubmitted, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm: openSupportFormWithProfileGate, onSupportSubmitted: handleSupportSubmitted, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, personalInfo, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship: handleApplyScholarshipWithProfileGate, isApplyingScholarshipId, uploadProfilePicture, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast })}
                 </div>
 
                 {/* FAB TRIGGER FOR COMMAND HUB */}
                 <button
                     onClick={() => setShowCommandHub(true)}
-                    className={`fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-110 transition-all duration-300 flex items-center justify-center group ${showCommandHub ? 'hidden' : 'animate-float'}`}
+                    className={`fixed bottom-4 right-4 z-40 h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-110 transition-all duration-300 flex items-center justify-center group sm:bottom-6 sm:right-6 sm:h-14 sm:w-14 ${showCommandHub ? 'hidden' : 'animate-float'}`}
                 >
-                    <svg className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
                 </button>
@@ -3113,27 +3082,27 @@ export default function StudentPortal() {
                 {/* STUDENT COMMAND HUB */}
                 {showCommandHub && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-backdrop student-mobile-modal-overlay" onClick={() => setShowCommandHub(false)}>
-                        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in border border-white/20 student-mobile-modal-panel student-mobile-modal-scroll-panel" onClick={(e: any) => e.stopPropagation()}>
-                            <div className="p-6 bg-gradient-to-br from-blue-600 to-blue-800 text-white relative overflow-hidden">
+                        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden animate-scale-in border border-white/20 student-mobile-modal-panel student-mobile-modal-scroll-panel sm:max-w-sm" onClick={(e: any) => e.stopPropagation()}>
+                            <div className="p-5 bg-gradient-to-br from-blue-600 to-blue-800 text-white relative overflow-hidden sm:p-6">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl animate-float"></div>
                                 <h3 className="text-xl font-extrabold relative z-10">Student Hub</h3>
                                 <p className="text-blue-200 text-xs relative z-10">Quick access to student services</p>
                                 <button onClick={() => setShowCommandHub(false)} className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors bg-white/10 p-1 rounded-full"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
-                            <div className="p-4 grid grid-cols-2 gap-3">
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('counseling'); openCounselingFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-100 transition-all group">
+                            <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4">
+                                <button onClick={() => { setShowCommandHub(false); setActiveView('counseling'); openCounselingFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-purple-50 border border-purple-100 p-3 transition-all group hover:bg-purple-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><Icons.Counseling /></div>
                                     <span className="text-xs font-bold text-gray-700">Counseling</span>
                                 </button>
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('support'); openSupportFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-100 transition-all group">
+                                <button onClick={() => { setShowCommandHub(false); setActiveView('support'); openSupportFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-blue-50 border border-blue-100 p-3 transition-all group hover:bg-blue-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Icons.Support /></div>
                                     <span className="text-xs font-bold text-gray-700">Support</span>
                                 </button>
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('feedback'); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-pink-50 hover:bg-pink-100 border border-pink-100 transition-all group">
+                                <button onClick={() => { setShowCommandHub(false); setActiveView('feedback'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-pink-50 border border-pink-100 p-3 transition-all group hover:bg-pink-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-pink-500 group-hover:scale-110 transition-transform"><Icons.Feedback /></div>
                                     <span className="text-xs font-bold text-gray-700">Feedback</span>
                                 </button>
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('scholarship'); }} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-all group">
+                                <button onClick={() => { setShowCommandHub(false); setActiveView('scholarship'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 transition-all group hover:bg-emerald-100 sm:p-4">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><Icons.Scholarship /></div>
                                     <span className="text-xs font-bold text-gray-700">Scholarships</span>
                                 </button>
@@ -3150,7 +3119,7 @@ export default function StudentPortal() {
 
             {/* GLOBAL TOAST NOTIFICATION */}
             {toast && createPortal(
-                <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] px-6 py-3.5 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-3 animate-fade-in-up transition-all ${toast.type === 'error'
+                <div className={`fixed bottom-4 left-4 right-4 z-[99999] flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold animate-fade-in-up transition-all sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:px-6 sm:py-3.5 ${toast.type === 'error'
                     ? 'bg-red-600 text-white shadow-red-500/30'
                     : toast.type === 'info'
                         ? 'bg-blue-600 text-white shadow-blue-500/30'
