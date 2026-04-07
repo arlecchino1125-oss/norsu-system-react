@@ -755,20 +755,12 @@ export default function StudentPortal() {
             const moreSuffix = changedFields.length > 6 ? ` (+${changedFields.length - 6} more)` : '';
             const details = `${fullName} (${studentId}) modified: ${changedPreview}${moreSuffix}.`;
 
-            const { error: auditError } = await supabaseClient.from('audit_logs').insert([{
-                user_name: fullName,
-                action,
-                details
+            const { error: notificationError } = await supabaseClient.from('notifications').insert([{
+                student_id: studentId,
+                message: `[PROFILE UPDATE] ${details}`
             }]);
-
-            if (auditError) {
-                const { error: notificationError } = await supabaseClient.from('notifications').insert([{
-                    student_id: studentId,
-                    message: `[PROFILE UPDATE] ${details}`
-                }]);
-                if (notificationError) {
-                    console.warn('Profile update log fallback failed:', notificationError.message);
-                }
+            if (notificationError) {
+                console.warn('Profile update notification failed:', notificationError.message);
             }
         } catch (loggingError: any) {
             console.warn('Unable to record profile update notification:', loggingError?.message || loggingError);

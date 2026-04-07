@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Download } from 'lucide-react';
 import { createDeferredChannelCleanup } from '../../lib/realtime';
+import { formatAuditDetails, isTrackedStaffAuditRole } from '../../lib/staffAudit';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 
@@ -10,7 +11,12 @@ const AuditLogsPage = () => {
 
     useEffect(() => {
         const fetchLogs = async () => {
-            const { data } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100);
+            const { data } = await supabase
+                .from('audit_logs')
+                .select('*')
+                .in('actor_role', ['Care Staff', 'Department Head'])
+                .order('created_at', { ascending: false })
+                .limit(100);
             if (data) setLogs(data);
             setLoading(false);
         };
@@ -19,6 +25,7 @@ const AuditLogsPage = () => {
         return createDeferredChannelCleanup(
             () => supabase.channel('audit_realtime')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {
+                    if (!isTrackedStaffAuditRole(payload?.new?.actor_role)) return;
                     setLogs(prev => [payload.new, ...prev]);
                 }).subscribe(),
             (channel) => supabase.removeChannel(channel)
@@ -34,8 +41,8 @@ const AuditLogsPage = () => {
                 </div>
                 <button onClick={() => {
                     if (logs.length === 0) return;
-                    const headers = ['Timestamp', 'User', 'Action', 'Details'];
-                    const rows = logs.map(l => [new Date(l.created_at as string).toLocaleString(), l.user_name, l.action, l.details || '']);
+                    const headers = ['Timestamp', 'User', 'Role', 'Action', 'Details'];
+                    const rows = logs.map(l => [new Date(l.created_at as string).toLocaleString(), l.user_name, l.actor_role || '', l.action, formatAuditDetails(l.details)]);
                     exportToExcel(headers, rows, 'audit_logs');
                 }} disabled={logs.length === 0} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
                     <Download size={16} /> Export Excel
@@ -48,19 +55,21 @@ const AuditLogsPage = () => {
                             <tr>
                                 <th className="px-6 py-3">Timestamp</th>
                                 <th className="px-6 py-3">User</th>
+                                <th className="px-6 py-3">Role</th>
                                 <th className="px-6 py-3">Action</th>
                                 <th className="px-6 py-3">Details</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {loading ? <tr><td colSpan={4} className="p-6 text-center text-gray-500">Loading logs...</td></tr> :
-                                logs.length === 0 ? <tr><td colSpan={4} className="p-6 text-center text-gray-500">No logs found.</td></tr> :
+                            {loading ? <tr><td colSpan={5} className="p-6 text-center text-gray-500">Loading logs...</td></tr> :
+                                logs.length === 0 ? <tr><td colSpan={5} className="p-6 text-center text-gray-500">No logs found.</td></tr> :
                                     logs.map(log => (
                                         <tr key={log.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-3 text-gray-500 font-mono text-xs">{new Date(log.created_at as string).toLocaleString()}</td>
                                             <td className="px-6 py-3 font-bold text-gray-700">{log.user_name}</td>
+                                            <td className="px-6 py-3 text-gray-600">{log.actor_role || '-'}</td>
                                             <td className="px-6 py-3"><span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold border border-gray-200">{log.action}</span></td>
-                                            <td className="px-6 py-3 text-gray-600">{log.details}</td>
+                                            <td className="px-6 py-3 text-gray-600">{formatAuditDetails(log.details)}</td>
                                         </tr>
                                     ))}
                         </tbody>

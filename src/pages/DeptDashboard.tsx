@@ -9,6 +9,7 @@ import { previewTransactionalEmailNotification, sendTransactionalEmailNotificati
 import { useDeptData } from '../hooks/dept/useDeptData';
 import { getDepartmentApplicationsPage, getDepartmentInterviewQueue } from '../services/deptService';
 import { exportPDF, exportToExcel } from '../utils/dashboardUtils';
+import { recordStaffAuditAction } from '../lib/staffAudit';
 import {
     COUNSELING_STATUS,
     SUPPORT_STATUS,
@@ -188,7 +189,18 @@ export default function DeptDashboard() {
                 email: normalizedEmail
             }
         }));
-    }, [session?.user, setData, syncStaffSession]);
+        void recordStaffAuditAction(session, {
+            action: 'Updated department login email',
+            entityTable: 'staff_accounts',
+            entityId: session?.id,
+            details: {
+                summary: `${session?.full_name || 'Department Head'} updated the department login email.`,
+                email: normalizedEmail
+            }
+        }).catch((error) => {
+            console.error('Failed to record department email audit log:', error);
+        });
+    }, [session, setData, syncStaffSession]);
 
     const confirmStaffPasswordChange = useCallback(async (nextPasswordValue: string, otp: string) => {
         await invokeEdgeFunction('manage-staff-accounts', {
@@ -201,7 +213,17 @@ export default function DeptDashboard() {
             non2xxMessage: 'Your department session could not be verified. Please sign in again.',
             fallbackMessage: 'Failed to update your department password.'
         });
-    }, []);
+        void recordStaffAuditAction(session, {
+            action: 'Updated department password',
+            entityTable: 'staff_accounts',
+            entityId: session?.id,
+            details: {
+                summary: `${session?.full_name || 'Department Head'} updated the department password.`
+            }
+        }).catch((error) => {
+            console.error('Failed to record department password audit log:', error);
+        });
+    }, [session]);
 
     const updateStaffProfileName = useCallback(async (nextNameValue: string) => {
         const normalizedName = String(nextNameValue || '').trim().replace(/\s+/g, ' ');
@@ -231,7 +253,18 @@ export default function DeptDashboard() {
                 name: normalizedName
             }
         }));
-    }, [setData, syncStaffSession]);
+        void recordStaffAuditAction(session, {
+            action: 'Updated department profile name',
+            entityTable: 'staff_accounts',
+            entityId: session?.id,
+            details: {
+                summary: `${session?.full_name || 'Department Head'} updated the department profile name to ${normalizedName}.`,
+                full_name: normalizedName
+            }
+        }).catch((error) => {
+            console.error('Failed to record department profile audit log:', error);
+        });
+    }, [session, setData, syncStaffSession]);
 
     const queueProcessEmailNotification = useCallback((payload: any, context: string) => {
         void sendTransactionalEmailNotification(payload).then((emailResult) => {
@@ -1516,6 +1549,17 @@ export default function DeptDashboard() {
                 ...prev,
                 profile: { ...prev.profile, name: profileForm.name }
             }));
+            void recordStaffAuditAction(session, {
+                action: 'Updated department profile name',
+                entityTable: 'staff_accounts',
+                entityId: session?.id,
+                details: {
+                    summary: `${session?.full_name || 'Department Head'} updated the department profile name to ${profileForm.name}.`,
+                    full_name: profileForm.name
+                }
+            }).catch((error) => {
+                console.error('Failed to record department profile audit log:', error);
+            });
             setShowProfileModal(false);
             showToastMessage('Profile updated.');
         } catch (err: any) {

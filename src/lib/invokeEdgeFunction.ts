@@ -1,5 +1,9 @@
 import { buildEdgeFunctionHeaders } from './functionHeaders';
 import { supabase as defaultSupabase } from './supabase';
+import {
+    clearLocalSupabaseSession,
+    recoverLocalSupabaseSession
+} from './supabaseSessionRecovery';
 
 type EdgeFunctionClient = typeof defaultSupabase;
 
@@ -48,9 +52,32 @@ export const invokeEdgeFunction = async <T = any>(
 
     let accessToken = providedAccessToken;
     if (requireAuth && !accessToken) {
-        const { data: authSessionData } = await client.auth.getSession();
-        accessToken = authSessionData.session?.access_token || null;
-        if (!accessToken) {
+        try {
+            const { data: authSessionData, error: authSessionError } = await client.auth.getSession();
+
+            if (authSessionError) {
+                const recovered = await recoverLocalSupabaseSession(client, authSessionError);
+                if (recovered) {
+                    throw new Error(sessionErrorMessage);
+                }
+                throw authSessionError;
+            }
+
+            accessToken = authSessionData.session?.access_token || null;
+            if (!accessToken) {
+                await clearLocalSupabaseSession(client);
+                throw new Error(sessionErrorMessage);
+            }
+        } catch (error) {
+            const recovered = await recoverLocalSupabaseSession(client, error);
+            if (recovered) {
+                throw new Error(sessionErrorMessage);
+            }
+
+            if (error instanceof Error) {
+                throw error;
+            }
+
             throw new Error(sessionErrorMessage);
         }
     }
