@@ -127,7 +127,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
     if (submitted) {
         return (
             <div className="page-transition max-w-3xl mx-auto">
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-green-100/50 p-12 text-center shadow-sm animate-fade-in-up">
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-green-100/50 p-6 text-center shadow-sm animate-fade-in-up sm:p-12">
                     <div className="w-20 h-20 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">✓</div>
                     <h3 className="font-extrabold text-xl mb-2 text-gray-900">Thank You!</h3>
                     <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
@@ -138,14 +138,14 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
     }
 
     return (
-        <div className="page-transition max-w-4xl mx-auto space-y-6">
+        <div className="page-transition max-w-4xl mx-auto space-y-5 sm:space-y-6">
             {/* CSM Header */}
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 shadow-sm animate-fade-in-up overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-8 py-5">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-5 py-4 sm:px-8 sm:py-5">
                     <h2 className="text-lg font-extrabold">Client Satisfaction Measurement (CSM)</h2>
                     <p className="text-xs text-blue-200 mt-1">This CSM tracks the customer experience of government offices.</p>
                 </div>
-                <div className="px-8 py-5">
+                <div className="px-5 py-4 sm:px-8 sm:py-5">
                     <p className="text-xs text-gray-600 leading-relaxed">Your feedback on your <span className="font-bold">recently concluded transaction</span> will help this office provide a better service. Personal information shared will be kept confidential and you always have the option not to answer this form.</p>
                     {feedbackPrefill?.source === 'counseling' && (
                         <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
@@ -158,7 +158,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             </div>
 
             {/* Client Info Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-8 shadow-sm animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '80ms' }}>
                 <h3 className="font-bold text-sm text-gray-900 mb-5 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">1</span> Client Information</h3>
                 <div className="space-y-5">
                     <div>
@@ -171,7 +171,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                             ))}
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Date</label>
                             <input type="text" readOnly value={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs bg-gray-50 text-gray-500" />
@@ -201,14 +201,14 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             </div>
 
             {/* CC Questions Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-8 shadow-sm animate-fade-in-up" style={{ animationDelay: '160ms' }}>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '160ms' }}>
                 <h3 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">2</span> Citizen's Charter (CC) Questions</h3>
                 <p className="text-[10px] text-gray-400 mb-6 ml-8">The Citizen's Charter (CC) is an official document that reflects the services of a government agency/office including its requirements, fees, and processing times among others.</p>
 
                 {/* CC1 */}
                 <div className="mb-6">
                     <p className="text-xs font-bold text-gray-800 mb-3">CC1. Which of the following best describes your awareness of a CC? *</p>
-                    <div className="space-y-2 ml-4">
+                    <div className="ml-1 space-y-2 sm:ml-4">
                         {[
                             { v: '1', t: '1. I know what a CC is and I saw this office\'s CC.' },
                             { v: '2', t: '2. I know what a CC is but I did NOT see this office\'s CC.' },
@@ -226,7 +226,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                 {/* CC2 */}
                 <div className={`mb-6 ${!cc1IsAware ? 'opacity-40 pointer-events-none' : ''}`}>
                     <p className="text-xs font-bold text-gray-800 mb-3">CC2. If aware of CC (answered 1-3 in CC1), would you say that the CC of this office was ...?</p>
-                    <div className="space-y-2 ml-4">
+                    <div className="ml-1 space-y-2 sm:ml-4">
                         {[
                             { v: '1', t: '1. Easy to see' },
                             { v: '2', t: '2. Somewhat easy to see' },
@@ -245,7 +245,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                 {/* CC3 */}
                 <div className={`${!cc1IsAware ? 'opacity-40 pointer-events-none' : ''}`}>
                     <p className="text-xs font-bold text-gray-800 mb-3">CC3. If aware of CC (answered codes 1-3 in CC1), how much did the CC help you in your transaction?</p>
-                    <div className="space-y-2 ml-4">
+                    <div className="ml-1 space-y-2 sm:ml-4">
                         {[
                             { v: '1', t: '1. Helped very much' },
                             { v: '2', t: '2. Somewhat helped' },
@@ -263,7 +263,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
 
             {/* SQD Section */}
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 shadow-sm animate-fade-in-up overflow-hidden" style={{ animationDelay: '240ms' }}>
-                <div className="p-8 pb-4">
+                <div className="p-5 pb-4 sm:p-8 sm:pb-4">
                     <h3 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">3</span> Service Quality Dimensions (SQD)</h3>
                     <p className="text-[10px] text-gray-400 ml-8">For SQD 0-8, please put a check mark (✓) on the column that best corresponds to your answer.</p>
                 </div>
@@ -299,7 +299,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             </div>
 
             {/* Open-ended Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-8 shadow-sm animate-fade-in-up" style={{ animationDelay: '320ms' }}>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '320ms' }}>
                 <h3 className="font-bold text-sm text-gray-900 mb-5 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">4</span> Additional Comments</h3>
                 <div className="space-y-4">
                     <div>
@@ -308,10 +308,10 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Email address (optional)</label>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="your.email@example.com" />
                             {profileEmail && !form.email && (
-                                <button type="button" onClick={() => updateForm('email', profileEmail)} className="px-4 py-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100 transition-all whitespace-nowrap flex items-center gap-1.5">
+                                <button type="button" onClick={() => updateForm('email', profileEmail)} className="px-4 py-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100 transition-all whitespace-nowrap flex items-center justify-center gap-1.5 sm:justify-start">
                                     <span>📧</span> Fill from profile
                                 </button>
                             )}
@@ -322,7 +322,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
 
             {/* Submit */}
             <div className="flex justify-center animate-fade-in-up" style={{ animationDelay: '400ms' }}>
-                <button onClick={handleSubmit} disabled={submitting} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-12 py-4 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all disabled:opacity-50 flex items-center gap-2">
+                <button onClick={handleSubmit} disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all btn-press disabled:opacity-50 sm:w-auto sm:px-12">
                     {submitting ? 'Submitting...' : 'Submit Feedback'}
                 </button>
             </div>
@@ -338,12 +338,12 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                             const sqdScores = [fb.sqd0, fb.sqd1, fb.sqd2, fb.sqd3, fb.sqd4, fb.sqd5, fb.sqd6, fb.sqd7, fb.sqd8].filter(v => v > 0);
                             const avg = sqdScores.length > 0 ? (sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length).toFixed(1) : '—';
                             return (
-                                <div key={fb.id} onClick={() => setViewingFeedback(fb)} className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-5 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all flex justify-between items-center" style={{ animationDelay: `${idx * 60}ms` }}>
+                                <div key={fb.id} onClick={() => setViewingFeedback(fb)} className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-4 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:p-5" style={{ animationDelay: `${idx * 60}ms` }}>
                                     <div>
                                         <p className="text-xs font-bold text-gray-900">{fb.service_availed || 'General Feedback'}</p>
                                         <p className="text-[10px] text-gray-400 mt-0.5">{new Date(fb.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 self-start sm:self-auto">
                                         <div className="flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full">
                                             <span className="text-yellow-500 text-sm">★</span>
                                             <span className="text-xs font-bold text-blue-700">{avg}</span>
@@ -361,7 +361,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             {viewingFeedback && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
                     <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
-                        <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white sticky top-0 z-10">
+                        <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white sm:px-8 sm:py-5">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-[10px] uppercase tracking-widest text-blue-200 mb-1">Client Satisfaction Measurement</p>
@@ -370,14 +370,14 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                                 <button onClick={() => setViewingFeedback(null)} className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center text-white text-lg">✕</button>
                             </div>
                         </div>
-                        <div className="p-8 space-y-6">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-5 space-y-6 sm:p-8">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Client Type</p><p className="text-sm font-bold">{viewingFeedback.client_type || '—'}</p></div>
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Sex</p><p className="text-sm font-bold">{viewingFeedback.sex || '—'}</p></div>
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Age</p><p className="text-sm font-bold">{viewingFeedback.age || '—'}</p></div>
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Date</p><p className="text-sm font-bold">{new Date(viewingFeedback.created_at).toLocaleDateString()}</p></div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Region</p><p className="text-sm font-bold">{viewingFeedback.region || '—'}</p></div>
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Service Availed</p><p className="text-sm font-bold">{viewingFeedback.service_availed || '—'}</p></div>
                             </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { supabase } from '../../lib/supabase';
 import { createPortal } from 'react-dom';
 import { renderProfileView } from './views/ProfileView';
@@ -18,9 +18,13 @@ import {
 } from '../../utils/workflow';
 export { ServiceIntroModal } from './views/ServiceIntroModal';
 
+const AssessmentFormModal = lazy(() => import('./forms/AssessmentFormModal'));
+const CounselingFormModal = lazy(() => import('./forms/CounselingFormModal'));
+const SupportFormModal = lazy(() => import('./forms/SupportFormModal'));
+
 // Helper: renders assessment, counseling, support, scholarship, feedback, profile views
 export function renderRemainingViews(p: any) {
-    const { activeView, activeForm, loadingForm, formQuestions, formsList, assessmentForm, handleInventoryChange, submitAssessment, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, showSuccessModal, setShowSuccessModal, isSubmitting, showCounselingForm, setShowCounselingForm, openCounselingForm, counselingForm, setCounselingForm, submitCounselingRequest, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, supportForm, setSupportForm, personalInfo, submitSupportRequest, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, isApplyingScholarshipId, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast } = p;
+    const { activeView, activeForm, loadingForm, formsList, openAssessmentForm, showAssessmentModal, setShowAssessmentModal, onAssessmentSubmitted, showSuccessModal, setShowSuccessModal, showCounselingForm, setShowCounselingForm, openCounselingForm, onCounselingSubmitted, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm, onSupportSubmitted, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, personalInfo, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship, isApplyingScholarshipId, setActiveView, feedbackPrefill, setFeedbackPrefill, showToast } = p;
     const getCounselingStatusTone = (status: string) => {
         if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
         if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
@@ -53,6 +57,17 @@ export function renderRemainingViews(p: any) {
             return null;
         }
     };
+    const formQuestions: any[] = [];
+    const assessmentForm = { responses: {} as Record<string, any> };
+    const counselingForm = { reason_for_referral: '', personal_actions_taken: '', date_duration_of_concern: '' };
+    const supportForm = { categories: [], otherCategory: '', q1: '', q2: '', q3: '', q4: '', files: [] as File[] };
+    const handleInventoryChange = (..._args: any[]) => undefined;
+    const submitAssessment = async (..._args: any[]) => undefined;
+    const setCounselingForm = (..._args: any[]) => undefined;
+    const submitCounselingRequest = async (..._args: any[]) => undefined;
+    const setSupportForm = (..._args: any[]) => undefined;
+    const submitSupportRequest = async (..._args: any[]) => undefined;
+    const isSubmitting = false;
     return (
         <>
             {/* SERVICE INTRO MODALS */}
@@ -65,11 +80,13 @@ export function renderRemainingViews(p: any) {
 
             {/* ASSESSMENT VIEW */}
             {activeView === 'assessment' && (
-                <div className="max-w-5xl mx-auto page-transition">
-                    <h2 className="text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Needs Assessment Tool</h2>
-                    <p className="text-sm text-gray-400 mb-8 animate-fade-in-up">Complete the inventory to help us understand your needs and provide better support.</p>
-                    {loadingForm ? <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div><p className="ml-3 text-gray-400 text-sm">Loading forms...</p></div> : formsList.length === 0 ? (
-                        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-12 shadow-sm text-center card-hover animate-fade-in-up">
+                <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 page-transition">
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Needs Assessment Tool</h2>
+                        <p className="text-sm text-gray-400 mb-6 sm:mb-8 animate-fade-in-up">Complete the inventory to help us understand your needs and provide better support.</p>
+                    </div>
+                    {loadingForm ? <div className="flex items-center justify-center py-16 sm:py-20"><div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div><p className="ml-3 text-gray-400 text-sm">Loading forms...</p></div> : formsList.length === 0 ? (
+                        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 sm:p-12 shadow-sm text-center card-hover animate-fade-in-up">
                             <div className="text-5xl mb-4">📋</div>
                             <p className="text-gray-500 font-medium">No assessment forms are currently available.</p>
                             <p className="text-xs text-gray-400 mt-1">Check back later for new assessments from the care staff.</p>
@@ -79,7 +96,7 @@ export function renderRemainingViews(p: any) {
                             {formsList.map((form: any, idx: number) => {
                                 const isDone = completedForms.has(form.id);
                                 return (
-                                    <button key={form.id} onClick={() => openAssessmentForm(form)} disabled={isDone} className={`bg-white/90 backdrop-blur-sm rounded-2xl border p-6 shadow-sm transition-all text-left group animate-fade-in-up ${isDone ? 'border-gray-200 opacity-60 cursor-not-allowed' : 'border-blue-100/50 hover:shadow-lg hover:border-blue-200 cursor-pointer card-hover'}`} style={{ animationDelay: `${idx * 80}ms` }}>
+                                    <button key={form.id} onClick={() => openAssessmentForm(form)} disabled={isDone} className={`bg-white/90 backdrop-blur-sm rounded-2xl border p-5 sm:p-6 shadow-sm transition-all text-left group animate-fade-in-up ${isDone ? 'border-gray-200 opacity-60 cursor-not-allowed' : 'border-blue-100/50 hover:shadow-lg hover:border-blue-200 cursor-pointer card-hover'}`} style={{ animationDelay: `${idx * 80}ms` }}>
                                         <div className="flex items-start justify-between mb-3">
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${isDone ? 'bg-gray-400 shadow-gray-400/20' : 'bg-gradient-to-br from-blue-500 to-sky-400 shadow-blue-500/20'}`}><Icons.Assessment /></div>
                                             <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${isDone ? 'text-gray-500 bg-gray-100' : 'text-emerald-600 bg-emerald-50'}`}>{isDone ? '✓ Completed' : 'Active'}</span>
@@ -96,15 +113,21 @@ export function renderRemainingViews(p: any) {
                         </div>
                     )}
 
-                    {/* ASSESSMENT FORM MODAL */}
-                    {showAssessmentModal && activeForm && createPortal(
-                        <div className="student-mobile-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                            {/* Backdrop */}
-                            <div className="animate-backdrop" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }} onClick={() => setShowAssessmentModal(false)} />
+                    {showAssessmentModal && activeForm && (
+                        <Suspense fallback={null}>
+                            <AssessmentFormModal
+                                form={activeForm}
+                                isOpen={showAssessmentModal}
+                                studentId={personalInfo.studentId}
+                                onClose={() => setShowAssessmentModal(false)}
+                                onSubmitted={onAssessmentSubmitted}
+                                showToast={showToast}
+                            />
+                        </Suspense>
+                    )}
 
-                            {/* Modal */}
-                            <div className="animate-scale-in student-mobile-modal-panel" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-
+                    {false && (
+                        <>
                                 {/* Header */}
                                 <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
@@ -173,14 +196,14 @@ export function renderRemainingViews(p: any) {
                                         )}
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-                        , document.body)}
+
+                        </>
+                    )}
 
                     {/* SUCCESS MODAL */}
                     {showSuccessModal && (
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-sm p-8 shadow-2xl text-center border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-sm p-6 sm:p-8 shadow-2xl text-center border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
                                     <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                                 </div>
@@ -195,31 +218,41 @@ export function renderRemainingViews(p: any) {
 
             {/* COUNSELING VIEW */}
             {activeView === 'counseling' && (
-                <div className="max-w-6xl mx-auto space-y-6 page-transition relative">
-                    <div className="mb-6 animate-fade-in-up flex justify-between items-start">
-                        <div><h2 className="text-2xl font-extrabold mb-1 text-gray-800">Counseling Services</h2><p className="text-sm text-gray-400">Request counseling support and view your requests</p></div>
-                        <button onClick={() => setShowCounselingRequestsModal(true)} className="relative flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-purple-100/50 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-purple-50 transition-all shadow-sm btn-press">
+                <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6 page-transition relative">
+                    <div className="mb-6 animate-fade-in-up flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div><h2 className="text-xl sm:text-2xl font-extrabold mb-1 text-gray-800">Counseling Services</h2><p className="text-sm text-gray-400">Request counseling support and view your requests</p></div>
+                        <button onClick={() => setShowCounselingRequestsModal(true)} className="relative flex w-full sm:w-auto items-center justify-center gap-2 bg-white/90 backdrop-blur-sm border border-purple-100/50 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-purple-50 transition-all shadow-sm btn-press">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                             Your Requests
                             {counselingRequests.length > 0 && <span className="bg-blue-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{counselingRequests.length}</span>}
                         </button>
                     </div>
                     {/* Stat Cards */}
-                    <div className="grid grid-cols-3 gap-6">
-                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '80ms' }}><div className="p-3 bg-gradient-to-br from-blue-500 to-sky-400 text-white rounded-xl shadow-lg shadow-blue-500/20"><Icons.Counseling /></div><div><p className="text-2xl font-black">{counselingRequests.length}</p><p className="text-xs text-gray-400 font-bold uppercase">Total Requests</p></div></div>
-                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '160ms' }}><div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/20"><Icons.Clock /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => CARE_STAFF_ACTIVE_COUNSELING_STATUSES.includes(r.status)).length}</p><p className="text-xs text-gray-400 font-bold uppercase">In Progress</p></div></div>
-                        <div className="bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '240ms' }}><div className="p-3 bg-gradient-to-br from-emerald-400 to-green-500 text-white rounded-xl shadow-lg shadow-emerald-500/20"><Icons.CheckCircle /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => r.status === COUNSELING_STATUS.COMPLETED).length}</p><p className="text-xs text-gray-400 font-bold uppercase">Completed</p></div></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="bg-white/80 backdrop-blur-sm p-5 sm:p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '80ms' }}><div className="p-3 bg-gradient-to-br from-blue-500 to-sky-400 text-white rounded-xl shadow-lg shadow-blue-500/20"><Icons.Counseling /></div><div><p className="text-2xl font-black">{counselingRequests.length}</p><p className="text-xs text-gray-400 font-bold uppercase">Total Requests</p></div></div>
+                        <div className="bg-white/80 backdrop-blur-sm p-5 sm:p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '160ms' }}><div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/20"><Icons.Clock /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => CARE_STAFF_ACTIVE_COUNSELING_STATUSES.includes(r.status)).length}</p><p className="text-xs text-gray-400 font-bold uppercase">In Progress</p></div></div>
+                        <div className="bg-white/80 backdrop-blur-sm p-5 sm:p-6 rounded-xl border border-purple-100/50 flex items-center gap-4 shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '240ms' }}><div className="p-3 bg-gradient-to-br from-emerald-400 to-green-500 text-white rounded-xl shadow-lg shadow-emerald-500/20"><Icons.CheckCircle /></div><div><p className="text-2xl font-black">{counselingRequests.filter((r: any) => r.status === COUNSELING_STATUS.COMPLETED).length}</p><p className="text-xs text-gray-400 font-bold uppercase">Completed</p></div></div>
                     </div>
                     {/* CTA Card — always visible */}
-                    <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-12 text-center shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+                    <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-6 sm:p-12 text-center shadow-sm card-hover animate-fade-in-up" style={{ animationDelay: '300ms' }}>
                         <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-indigo-500/20 text-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">💬</div>
-                        <h3 className="font-bold text-lg mb-2">Need Counseling Support?</h3>
+                        <h3 className="font-bold text-base sm:text-lg mb-2">Need Counseling Support?</h3>
                         <p className="text-sm text-gray-400 max-w-sm mx-auto mb-6">Our counseling services are here to help you with academic stress, personal concerns, and general wellbeing.</p>
-                        <button onClick={openCounselingForm} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Request Counseling</button>
+                        <button onClick={openCounselingForm} className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Request Counseling</button>
                     </div>
-                    {/* Self-Referral Modal */}
-                    {showCounselingForm && createPortal(
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                    {showCounselingForm && (
+                        <Suspense fallback={null}>
+                            <CounselingFormModal
+                                isOpen={showCounselingForm}
+                                onClose={() => setShowCounselingForm(false)}
+                                personalInfo={personalInfo}
+                                showToast={showToast}
+                                onSubmitted={onCounselingSubmitted}
+                            />
+                        </Suspense>
+                    )}
+                    {false && (
+                        <>
                             <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
@@ -252,8 +285,9 @@ export function renderRemainingViews(p: any) {
                                     <button onClick={() => setShowCounselingForm(false)} className="bg-white/80 border border-purple-100/50 px-6 py-2 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all">Cancel</button>
                                 </div>
                             </div>
-                        </div>
-                        , document.body)}
+                        </>
+                    )}
+
                     {/* Counseling Requests Modal */}
                     {showCounselingRequestsModal && createPortal(
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-end z-50 student-mobile-modal-overlay" onClick={() => setShowCounselingRequestsModal(false)}>
@@ -268,14 +302,14 @@ export function renderRemainingViews(p: any) {
                                     {counselingRequests.length === 0 ? (
                                         <div className="text-center py-12"><p className="text-gray-400 text-sm">No requests found.</p></div>
                                     ) : counselingRequests.map((req: any, idx: number) => (
-                                        <div key={req.id} onClick={() => { setShowCounselingRequestsModal(false); openRequestModal(req); }} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm cursor-pointer hover:shadow-md hover:border-purple-200 transition-all" style={{ animationDelay: `${idx * 60}ms` }}>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <div className="flex items-center gap-2.5">
-                                                    <span className="text-lg">📝</span>
-                                                    <span className="text-sm font-bold text-gray-900">{req.request_type || 'Self-Referral'}</span>
+                                            <div key={req.id} onClick={() => { setShowCounselingRequestsModal(false); openRequestModal(req); }} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm cursor-pointer hover:shadow-md hover:border-purple-200 transition-all" style={{ animationDelay: `${idx * 60}ms` }}>
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="text-lg">📝</span>
+                                                        <span className="text-sm font-bold text-gray-900">{req.request_type || 'Self-Referral'}</span>
+                                                    </div>
+                                                    <span className={`self-start sm:self-auto text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getCounselingStatusTone(req.status)}`}>{getCounselingStatusLabel(req.status)}</span>
                                                 </div>
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getCounselingStatusTone(req.status)}`}>{getCounselingStatusLabel(req.status)}</span>
-                                            </div>
                                             <p className="text-[10px] text-gray-400">{formatFullDate(new Date(req.created_at))}</p>
                                             <p className="text-[10px] text-purple-500 font-bold mt-2">Click to view full form →</p>
                                         </div>
@@ -287,14 +321,14 @@ export function renderRemainingViews(p: any) {
                     {/* Request Details Modal */}
                     {selectedRequest && createPortal(
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
-                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
-                                <div className="flex justify-between items-start mb-4">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-5 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                                     <div>
                                         <h3 className="font-extrabold text-lg">STUDENT SELF-REFERRAL FOR COUNSELING FORM</h3>
                                         <p className="text-xs text-gray-400 mt-1">Office of the Director, Counseling, Assessment, Resources, and Enhancement Center</p>
                                         <p className="text-[10px] text-gray-400 mt-1">Submitted: {formatFullDate(new Date(selectedRequest.created_at))}</p>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center justify-between sm:justify-end gap-3">
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(selectedRequest.status)}`}>{getCounselingStatusLabel(selectedRequest.status, 'Forwarded to CARE Staff')}</span>
                                         <button onClick={() => setSelectedRequest(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                     </div>
@@ -323,7 +357,7 @@ export function renderRemainingViews(p: any) {
                                         <div className="bg-purple-50 p-4 rounded-xl border border-purple-100"><p className="text-xs font-bold text-purple-800 uppercase mb-1">Forwarded to CARE Staff by</p><p className="text-sm text-purple-900">{selectedRequest.referred_by}</p></div>
                                     )}
                                     {getCounselingScheduledDate(selectedRequest) && (
-                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3 items-center"><Icons.Clock className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(getCounselingScheduledDate(selectedRequest) as string).toLocaleString()}</p></div></div>
+                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-start gap-3 sm:flex-row sm:items-center"><Icons.Clock className="text-blue-600" /><div><p className="text-xs font-bold text-blue-800 uppercase">Scheduled Session</p><p className="text-sm text-blue-900">{new Date(getCounselingScheduledDate(selectedRequest) as string).toLocaleString()}</p></div></div>
                                     )}
                                     {selectedRequest.status === COUNSELING_STATUS.REJECTED && (
                                         <div className="bg-red-50 p-4 rounded-xl border border-red-100"><p className="text-xs font-bold text-red-800 uppercase mb-1">Request Rejected</p><p className="text-sm text-red-900 leading-relaxed">{selectedRequest.resolution_notes || 'Your request has been reviewed and was not approved at this time.'}</p></div>
@@ -380,25 +414,25 @@ export function renderRemainingViews(p: any) {
 
             {/* SUPPORT VIEW */}
             {activeView === 'support' && (
-                <div className="max-w-6xl mx-auto space-y-6 page-transition">
+                <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6 page-transition">
                     {/* Header with Your Requests button */}
-                    <div className="flex justify-between items-start animate-fade-in-up">
-                        <div><h2 className="text-2xl font-extrabold mb-1 text-gray-800">Additional Support</h2><p className="text-sm text-gray-400">For students with disabilities or special needs</p></div>
-                        <button onClick={() => setShowSupportRequestsModal(true)} className="relative flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-purple-100/50 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-purple-50 transition-all shadow-sm btn-press">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between animate-fade-in-up">
+                        <div><h2 className="text-xl sm:text-2xl font-extrabold mb-1 text-gray-800">Additional Support</h2><p className="text-sm text-gray-400">For students with disabilities or special needs</p></div>
+                        <button onClick={() => setShowSupportRequestsModal(true)} className="relative flex w-full sm:w-auto items-center justify-center gap-2 bg-white/90 backdrop-blur-sm border border-purple-100/50 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-purple-50 transition-all shadow-sm btn-press">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                             Your Requests
                             {supportRequests.length > 0 && <span className="bg-teal-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{supportRequests.length}</span>}
                         </button>
                     </div>
                     {/* Introduction Text */}
-                    <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-8 shadow-sm animate-fade-in-up">
-                        <div className="text-center mb-8 border-b border-purple-100/50 pb-6">
-                            <h2 className="font-bold text-xl text-gray-900">NEGROS ORIENTAL STATE UNIVERSITY</h2>
+                    <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-5 sm:p-8 shadow-sm animate-fade-in-up">
+                        <div className="text-center mb-6 sm:mb-8 border-b border-purple-100/50 pb-6">
+                            <h2 className="font-bold text-lg sm:text-xl text-gray-900">NEGROS ORIENTAL STATE UNIVERSITY</h2>
                             <p className="text-sm text-gray-500">Office of the Campus Student Affairs and Services</p>
                             <p className="text-sm text-gray-500">Guihulngan Campus</p>
-                            <h3 className="font-extrabold text-lg mt-4 bg-gradient-to-r from-blue-500 to-sky-400 bg-clip-text text-transparent">FORM FOR STUDENTS WHO REQUIRE ADDITIONAL SUPPORT</h3>
+                            <h3 className="font-extrabold text-base sm:text-lg mt-4 bg-gradient-to-r from-blue-500 to-sky-400 bg-clip-text text-transparent">FORM FOR STUDENTS WHO REQUIRE ADDITIONAL SUPPORT</h3>
                         </div>
-                        <div className="space-y-6 text-sm text-gray-700 leading-relaxed">
+                        <div className="space-y-5 sm:space-y-6 text-sm text-gray-700 leading-relaxed">
                             <section><h4 className="font-bold text-gray-900 mb-2">1. We welcome your application</h4><p>We welcome applications from students with disabilities or special learning needs. By completing this form, you help us to form a clearer picture of your needs, which will enable us to see how we could support you, should you be admitted.</p><p className="mt-2">As in the case of all other applicants, first of all we consider your academic merits and whether you comply with the admission criteria for the program that you want to apply for. Then we will consider what is reasonable and practical for the specific program to which you have applied.</p></section>
                             <section><h4 className="font-bold text-gray-900 mb-2">2. We protect your information</h4><p>We will respect your privacy and keep your information confidential. However, we have to share relevant information with key academic, administrative and support staff members. They need such information to determine how we might best support you, should you be admitted for studies at NORSU–Guihulngan Campus.</p></section>
                             <section><h4 className="font-bold text-gray-900 mb-2">3. Submit this form, along with the supporting documents, to your application profile</h4><p>Please submit the completed form and all supporting documents (e.g. any copies of medical or psychological proof of your condition and/or disability) when you apply. We must receive all your documents by the closing date for applications. We cannot process your application unless we have all the necessary information.</p></section>
@@ -407,7 +441,7 @@ export function renderRemainingViews(p: any) {
                             <section><h4 className="font-bold text-gray-900 mb-2">6. How can we reach you?</h4><p>When we receive your form, we send it to the faculty to which you are applying so that they can determine whether they can support you. The personal information you provide here also allows us to locate your application swiftly.</p></section>
                         </div>
                         <div className="mt-8 pt-6 border-t border-purple-100/50 flex justify-center">
-                            <button onClick={openSupportForm} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold hover:from-blue-400 hover:to-sky-300 transition shadow-lg shadow-blue-500/20 flex items-center gap-2 btn-press">
+                            <button onClick={openSupportForm} className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold hover:from-blue-400 hover:to-sky-300 transition shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 btn-press">
                                 Proceed to Application Form <Icons.ArrowRight />
                             </button>
                         </div>
@@ -427,11 +461,11 @@ export function renderRemainingViews(p: any) {
                                     {supportRequests.length === 0 ? (
                                         <div className="text-center py-12"><p className="text-gray-400 text-sm">No requests found.</p></div>
                                     ) : supportRequests.map((req: any, idx: number) => (
-                                        <div key={req.id} onClick={() => setSelectedSupportRequest(req)} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer" style={{ animationDelay: `${idx * 60}ms` }}>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="text-sm font-bold bg-teal-50 text-teal-700 px-2.5 py-1 rounded-lg">{req.support_type}</span>
-                                                <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getSupportStatusTone(req.status)}`}>{req.status}</span>
-                                            </div>
+                                            <div key={req.id} onClick={() => setSelectedSupportRequest(req)} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer" style={{ animationDelay: `${idx * 60}ms` }}>
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
+                                                    <span className="text-sm font-bold bg-teal-50 text-teal-700 px-2.5 py-1 rounded-lg">{req.support_type}</span>
+                                                    <span className={`self-start sm:self-auto text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getSupportStatusTone(req.status)}`}>{req.status}</span>
+                                                </div>
                                             <p className="text-[10px] text-gray-400">{formatFullDate(new Date(req.created_at))}</p>
                                         </div>
                                     ))}
@@ -443,20 +477,20 @@ export function renderRemainingViews(p: any) {
                     {selectedSupportRequest && createPortal(
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 student-mobile-modal-overlay" onClick={() => setSelectedSupportRequest(null)}>
                             <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-scale-in student-mobile-modal-panel" onClick={e => e.stopPropagation()}>
-                                <div className="px-6 py-4 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex justify-between items-center shrink-0">
-                                    <h3 className="font-extrabold text-lg">Support Request Details</h3>
+                                <div className="px-5 py-4 sm:px-6 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0">
+                                    <h3 className="font-extrabold text-base sm:text-lg">Support Request Details</h3>
                                     <button onClick={() => setSelectedSupportRequest(null)} className="text-white hover:text-teal-200">✕</button>
                                 </div>
-                                <div className="p-6 space-y-8 overflow-y-auto">
+                                <div className="p-5 sm:p-6 space-y-6 sm:space-y-8 overflow-y-auto">
                                     {/* Status Badge */}
-                                    <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <div>
                                             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Current Status</p>
                                             <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${getSupportStatusTone(selectedSupportRequest.status)}`}>
                                                 {selectedSupportRequest.status}
                                             </span>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-left sm:text-right">
                                             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Date Submitted</p>
                                             <p className="text-sm font-medium">{formatFullDate(new Date(selectedSupportRequest.created_at))}</p>
                                         </div>
@@ -531,7 +565,7 @@ export function renderRemainingViews(p: any) {
                                     {/* Student Info */}
                                     <section className="bg-gray-50 p-4 rounded-xl border border-gray-100 opacity-90 pointer-events-none">
                                         <h4 className="font-bold text-sm text-blue-800 mb-4 uppercase tracking-wider">Student Information</h4>
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                             <div><label className="block text-xs font-bold text-gray-500">Full Name</label><div className="font-semibold">{personalInfo.firstName} {personalInfo.lastName}</div></div>
                                             <div><label className="block text-xs font-bold text-gray-500">Date Filed</label><div className="font-semibold">{new Date(selectedSupportRequest.created_at).toLocaleDateString()}</div></div>
                                             <div><label className="block text-xs font-bold text-gray-500">Date of Birth</label><div className="font-semibold">{personalInfo.dob}</div></div>
@@ -552,7 +586,7 @@ export function renderRemainingViews(p: any) {
                                             {selectedSupportRequest.support_type?.includes('Other:') && (() => {
                                                 const match = selectedSupportRequest.support_type.match(/Other:\s*(.+)$/);
                                                 return match ? (
-                                                    <div className="col-span-2 flex items-center gap-2 mt-2">
+                                                    <div className="col-span-1 sm:col-span-2 flex flex-col items-start gap-2 mt-2 sm:flex-row sm:items-center">
                                                         <input type="checkbox" checked readOnly className="w-4 h-4 text-blue-600 rounded" />
                                                         <span className="text-sm text-gray-600">Others, specify:</span>
                                                         <input value={match[1]} readOnly className="border-b border-gray-300 px-2 py-1 text-sm flex-1 bg-transparent text-gray-600" />
@@ -640,15 +674,26 @@ export function renderRemainingViews(p: any) {
                                         ) : null;
                                     })()}
                                 </div>
-                                <div className="p-4 bg-gray-50 border-t border-gray-100 text-right">
-                                    <button onClick={() => setSelectedSupportRequest(null)} className="px-6 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 font-bold text-sm shadow-sm transition-all focus:ring-2 focus:ring-teal-500 focus:outline-none focus:ring-offset-1">Close</button>
+                                <div className="p-4 bg-gray-50 border-t border-gray-100 text-left sm:text-right">
+                                    <button onClick={() => setSelectedSupportRequest(null)} className="w-full sm:w-auto px-6 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 font-bold text-sm shadow-sm transition-all focus:ring-2 focus:ring-teal-500 focus:outline-none focus:ring-offset-1">Close</button>
                                 </div>
                             </div>
                         </div>
                         , document.body)}
 
-                    {showSupportModal && createPortal(
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                    {showSupportModal && (
+                        <Suspense fallback={null}>
+                            <SupportFormModal
+                                isOpen={showSupportModal}
+                                onClose={() => setShowSupportModal(false)}
+                                personalInfo={personalInfo}
+                                showToast={showToast}
+                                onSubmitted={onSupportSubmitted}
+                            />
+                        </Suspense>
+                    )}
+                    {false && (
+                        <>
                             <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel">
                                 <div className="flex justify-between items-center p-6 border-b shrink-0">
                                     <div>
@@ -747,24 +792,26 @@ export function renderRemainingViews(p: any) {
                                     <button onClick={() => setShowSupportModal(false)} className="px-8 py-3 bg-white/80 border border-purple-100/50 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all">Cancel</button>
                                 </div>
                             </div>
-                        </div>
-                        , document.body)
-                    }
+                        </>
+                    )}
+
                 </div >
             )}
 
             {/* SCHOLARSHIP VIEW */}
             {
                 activeView === 'scholarship' && (
-                    <div className="page-transition">
-                        <h2 className="text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Scholarship Services</h2>
-                        <p className="text-sm text-gray-400 mb-8 animate-fade-in-up">View available scholarships and check your eligibility.</p>
+                    <div className="space-y-6 page-transition">
+                        <div>
+                            <h2 className="text-xl sm:text-2xl font-extrabold mb-1 text-gray-800 animate-fade-in-up">Scholarship Services</h2>
+                            <p className="text-sm text-gray-400 mb-6 sm:mb-8 animate-fade-in-up">View available scholarships and check your eligibility.</p>
+                        </div>
                         {scholarshipsList.length === 0 ? (
-                            <div className="text-center py-12 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 animate-fade-in-up">
+                            <div className="text-center py-10 sm:py-12 px-4 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 animate-fade-in-up">
                                 <p className="text-gray-400 italic">No scholarships available at the moment.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 {scholarshipsList.map((s: any, idx: number) => {
                                     const isApplied = myApplications.some((app: any) => app.scholarship_id === s.id);
                                     const isExpired = new Date(s.deadline) < new Date();
@@ -772,17 +819,17 @@ export function renderRemainingViews(p: any) {
                                         <div
                                             key={s.id}
                                             onClick={() => { setSelectedScholarship(s); setShowScholarshipModal(true); }}
-                                            className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-6 shadow-sm hover:shadow-lg transition-all card-hover animate-fade-in-up cursor-pointer group"
+                                            className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 sm:p-6 shadow-sm hover:shadow-lg transition-all card-hover animate-fade-in-up cursor-pointer group"
                                             style={{ animationDelay: `${idx * 100}ms` }}
                                         >
-                                            <div className="flex justify-between items-start mb-4">
+                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4">
                                                 <h3 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors" title={s.title}>{s.title}</h3>
-                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                <span className={`self-start sm:self-auto text-[10px] font-bold px-2.5 py-1 rounded-full ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-emerald-100 text-emerald-700'}`}>
                                                     {isExpired ? 'Closed' : 'Open'}
                                                 </span>
                                             </div>
 
-                                            <div className="flex justify-between items-center text-xs text-gray-400">
+                                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-xs text-gray-400">
                                                 <span>Deadline: {new Date(s.deadline).toLocaleDateString()}</span>
                                                 {isApplied && <span className="font-bold text-blue-600 flex items-center gap-1"><Icons.CheckCircle /> Applied</span>}
                                             </div>
@@ -802,10 +849,10 @@ export function renderRemainingViews(p: any) {
                                 <div className="animate-scale-in student-mobile-modal-panel" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
 
                                     {/* Header */}
-                                    <div style={{ padding: '20px 24px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>
+                                    <div style={{ padding: '18px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
                                             <div style={{ flex: 1 }}>
-                                                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>{selectedScholarship.title}</h3>
+                                                <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>{selectedScholarship.title}</h3>
                                                 <div className="flex gap-2 mt-2">
                                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm`}>
                                                         {new Date(selectedScholarship.deadline) < new Date() ? 'Closed' : 'Open'}
@@ -817,7 +864,7 @@ export function renderRemainingViews(p: any) {
                                     </div>
 
                                     {/* Body */}
-                                    <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#f8fafc' }}>
+                                    <div style={{ flex: 1, overflowY: 'auto', padding: '18px', background: '#f8fafc' }}>
                                         <div className="space-y-6">
                                             <div style={{ background: '#fff', borderRadius: '14px', padding: '20px', border: '1.5px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                                                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Description</h4>
@@ -831,7 +878,7 @@ export function renderRemainingViews(p: any) {
                                                 </p>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div style={{ background: '#fff', borderRadius: '14px', padding: '16px', border: '1.5px solid #e5e7eb' }}>
                                                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Deadline</h4>
                                                     <p className="text-sm font-bold text-gray-900">{new Date(selectedScholarship.deadline).toLocaleDateString()}</p>
@@ -847,7 +894,7 @@ export function renderRemainingViews(p: any) {
                                     </div>
 
                                     {/* Footer */}
-                                    <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', background: '#fff', flexShrink: 0 }}>
+                                    <div style={{ padding: '16px 18px', borderTop: '1px solid #f1f5f9', background: '#fff', flexShrink: 0 }}>
                                         {myApplications.some((app: any) => app.scholarship_id === selectedScholarship.id) ? (
                                             <button disabled style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '14px', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                                 <Icons.CheckCircle /> Application Submitted

@@ -9,6 +9,7 @@ import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { getStudentActivationPolicy } from '../lib/studentActivationPolicy';
 import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { rememberPendingProfileCompletion } from '../lib/studentProfileCompletionPrompt';
+import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
 
 export default function StudentLogin() {
     const navigate = useNavigate();
@@ -32,6 +33,9 @@ export default function StudentLogin() {
         updatedAt: null as string | null,
         updatedBy: null as string | null
     });
+    const [isMobileViewport, setIsMobileViewport] = useState(() => (
+        typeof window !== 'undefined' ? window.innerWidth < 768 : false
+    ));
     // Wizard State
     const [activationStep, setActivationStep] = useState<number>(1);
 
@@ -51,7 +55,6 @@ export default function StudentLogin() {
 
     const TOTAL_STEPS = 3;
     const STEP_LABELS = ['Verify', 'Personal', 'Finish'];
-    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     useEffect(() => {
         if (!showActivateModal) return;
@@ -82,6 +85,21 @@ export default function StudentLogin() {
             isActive = false;
         };
     }, [showActivateModal, courses.length]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const updateViewportState = () => {
+            setIsMobileViewport(window.innerWidth < 768);
+        };
+
+        updateViewportState();
+        window.addEventListener('resize', updateViewportState);
+
+        return () => {
+            window.removeEventListener('resize', updateViewportState);
+        };
+    }, []);
 
     const showToast = (msg: string, type: string = 'success') => {
         setToast({ msg, type });
@@ -114,22 +132,50 @@ export default function StudentLogin() {
     };
 
     const attemptAutoLoginAfterActivation = async (studentId: string, password: string) => {
-        let lastError = 'Automatic sign-in failed.';
-
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-            const result = await loginStudent(studentId, password);
-            if (result?.success) {
-                return { success: true };
-            }
-
-            lastError = result?.error || lastError;
-
-            if (attempt < 2) {
-                await wait(700);
-            }
+        const result = await loginStudent(studentId, password);
+        if (result?.success) {
+            return { success: true };
         }
 
-        return { success: false, error: lastError };
+        return {
+            success: false,
+            error: result?.error || 'Automatic sign-in failed.'
+        };
+    };
+
+    const handleGeneratedCredentialsLogin = async () => {
+        if (!generatedCredentials?.username || !generatedCredentials?.password) {
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const autoLoginResult = await attemptAutoLoginAfterActivation(
+                generatedCredentials.username,
+                generatedCredentials.password
+            );
+
+            if (autoLoginResult.success) {
+                setGeneratedCredentials(null);
+                setShowActivateModal(false);
+                showToast('Login Successful', 'success');
+                setTimeout(() => navigate('/student'), 700);
+                return;
+            }
+
+            setShowActivateModal(false);
+            setLoginId(generatedCredentials.username);
+            setLoginPassword(generatedCredentials.password);
+            showToast(
+                autoLoginResult.error
+                    ? `Automatic sign-in failed. ${autoLoginResult.error}`
+                    : 'Automatic sign-in failed. Use the account details you saved to sign in below.',
+                'error'
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Handle Login
@@ -217,26 +263,11 @@ export default function StudentLogin() {
                     password: password,
                     loginUrl: `${window.location.origin}/student/login`
                 }, 'Failed to send activation email.');
-            const autoLoginResult = await attemptAutoLoginAfterActivation(username, password);
-
-            if (autoLoginResult.success) {
-                setGeneratedCredentials(null);
-                setShowActivateModal(false);
-                showToast('Account activated. Signing you in...', 'success');
-                setTimeout(() => navigate('/student'), 700);
-                return;
-            }
-
-            setGeneratedCredentials({ username, password });
-            showToast(
-                autoLoginResult.error
-                    ? `Account activated, but automatic sign-in failed. ${autoLoginResult.error}`
-                    : 'Account activated, but automatic sign-in failed. Use the credentials below to continue.',
-                'error'
-            );
+            setGeneratedCredentials({ username, password, viewed: false });
+            showToast('Account activated. Review and save your account details before signing in.', 'success');
 
         } catch (error: any) {
-            showToast(error.message, 'error');
+            showToast(getSafeStudentActivationErrorMessage(error), 'error');
         } finally {
             setLoading(false);
         }
@@ -253,27 +284,45 @@ export default function StudentLogin() {
         <div className="flex min-h-screen w-full bg-[#0a0f1c] relative overflow-hidden font-inter selection:bg-indigo-500/30">
             {/* Animated SVG Background (Academic / Network / Connected Node theme) */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-                <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 150, repeat: Infinity, ease: "linear" }}
-                    className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] opacity-20"
-                    style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%236366f1' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`
-                    }}
-                />
+                {isMobileViewport ? (
+                    <div
+                        className="absolute inset-0 opacity-[0.15]"
+                        style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%236366f1' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`
+                        }}
+                    />
+                ) : (
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 150, repeat: Infinity, ease: "linear" }}
+                        className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] opacity-20"
+                        style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%236366f1' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E")`
+                        }}
+                    />
+                )}
             </div>
 
             {/* Glowing Orbs */}
-            <motion.div
-                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-1/4 left-1/4 w-[40rem] h-[40rem] bg-indigo-600/30 rounded-full blur-[120px] pointer-events-none"
-            />
-            <motion.div
-                animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0.4, 0.2] }}
-                transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                className="absolute bottom-1/4 right-1/4 w-[30rem] h-[30rem] bg-sky-500/20 rounded-full blur-[100px] pointer-events-none"
-            />
+            {isMobileViewport ? (
+                <>
+                    <div className="absolute top-1/4 left-1/4 h-64 w-64 rounded-full bg-indigo-600/15 blur-3xl pointer-events-none" />
+                    <div className="absolute bottom-1/4 right-1/4 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
+                </>
+            ) : (
+                <>
+                    <motion.div
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+                        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute top-1/4 left-1/4 w-[40rem] h-[40rem] bg-indigo-600/30 rounded-full blur-[120px] pointer-events-none"
+                    />
+                    <motion.div
+                        animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0.4, 0.2] }}
+                        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+                        className="absolute bottom-1/4 right-1/4 w-[30rem] h-[30rem] bg-sky-500/20 rounded-full blur-[100px] pointer-events-none"
+                    />
+                </>
+            )}
 
             <div className="flex w-full z-10 container mx-auto px-4 max-w-7xl">
                 {/* Left: Branding & Message */}
@@ -464,32 +513,66 @@ export default function StudentLogin() {
                                             <CheckCircle className="w-12 h-12 text-emerald-600" />
                                         </div>
                                         <h3 className="text-3xl font-black text-slate-800 mb-2">Activation Successful!</h3>
-                                        <p className="text-slate-500 mb-8 max-w-sm mx-auto font-medium">Your account is activated, but automatic sign-in could not be completed. Save these credentials, then sign in to complete the remaining profile details.</p>
+                                        <p className="text-slate-500 mb-6 max-w-sm mx-auto font-medium">Your student portal account is ready. Review the account details first, save a backup screenshot, and keep the password private before signing in.</p>
 
-                                        <div className="max-w-sm mx-auto bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 mb-8 shadow-inner">
-                                            <div className="space-y-4">
-                                                <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm text-left relative overflow-hidden">
-                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
-                                                    <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-1">Student ID</p>
-                                                    <p className="font-mono font-bold text-xl text-slate-800 tracking-wider pl-1">{generatedCredentials.username}</p>
-                                                </div>
-                                                <div className="bg-white p-4 rounded-xl border border-sky-100 shadow-sm text-left relative overflow-hidden">
-                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
-                                                    <p className="text-xs text-sky-500 font-bold uppercase tracking-wider mb-1">Temporary Password</p>
-                                                    <p className="font-mono font-bold text-xl text-slate-800 tracking-wider pl-1">{generatedCredentials.password}</p>
+                                        <div className="max-w-sm mx-auto rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 mb-6 text-left shadow-sm">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1">Reminder</p>
+                                            <p className="text-sm text-amber-900 leading-relaxed">Take a screenshot or save these account details in a secure place. Do not share your password with anyone.</p>
+                                        </div>
+
+                                        {generatedCredentials.viewed ? (
+                                            <div className="max-w-sm mx-auto bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 mb-6 shadow-inner">
+                                                <div className="space-y-4">
+                                                    <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm text-left relative overflow-hidden">
+                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
+                                                        <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-1">Student ID</p>
+                                                        <p className="font-mono font-bold text-xl text-slate-800 tracking-wider pl-1">{generatedCredentials.username}</p>
+                                                    </div>
+                                                    <div className="bg-white p-4 rounded-xl border border-sky-100 shadow-sm text-left relative overflow-hidden">
+                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                                                        <p className="text-xs text-sky-500 font-bold uppercase tracking-wider mb-1">Temporary Password</p>
+                                                        <p className="font-mono font-bold text-xl text-slate-800 tracking-wider pl-1">{generatedCredentials.password}</p>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        ) : (
+                                            <div className="max-w-sm mx-auto rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6 mb-6 text-center">
+                                                <p className="text-sm text-slate-600 leading-relaxed">Tap <span className="font-bold text-slate-800">View Account</span> to reveal your student ID and temporary password.</p>
+                                            </div>
+                                        )}
+
+                                        <div className="max-w-sm mx-auto flex flex-col gap-3">
+                                            {!generatedCredentials.viewed ? (
+                                                <button
+                                                    onClick={() => setGeneratedCredentials((prev: any) => prev ? { ...prev, viewed: true } : prev)}
+                                                    className="bg-indigo-600 text-white px-10 py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 hover:-translate-y-1 w-full"
+                                                >
+                                                    View Account
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        disabled={loading || authLoading}
+                                                        onClick={handleGeneratedCredentialsLogin}
+                                                        className="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:-translate-y-1 w-full disabled:opacity-70"
+                                                    >
+                                                        {loading || authLoading ? 'Logging In...' : 'Log In to Student Portal'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setShowActivateModal(false);
+                                                            setLoginId(generatedCredentials.username);
+                                                            setLoginPassword(generatedCredentials.password);
+                                                        }}
+                                                        className="bg-white text-slate-700 px-10 py-3 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-all w-full"
+                                                    >
+                                                        Return to Login Form
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
-                                        <button
-                                            onClick={() => {
-                                                setShowActivateModal(false);
-                                                setLoginId(generatedCredentials.username);
-                                                setLoginPassword(generatedCredentials.password);
-                                            }}
-                                            className="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:-translate-y-1 w-full max-w-sm"
-                                        >
-                                            Return to Login
-                                        </button>
                                     </motion.div>
                                 ) : (
                                     <form id="activationForm" onSubmit={(e) => e.preventDefault()} className="relative min-h-[300px]">
