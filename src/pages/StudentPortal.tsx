@@ -206,7 +206,7 @@ const buildProfileCompletionFormSnapshot = ({
     middleName: resolveProfileFormValue(base.middleName, studentData.middle_name, pendingActivationProfile.middleName, sessionPrefillProfile.middleName) || '',
     suffix: resolveProfileFormValue(base.suffix, studentData.suffix, pendingActivationProfile.suffix, sessionPrefillProfile.suffix) || '',
     dob: resolveProfileFormValue(base.dob, studentData.dob, pendingActivationProfile.dob, sessionPrefillProfile.dob) || '',
-    age: resolveProfileFormValue(base.age, studentData.age, pendingActivationProfile.age, sessionPrefillProfile.age) || '',
+    age: resolveProfileFormValue(base.age, studentData.age, pendingActivationProfile.age, sessionPrefillProfile.age) ?? '',
     placeOfBirth: resolveProfileFormValue(base.placeOfBirth, studentData.place_of_birth) || '',
     nationality: resolveProfileFormValue(base.nationality, studentData.nationality) || '',
     sex: resolveProfileFormValue(base.sex, getStudentSex(studentData), pendingActivationProfile.sex, sessionPrefillProfile.sex) || '',
@@ -247,12 +247,12 @@ const buildProfileCompletionFormSnapshot = ({
     isSoloParent: resolveProfileFormValue(base.isSoloParent, toYesNoChoice(studentData.is_solo_parent)) || '',
     isChildOfSoloParent: resolveProfileFormValue(base.isChildOfSoloParent, toYesNoChoice(studentData.is_child_of_solo_parent)) || '',
     parentAddress: resolveProfileFormValue(base.parentAddress, studentData.parent_address) || '',
-    numBrothers: resolveProfileFormValue(base.numBrothers, studentData.num_brothers) || '',
-    numSisters: resolveProfileFormValue(base.numSisters, studentData.num_sisters) || '',
+    numBrothers: resolveProfileFormValue(base.numBrothers, studentData.num_brothers) ?? '',
+    numSisters: resolveProfileFormValue(base.numSisters, studentData.num_sisters) ?? '',
     birthOrder: resolveProfileFormValue(base.birthOrder, studentData.birth_order) || '',
     spouseName: resolveProfileFormValue(base.spouseName, studentData.spouse_name) || '',
     spouseOccupation: resolveProfileFormValue(base.spouseOccupation, studentData.spouse_occupation) || '',
-    numChildren: resolveProfileFormValue(base.numChildren, studentData.num_children) || '',
+    numChildren: resolveProfileFormValue(base.numChildren, studentData.num_children) ?? '',
     guardianName: resolveProfileFormValue(base.guardianName, studentData.guardian_name) || '',
     guardianAddress: resolveProfileFormValue(base.guardianAddress, studentData.guardian_address) || '',
     guardianContact: resolveProfileFormValue(base.guardianContact, studentData.guardian_contact) || '',
@@ -563,11 +563,13 @@ export default function StudentPortal() {
         && shouldForceProfileCompletionPrompt(session?.student_id);
     const effectiveProfileCompleted = profileCompletionStatusOverride !== null
         ? profileCompletionStatusOverride
-        : (session?.profile_completed === true ? true : session?.profile_completed === false ? false : null);
+        : (session?.profile_completed === true || profileFieldsComplete === true
+            ? true
+            : (session?.profile_completed === false || profileFieldsComplete === false ? false : null));
     const profileCompletionReminderRequired = Boolean(
         session?.userType === 'student' && (
             forceProfileCompletionPrompt
-            || (profileFieldsComplete !== null ? !profileFieldsComplete : effectiveProfileCompleted === false)
+            || effectiveProfileCompleted === false
             || hasPendingForcedProfileCompletion
         )
     );
