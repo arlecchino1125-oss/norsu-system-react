@@ -1,15 +1,15 @@
 import { Suspense, lazy, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import PublicLanding from './pages/PublicLandingV2';
-import AdminLogin from './pages/AdminLogin';
-import DeptLogin from './pages/DeptLogin';
-import CareStaffLogin from './pages/CareStaffLogin';
 
 import { AuthProvider } from './lib/auth';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 
+const PublicLanding = lazy(() => import('./pages/PublicLandingV2'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const DeptLogin = lazy(() => import('./pages/DeptLogin'));
+const CareStaffLogin = lazy(() => import('./pages/CareStaffLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const DeptDashboard = lazy(() => import('./pages/DeptDashboard'));
 const CareStaffDashboard = lazy(() => import('./pages/CareStaffDashboard'));
@@ -39,10 +39,18 @@ function App() {
       <Router>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<PublicLanding />} />
+            <Route path="/" element={
+              <LazyRoute>
+                <PublicLanding />
+              </LazyRoute>
+            } />
 
             {/* Admin Routes */}
-            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/admin" element={
+              <LazyRoute>
+                <AdminLogin />
+              </LazyRoute>
+            } />
             <Route path="/admin/dashboard" element={
               <ProtectedRoute allowedRoles={['Admin']}>
                 <LazyRoute>
@@ -52,7 +60,11 @@ function App() {
             } />
 
             {/* Department Routes */}
-            <Route path="/department/login" element={<DeptLogin />} />
+            <Route path="/department/login" element={
+              <LazyRoute>
+                <DeptLogin />
+              </LazyRoute>
+            } />
             <Route path="/department/dashboard" element={
               <ProtectedRoute allowedRoles={['Department Head']}>
                 <LazyRoute>
@@ -62,7 +74,11 @@ function App() {
             } />
 
             {/* Care Staff Routes */}
-            <Route path="/care-staff" element={<CareStaffLogin />} />
+            <Route path="/care-staff" element={
+              <LazyRoute>
+                <CareStaffLogin />
+              </LazyRoute>
+            } />
             <Route path="/care-staff/dashboard" element={
               <ProtectedRoute allowedRoles={['Care Staff']}>
                 <LazyRoute>

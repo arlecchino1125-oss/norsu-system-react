@@ -1,7 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { supabase } from '../../lib/supabase';
 import { createPortal } from 'react-dom';
-import { renderProfileView } from './views/ProfileView';
 import { FeedbackView } from './views/FeedbackView';
 import { ServiceIntroModal } from './views/ServiceIntroModal';
 import {
@@ -21,6 +20,9 @@ export { ServiceIntroModal } from './views/ServiceIntroModal';
 const AssessmentFormModal = lazy(() => import('./forms/AssessmentFormModal'));
 const CounselingFormModal = lazy(() => import('./forms/CounselingFormModal'));
 const SupportFormModal = lazy(() => import('./forms/SupportFormModal'));
+const ProfileView = lazy(() =>
+    import('./views/ProfileView').then((module) => ({ default: module.ProfileView }))
+);
 
 // Helper: renders assessment, counseling, support, scholarship, feedback, profile views
 export function renderRemainingViews(p: any) {
@@ -921,7 +923,11 @@ export function renderRemainingViews(p: any) {
             {activeView === 'feedback' && <FeedbackView Icons={Icons} personalInfo={personalInfo} feedbackPrefill={feedbackPrefill} setFeedbackPrefill={setFeedbackPrefill} />}
 
             {/* PROFILE VIEW - PLACEHOLDER Part 2 */}
-            {activeView === 'profile' && renderProfileView(p)}
+            {activeView === 'profile' && (
+                <Suspense fallback={null}>
+                    <ProfileView {...p} />
+                </Suspense>
+            )}
         </>
     );
 }

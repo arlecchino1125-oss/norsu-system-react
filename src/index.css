@@ -100,6 +100,90 @@
         border-radius: 1.5rem !important;
         overflow: hidden;
     }
+
+    body.student-portal-compact-mobile .student-mobile-modal-overlay {
+        padding: 0.5rem !important;
+        background: rgba(15, 23, 42, 0.58);
+    }
+
+    body.student-portal-compact-mobile .student-mobile-modal-panel,
+    body.student-portal-compact-mobile .student-mobile-modal-drawer-panel,
+    body.student-portal-compact-mobile .student-detail-modal-panel,
+    body.student-portal-compact-mobile .student-rating-modal-panel {
+        max-height: calc(100dvh - 1rem) !important;
+        border-radius: 1.25rem !important;
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16) !important;
+        border: 1px solid rgba(226, 232, 240, 0.92);
+    }
+
+    body.student-portal-compact-mobile .student-mobile-modal-panel,
+    body.student-portal-compact-mobile .student-mobile-modal-drawer-panel {
+        background: #ffffff !important;
+    }
+
+    body.student-portal-compact-mobile .student-mobile-modal-drawer-panel {
+        max-width: min(100%, 24rem) !important;
+    }
+
+    body.student-portal-compact-mobile .student-action-banner,
+    body.student-portal-compact-mobile .student-surface-card,
+    body.student-portal-compact-mobile .student-preview-card,
+    body.student-portal-compact-mobile .student-filter-shell,
+    body.student-portal-compact-mobile .student-history-card,
+    body.student-portal-compact-mobile .student-modal-section-card,
+    body.student-portal-compact-mobile .bg-white\/90.backdrop-blur-sm.rounded-2xl.border.border-blue-100\/50,
+    body.student-portal-compact-mobile .bg-white\/80.backdrop-blur-sm.rounded-2xl.border.border-orange-100\/50,
+    body.student-portal-compact-mobile .bg-white\/80.backdrop-blur-sm.rounded-2xl.border-l-4,
+    body.student-portal-compact-mobile .border.border-purple-100\/50.rounded-2xl.bg-gradient-to-br.from-white.to-purple-50\/50 {
+        background: #ffffff !important;
+        border-color: rgba(226, 232, 240, 0.9) !important;
+        border-radius: 1rem !important;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
+    }
+
+    body.student-portal-compact-mobile .student-action-banner {
+        padding: 0.875rem !important;
+        background: linear-gradient(180deg, #fff7ed, #ffffff) !important;
+    }
+
+    body.student-portal-compact-mobile .student-surface-card,
+    body.student-portal-compact-mobile .student-preview-card,
+    body.student-portal-compact-mobile .student-modal-section-card,
+    body.student-portal-compact-mobile .bg-white\/90.backdrop-blur-sm.rounded-2xl.border.border-blue-100\/50,
+    body.student-portal-compact-mobile .bg-white\/80.backdrop-blur-sm.rounded-2xl.border.border-orange-100\/50,
+    body.student-portal-compact-mobile .bg-white\/80.backdrop-blur-sm.rounded-2xl.border-l-4,
+    body.student-portal-compact-mobile .border.border-purple-100\/50.rounded-2xl.bg-gradient-to-br.from-white.to-purple-50\/50 {
+        padding: 0.875rem !important;
+    }
+
+    body.student-portal-compact-mobile .student-filter-shell {
+        padding: 0.25rem !important;
+    }
+
+    body.student-portal-compact-mobile .bg-white\/80.backdrop-blur-sm.rounded-2xl.border-l-4 {
+        border-left-width: 3px !important;
+    }
+
+    body.student-portal-compact-mobile .student-history-card {
+        gap: 0.75rem !important;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05) !important;
+    }
+
+    body.student-portal-compact-mobile .student-highlight-card,
+    body.student-portal-compact-mobile .bg-gradient-to-br.from-slate-900.via-purple-900.to-indigo-900.rounded-2xl {
+        background: linear-gradient(180deg, #0f172a, #1e293b) !important;
+        border-radius: 1rem !important;
+        box-shadow: 0 16px 28px rgba(15, 23, 42, 0.18) !important;
+        padding: 0.875rem !important;
+    }
+
+    body.student-portal-compact-mobile .student-highlight-decoration {
+        display: none !important;
+    }
+
+    body.student-portal-compact-mobile .bg-gradient-to-br.from-slate-900.via-purple-900.to-indigo-900.rounded-2xl > .absolute.blur-2xl {
+        display: none !important;
+    }
 }
 
 /* ─── CUSTOM SCROLLBAR ─── */
@@ -782,6 +866,58 @@ textarea {
 /* ─── Modal smooth entrance for inner content ─── */
 .modal-content {
     animation: scaleIn 0.35s var(--ease-smooth) both;
+}
+
+/* Keep student portal compact mode lighter on low-tier phones */
+body.student-portal-compact-mobile .page-transition,
+body.student-portal-compact-mobile .btn-press,
+body.student-portal-compact-mobile .btn-press:hover,
+body.student-portal-compact-mobile .btn-press:active,
+body.student-portal-compact-mobile .card-hover,
+body.student-portal-compact-mobile .card-hover:hover,
+body.student-portal-compact-mobile .card-hover:active,
+body.student-portal-compact-mobile .animate-fade-in,
+body.student-portal-compact-mobile .animate-fade-in-up,
+body.student-portal-compact-mobile .animate-slide-in-right,
+body.student-portal-compact-mobile .animate-slide-in-left,
+body.student-portal-compact-mobile .animate-slide-in-up,
+body.student-portal-compact-mobile .animate-scale-in,
+body.student-portal-compact-mobile .animate-backdrop,
+body.student-portal-compact-mobile .animate-shimmer,
+body.student-portal-compact-mobile .animate-float,
+body.student-portal-compact-mobile .animate-pulse,
+body.student-portal-compact-mobile .animate-pulse-glow,
+body.student-portal-compact-mobile .animate-gradient,
+body.student-portal-compact-mobile .animate-shrink,
+body.student-portal-compact-mobile .animate-blob,
+body.student-portal-compact-mobile .animate-breathe,
+body.student-portal-compact-mobile .animate-blink,
+body.student-portal-compact-mobile .animate-slide-down {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+}
+
+body.student-portal-compact-mobile .glass,
+body.student-portal-compact-mobile .glass-dark,
+body.student-portal-compact-mobile .backdrop-blur-sm,
+body.student-portal-compact-mobile .backdrop-blur-md,
+body.student-portal-compact-mobile .backdrop-blur-lg,
+body.student-portal-compact-mobile .backdrop-blur-xl,
+body.student-portal-compact-mobile .backdrop-blur-2xl,
+body.student-portal-compact-mobile .backdrop-blur-3xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.student-portal-compact-mobile .blur,
+body.student-portal-compact-mobile .blur-sm,
+body.student-portal-compact-mobile .blur-md,
+body.student-portal-compact-mobile .blur-lg,
+body.student-portal-compact-mobile .blur-xl,
+body.student-portal-compact-mobile .blur-2xl,
+body.student-portal-compact-mobile .blur-3xl {
+    filter: none !important;
 }
 
 /* NAT portal sizing overrides */

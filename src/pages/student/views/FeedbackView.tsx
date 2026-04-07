@@ -127,7 +127,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
     if (submitted) {
         return (
             <div className="page-transition max-w-3xl mx-auto">
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-green-100/50 p-6 text-center shadow-sm animate-fade-in-up sm:p-12">
+                <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-green-100/50 p-6 text-center shadow-sm animate-fade-in-up sm:p-12">
                     <div className="w-20 h-20 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">✓</div>
                     <h3 className="font-extrabold text-xl mb-2 text-gray-900">Thank You!</h3>
                     <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
@@ -140,7 +140,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
     return (
         <div className="page-transition max-w-4xl mx-auto space-y-5 sm:space-y-6">
             {/* CSM Header */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 shadow-sm animate-fade-in-up overflow-hidden">
+            <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 shadow-sm animate-fade-in-up overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white px-5 py-4 sm:px-8 sm:py-5">
                     <h2 className="text-lg font-extrabold">Client Satisfaction Measurement (CSM)</h2>
                     <p className="text-xs text-blue-200 mt-1">This CSM tracks the customer experience of government offices.</p>
@@ -158,7 +158,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             </div>
 
             {/* Client Info Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '80ms' }}>
+            <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '80ms' }}>
                 <h3 className="font-bold text-sm text-gray-900 mb-5 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">1</span> Client Information</h3>
                 <div className="space-y-5">
                     <div>
@@ -201,7 +201,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             </div>
 
             {/* CC Questions Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '160ms' }}>
+            <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '160ms' }}>
                 <h3 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">2</span> Citizen's Charter (CC) Questions</h3>
                 <p className="text-[10px] text-gray-400 mb-6 ml-8">The Citizen's Charter (CC) is an official document that reflects the services of a government agency/office including its requirements, fees, and processing times among others.</p>
 
@@ -262,7 +262,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             </div>
 
             {/* SQD Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 shadow-sm animate-fade-in-up overflow-hidden" style={{ animationDelay: '240ms' }}>
+            <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 shadow-sm animate-fade-in-up overflow-hidden" style={{ animationDelay: '240ms' }}>
                 <div className="p-5 pb-4 sm:p-8 sm:pb-4">
                     <h3 className="font-bold text-sm text-gray-900 mb-2 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">3</span> Service Quality Dimensions (SQD)</h3>
                     <p className="text-[10px] text-gray-400 ml-8">For SQD 0-8, please put a check mark (✓) on the column that best corresponds to your answer.</p>
@@ -299,7 +299,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             </div>
 
             {/* Open-ended Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '320ms' }}>
+            <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm animate-fade-in-up sm:p-8" style={{ animationDelay: '320ms' }}>
                 <h3 className="font-bold text-sm text-gray-900 mb-5 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">4</span> Additional Comments</h3>
                 <div className="space-y-4">
                     <div>
@@ -338,7 +338,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                             const sqdScores = [fb.sqd0, fb.sqd1, fb.sqd2, fb.sqd3, fb.sqd4, fb.sqd5, fb.sqd6, fb.sqd7, fb.sqd8].filter(v => v > 0);
                             const avg = sqdScores.length > 0 ? (sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length).toFixed(1) : '—';
                             return (
-                                <div key={fb.id} onClick={() => setViewingFeedback(fb)} className="bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-4 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:p-5" style={{ animationDelay: `${idx * 60}ms` }}>
+                                <div key={fb.id} onClick={() => setViewingFeedback(fb)} className="student-history-card bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-4 shadow-sm cursor-pointer hover:shadow-md hover:border-blue-200 transition-all flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:p-5" style={{ animationDelay: `${idx * 60}ms` }}>
                                     <div>
                                         <p className="text-xs font-bold text-gray-900">{fb.service_availed || 'General Feedback'}</p>
                                         <p className="text-[10px] text-gray-400 mt-0.5">{new Date(fb.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
@@ -360,7 +360,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             {/* View Detail Modal */}
             {viewingFeedback && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
+                    <div className="student-detail-modal-panel bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                         <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white sm:px-8 sm:py-5">
                             <div className="flex justify-between items-start">
                                 <div>

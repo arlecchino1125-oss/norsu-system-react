@@ -50,8 +50,8 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
     );
 };
 
-const Section = ({ icon, gradient, title, children, cardClass }: any) => (
-    <div className={cardClass}>
+const Section = ({ icon, gradient, title, children, cardClass, cardStyle }: any) => (
+    <div className={cardClass} style={cardStyle}>
         <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className={`p-1.5 bg-gradient-to-br ${gradient} text-white rounded-lg text-xs`}>{icon}</span> {title}</h4>
         <div className="grid grid-cols-1 gap-x-3 gap-y-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3 md:grid-cols-4">{children}</div>
     </div>
@@ -75,15 +75,26 @@ function ProfileViewContent(p: any) {
         attendanceMap,
         formatFullDate,
         uploadProfilePicture,
-        showToast
+        showToast,
+        showMoreProfile,
+        setShowMoreProfile
     } = p;
     const [draftPersonalInfo, setDraftPersonalInfo] = React.useState(personalInfo);
-    const profileCardClass = isEditing
+    const [isCompactMobileLayout, setIsCompactMobileLayout] = React.useState(() => (
+        typeof window !== 'undefined' ? window.innerWidth < 640 : false
+    ));
+    const profileCardClass = isEditing || isCompactMobileLayout
         ? 'bg-white rounded-xl border border-blue-100/50 p-4 shadow-sm sm:p-6'
         : 'bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-4 shadow-sm card-hover sm:p-6';
-    const profileSummaryCardClass = isEditing
+    const profileSummaryCardClass = isEditing || isCompactMobileLayout
         ? 'bg-white rounded-2xl border border-blue-100/50 p-4 shadow-sm sm:p-6'
         : 'bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover sm:p-6';
+    const surfacePanelClass = isCompactMobileLayout
+        ? 'bg-white rounded-xl border border-blue-100/50 flex shadow-sm p-1'
+        : 'bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 flex shadow-sm p-1';
+    const largePanelClass = isCompactMobileLayout
+        ? 'bg-white rounded-2xl border border-blue-100/50 p-5 shadow-sm sm:p-8'
+        : 'bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm card-hover sm:p-8';
     const activePersonalInfo = isEditing ? draftPersonalInfo : personalInfo;
     const profileTabs = [
         { id: 'personal', label: 'Personal Info', mobileLabel: 'Personal', icon: <Icons.Profile /> },
@@ -100,6 +111,27 @@ function ProfileViewContent(p: any) {
         }
     }, [isEditing, personalInfo]);
 
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const syncCompactLayout = () => {
+            setIsCompactMobileLayout(window.innerWidth < 640);
+        };
+
+        syncCompactLayout();
+        window.addEventListener('resize', syncCompactLayout);
+
+        return () => {
+            window.removeEventListener('resize', syncCompactLayout);
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (isEditing && !showMoreProfile) {
+            setShowMoreProfile(true);
+        }
+    }, [isEditing, setShowMoreProfile, showMoreProfile]);
+
     // Programmatic file picker — avoids useRef (hook) inside a plain render function
     const openFilePicker = () => {
         const input = document.createElement('input');
@@ -112,11 +144,24 @@ function ProfileViewContent(p: any) {
         input.click();
     };
 
+    const shouldRenderFullPersonalTab = !isCompactMobileLayout || showMoreProfile || isEditing;
+    const deferredCardStyle: React.CSSProperties | undefined = isCompactMobileLayout
+        ? {
+            contentVisibility: 'auto',
+            containIntrinsicSize: '1px 420px',
+            contain: 'layout paint style'
+        }
+        : undefined;
+    const getCardStyle = (delay?: string): React.CSSProperties | undefined => {
+        if (isCompactMobileLayout) return deferredCardStyle;
+        return delay ? { animationDelay: delay } : undefined;
+    };
+
     return (
-        <div className={`flex flex-col gap-4 sm:gap-6 lg:flex-row lg:gap-8 ${isEditing ? 'student-profile-edit' : 'page-transition'}`} style={isEditing ? { colorScheme: 'light' } : undefined}>
-            <div className={`w-full lg:w-80 lg:shrink-0 space-y-4 sm:space-y-6 ${isEditing ? '' : 'animate-fade-in-up'}`}>
+        <div className={`flex flex-col gap-4 sm:gap-6 lg:flex-row lg:gap-8 ${isEditing ? 'student-profile-edit' : (isCompactMobileLayout ? '' : 'page-transition')}`} style={isEditing ? { colorScheme: 'light' } : undefined}>
+            <div className={`w-full lg:w-80 lg:shrink-0 space-y-4 sm:space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`}>
                 <div className="bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/20 text-white text-center relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl animate-float"></div>
+                    <div className={`absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl ${isCompactMobileLayout ? '' : 'animate-float'}`}></div>
                     <div className="h-20 bg-white/5 relative sm:h-24"></div>
                     <div className="px-5 pb-6 -mt-10 relative z-10 sm:px-8 sm:pb-8 sm:-mt-12">
                         {/* Avatar with photo support + upload button */}
@@ -144,14 +189,14 @@ function ProfileViewContent(p: any) {
                         <h3 className="text-lg font-extrabold leading-tight sm:text-xl">{personalInfo.firstName} {personalInfo.lastName} {personalInfo.suffix}</h3>
                         <p className="text-[11px] font-medium text-blue-200/70 sm:text-xs">{personalInfo.studentId}</p>
                         <div className="flex flex-wrap justify-center gap-2 mt-4">
-                            <span className="rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold backdrop-blur-sm sm:py-1 sm:text-[10px]">{personalInfo.year}</span>
-                            {personalInfo.section && <span className="rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold backdrop-blur-sm sm:py-1 sm:text-[10px]">Sec {personalInfo.section}</span>}
+                            <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>{personalInfo.year}</span>
+                            {personalInfo.section && <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>Sec {personalInfo.section}</span>}
                             <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-300 sm:py-1 sm:text-[10px]">{personalInfo.status}</span>
                         </div>
-                        <button onClick={() => { setProfileTab('personal'); setIsEditing(true); }} className="mt-5 w-full rounded-xl border border-white/20 bg-white/15 py-3 text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/25 btn-press sm:mt-6 sm:py-2.5 sm:text-xs lg:mt-8">Edit Profile</button>
+                        <button onClick={() => { setProfileTab('personal'); setShowMoreProfile(true); setIsEditing(true); }} className={`mt-5 w-full rounded-xl border border-white/20 bg-white/15 py-3 text-sm font-bold text-white transition-all hover:bg-white/25 btn-press sm:mt-6 sm:py-2.5 sm:text-xs lg:mt-8 ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'}`}>Edit Profile</button>
                     </div>
                 </div>
-                <div className={profileSummaryCardClass} style={{ animationDelay: '100ms' }}>
+                <div className={profileSummaryCardClass} style={getCardStyle('100ms')}>
                     <h4 className="text-[10px] font-bold text-purple-400/60 uppercase tracking-widest mb-4">Academic Summary</h4>
                     <p className="text-[10px] text-gray-400">Department</p>
                     <p className="text-sm font-bold mb-4">{personalInfo.department}</p>
@@ -162,7 +207,7 @@ function ProfileViewContent(p: any) {
                     <p className="text-[10px] text-gray-400">Section</p>
                     <p className="text-sm font-bold">{personalInfo.section || '-'}</p>
                 </div>
-                <div className={profileSummaryCardClass} style={{ animationDelay: '150ms' }}>
+                <div className={profileSummaryCardClass} style={getCardStyle('150ms')}>
                     <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-slate-500 to-slate-700 text-white rounded-lg text-xs"><Icons.Scholarship /></span> Academic Details</h4>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
                         <Field {...fp} label="Year Level" field="year" type="select" options={[{ value: '1st Year', label: '1st Year' }, { value: '2nd Year', label: '2nd Year' }, { value: '3rd Year', label: '3rd Year' }, { value: '4th Year', label: '4th Year' }, { value: '5th Year', label: '5th Year' }]} readOnly />
@@ -174,7 +219,7 @@ function ProfileViewContent(p: any) {
                 </div>
             </div>
             <div className="flex-1 space-y-6">
-                <div className={`bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 flex shadow-sm p-1 ${isEditing ? '' : 'animate-fade-in-up'}`} style={{ animationDelay: '100ms' }}>
+                <div className={`${surfacePanelClass} ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('100ms')}>
                     {profileTabs.map((tab: any) => (
                         <button key={tab.id} onClick={() => { setProfileTab(tab.id); setIsEditing(false); }} className={`flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2.5 text-[10px] font-bold leading-tight transition-all sm:min-h-0 sm:flex-row sm:gap-2 sm:text-xs ${profileTab === tab.id ? 'bg-gradient-to-r from-blue-500 to-sky-400 text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:text-gray-900 hover:bg-purple-50'}`}>
                             {tab.icon}
@@ -184,8 +229,8 @@ function ProfileViewContent(p: any) {
                     ))}
                 </div>
                 {profileTab === 'personal' && (
-                    <div className={`space-y-6 ${isEditing ? '' : 'animate-fade-in-up'}`} style={{ animationDelay: '200ms' }}>
-                        <Section cardClass={profileCardClass} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
+                    <div className={`space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
+                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
                             <Field {...fp} label="Last Name" field="lastName" />
                             <Field {...fp} label="First Name" field="firstName" />
                             <Field {...fp} label="Middle Name" field="middleName" />
@@ -200,7 +245,7 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
                         </Section>
 
-                        <Section cardClass={profileCardClass} icon={<Icons.Events />} gradient="from-emerald-400 to-teal-500" title="Contact & Address">
+                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Events />} gradient="from-emerald-400 to-teal-500" title="Contact & Address">
                             <Field {...fp} label="Email" field="email" colSpan={2} readOnly />
                             <Field {...fp} label="Mobile" field="mobile" />
                             <Field {...fp} label="Facebook" field="facebookUrl" />
@@ -210,8 +255,19 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Zip Code" field="zipCode" />
                             <Field {...fp} label="Current Residence" field="address" />
                         </Section>
+                        {!shouldRenderFullPersonalTab && (
+                            <div className="rounded-2xl border border-blue-100/60 bg-blue-50/60 p-5 shadow-sm">
+                                <p className="text-xs font-bold uppercase tracking-widest text-blue-500/80">More Sections Available</p>
+                                <p className="mt-2 text-sm text-slate-600 leading-relaxed">Show the remaining profile sections only when needed to keep this page lighter on slower mobile devices.</p>
+                                <button onClick={() => setShowMoreProfile(true)} className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all btn-press">
+                                    Show More Profile Sections
+                                </button>
+                            </div>
+                        )}
+                        {shouldRenderFullPersonalTab && (
+                            <>
 
-                        <Section cardClass={profileCardClass} icon="👨‍👩‍👧" gradient="from-amber-400 to-orange-500" title="Family Background">
+                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="👨‍👩‍👧" gradient="from-amber-400 to-orange-500" title="Family Background">
                             <Field {...fp} label="Mother's Last Name" field="motherLastName" />
                             <Field {...fp} label="Mother's Given Name" field="motherGivenName" />
                             <Field {...fp} label="Mother's Middle Name" field="motherMiddleName" />
@@ -231,21 +287,21 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="No. of Children" field="numChildren" />
                         </Section>
 
-                        <Section cardClass={profileCardClass} icon="🛡️" gradient="from-indigo-400 to-violet-500" title="Guardian">
+                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="🛡️" gradient="from-indigo-400 to-violet-500" title="Guardian">
                             <Field {...fp} label="Full Name" field="guardianName" colSpan={2} />
                             <Field {...fp} label="Address" field="guardianAddress" colSpan={2} />
                             <Field {...fp} label="Contact" field="guardianContact" />
                             <Field {...fp} label="Relation" field="guardianRelation" type="select" options={['Relative', 'Not relative', 'Landlord', 'Landlady']} />
                         </Section>
 
-                        <Section cardClass={profileCardClass} icon="🚨" gradient="from-rose-400 to-red-500" title="Emergency Contact">
+                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="🚨" gradient="from-rose-400 to-red-500" title="Emergency Contact">
                             <Field {...fp} label="Full Name" field="emergencyName" colSpan={2} />
                             <Field {...fp} label="Address" field="emergencyAddress" colSpan={2} />
                             <Field {...fp} label="Relationship" field="emergencyRelationship" />
                             <Field {...fp} label="Contact Number" field="emergencyNumber" />
                         </Section>
 
-                        <Section cardClass={profileCardClass} icon={<Icons.Assessment />} gradient="from-cyan-400 to-blue-500" title="Educational Background">
+                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Assessment />} gradient="from-cyan-400 to-blue-500" title="Educational Background">
                             <Field {...fp} label="Elementary" field="elemSchool" colSpan={2} />
                             <Field {...fp} label="Yr Graduated" field="elemYearGraduated" colSpan={2} />
                             <Field {...fp} label="Junior High" field="juniorHighSchool" colSpan={2} />
@@ -259,17 +315,17 @@ function ProfileViewContent(p: any) {
                         </Section>
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-                            <div className={profileCardClass}>
+                            <div className={profileCardClass} style={deferredCardStyle}>
                                 <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-pink-400 to-rose-500 text-white rounded-lg text-xs">🎭</span> Extra-Curricular</h4>
                                 <Field {...fp} label="Activities" field="extracurricularActivities" type="textarea" />
                             </div>
-                            <div className={profileCardClass}>
+                            <div className={profileCardClass} style={deferredCardStyle}>
                                 <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-yellow-400 to-amber-500 text-white rounded-lg text-xs">🎓</span> Scholarships</h4>
                                 <Field {...fp} label="Scholarships Availed" field="scholarshipsAvailed" type="textarea" />
                             </div>
                         </div>
 
-                        <Section cardClass={profileCardClass} icon={<Icons.Counseling />} gradient="from-violet-400 to-purple-500" title="Special Status & Background">
+                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Counseling />} gradient="from-violet-400 to-purple-500" title="Special Status & Background">
                             <Field {...fp} label="Working Student" field="isWorkingStudent" type="boolean" />
                             {activePersonalInfo.isWorkingStudent && <Field {...fp} label="Type of Work" field="workingStudentType" />}
                             <Field {...fp} label="Supporter" field="supporter" />
@@ -283,16 +339,23 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Solo Parent" field="isSoloParent" type="boolean" />
                             <Field {...fp} label="Child of Solo Parent" field="isChildOfSoloParent" type="boolean" />
                         </Section>
+                            </>
+                        )}
+                        {isCompactMobileLayout && showMoreProfile && !isEditing && (
+                            <button onClick={() => setShowMoreProfile(false)} className="w-full rounded-xl border border-blue-100/60 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50">
+                                Show Fewer Profile Sections
+                            </button>
+                        )}
                         {isEditing && (
                             <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-                                <button onClick={() => setIsEditing(false)} className="w-full rounded-xl border border-purple-100/50 bg-white/80 px-6 py-3 text-sm font-bold transition-all hover:bg-gray-50 sm:w-auto sm:py-2.5">Cancel</button>
+                                <button onClick={() => { setIsEditing(false); if (isCompactMobileLayout) setShowMoreProfile(false); }} className="w-full rounded-xl border border-purple-100/50 bg-white/80 px-6 py-3 text-sm font-bold transition-all hover:bg-gray-50 sm:w-auto sm:py-2.5">Cancel</button>
                                 <button disabled={Boolean(isSavingProfileChanges)} onClick={() => { setPersonalInfo(draftPersonalInfo); void saveProfileChanges(draftPersonalInfo); }} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl btn-press disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2.5">{isSavingProfileChanges ? 'Saving...' : 'Save Changes'}</button>
                             </div>
                         )}
                     </div>
                 )}
                 {profileTab === 'engagement' && (
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm card-hover animate-fade-in-up sm:p-8" style={{ animationDelay: '200ms' }}>
+                    <div className={`${largePanelClass} ${isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
                         <h3 className="font-bold text-lg mb-4 sm:mb-6">Engagement History</h3>
                         <p className="text-sm text-gray-400">Your recent event attendance and platform activity.</p>
                         <div className="mt-4 space-y-3">
@@ -307,7 +370,7 @@ function ProfileViewContent(p: any) {
                     </div>
                 )}
                 {profileTab === 'security' && (
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-5 shadow-sm card-hover animate-fade-in-up sm:p-8" style={{ animationDelay: '200ms' }}>
+                    <div className={`${largePanelClass} ${isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
                         <h3 className="font-bold text-lg mb-4 flex items-center gap-2 sm:mb-6"><span className="p-1.5 bg-gradient-to-br from-slate-600 to-slate-800 text-white rounded-lg"><Icons.Support /></span> Security Settings</h3>
                         <p className="text-sm text-gray-400">Manage the email and password behind your student login here. OTP verification is required before any email or password change is applied.</p>
                         <AccountSecuritySettings

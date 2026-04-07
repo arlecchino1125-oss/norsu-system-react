@@ -31,6 +31,29 @@ const STAFF_PROFILE_SELECT = [
     'created_at',
     'auth_user_id'
 ].join(', ');
+const STUDENT_BOOTSTRAP_SELECT = [
+    'id',
+    'created_at',
+    'first_name',
+    'last_name',
+    'middle_name',
+    'student_id',
+    'course',
+    'year_level',
+    'status',
+    'department',
+    'email',
+    'mobile',
+    'section',
+    'profile_picture_url',
+    'profile_completed',
+    'has_seen_tour',
+    'course_year_update_required',
+    'course_year_window_start',
+    'course_year_window_end',
+    'course_year_confirmed_at',
+    'auth_user_id'
+].join(', ');
 const STUDENT_PROFILE_SELECT = [
     'id',
     'created_at',
@@ -129,6 +152,21 @@ const STUDENT_PROFILE_SELECT = [
 const normalizeLoginEmail = (value: unknown) => {
     const email = String(value || '').trim().toLowerCase();
     return email || null;
+};
+const getSessionAuthUserId = (value: any) => String(
+    value?.auth_user_id
+    || value?.user?.id
+    || value?.id
+    || ''
+).trim();
+const getSessionAuthUserType = (value: any) => String(
+    value?.userType
+    || value?.role
+    || ''
+).trim().toLowerCase();
+const matchesAuthUser = (value: any, authUser: any) => {
+    const currentAuthUserId = String(authUser?.id || '').trim();
+    return Boolean(currentAuthUserId) && getSessionAuthUserId(value) === currentAuthUserId;
 };
 
 const isInvalidAuthCredentialsError = (error: any) => {
@@ -246,6 +284,18 @@ export function AuthProvider({ children }: any) {
 
         return null;
     }, []);
+    const getStudentBootstrapByAuthUser = useCallback(async (authUser: any) => {
+        if (!authUser?.id) return null;
+
+        const { data: linkedStudent, error: linkedError } = await supabase
+            .from('students')
+            .select(STUDENT_BOOTSTRAP_SELECT)
+            .eq('auth_user_id', authUser.id)
+            .maybeSingle();
+
+        if (linkedError) throw linkedError;
+        return linkedStudent || null;
+    }, []);
 
     const getStaffProfileByAuthUser = useCallback(async (authUser: any): Promise<StaffProfileRecord | null> => {
         if (!authUser) return null;
@@ -274,6 +324,16 @@ export function AuthProvider({ children }: any) {
         persistSession(sessionData);
         return sessionData;
     }, [getStaffProfileByAuthUser, persistSession]);
+    const restoreStudentBootstrapSessionFromAuth = useCallback(async (authUser: any) => {
+        const student = await getStudentBootstrapByAuthUser(authUser);
+        if (!student) {
+            return null;
+        }
+
+        const sessionData = sanitizeStudentSession(student, authUser);
+        persistSession(sessionData);
+        return sessionData;
+    }, [getStudentBootstrapByAuthUser, persistSession]);
 
     const restoreStudentSessionFromAuth = useCallback(async (authUser: any) => {
         const student = await getStudentProfileByAuthUser(authUser);
@@ -498,14 +558,41 @@ export function AuthProvider({ children }: any) {
                 }
 
                 if (data.session?.user) {
-                    const restoredStaff = await restoreStaffSessionFromAuth(data.session.user);
-                    if (restoredStaff) {
-                        return;
-                    }
+                    const authUser = data.session.user;
+                    const cachedUserType = matchesAuthUser(parsedSession, authUser)
+                        ? getSessionAuthUserType(parsedSession)
+                        : '';
 
-                    const restoredStudent = await restoreStudentSessionFromAuth(data.session.user);
-                    if (restoredStudent) {
-                        return;
+                    if (cachedUserType === 'student') {
+                        const restoredStudent = await restoreStudentBootstrapSessionFromAuth(authUser);
+                        if (restoredStudent) {
+                            return;
+                        }
+
+                        const restoredStaff = await restoreStaffSessionFromAuth(authUser);
+                        if (restoredStaff) {
+                            return;
+                        }
+                    } else if (cachedUserType === 'staff' || cachedUserType === 'admin' || cachedUserType === 'department head' || cachedUserType === 'care staff') {
+                        const restoredStaff = await restoreStaffSessionFromAuth(authUser);
+                        if (restoredStaff) {
+                            return;
+                        }
+
+                        const restoredStudent = await restoreStudentBootstrapSessionFromAuth(authUser);
+                        if (restoredStudent) {
+                            return;
+                        }
+                    } else {
+                        const restoredStaff = await restoreStaffSessionFromAuth(authUser);
+                        if (restoredStaff) {
+                            return;
+                        }
+
+                        const restoredStudent = await restoreStudentBootstrapSessionFromAuth(authUser);
+                        if (restoredStudent) {
+                            return;
+                        }
                     }
 
                     persistSession(null);
@@ -560,7 +647,7 @@ export function AuthProvider({ children }: any) {
             isActive = false;
             subscription.unsubscribe();
         };
-    }, [handleRecoverableSessionError, persistSession, restoreStaffSessionFromAuth, restoreStudentSessionFromAuth]);
+    }, [handleRecoverableSessionError, persistSession, restoreStaffSessionFromAuth, restoreStudentBootstrapSessionFromAuth, restoreStudentSessionFromAuth]);
 
     const logout = useCallback(() => {
         supabase.auth.signOut().catch((error) => {
