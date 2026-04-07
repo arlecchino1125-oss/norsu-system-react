@@ -3,6 +3,9 @@ import { supabase } from './supabase';
 import { buildEdgeFunctionHeaders } from './functionHeaders';
 import { sanitizeStudentSession } from './studentAuth';
 import { sanitizeStaffSession } from './staffAuth';
+import {
+    recoverLocalSupabaseSession
+} from './supabaseSessionRecovery';
 
 const AuthContext = createContext(null);
 type StaffProfileRecord = {
@@ -208,6 +211,25 @@ export function AuthProvider({ children }: any) {
         sessionRef.current = session;
     }, [session]);
 
+    const handleRecoverableSessionError = useCallback(async (error: unknown) => {
+        const recovered = await recoverLocalSupabaseSession(supabase, error);
+        if (recovered) {
+            persistSession(null);
+        }
+        return recovered;
+    }, [persistSession]);
+
+    const prepareAuthSessionForLogin = useCallback(async () => {
+        try {
+            const { error } = await supabase.auth.getSession();
+            if (error) {
+                await handleRecoverableSessionError(error);
+            }
+        } catch (error) {
+            await handleRecoverableSessionError(error);
+        }
+    }, [handleRecoverableSessionError]);
+
     const getStudentProfileByAuthUser = useCallback(async (authUser: any) => {
         if (!authUser) return null;
 
@@ -330,6 +352,7 @@ export function AuthProvider({ children }: any) {
                 };
             }
 
+            await prepareAuthSessionForLogin();
             const { data: authData, error: authError } = await signInWithResolvedEmail(resolvedEmail, password);
 
             if (authError || !authData?.user) {
@@ -371,7 +394,7 @@ export function AuthProvider({ children }: any) {
             setLoading(false);
             return { success: false, error: 'Connection error: ' + err.message };
         }
-    }, [getStaffProfileByAuthUser, persistSession]);
+    }, [getStaffProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
 
     /**
      * Login for Students
@@ -406,6 +429,7 @@ export function AuthProvider({ children }: any) {
                 };
             }
 
+            await prepareAuthSessionForLogin();
             const { data: authData, error: authError } = await signInWithResolvedEmail(resolvedEmail, password);
 
             if (authError || !authData?.user) {
@@ -440,7 +464,7 @@ export function AuthProvider({ children }: any) {
             setLoading(false);
             return { success: false, error: 'Login error: ' + err.message };
         }
-    }, [getStudentProfileByAuthUser, persistSession]);
+    }, [getStudentProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
 
     // Alias for backward compatibility with existing staff login pages
     const login = loginStaff;
@@ -461,8 +485,17 @@ export function AuthProvider({ children }: any) {
             }
 
             try {
-                const { data } = await supabase.auth.getSession();
+                const { data, error } = await supabase.auth.getSession();
                 if (!isActive) return;
+
+                if (error) {
+                    const recovered = await handleRecoverableSessionError(error);
+                    if (!isActive) return;
+                    if (recovered) {
+                        return;
+                    }
+                    throw error;
+                }
 
                 if (data.session?.user) {
                     const restoredStaff = await restoreStaffSessionFromAuth(data.session.user);
@@ -482,6 +515,10 @@ export function AuthProvider({ children }: any) {
                     setSession(parsedSession);
                 }
             } catch (error) {
+                const recovered = await handleRecoverableSessionError(error);
+                if (recovered) {
+                    return;
+                }
                 if (isActive && parsedSession) {
                     setSession(parsedSession);
                 }
@@ -523,7 +560,7 @@ export function AuthProvider({ children }: any) {
             isActive = false;
             subscription.unsubscribe();
         };
-    }, [persistSession, restoreStaffSessionFromAuth, restoreStudentSessionFromAuth]);
+    }, [handleRecoverableSessionError, persistSession, restoreStaffSessionFromAuth, restoreStudentSessionFromAuth]);
 
     const logout = useCallback(() => {
         supabase.auth.signOut().catch((error) => {

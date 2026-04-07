@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import { formatAuditDetails, isTrackedStaffAuditRole, type StaffAuditLogRow } from '../lib/staffAudit';
 import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
-import { Trash2, AlertTriangle, AlertCircle, CheckCircle, Plus, RefreshCw } from 'lucide-react';
+import { Trash2, AlertTriangle, AlertCircle, CheckCircle, Plus, RefreshCw, Shield, LogOut, UserPlus, Building2, Users, Activity, Search } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 
 const STAFF_ACCOUNT_SELECT = 'id, username, full_name, role, department, email, created_at, auth_user_id';
@@ -26,6 +27,10 @@ export default function AdminDashboard() {
     const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
     const [isAddingDepartment, setIsAddingDepartment] = useState(false);
     const [deletingDepartmentId, setDeletingDepartmentId] = useState<string | null>(null);
+    const [auditLogs, setAuditLogs] = useState<StaffAuditLogRow[]>([]);
+    const [auditLoading, setAuditLoading] = useState(true);
+    const [auditRoleFilter, setAuditRoleFilter] = useState<'All' | 'Care Staff' | 'Department Head'>('All');
+    const [auditSearch, setAuditSearch] = useState('');
 
     // Use custom hook for real-time data fetching
     const { data: accounts, refetch: refetchAccounts } = useSupabaseData({
@@ -69,10 +74,30 @@ export default function AdminDashboard() {
         && !String(account.department || '').trim()
     ).length;
     const adminAlerts = [
-        { label: 'Unlinked staff accounts', value: unlinkedStaffAccountCount, tone: 'border-blue-100 bg-blue-50 text-blue-700' },
-        { label: 'Staff accounts missing email', value: staffAccountsMissingEmailCount, tone: 'border-amber-100 bg-amber-50 text-amber-700' },
-        { label: 'Students needing auth', value: authPendingStudentCount, tone: 'border-purple-100 bg-purple-50 text-purple-700' },
-        { label: 'Department heads without college', value: departmentHeadsMissingDepartmentCount, tone: 'border-rose-100 bg-rose-50 text-rose-700' }
+        {
+            label: 'Unlinked staff accounts',
+            value: unlinkedStaffAccountCount,
+            hint: unlinkedStaffAccountCount > 0 ? 'Needs auth cleanup' : 'All staff accounts are linked',
+            tone: 'border-sky-200 bg-sky-50 text-sky-700'
+        },
+        {
+            label: 'Staff accounts missing email',
+            value: staffAccountsMissingEmailCount,
+            hint: staffAccountsMissingEmailCount > 0 ? 'Add real email before migration' : 'Email records look complete',
+            tone: 'border-amber-200 bg-amber-50 text-amber-700'
+        },
+        {
+            label: 'Students needing auth',
+            value: authPendingStudentCount,
+            hint: authPendingStudentCount > 0 ? 'Student access setup is still pending' : 'Student auth setup is current',
+            tone: 'border-cyan-200 bg-cyan-50 text-cyan-700'
+        },
+        {
+            label: 'Department heads without college',
+            value: departmentHeadsMissingDepartmentCount,
+            hint: departmentHeadsMissingDepartmentCount > 0 ? 'College assignment required' : 'Department heads are assigned',
+            tone: 'border-rose-200 bg-rose-50 text-rose-700'
+        }
     ];
     const formatStudentName = (student: any) =>
         [student?.first_name, student?.last_name].filter(Boolean).join(' ').trim() || 'Unnamed Student';
@@ -84,11 +109,56 @@ export default function AdminDashboard() {
         return coursesData.filter((course: any) => Number(course.department_id) === normalizedDepartmentId);
     };
 
+    const fetchAuditLogs = async () => {
+        setAuditLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('audit_logs')
+                .select('id, created_at, user_name, action, details, actor_role, actor_department, entity_table, entity_id')
+                .in('actor_role', ['Care Staff', 'Department Head'])
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (error) throw error;
+            setAuditLogs((data || []) as StaffAuditLogRow[]);
+        } catch (error: any) {
+            console.error('Failed to load staff audit logs:', error);
+            showToast(error?.message || 'Failed to load staff audit logs.', 'error');
+        } finally {
+            setAuditLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!isAuthenticated) {
             navigate('/admin');
         }
     }, [isAuthenticated, navigate]);
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setAuditLogs([]);
+            setAuditLoading(false);
+            return;
+        }
+
+        let isMounted = true;
+        void fetchAuditLogs();
+
+        const channel = supabase
+            .channel('admin_staff_audit_logs')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {
+                const nextLog = payload.new as StaffAuditLogRow;
+                if (!isMounted || !isTrackedStaffAuditRole(nextLog?.actor_role)) return;
+                setAuditLogs((prev) => [nextLog, ...prev].slice(0, 100));
+            })
+            .subscribe();
+
+        return () => {
+            isMounted = false;
+            void supabase.removeChannel(channel);
+        };
+    }, [isAuthenticated]);
 
     const showToast = (msg: string, type: string = 'success') => {
         setToast({ msg, type });
@@ -469,7 +539,8 @@ export default function AdminDashboard() {
                 refetchDepartments(),
                 refetchCourses(),
                 refetchStudents(),
-                refetchApplications()
+                refetchApplications(),
+                fetchAuditLogs()
             ]);
             showToast('Admin data refreshed.');
         } catch (error: any) {
@@ -551,277 +622,627 @@ export default function AdminDashboard() {
         navigate('/admin');
     };
 
+    const normalizedAuditSearch = auditSearch.trim().toLowerCase();
+    const filteredAuditLogs = auditLogs.filter((log) => {
+        const roleMatches = auditRoleFilter === 'All' || log.actor_role === auditRoleFilter;
+        if (!roleMatches) return false;
+        if (!normalizedAuditSearch) return true;
+
+        const haystack = [
+            log.user_name,
+            log.action,
+            log.actor_role,
+            log.actor_department,
+            formatAuditDetails(log.details),
+            log.entity_table,
+            log.entity_id
+        ].join(' ').toLowerCase();
+
+        return haystack.includes(normalizedAuditSearch);
+    });
+
+    const careAuditCount = auditLogs.filter((log) => log.actor_role === 'Care Staff').length;
+    const departmentAuditCount = auditLogs.filter((log) => log.actor_role === 'Department Head').length;
+    const activeAuditDepartments = new Set(
+        auditLogs
+            .map((log) => String(log.actor_department || '').trim())
+            .filter(Boolean)
+    ).size;
+    const linkedStaffAccountCount = accounts.filter((account: any) => Boolean(account.auth_user_id)).length;
+    const adminAccountCount = accounts.filter((account: any) => String(account.role || '').trim() === 'Admin').length;
+    const departmentHeadCount = accounts.filter((account: any) => String(account.role || '').trim() === 'Department Head').length;
+    const careStaffCount = accounts.filter((account: any) => String(account.role || '').trim() === 'Care Staff').length;
+    const totalCourseCount = coursesData.length;
+    const heroStats = [
+        { label: 'Staff Accounts', value: accounts.length, hint: `${linkedStaffAccountCount} linked to auth` },
+        { label: 'Colleges', value: departmentsData.length, hint: `${totalCourseCount} courses assigned` },
+        { label: 'Student Records', value: studentsData.length, hint: `${applicationsData.length} applications tracked` },
+        { label: 'Tracked Staff Logs', value: auditLogs.length, hint: `${activeAuditDepartments} colleges active in audit` }
+    ];
+    const accountOverviewStats = [
+        { label: 'Admins', value: adminAccountCount },
+        { label: 'Department Heads', value: departmentHeadCount },
+        { label: 'CARE Staff', value: careStaffCount },
+        { label: 'Unlinked', value: unlinkedStaffAccountCount }
+    ];
+    const studentOverviewStats = [
+        { label: 'Students', value: studentsData.length, tone: 'border-sky-200 bg-sky-50 text-sky-700' },
+        { label: 'Linked Auth', value: linkedStudentCount, tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+        { label: 'Needs Auth', value: authPendingStudentCount, tone: 'border-amber-200 bg-amber-50 text-amber-700' },
+        { label: 'Applications', value: applicationsData.length, tone: 'border-violet-200 bg-violet-50 text-violet-700' }
+    ];
+    const panelClass = 'overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/90 shadow-xl shadow-slate-200/70 backdrop-blur';
+    const sectionHeaderIconClass = 'flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700';
+    const inputClass = 'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-sm outline-none transition-all focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100';
+    const labelClass = 'mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500';
+    const getStaffRoleBadgeClass = (role: string | null | undefined) => {
+        if (role === 'Admin') return 'bg-rose-50 text-rose-700 ring-rose-200';
+        if (role === 'Care Staff') return 'bg-sky-50 text-sky-700 ring-sky-200';
+        return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+    };
+    const getStudentStatusBadgeClass = (status: string | null | undefined) => {
+        if (status === 'Active') return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+        if (status === 'Probation') return 'bg-amber-50 text-amber-700 ring-amber-200';
+        return 'bg-slate-100 text-slate-600 ring-slate-200';
+    };
+
     if (!session) return null;
 
     return (
-        <div className="min-h-screen bg-gray-100 p-8">
-            <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Account Management</h1>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={handleRefreshData}
-                            disabled={isRefreshingData}
-                            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600 disabled:opacity-50"
-                        >
-                            <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
-                            <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
-                        </button>
-                        <button
-                            onClick={handleMigrateAuthEmails}
-                            disabled={isMigratingAuthEmails}
-                            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-100 disabled:opacity-50"
-                        >
-                            <RefreshCw size={16} className={isMigratingAuthEmails ? 'animate-spin' : ''} />
-                            <span>{isMigratingAuthEmails ? 'Migrating Auth...' : 'Migrate Auth Emails'}</span>
-                        </button>
-                        <button onClick={() => setShowResetModal(true)} disabled={loading} className="text-red-600 font-bold hover:underline disabled:opacity-60">Reset System</button>
-                        <button onClick={handleLogout} className="text-gray-600 font-bold hover:underline">Logout</button>
-                    </div>
-                </div>
+        <div className="min-h-screen bg-slate-100">
+            <div className="relative overflow-hidden">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-gradient-to-b from-teal-50 via-sky-50 to-transparent" />
+                <div className="pointer-events-none absolute -left-16 top-8 h-72 w-72 rounded-full bg-teal-200/40 blur-3xl" />
+                <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-sky-200/40 blur-3xl" />
 
-                <div className="mb-8">
-                    <div className="mb-3">
-                        <h2 className="text-lg font-bold text-gray-900">Role-Based Alerts</h2>
-                        <p className="text-sm text-gray-500">Simple admin-only counts for account setup and access cleanup.</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                        {adminAlerts.map((alert) => (
-                            <div key={alert.label} className={`rounded-xl border p-4 ${alert.tone}`}>
-                                <p className="text-xs font-bold uppercase tracking-wide">{alert.label}</p>
-                                <p className="mt-3 text-3xl font-bold text-gray-900">{alert.value}</p>
+                <div className="page-transition relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                    <div className="overflow-hidden rounded-[32px] border border-slate-900/10 bg-slate-900 text-white shadow-2xl shadow-slate-300/40">
+                        <div className="bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.24),transparent_34%),radial-gradient(circle_at_85%_20%,rgba(56,189,248,0.18),transparent_24%),linear-gradient(135deg,#0f172a_0%,#134e4a_50%,#0f172a_100%)] p-6 sm:p-8">
+                            <div className="grid gap-8 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+                                <div>
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">
+                                        <Shield className="h-3.5 w-3.5" />
+                                        Admin Control Room
+                                    </div>
+                                    <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Account Management</h1>
+                                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base">
+                                        Manage staff accounts, monitor staff-only audit activity, and keep student access data clean from one admin workspace.
+                                    </p>
+
+                                    <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                        {heroStats.map((stat) => (
+                                            <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+                                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">{stat.label}</p>
+                                                <p className="mt-3 text-3xl font-semibold text-white">{stat.value}</p>
+                                                <p className="mt-2 text-xs text-slate-300">{stat.hint}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-[28px] border border-white/10 bg-white/10 p-5 backdrop-blur">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">Operational Controls</p>
+                                    <div className="mt-4 grid gap-3">
+                                        <button
+                                            onClick={handleRefreshData}
+                                            disabled={isRefreshingData}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
+                                            <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                                        </button>
+                                        <button
+                                            onClick={handleMigrateAuthEmails}
+                                            disabled={isMigratingAuthEmails}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-teal-200/20 bg-teal-400/15 px-4 py-3 text-sm font-semibold text-teal-50 transition hover:bg-teal-400/25 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            <RefreshCw size={16} className={isMigratingAuthEmails ? 'animate-spin' : ''} />
+                                            <span>{isMigratingAuthEmails ? 'Migrating Auth...' : 'Migrate Auth Emails'}</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                                        <button
+                                            onClick={() => setShowResetModal(true)}
+                                            disabled={loading}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200/20 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-50 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            <AlertTriangle className="h-4 w-4" />
+                                            {loading ? 'Working...' : 'Reset System'}
+                                        </button>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                                        >
+                                            <LogOut className="h-4 w-4" />
+                                            Logout
+                                        </button>
+                                    </div>
+
+                                    <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/20 p-4">
+                                        <p className="text-sm font-semibold text-white">Keep this page for admin work only.</p>
+                                        <p className="mt-2 text-xs leading-5 text-slate-300">
+                                            The audit monitor below only tracks CARE Staff and Department Head activity. Student actions stay out of this feed.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        ))}
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Create Form */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm h-fit">
-                        <h2 className="font-bold text-lg mb-4">Create New Account</h2>
-                        <form onSubmit={handleCreate} className="space-y-4">
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Role</label><select className="w-full border p-2 rounded" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option value="Department Head">Dean</option><option value="Care Staff">CARE Staff</option><option>Admin</option></select></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Full Name</label><input required className="w-full border p-2 rounded" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Username</label><input required className="w-full border p-2 rounded" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Password</label><input required type="password" autoComplete="new-password" className="w-full border p-2 rounded" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Email</label><input required type="email" className="w-full border p-2 rounded" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-
-                            {form.role === 'Department Head' && (
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">College</label><select className="w-full border p-2 rounded" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}><option value="">Select College</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
-                            )}
-
-                            <button disabled={isCreatingAccount} className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 disabled:opacity-60">
-                                {isCreatingAccount ? 'Creating...' : 'Create Account'}
-                            </button>
-                        </form>
+                    <div className="mt-6 mb-8">
+                        <div className="mb-3 px-1">
+                            <h2 className="text-lg font-semibold text-slate-900">Role-Based Alerts</h2>
+                            <p className="mt-1 text-sm text-slate-500">Quick admin-only signals for access setup, linking, and cleanup.</p>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            {adminAlerts.map((alert) => (
+                                <div key={alert.label} className={`rounded-[24px] border p-5 shadow-sm shadow-slate-200/60 ${alert.tone}`}>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em]">{alert.label}</p>
+                                            <p className="mt-3 text-3xl font-semibold text-slate-900">{alert.value}</p>
+                                        </div>
+                                        <div className="mt-1 h-2.5 w-2.5 rounded-full bg-current opacity-70" />
+                                    </div>
+                                    <p className="mt-4 text-xs leading-5 opacity-90">{alert.hint}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Account List */}
-                    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div className="p-6 border-b">
-                            <h2 className="font-bold text-lg">Existing Accounts ({accounts.length})</h2>
-                            <p className="mt-1 text-sm text-gray-500">If an account has no real email yet, add it here first, then run `Migrate Auth Emails` again.</p>
+                    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
+                        <div className={`${panelClass} h-fit`}>
+                            <div className="border-b border-slate-200/80 p-6 sm:p-7">
+                                <div className="flex items-start gap-4">
+                                    <div className={sectionHeaderIconClass}>
+                                        <UserPlus className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-semibold text-slate-900">Create Staff Account</h2>
+                                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                                            Provision a new admin-side login and link it directly to Supabase Auth.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleCreate} className="space-y-4 p-6 sm:p-7">
+                                <div>
+                                    <label className={labelClass}>Role</label>
+                                    <select className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                                        <option value="Department Head">Department Head (Dean)</option>
+                                        <option value="Care Staff">CARE Staff</option>
+                                        <option value="Admin">Admin</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Full Name</label>
+                                    <input required className={inputClass} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Username</label>
+                                    <input required className={inputClass} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Password</label>
+                                    <input required type="password" autoComplete="new-password" className={inputClass} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Email</label>
+                                    <input required type="email" className={inputClass} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                                </div>
+
+                                {form.role === 'Department Head' && (
+                                    <div>
+                                        <label className={labelClass}>College</label>
+                                        <select className={inputClass} value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}>
+                                            <option value="">Select College</option>
+                                            {departments.map((departmentName) => (
+                                                <option key={departmentName} value={departmentName}>{departmentName}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
+                                    New accounts are created as linked auth users immediately. Department Heads should always have a college assigned.
+                                </div>
+
+                                <button
+                                    disabled={isCreatingAccount}
+                                    className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isCreatingAccount ? 'Creating...' : 'Create Account'}
+                                </button>
+                            </form>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-gray-50 border-b"><tr><th className="p-4">Name</th><th className="p-4">Role</th><th className="p-4">Details</th><th className="p-4">Username</th><th className="p-4">Auth</th><th className="p-4 text-right">Action</th></tr></thead>
-                                <tbody className="divide-y">
-                                    {accounts.map((acc: any) => (
-                                        <tr key={acc.id} className="hover:bg-gray-50">
-                                            <td className="p-4 font-bold">{acc.full_name}</td>
-                                            <td className="p-4"><span className={`px-2 py-1 rounded text-xs text-white ${acc.role === 'Admin' ? 'bg-red-500' : acc.role === 'Care Staff' ? 'bg-purple-500' : 'bg-green-500'}`}>{acc.role === 'Care Staff' ? 'CARE Staff' : acc.role}</span></td>
-                                            <td className="p-4 text-gray-500">
-                                                <div>{acc.department || '-'}</div>
-                                                {acc.email ? (
-                                                    <div className="text-xs text-gray-400 break-all">{acc.email}</div>
-                                                ) : (
-                                                    <div className="mt-2 flex min-w-[260px] flex-col gap-2">
-                                                        <input
-                                                            type="email"
-                                                            value={getAccountEmailDraft(acc)}
-                                                            onChange={(e) => setEmailDrafts((prev) => ({
-                                                                ...prev,
-                                                                [String(acc.id)]: e.target.value
-                                                            }))}
-                                                            placeholder="Add real email"
-                                                            className="w-full rounded border border-amber-200 px-3 py-2 text-xs text-gray-700 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSaveAccountEmail(acc)}
-                                                            disabled={savingAccountEmailId === String(acc.id)}
-                                                            className="inline-flex w-fit items-center rounded bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60"
-                                                        >
-                                                            {savingAccountEmailId === String(acc.id) ? 'Saving...' : 'Save Email'}
-                                                        </button>
+
+                        <div className={panelClass}>
+                            <div className="border-b border-slate-200/80 p-6 sm:p-7">
+                                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="min-w-0">
+                                        <div className="flex items-start gap-4">
+                                            <div className={sectionHeaderIconClass}>
+                                                <Shield className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-semibold text-slate-900">Existing Accounts ({accounts.length})</h2>
+                                                <p className="mt-1 text-sm leading-6 text-slate-500">
+                                                    If an account has no real email yet, add it here first, then run `Migrate Auth Emails` again.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        {accountOverviewStats.map((stat) => (
+                                            <div key={stat.label} className="min-w-[108px] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-right">
+                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{stat.label}</p>
+                                                <p className="mt-1 text-2xl font-semibold text-slate-900">{stat.value}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="min-w-[920px] w-full text-left text-sm">
+                                    <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                                        <tr>
+                                            <th className="px-6 py-4 font-semibold">Name</th>
+                                            <th className="px-6 py-4 font-semibold">Role</th>
+                                            <th className="px-6 py-4 font-semibold">Details</th>
+                                            <th className="px-6 py-4 font-semibold">Username</th>
+                                            <th className="px-6 py-4 font-semibold">Auth</th>
+                                            <th className="px-6 py-4 text-right font-semibold">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {accounts.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-400">
+                                                    No staff accounts found.
+                                                </td>
+                                            </tr>
+                                        ) : accounts.map((acc: any) => (
+                                            <tr key={acc.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
+                                                <td className="px-6 py-5">
+                                                    <div className="font-semibold text-slate-900">{acc.full_name || 'Unnamed Staff'}</div>
+                                                    <div className="mt-1 text-xs text-slate-400">
+                                                        {acc.created_at ? `Created ${new Date(acc.created_at).toLocaleDateString()}` : 'No creation date'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${getStaffRoleBadgeClass(acc.role)}`}>
+                                                        {acc.role === 'Care Staff' ? 'CARE Staff' : acc.role}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-slate-500">
+                                                    <div className="text-sm text-slate-600">{acc.department || 'No college assigned'}</div>
+                                                    {acc.email ? (
+                                                        <div className="mt-1 break-all text-xs text-slate-400">{acc.email}</div>
+                                                    ) : (
+                                                        <div className="mt-3 flex min-w-[260px] flex-col gap-2">
+                                                            <input
+                                                                type="email"
+                                                                value={getAccountEmailDraft(acc)}
+                                                                onChange={(e) => setEmailDrafts((prev) => ({
+                                                                    ...prev,
+                                                                    [String(acc.id)]: e.target.value
+                                                                }))}
+                                                                placeholder="Add real email"
+                                                                className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:outline-none"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSaveAccountEmail(acc)}
+                                                                disabled={savingAccountEmailId === String(acc.id)}
+                                                                className="inline-flex w-fit items-center rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                                            >
+                                                                {savingAccountEmailId === String(acc.id) ? 'Saving...' : 'Save Email'}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-5 font-mono text-xs text-slate-600">{acc.username || '-'}</td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${acc.auth_user_id ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+                                                        {acc.auth_user_id ? 'Linked' : 'Unlinked'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 text-right">
+                                                    <button
+                                                        disabled={deletingAccountId === String(acc.id)}
+                                                        onClick={() => handleDelete(acc)}
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        <Trash2 className={`h-4 w-4 ${deletingAccountId === String(acc.id) ? 'animate-spin' : ''}`} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+                        <div className={`${panelClass} h-fit`}>
+                            <div className="border-b border-slate-200/80 p-6">
+                                <div className="flex items-start gap-4">
+                                    <div className={sectionHeaderIconClass}>
+                                        <Users className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-semibold text-slate-900">Student Data</h2>
+                                        <p className="mt-1 text-sm leading-6 text-slate-500">Prototype reset controls for student-facing records only.</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowStudentResetModal(true)}
+                                    disabled={loading}
+                                    className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {loading ? 'Working...' : 'Reset Student Data'}
+                                </button>
+                            </div>
+
+                            <div className="space-y-6 p-6">
+                                <div className="grid grid-cols-2 gap-3">
+                                    {studentOverviewStats.map((stat) => (
+                                        <div key={stat.label} className={`rounded-2xl border p-4 ${stat.tone}`}>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em]">{stat.label}</p>
+                                            <p className="mt-3 text-3xl font-semibold text-slate-900">{stat.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span>Active students</span>
+                                        <span className="font-semibold text-slate-900">{activeStudentCount}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span>Probation students</span>
+                                        <span className="font-semibold text-slate-900">{probationStudentCount}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span>Linked auth cleanup required</span>
+                                        <span className={`font-semibold ${linkedStudentCount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                            {linkedStudentCount > 0 ? 'Yes' : 'No'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={`lg:col-span-2 ${panelClass}`}>
+                            <div className="border-b border-slate-200/80 p-6">
+                                <div className="flex items-start gap-4">
+                                    <div className={sectionHeaderIconClass}>
+                                        <Users className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-semibold text-slate-900">Student Snapshot</h2>
+                                        <p className="mt-1 text-sm leading-6 text-slate-500">Quick preview of current student records before a student-only reset.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[640px] text-left text-sm">
+                                    <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                                        <tr>
+                                            <th className="px-6 py-4 font-semibold">Student</th>
+                                            <th className="px-6 py-4 font-semibold">Student ID</th>
+                                            <th className="px-6 py-4 font-semibold">Status</th>
+                                            <th className="px-6 py-4 font-semibold">Auth</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {recentStudents.map((student: any) => (
+                                            <tr key={student.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
+                                                <td className="px-6 py-5 font-medium text-slate-900">{formatStudentName(student)}</td>
+                                                <td className="px-6 py-5 font-mono text-xs text-slate-600">{student.student_id || '-'}</td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${getStudentStatusBadgeClass(student.status)}`}>
+                                                        {student.status || 'Unknown'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5">
+                                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${student.auth_user_id ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+                                                        {student.auth_user_id ? 'Linked' : 'Pending'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {recentStudents.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">
+                                                    No student records found.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={`${panelClass} mt-8`}>
+                        <div className="border-b border-slate-200/80 p-6 sm:p-7">
+                            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                                <div className="min-w-0">
+                                    <div className="flex items-start gap-4">
+                                        <div className={sectionHeaderIconClass}>
+                                            <Activity className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-semibold text-slate-900">Staff Audit Monitor</h2>
+                                            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                                                Recent admin-facing activity from CARE Staff and Department Heads only. Student actions are excluded from this monitor.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+                                <select
+                                    value={auditRoleFilter}
+                                    onChange={(e) => setAuditRoleFilter(e.target.value as 'All' | 'Care Staff' | 'Department Head')}
+                                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                                >
+                                    <option value="All">All Staff Roles</option>
+                                    <option value="Care Staff">CARE Staff</option>
+                                    <option value="Department Head">Department Head</option>
+                                </select>
+                                <div className="relative sm:w-80">
+                                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        value={auditSearch}
+                                        onChange={(e) => setAuditSearch(e.target.value)}
+                                        placeholder="Search user, action, department..."
+                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 grid gap-4 md:grid-cols-3">
+                            <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">CARE Staff Actions</p>
+                                <p className="mt-3 text-3xl font-semibold text-slate-900">{careAuditCount}</p>
+                            </div>
+                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Department Actions</p>
+                                <p className="mt-3 text-3xl font-semibold text-slate-900">{departmentAuditCount}</p>
+                            </div>
+                            <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-700">Active Colleges</p>
+                                <p className="mt-3 text-3xl font-semibold text-slate-900">{activeAuditDepartments}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-h-[560px] overflow-auto">
+                        <table className="min-w-[880px] w-full text-left text-sm">
+                            <thead className="sticky top-0 border-b border-slate-200 bg-slate-50/95 text-[11px] uppercase tracking-[0.18em] text-slate-500 backdrop-blur">
+                                <tr>
+                                    <th className="px-6 py-4 font-semibold">Timestamp</th>
+                                    <th className="px-6 py-4 font-semibold">Staff</th>
+                                    <th className="px-6 py-4 font-semibold">Role</th>
+                                    <th className="px-6 py-4 font-semibold">Action</th>
+                                    <th className="px-6 py-4 font-semibold">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {auditLoading ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500">Loading staff audit logs...</td>
+                                    </tr>
+                                ) : filteredAuditLogs.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-400">No matching staff audit activity found.</td>
+                                    </tr>
+                                ) : (
+                                    filteredAuditLogs.map((log) => (
+                                        <tr key={log.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
+                                            <td className="px-6 py-5 font-mono text-xs text-slate-500">
+                                                {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="font-semibold text-slate-900">{log.user_name || '-'}</div>
+                                                <div className="mt-1 text-xs text-slate-400">{log.actor_department || 'No college assigned'}</div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+                                                    log.actor_role === 'Care Staff'
+                                                        ? 'bg-sky-50 text-sky-700 ring-sky-200'
+                                                        : 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                                                }`}>
+                                                    {log.actor_role || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="font-medium text-slate-800">{log.action || '-'}</div>
+                                                {(log.entity_table || log.entity_id) && (
+                                                    <div className="mt-1 text-xs text-slate-400">
+                                                        {String(log.entity_table || '').trim() || 'record'}
+                                                        {log.entity_id ? ` - ${log.entity_id}` : ''}
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="p-4 font-mono">{acc.username}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${acc.auth_user_id ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                    {acc.auth_user_id ? 'Linked' : 'Unlinked'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <div className="inline-flex items-center gap-3">
-                                                    <button disabled={deletingAccountId === String(acc.id)} onClick={() => handleDelete(acc)} className="text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"><Trash2 className={`w-4 h-4 ${deletingAccountId === String(acc.id) ? 'animate-spin' : ''}`} /></button>
-                                                </div>
-                                            </td>
+                                            <td className="px-6 py-5 leading-6 text-slate-600">{formatAuditDetails(log.details)}</td>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                    <div className="bg-white p-6 rounded-xl shadow-sm h-fit">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <h2 className="font-bold text-lg">Student Data</h2>
-                                <p className="text-sm text-gray-500 mt-1">Prototype reset controls for student-facing records only.</p>
-                            </div>
-                            <button
-                                onClick={() => setShowStudentResetModal(true)}
-                                disabled={loading}
-                                className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-60"
-                            >
-                                {loading ? 'Working...' : 'Reset Student Data'}
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 mt-6">
-                            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-                                <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Students</p>
-                                <p className="mt-2 text-2xl font-bold text-gray-900">{studentsData.length}</p>
-                            </div>
-                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-                                <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">Linked Auth</p>
-                                <p className="mt-2 text-2xl font-bold text-gray-900">{linkedStudentCount}</p>
-                            </div>
-                            <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-                                <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Needs Auth</p>
-                                <p className="mt-2 text-2xl font-bold text-gray-900">{authPendingStudentCount}</p>
-                            </div>
-                            <div className="rounded-xl border border-purple-100 bg-purple-50 p-4">
-                                <p className="text-xs font-bold uppercase tracking-wide text-purple-700">Applications</p>
-                                <p className="mt-2 text-2xl font-bold text-gray-900">{applicationsData.length}</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                            <div className="flex items-center justify-between">
-                                <span>Active students</span>
-                                <span className="font-bold text-gray-900">{activeStudentCount}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span>Probation students</span>
-                                <span className="font-bold text-gray-900">{probationStudentCount}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span>Linked auth cleanup required</span>
-                                <span className={`font-bold ${linkedStudentCount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                                    {linkedStudentCount > 0 ? 'Yes' : 'No'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div className="p-6 border-b">
-                            <h2 className="font-bold text-lg">Student Snapshot</h2>
-                            <p className="text-sm text-gray-500 mt-1">Quick preview of current student records before a student-only reset.</p>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-gray-50 border-b">
-                                    <tr>
-                                        <th className="p-4">Student</th>
-                                        <th className="p-4">Student ID</th>
-                                        <th className="p-4">Status</th>
-                                        <th className="p-4">Auth</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {recentStudents.map((student: any) => (
-                                        <tr key={student.id} className="hover:bg-gray-50">
-                                            <td className="p-4 font-medium text-gray-900">{formatStudentName(student)}</td>
-                                            <td className="p-4 font-mono text-gray-600">{student.student_id || '-'}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                    student.status === 'Active'
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : student.status === 'Probation'
-                                                            ? 'bg-amber-100 text-amber-700'
-                                                            : 'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                    {student.status || 'Unknown'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                    student.auth_user_id
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : 'bg-amber-100 text-amber-700'
-                                                }`}>
-                                                    {student.auth_user_id ? 'Linked' : 'Pending'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {recentStudents.length === 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="p-6 text-center text-sm text-gray-400">
-                                                No student records found.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
                 {/* Department Management */}
-                <div className="bg-white rounded-xl shadow-sm mt-8 overflow-hidden">
-                    <div className="p-6 border-b flex items-center justify-between">
-                        <h2 className="font-bold text-lg">Colleges ({departmentsData.length})</h2>
-                        <div className="flex gap-2">
-                            <input disabled={isAddingDepartment} className="border p-2 rounded text-sm w-64 disabled:opacity-60" placeholder="New college name…" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDepartment()} />
-                            <button disabled={isAddingDepartment} onClick={handleAddDepartment} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 flex items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-60"><Plus className={`w-4 h-4 ${isAddingDepartment ? 'animate-spin' : ''}`} /> {isAddingDepartment ? 'Adding...' : 'Add'}</button>
+                    <div className={`${panelClass} mt-8`}>
+                        <div className="border-b border-slate-200/80 p-6 sm:p-7">
+                            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                <div className="flex items-start gap-4">
+                                    <div className={sectionHeaderIconClass}>
+                                        <Building2 className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-semibold text-slate-900">Colleges ({departmentsData.length})</h2>
+                                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                                            Maintain department names and monitor whether each college still has active course mappings.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid w-full gap-3 lg:w-[360px]">
+                                    <input disabled={isAddingDepartment} className={inputClass} placeholder="New college name..." value={newDeptName} onChange={e => setNewDeptName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddDepartment()} />
+                                    <button disabled={isAddingDepartment} onClick={handleAddDepartment} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"><Plus className={`h-4 w-4 ${isAddingDepartment ? 'animate-spin' : ''}`} /> {isAddingDepartment ? 'Adding...' : 'Add College'}</button>
+                                </div>
+                            </div>
+                    </div>
+                        <div className="space-y-6 p-6 sm:p-7">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Total Colleges</p>
+                                    <p className="mt-3 text-3xl font-semibold text-slate-900">{departmentsData.length}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Mapped Courses</p>
+                                    <p className="mt-3 text-3xl font-semibold text-slate-900">{totalCourseCount}</p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                {departmentsData.length === 0 && <p className="text-sm text-slate-400">No colleges yet. Add one above.</p>}
+                                {departmentsData.map((dept: any) => {
+                                    const linkedCourseCount = getDepartmentCourses(dept.id).length;
+
+                                    return (
+                                        <span key={dept.id} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm">
+                                            {dept.name}
+                                            {linkedCourseCount > 0 && (
+                                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                                    {linkedCourseCount} course{linkedCourseCount === 1 ? '' : 's'}
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={() => handleDeleteDepartment(dept)}
+                                                disabled={deletingDepartmentId === String(dept.id)}
+                                                className="text-rose-400 transition hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                                title={linkedCourseCount > 0
+                                                    ? `Delete blocked: ${linkedCourseCount} course(s) still assigned`
+                                                    : `Delete ${dept.name}`
+                                                }
+                                            >
+                                                <Trash2 className={`h-3.5 w-3.5 ${deletingDepartmentId === String(dept.id) ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
-                    <div className="p-6 flex flex-wrap gap-2">
-                        {departmentsData.length === 0 && <p className="text-gray-400 text-sm">No colleges yet. Add one above.</p>}
-                        {departmentsData.map((dept: any) => {
-                            const linkedCourseCount = getDepartmentCourses(dept.id).length;
-
-                            return (
-                                <span key={dept.id} className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium">
-                                    {dept.name}
-                                    {linkedCourseCount > 0 && (
-                                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
-                                            {linkedCourseCount} course{linkedCourseCount === 1 ? '' : 's'}
-                                        </span>
-                                    )}
-                                    <button
-                                        onClick={() => handleDeleteDepartment(dept)}
-                                        disabled={deletingDepartmentId === String(dept.id)}
-                                        className="text-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                                        title={linkedCourseCount > 0
-                                            ? `Delete blocked: ${linkedCourseCount} course(s) still assigned`
-                                            : `Delete ${dept.name}`
-                                        }
-                                    >
-                                        <Trash2 className={`w-3.5 h-3.5 ${deletingDepartmentId === String(dept.id) ? 'animate-spin' : ''}`} />
-                                    </button>
-                                </span>
-                            );
-                        })}
-                    </div>
-                </div>
 
                 {toast && (
                     <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-50 ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
@@ -861,6 +1282,7 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                 )}
+                </div>
             </div>
         </div>
     );

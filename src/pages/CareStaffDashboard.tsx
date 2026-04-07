@@ -49,6 +49,7 @@ import {
     getStudentActivationPolicy as fetchStudentActivationPolicy,
     updateStudentActivationPolicy as saveStudentActivationPolicy
 } from '../lib/studentActivationPolicy';
+import { recordStaffAuditAction } from '../lib/staffAudit';
 import { COUNSELING_STATUS, SUPPORT_STATUS, getCounselingScheduledDate, isCounselingCalendarVisible } from '../utils/workflow';
 
 const StudentAnalyticsPage = lazy(() => import('./carestaff/StudentAnalyticsPage'));
@@ -514,7 +515,18 @@ const CareStaffDashboard = () => {
                 email: normalizedEmail
             }
         });
-    }, [session?.user, syncStaffSession]);
+        void recordStaffAuditAction(session, {
+            action: 'Updated staff login email',
+            entityTable: 'staff_accounts',
+            entityId: session?.id,
+            details: {
+                summary: `${session?.full_name || 'CARE Staff'} updated the staff login email.`,
+                email: normalizedEmail
+            }
+        }).catch((error) => {
+            console.error('Failed to record staff email audit log:', error);
+        });
+    }, [session, syncStaffSession]);
 
     const confirmStaffPasswordChange = useCallback(async (nextPasswordValue: string, otp: string) => {
         await invokeEdgeFunction('manage-staff-accounts', {
@@ -527,7 +539,17 @@ const CareStaffDashboard = () => {
             non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
             fallbackMessage: 'Failed to update your staff password.'
         });
-    }, []);
+        void recordStaffAuditAction(session, {
+            action: 'Updated staff password',
+            entityTable: 'staff_accounts',
+            entityId: session?.id,
+            details: {
+                summary: `${session?.full_name || 'CARE Staff'} updated the staff password.`
+            }
+        }).catch((error) => {
+            console.error('Failed to record staff password audit log:', error);
+        });
+    }, [session]);
 
     const updateStaffProfileName = useCallback(async (nextNameValue: string) => {
         const normalizedName = String(nextNameValue || '').trim().replace(/\s+/g, ' ');
@@ -550,7 +572,18 @@ const CareStaffDashboard = () => {
         syncStaffSession({
             full_name: normalizedName
         });
-    }, [syncStaffSession]);
+        void recordStaffAuditAction(session, {
+            action: 'Updated staff profile name',
+            entityTable: 'staff_accounts',
+            entityId: session?.id,
+            details: {
+                summary: `${session?.full_name || 'CARE Staff'} updated the staff profile name to ${normalizedName}.`,
+                full_name: normalizedName
+            }
+        }).catch((error) => {
+            console.error('Failed to record staff profile audit log:', error);
+        });
+    }, [session, syncStaffSession]);
 
     const toggleStudentActivationPolicy = useCallback(async () => {
         const nextRequireEnrollmentKey = !studentActivationPolicy.requireEnrollmentKey;
@@ -564,12 +597,22 @@ const CareStaffDashboard = () => {
                     ? 'Student Portal activation now requires an uploaded enrollment key.'
                     : 'Student Portal activation can now continue after a warning even without an uploaded enrollment key.'
             );
+            void recordStaffAuditAction(session, {
+                action: 'Updated student activation policy',
+                entityTable: 'student_activation_settings',
+                details: {
+                    summary: `${session?.full_name || 'CARE Staff'} ${nextRequireEnrollmentKey ? 'enabled' : 'disabled'} required enrollment keys before student activation.`,
+                    require_enrollment_key: nextRequireEnrollmentKey
+                }
+            }).catch((error) => {
+                console.error('Failed to record activation policy audit log:', error);
+            });
         } catch (error: any) {
             showToastMessage(error?.message || 'Failed to update the student activation policy.', 'error');
         } finally {
             setIsSavingStudentActivationPolicy(false);
         }
-    }, [showToastMessage, studentActivationPolicy.requireEnrollmentKey]);
+    }, [session, showToastMessage, studentActivationPolicy.requireEnrollmentKey]);
 
     const refreshAll = useCallback(async () => {
         setIsRefreshing(true);
@@ -812,20 +855,11 @@ const CareStaffDashboard = () => {
 
     const logAudit = useCallback(async (action: string, details: unknown) => {
         try {
-            const { error } = await supabase.from('audit_logs').insert([
-                {
-                    user_name: session?.full_name || 'CARE Staff',
-                    action,
-                    details
-                }
-            ]);
-            if (error) {
-                console.error('Audit log error:', error);
-            }
+            await recordStaffAuditAction(session, { action, details });
         } catch (err: unknown) {
             console.error('Audit log error:', err);
         }
-    }, [session?.full_name, session?.id]);
+    }, [session]);
 
     // System Reset (matches HTML handleResetSystem exactly - wipes 14+ tables)
     const handleResetSystem = useCallback(async () => {
