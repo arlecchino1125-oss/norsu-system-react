@@ -49,7 +49,7 @@ export default function PublicLandingV2() {
         },
         {
             title: 'Department Portal',
-            description: 'Handle approvals, admissions screening, college events, and student coordination.',
+            description: 'Review counseling and support cases, manage admissions interviews, and monitor students, events, and reports.',
             cta: 'Open department space',
             icon: Users,
             accent: 'emerald',

@@ -38,7 +38,7 @@ const DeptHomePage = ({
                             Welcome to <span className="bg-gradient-to-r from-emerald-300 via-teal-300 to-green-300 bg-clip-text text-transparent">Dept. Head Portal</span>
                         </h1>
                         <p className="text-emerald-200/70 text-base mb-6 max-w-md animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-                            Manage your department's student welfare, approve requests, and monitor academic performance.
+                            Review counseling and support cases, manage admissions and interview schedules, and stay on top of students, events, and reports for your department.
                         </p>
                         <div className="flex flex-wrap gap-3 justify-center lg:justify-start animate-fade-in-up" style={{ animationDelay: '300ms' }}>
                             <button onClick={() => setActiveModule('students')} className="flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-xl font-semibold hover:bg-white/20 hover:scale-[1.02] transition-all duration-200">
