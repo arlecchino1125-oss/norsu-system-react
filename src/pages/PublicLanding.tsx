@@ -180,7 +180,7 @@ export default function PublicLanding() {
                         <Users className="w-8 h-8 text-emerald-600 drop-shadow-sm group-hover:text-emerald-500 transition-colors" />
                     </div>
                     <h3 className="text-xl font-extrabold text-slate-800 mb-2 relative">Dean's Portal</h3>
-                    <p className="text-slate-600/90 text-sm mb-6 leading-relaxed relative font-medium">Manage college requests, approve counseling, and refer students.</p>
+                    <p className="text-slate-600/90 text-sm mb-6 leading-relaxed relative font-medium">Review counseling and support cases, manage admissions interviews, and monitor students, events, and reports.</p>
                     <div className="flex items-center text-emerald-600 font-bold text-sm tracking-wide group-hover:gap-3 gap-2 transition-all relative">
                         Faculty Portal <ArrowRight className="w-4 h-4 inline" />
                     </div>

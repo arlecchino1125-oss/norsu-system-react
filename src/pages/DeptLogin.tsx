@@ -69,7 +69,7 @@ export default function DeptLogin() {
                         <div className="h-1.5 w-20 bg-emerald-500 mb-8 rounded-full"></div>
 
                         <p className="text-slate-500 text-lg leading-relaxed font-medium">
-                            Secure access for college deans. Manage student welfare, approve counseling requests, and monitor academic performance within your jurisdiction.
+                            Secure access for department heads and deans. Review counseling and support cases, manage admissions interviews, monitor students and events, and generate department reports from one dashboard.
                         </p>
 
                         <div className="mt-12 flex items-center gap-4 text-sm font-bold text-slate-400 uppercase tracking-widest">
