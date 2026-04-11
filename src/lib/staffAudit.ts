@@ -59,31 +59,109 @@ const formatKeyLabel = (value: string) =>
         .replace(/_/g, ' ')
         .replace(/\b\w/g, (char) => char.toUpperCase());
 
-export const formatAuditDetails = (details: unknown) => {
-    if (!details) return '-';
-    if (typeof details === 'string') return details.trim() || '-';
+const AUDIT_ENTITY_LABELS: Record<string, string> = {
+    admission_schedules: 'admission schedule',
+    applications: 'application',
+    counseling_requests: 'counseling request',
+    courses: 'course',
+    enrolled_students: 'enrolled student',
+    events: 'event',
+    forms: 'form',
+    nat_requirements: 'NAT requirement',
+    office_visit_reasons: 'office visit reason',
+    questions: 'question',
+    scholarships: 'scholarship',
+    staff_accounts: 'staff account',
+    student_activation_settings: 'student activation setting',
+    students: 'student',
+    support_requests: 'support request'
+};
 
-    const parsed = parseAuditDetails(details);
-    if (!parsed) return String(details);
+const formatStatusLabel = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    if (/^[A-Z0-9_ ]+$/.test(trimmed)) {
+        return formatKeyLabel(trimmed.toLowerCase());
+    }
+
+    const normalized = trimmed.replace(/_/g, ' ');
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const formatAuditEntityName = (parsed: Record<string, unknown>) => {
+    const table = String(parsed.table || '').trim();
+    const label = String(parsed.label || '').trim();
+    const recordId = String(parsed.record_id || '').trim();
+    const baseLabel = AUDIT_ENTITY_LABELS[table] || formatKeyLabel(table).toLowerCase();
+
+    if (label) {
+        if (table === 'questions' && /^\d+$/.test(label)) {
+            return `Question ${label}`;
+        }
+        return label;
+    }
+
+    if (recordId && baseLabel) {
+        return `${formatKeyLabel(baseLabel)} ${recordId}`;
+    }
+
+    return baseLabel ? formatKeyLabel(baseLabel) : '';
+};
+
+const formatDbTriggerDetails = (parsed: Record<string, unknown>) => {
+    const entityName = formatAuditEntityName(parsed);
+    const nextStatus = String(parsed.status || '').trim();
+    const previousStatus = String(parsed.previous_status || '').trim();
+
+    if (entityName && nextStatus && nextStatus !== previousStatus) {
+        return `${entityName} (${formatStatusLabel(nextStatus)})`;
+    }
+
+    if (entityName) {
+        return entityName;
+    }
+
+    if (nextStatus && nextStatus !== previousStatus) {
+        return `Status changed to ${formatStatusLabel(nextStatus)}`;
+    }
 
     const summary = String(parsed.summary || '').trim();
-    if (summary) return summary;
+    return summary || '-';
+};
 
-    const visibleEntries = Object.entries(parsed)
-        .filter(([key, value]) =>
-            key !== 'source'
-            && key !== 'operation'
-            && value !== null
-            && value !== undefined
-            && String(value).trim() !== ''
-        )
-        .slice(0, 5);
+export const formatAuditDetails = (details: unknown) => {
+    if (!details) return '-';
 
-    if (visibleEntries.length === 0) return '-';
+    const parsed = parseAuditDetails(details);
+    if (parsed) {
+        if (String(parsed.source || '').trim() === 'db_trigger') {
+            return formatDbTriggerDetails(parsed);
+        }
 
-    return visibleEntries
-        .map(([key, value]) => `${formatKeyLabel(key)}: ${String(value)}`)
-        .join(' | ');
+        const summary = String(parsed.summary || '').trim();
+        if (summary) return summary;
+
+        const visibleEntries = Object.entries(parsed)
+            .filter(([key, value]) =>
+                key !== 'source'
+                && key !== 'operation'
+                && value !== null
+                && value !== undefined
+                && String(value).trim() !== ''
+            )
+            .slice(0, 5);
+
+        if (visibleEntries.length === 0) return '-';
+
+        return visibleEntries
+            .map(([key, value]) => `${formatKeyLabel(key)}: ${String(value)}`)
+            .join(' | ');
+    }
+
+    if (typeof details === 'string') return details.trim() || '-';
+
+    return String(details);
 };
 
 export const recordStaffAuditAction = async (

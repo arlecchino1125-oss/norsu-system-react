@@ -183,10 +183,9 @@ const StudentEventsView = ({
                                     )}
                                 </div>
 
-                                <h3 className="mb-3 text-lg font-bold text-gray-800 sm:mb-4 sm:text-xl">{item.title}</h3>
-                                <p className="mb-6 line-clamp-3 text-sm leading-relaxed text-gray-500 sm:mb-8">{item.description || 'No additional details provided.'}</p>
+                                <h3 className="mb-4 text-lg font-bold text-gray-800 sm:mb-5 sm:text-xl">{item.title}</h3>
 
-                                <div className="mb-6 space-y-3 sm:mb-8">
+                                <div className="mb-6 space-y-3 sm:mb-7">
                                     <p className="flex items-center gap-3 text-xs font-medium text-gray-400">
                                         <Icons.Events />
                                         {getDisplayDate(item)}
