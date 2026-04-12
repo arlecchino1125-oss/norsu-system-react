@@ -12,10 +12,19 @@ const DECISION_READY_STATUSES = new Set([
     'Interview Scheduled'
 ]);
 
-const isBulkSelectableApplicant = (app: any) => {
+const isSchedulableApplicant = (app: any) => {
+    const currentStatus = String(app?.status || '').trim();
+    return SCHEDULABLE_STATUSES.has(currentStatus);
+};
+
+const isDecisionReadyApplicant = (app: any) => {
     const currentStatus = String(app?.status || '').trim();
     const isAbsent = String(app?.interview_queue_status || '').trim() === 'Absent';
     return DECISION_READY_STATUSES.has(currentStatus) && !isAbsent;
+};
+
+const isBulkSelectableApplicant = (app: any) => {
+    return isSchedulableApplicant(app) || isDecisionReadyApplicant(app);
 };
 
 const getActiveCourseName = (app: any) => {
@@ -180,12 +189,8 @@ const DeptAdmissionsPage = ({
         return matchesSearch && matchesStatus && matchesCourse;
     });
 
-    const filteredSchedulableApplicants = filteredApplicants.filter((app: any) =>
-        SCHEDULABLE_STATUSES.has(String(app?.status || '').trim())
-    );
-    const filteredDecisionApplicants = filteredApplicants.filter((app: any) =>
-        DECISION_READY_STATUSES.has(String(app?.status || '').trim())
-    );
+    const filteredSchedulableApplicants = filteredApplicants.filter((app: any) => isSchedulableApplicant(app));
+    const filteredDecisionApplicants = filteredApplicants.filter((app: any) => isDecisionReadyApplicant(app));
     const filteredSelectableApplicants = filteredApplicants.filter((app: any) => isBulkSelectableApplicant(app));
 
     const selectedFilteredApplicants = filteredSchedulableApplicants.filter((app: any) =>
@@ -332,7 +337,7 @@ const DeptAdmissionsPage = ({
                     const applicationId = String(app?.id || '');
                     const isPendingApplicantAction = pendingApplicantActionId === applicationId;
                     const currentStatus = String(app?.status || '').trim();
-                    const isSchedulable = SCHEDULABLE_STATUSES.has(currentStatus);
+                    const isSchedulable = isSchedulableApplicant(app);
                     const isInterviewScheduled = DECISION_READY_STATUSES.has(currentStatus);
                     const isAbsent = String(app?.interview_queue_status || '').trim() === 'Absent';
                     const isSelectable = isBulkSelectableApplicant(app);
