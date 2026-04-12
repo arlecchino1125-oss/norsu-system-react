@@ -5,7 +5,6 @@ import { loadJsPdfAutoTable, loadXlsx } from '../../lib/exportVendors';
 import { savePdf } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, formatTime, generateExportFilename } from '../../utils/formatters';
 import StatusBadge from '../../components/StatusBadge';
-import { DEFAULT_PAGE_SIZE } from '../../types/pagination';
 import { getAdmissionSchedules, getApplicationsPage, getCoursesForNat, getNatAttendanceSupport, isMissingNatAttendanceColumnsError } from '../../services/natService';
 import { getApplicationDetailsById } from '../../services/applicationDetailsService';
 import { sendTransactionalEmailNotification } from '../../lib/transactionalEmail';
@@ -16,6 +15,7 @@ const APPROVED_STATUS = 'Approved for Enrollment';
 const INTERVIEW_STATUS = 'Interview Scheduled';
 const UNSUCCESSFUL_STATUS = 'Application Unsuccessful';
 const BULK_PASS_TEMPLATE_HEADERS = ['reference_id', 'applicant_name'];
+const NAT_PAGE_SIZE = 6;
 
 const isNatFinalizedStatus = (status: unknown) => {
     const value = String(status || '');
@@ -197,15 +197,15 @@ const NATManagementPage = ({ showToast }: any) => {
             ] = await Promise.all([
                 getApplicationsPage(
                     { mode: 'applications', search: searchTerm },
-                    { page: applicationsPage, pageSize: DEFAULT_PAGE_SIZE }
+                    { page: applicationsPage, pageSize: NAT_PAGE_SIZE }
                 ),
                 getApplicationsPage(
                     { mode: 'completed', status: completedFilter },
-                    { page: completedPage, pageSize: DEFAULT_PAGE_SIZE }
+                    { page: completedPage, pageSize: NAT_PAGE_SIZE }
                 ),
                 getApplicationsPage(
                     { mode: 'test_takers', course: testTakersCourseFilter },
-                    { page: testTakersPage, pageSize: DEFAULT_PAGE_SIZE }
+                    { page: testTakersPage, pageSize: NAT_PAGE_SIZE }
                 ),
                 getAdmissionSchedules(),
                 getCoursesForNat(),
@@ -1039,7 +1039,7 @@ const NATManagementPage = ({ showToast }: any) => {
                             </table>
                         </div>
                         <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Showing page {applicationsPage} ({filteredApplications.length} rows) of {Math.max(1, Math.ceil(applicationsTotal / DEFAULT_PAGE_SIZE))}</span>
+                            <span className="text-gray-500">Showing page {applicationsPage} ({filteredApplications.length} rows) of {Math.max(1, Math.ceil(applicationsTotal / NAT_PAGE_SIZE))}</span>
                             <div className="flex gap-2">
                                 <button
                                     type="button"
@@ -1052,7 +1052,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                 <button
                                     type="button"
                                     onClick={() => setApplicationsPage((prev) => prev + 1)}
-                                    disabled={applicationsPage >= Math.max(1, Math.ceil(applicationsTotal / DEFAULT_PAGE_SIZE))}
+                                    disabled={applicationsPage >= Math.max(1, Math.ceil(applicationsTotal / NAT_PAGE_SIZE))}
                                     className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
                                 >
                                     Next
@@ -1137,7 +1137,7 @@ const NATManagementPage = ({ showToast }: any) => {
                             </table>
                         </div>
                         <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Showing page {testTakersPage} ({filteredResults.length} rows) of {Math.max(1, Math.ceil(testTakersTotal / DEFAULT_PAGE_SIZE))}</span>
+                            <span className="text-gray-500">Showing page {testTakersPage} ({filteredResults.length} rows) of {Math.max(1, Math.ceil(testTakersTotal / NAT_PAGE_SIZE))}</span>
                             <div className="flex gap-2">
                                 <button
                                     type="button"
@@ -1150,7 +1150,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                 <button
                                     type="button"
                                     onClick={() => setTestTakersPage((prev) => prev + 1)}
-                                    disabled={testTakersPage >= Math.max(1, Math.ceil(testTakersTotal / DEFAULT_PAGE_SIZE))}
+                                    disabled={testTakersPage >= Math.max(1, Math.ceil(testTakersTotal / NAT_PAGE_SIZE))}
                                     className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
                                 >
                                     Next
@@ -1281,7 +1281,7 @@ const NATManagementPage = ({ showToast }: any) => {
                             </table>
                         </div>
                         <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Showing page {completedPage} ({completedApplications.length} rows) of {Math.max(1, Math.ceil(completedTotal / DEFAULT_PAGE_SIZE))}</span>
+                            <span className="text-gray-500">Showing page {completedPage} ({completedApplications.length} rows) of {Math.max(1, Math.ceil(completedTotal / NAT_PAGE_SIZE))}</span>
                             <div className="flex gap-2">
                                 <button
                                     type="button"
@@ -1294,7 +1294,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                 <button
                                     type="button"
                                     onClick={() => setCompletedPage((prev) => prev + 1)}
-                                    disabled={completedPage >= Math.max(1, Math.ceil(completedTotal / DEFAULT_PAGE_SIZE))}
+                                    disabled={completedPage >= Math.max(1, Math.ceil(completedTotal / NAT_PAGE_SIZE))}
                                     className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
                                 >
                                     Next
