@@ -3,7 +3,8 @@ import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
 import type { PageResult } from '../types/pagination';
 import type { PageParams, SortParams, StudentFilters } from '../types/query';
 
-const PAGED_LIST_COUNT_MODE = 'planned';
+// Student population pagination needs an exact total so page controls stay accurate.
+const PAGED_LIST_COUNT_MODE = 'exact';
 
 export const STUDENT_LIST_COLUMNS = [
     'id',

@@ -2987,7 +2987,7 @@ export default function StudentPortal() {
 
 
             {profileServiceGate.visible && createPortal(
-                <div className="fixed inset-0 z-[10004] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 pointer-events-auto student-mobile-modal-overlay">
+                <div className="fixed inset-0 z-[10004] flex items-center justify-center bg-transparent p-4 pointer-events-auto student-mobile-modal-overlay">
                     <div className="w-full max-w-md overflow-hidden rounded-[1.75rem] bg-white shadow-2xl student-mobile-modal-panel">
                         <div className="border-b border-rose-100 bg-gradient-to-r from-rose-50 via-amber-50 to-white px-6 py-5">
                             <div className="flex items-start gap-3">
@@ -3032,7 +3032,7 @@ export default function StudentPortal() {
 
             {/* Forced Course/Year Confirmation Gate */}
             {!profileCompletionGateActive && courseYearGate.visible && createPortal(
-                <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 student-mobile-modal-overlay">
+                <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-transparent p-4 student-mobile-modal-overlay">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 student-mobile-modal-panel student-mobile-modal-scroll-panel">
                         <h3 className="text-lg font-extrabold text-slate-900">Course and Year Confirmation Required</h3>
                         <p className="text-sm text-slate-600 mt-2">
@@ -3276,7 +3276,7 @@ export default function StudentPortal() {
 
                 {/* STUDENT COMMAND HUB */}
                 {showCommandHub && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-backdrop student-mobile-modal-overlay" onClick={() => setShowCommandHub(false)}>
+                    <div className="fixed inset-0 bg-transparent z-50 flex items-end sm:items-center justify-center p-4 student-mobile-modal-overlay" onClick={() => setShowCommandHub(false)}>
                         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden animate-scale-in border border-white/20 student-mobile-modal-panel student-mobile-modal-scroll-panel sm:max-w-sm" onClick={(e: any) => e.stopPropagation()}>
                             <div className="p-5 bg-gradient-to-br from-blue-600 to-blue-800 text-white relative overflow-hidden sm:p-6">
                                 <div className={`absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl ${isCompactPortalLayout ? '' : 'animate-float'}`}></div>

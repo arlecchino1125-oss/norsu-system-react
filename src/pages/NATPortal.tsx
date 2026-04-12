@@ -1201,7 +1201,7 @@ const NATPortal = () => {
 
                     {/* Time In Confirmation Modal */}
                     {showTimeInConfirm && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
+                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
                             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden border border-white/20">
                                 <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 text-center relative overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E')] opacity-20"></div>
@@ -1233,7 +1233,7 @@ const NATPortal = () => {
 
                     {/* Time Out Confirmation Modal */}
                     {showTimeOutConfirm && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
+                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
                             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden border border-white/20">
                                 <div className="bg-gradient-to-br from-red-500 to-rose-600 p-8 text-center relative overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E')] opacity-20"></div>
@@ -1258,7 +1258,7 @@ const NATPortal = () => {
 
                     {/* Activation Modal */}
                     {showActivationModal && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in zoom-in duration-200">
+                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[200] p-4 animate-in fade-in zoom-in duration-200">
                             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-white/20 relative">
                                 <div className="sticky top-0 z-10 bg-white rounded-t-2xl">
                                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-2xl"></div>
@@ -1293,7 +1293,7 @@ const NATPortal = () => {
 
                     {/* Activation Confirmation Modal */}
                     {activationConfirm.visible && (
-                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[250] p-4">
+                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[250] p-4">
                             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-white/20">
                                 <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-center">
                                     <div className="bg-white/20 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center backdrop-blur-md">
@@ -1335,7 +1335,7 @@ const NATPortal = () => {
 
                     {/* Enrollment Confirmation Modal (replaces window.confirm) */}
                     {enrollConfirm.visible && (
-                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[300] p-4">
+                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[300] p-4">
                             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto border border-white/20 relative">
                                 <div className="bg-gradient-to-br from-amber-500 to-orange-500 p-6 text-center rounded-t-2xl">
                                     <div className="bg-white/20 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center backdrop-blur-md">
@@ -1380,7 +1380,7 @@ const NATPortal = () => {
 
                     {/* Activation Success Modal */}
                     {activationSuccess.visible && (
-                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[350] p-4">
+                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[350] p-4">
                             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20">
                                 <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 text-center">
                                     <div className="bg-white/20 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center backdrop-blur-md">
@@ -2099,7 +2099,7 @@ const NATPortal = () => {
             {/* Success Modal */}
             {showSuccessModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }}></div>
+                    <div className="absolute inset-0 bg-transparent" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }}></div>
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}

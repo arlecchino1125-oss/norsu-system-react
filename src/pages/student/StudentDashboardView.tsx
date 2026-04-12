@@ -74,7 +74,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
     // Success state
     if (submitted) {
         return createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
+            <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
                 <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl text-center animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel sm:p-8">
                     <div className="w-16 h-16 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
                     <h3 className="font-extrabold text-lg mb-2 text-gray-900">Thank You!</h3>
@@ -87,7 +87,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
     }
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
+        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[9999] p-4 student-mobile-modal-overlay">
             <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fade-in-up student-mobile-modal-panel">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white flex-shrink-0 sm:px-8 sm:py-5">
@@ -327,7 +327,7 @@ const StudentDashboardView = ({
 
         {/* OFFICE VISIT TIME IN MODAL */}
         {showTimeInModal && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+            <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
                 <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel sm:p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-lg">Office Visit</h3>

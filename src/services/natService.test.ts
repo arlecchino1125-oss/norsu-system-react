@@ -44,6 +44,10 @@ describe('natService.getApplicationsPage', () => {
             { page: 2, pageSize: 25 }
         );
 
+        expect(queryMock.select).toHaveBeenCalledWith(
+            expect.any(String),
+            { count: 'exact' }
+        );
         expect(queryMock.range).toHaveBeenCalledWith(25, 49);
         expect(queryMock.or).toHaveBeenCalled();
     });

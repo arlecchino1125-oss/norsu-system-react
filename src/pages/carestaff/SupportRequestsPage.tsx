@@ -565,7 +565,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
             {/* Support Modal - Enhanced Side Panel */}
             {showSupportModal && selectedSupportReq && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-backdrop" onClick={() => setShowSupportModal(false)}></div>
+                    <div className="absolute inset-0 bg-transparent" onClick={() => setShowSupportModal(false)}></div>
                     <div className="relative bg-white w-full max-w-5xl max-h-[90vh] shadow-2xl shadow-purple-900/10 flex flex-col animate-fade-in-up rounded-2xl overflow-hidden">
                         <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <div>

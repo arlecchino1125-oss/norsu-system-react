@@ -367,7 +367,7 @@ const DeptSupportApprovalsPage = ({
 
             {/* Reject Confirmation Inline */}
             {rejectingId && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <h3 className="text-lg font-bold mb-4">Reject Support Request</h3>
                         <textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm mb-4" placeholder="Reason for rejection..." required />
@@ -384,7 +384,7 @@ const DeptSupportApprovalsPage = ({
 
             {/* Approve & Schedule Modal */}
             {showApproveScheduleModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Approve & Schedule Visit</h3>
@@ -411,7 +411,7 @@ const DeptSupportApprovalsPage = ({
 
             {/* Resolve Modal */}
             {showResolveModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Mark as Resolved</h3>
@@ -431,7 +431,7 @@ const DeptSupportApprovalsPage = ({
 
             {/* Refer to CARE Modal */}
             {showReferCareModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
                         <div className="flex justify-between items-center mb-6">
                             <div>
@@ -488,7 +488,7 @@ const DeptSupportApprovalsPage = ({
             {/* View Detail Modal — same layout as before */}
             {showViewModal && viewReq && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowViewModal(false)}></div>
+                    <div className="absolute inset-0 bg-transparent" onClick={() => setShowViewModal(false)}></div>
                     <div className="relative bg-white w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col animate-fade-in-up rounded-2xl overflow-hidden">
                         <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <div>
@@ -610,7 +610,7 @@ const DeptSupportApprovalsPage = ({
 
             {/* Send Message Modal */}
             {showMessageModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Message Student</h3>
@@ -629,7 +629,7 @@ const DeptSupportApprovalsPage = ({
             {showLetterModal && viewReq?.care_notes && (() => {
                 const { letterReference, notes: notesText } = parseCareNotesPayload(viewReq.care_notes);
                 return (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-[110] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
                             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-yellow-50 to-amber-50">
                                 <div>

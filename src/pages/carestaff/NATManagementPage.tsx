@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
-import { ArrowRightLeft, CheckCircle2, Download, FileText, Pencil, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
+import { ArrowRightLeft, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, FileText, Pencil, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { loadJsPdfAutoTable, loadXlsx } from '../../lib/exportVendors';
 import { savePdf } from '../../utils/dashboardUtils';
@@ -15,7 +15,132 @@ const APPROVED_STATUS = 'Approved for Enrollment';
 const INTERVIEW_STATUS = 'Interview Scheduled';
 const UNSUCCESSFUL_STATUS = 'Application Unsuccessful';
 const BULK_PASS_TEMPLATE_HEADERS = ['reference_id', 'applicant_name'];
-const NAT_PAGE_SIZE = 6;
+const NAT_PAGE_SIZE = 5;
+const NAT_TABLE_SHELL_CLASS = 'bg-white border rounded-xl overflow-hidden shadow-sm flex min-h-[28rem] flex-col';
+
+const getTotalPages = (totalItems: number) => Math.max(1, Math.ceil(Math.max(0, totalItems) / NAT_PAGE_SIZE));
+
+const paginateLocalRows = <T,>(rows: T[], page: number) => {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const safePage = Math.max(1, page);
+    const start = (safePage - 1) * NAT_PAGE_SIZE;
+    return safeRows.slice(start, start + NAT_PAGE_SIZE);
+};
+
+const buildPaginationItems = (page: number, totalPages: number) => {
+    if (totalPages <= 5) {
+        return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const items: Array<number | string> = [1];
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+
+    if (start > 2) items.push('left-ellipsis');
+    for (let current = start; current <= end; current += 1) {
+        items.push(current);
+    }
+    if (end < totalPages - 1) items.push('right-ellipsis');
+
+    items.push(totalPages);
+    return items;
+};
+
+const renderTablePaddingRows = (columnCount: number, visibleRowCount: number) => (
+    Array.from({ length: Math.max(0, NAT_PAGE_SIZE - visibleRowCount) }, (_, index) => (
+        <tr key={`table-padding-${columnCount}-${index}`} aria-hidden="true">
+            <td colSpan={columnCount} className="h-[72px] bg-white">&nbsp;</td>
+        </tr>
+    ))
+);
+
+const PaginationControls = ({
+    page,
+    totalItems,
+    currentRowsCount,
+    onPageChange,
+    itemLabel
+}: any) => {
+    const totalPages = getTotalPages(totalItems);
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const startItem = totalItems === 0 ? 0 : ((safePage - 1) * NAT_PAGE_SIZE) + 1;
+    const visibleCount = totalItems === 0
+        ? 0
+        : currentRowsCount > 0
+            ? currentRowsCount
+            : Math.min(NAT_PAGE_SIZE, Math.max(totalItems - startItem + 1, 0));
+    const endItem = totalItems === 0 ? 0 : Math.min(totalItems, startItem + visibleCount - 1);
+    const paginationItems = buildPaginationItems(safePage, totalPages);
+    const navButtonClass = 'inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-gray-300 bg-white px-2 text-xs font-semibold text-gray-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40';
+
+    return (
+        <div className="flex flex-col gap-3 border-t bg-gray-50 px-4 py-3 text-xs md:flex-row md:items-center md:justify-between">
+            <span className="text-gray-500">
+                {totalItems === 0
+                    ? `No ${itemLabel} found.`
+                    : `Showing ${startItem}-${endItem} of ${totalItems} ${itemLabel}`}
+            </span>
+            <div className="flex flex-wrap items-center justify-end gap-1">
+                <button
+                    type="button"
+                    onClick={() => onPageChange(1)}
+                    disabled={safePage === 1}
+                    className={navButtonClass}
+                    aria-label="First page"
+                >
+                    <ChevronsLeft size={14} />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onPageChange(safePage - 1)}
+                    disabled={safePage === 1}
+                    className={navButtonClass}
+                    aria-label="Previous page"
+                >
+                    <ChevronLeft size={14} />
+                </button>
+                {paginationItems.map((item, index) => (
+                    typeof item === 'number' ? (
+                        <button
+                            key={`page-${item}`}
+                            type="button"
+                            onClick={() => onPageChange(item)}
+                            className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold transition ${item === safePage
+                                ? 'border-purple-600 bg-purple-600 text-white shadow-sm'
+                                : 'border-gray-300 bg-white text-gray-600 hover:border-purple-200 hover:text-purple-700'
+                                }`}
+                            aria-current={item === safePage ? 'page' : undefined}
+                        >
+                            {item}
+                        </button>
+                    ) : (
+                        <span key={`ellipsis-${index}`} className="inline-flex h-8 min-w-8 items-center justify-center text-gray-400">
+                            ...
+                        </span>
+                    )
+                ))}
+                <button
+                    type="button"
+                    onClick={() => onPageChange(safePage + 1)}
+                    disabled={safePage === totalPages}
+                    className={navButtonClass}
+                    aria-label="Next page"
+                >
+                    <ChevronRight size={14} />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onPageChange(totalPages)}
+                    disabled={safePage === totalPages}
+                    className={navButtonClass}
+                    aria-label="Last page"
+                >
+                    <ChevronsRight size={14} />
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const isNatFinalizedStatus = (status: unknown) => {
     const value = String(status || '');
@@ -102,6 +227,9 @@ const NATManagementPage = ({ showToast }: any) => {
     const [applicationsPage, setApplicationsPage] = useState(1);
     const [completedPage, setCompletedPage] = useState(1);
     const [testTakersPage, setTestTakersPage] = useState(1);
+    const [statusBoardPage, setStatusBoardPage] = useState(1);
+    const [requirementsPage, setRequirementsPage] = useState(1);
+    const [limitsPage, setLimitsPage] = useState(1);
     const [applicationsTotal, setApplicationsTotal] = useState(0);
     const [completedTotal, setCompletedTotal] = useState(0);
     const [testTakersTotal, setTestTakersTotal] = useState(0);
@@ -464,6 +592,22 @@ const NATManagementPage = ({ showToast }: any) => {
     useEffect(() => {
         setTestTakersPage(1);
     }, [testTakersCourseFilter]);
+
+    useEffect(() => {
+        setStatusBoardPage(1);
+    }, [statusBoardFilter]);
+
+    useEffect(() => {
+        setApplicationsPage((prev) => Math.min(prev, getTotalPages(applicationsTotal)));
+    }, [applicationsTotal]);
+
+    useEffect(() => {
+        setCompletedPage((prev) => Math.min(prev, getTotalPages(completedTotal)));
+    }, [completedTotal]);
+
+    useEffect(() => {
+        setTestTakersPage((prev) => Math.min(prev, getTotalPages(testTakersTotal)));
+    }, [testTakersTotal]);
 
     const toggleSchedule = async (sch) => {
         await supabase.from('admission_schedules').update({ is_active: !sch.is_active }).eq('id', sch.id);
@@ -967,6 +1111,31 @@ const NATManagementPage = ({ showToast }: any) => {
     }, [summaryApplications, supportsAttendance]);
 
     const activeStatusSection = statusSections.find((section) => section.id === statusBoardFilter) || statusSections[0];
+    const activeStatusRows = activeStatusSection?.rows || [];
+    const paginatedStatusRows = useMemo(
+        () => paginateLocalRows(activeStatusRows, statusBoardPage),
+        [activeStatusRows, statusBoardPage]
+    );
+    const paginatedRequirements = useMemo(
+        () => paginateLocalRows(natRequirements, requirementsPage),
+        [natRequirements, requirementsPage]
+    );
+    const paginatedCourseLimits = useMemo(
+        () => paginateLocalRows(courseLimits, limitsPage),
+        [courseLimits, limitsPage]
+    );
+
+    useEffect(() => {
+        setStatusBoardPage((prev) => Math.min(prev, getTotalPages(activeStatusRows.length)));
+    }, [activeStatusRows.length]);
+
+    useEffect(() => {
+        setRequirementsPage((prev) => Math.min(prev, getTotalPages(natRequirements.length)));
+    }, [natRequirements.length]);
+
+    useEffect(() => {
+        setLimitsPage((prev) => Math.min(prev, getTotalPages(courseLimits.length)));
+    }, [courseLimits.length]);
 
     return (
         <div className="space-y-6">
@@ -1008,67 +1177,64 @@ const NATManagementPage = ({ showToast }: any) => {
 
             {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> :
                 activeTab === 'applications' ? (
-                    <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                    <div className={NAT_TABLE_SHELL_CLASS}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-gray-50 p-4">
                             <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search..." className="border rounded-lg px-3 py-1.5 text-sm w-64" />
                             <div className="flex gap-2">
                                 <button onClick={handleExportCSV} className="text-green-600 text-sm font-bold flex items-center gap-1 hover:bg-green-50 px-2 py-1 rounded"><Download size={14} /> CSV</button>
                                 <button onClick={handleExportPDF} className="text-red-600 text-sm font-bold flex items-center gap-1 hover:bg-red-50 px-2 py-1 rounded"><FileText size={14} /> PDF</button>
                             </div>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="flex-1 overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="p-4">Student</th><th className="p-4">Status</th><th className="p-4">Course</th><th className="p-4">Action</th></tr></thead>
                                 <tbody className="divide-y">
-                                    {filteredApplications.map(app => (
-                                        <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
-                                            <td className="p-4 font-bold">{app.first_name} {app.last_name}<div className="text-xs text-gray-400 font-normal">{app.reference_id}</div></td>
-                                            <td className="p-4"><StatusBadge status={app.status} /></td>
-                                            <td className="p-4">{app.priority_course}</td>
-                                            <td className="p-4">
-                                                <div className="flex gap-2">
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, FAIL_STATUS); }} className="text-red-600 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-slate-400 font-bold text-xs cursor-pointer hover:bg-red-50 hover:text-red-600 px-2 py-1 rounded transition-colors">Del</button>
-                                                </div>
+                                    {filteredApplications.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="h-[320px] p-8 text-center text-sm text-gray-400">
+                                                No applications found for the current search.
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        <>
+                                            {filteredApplications.map(app => (
+                                                <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
+                                                    <td className="p-4 font-bold">{app.first_name} {app.last_name}<div className="text-xs text-gray-400 font-normal">{app.reference_id}</div></td>
+                                                    <td className="p-4"><StatusBadge status={app.status} /></td>
+                                                    <td className="p-4">{app.priority_course}</td>
+                                                    <td className="p-4">
+                                                        <div className="flex gap-2">
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, FAIL_STATUS); }} className="text-red-600 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-slate-400 font-bold text-xs cursor-pointer hover:bg-red-50 hover:text-red-600 px-2 py-1 rounded transition-colors">Del</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {renderTablePaddingRows(4, filteredApplications.length)}
+                                        </>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
-                        <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Showing page {applicationsPage} ({filteredApplications.length} rows) of {Math.max(1, Math.ceil(applicationsTotal / NAT_PAGE_SIZE))}</span>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setApplicationsPage((prev) => Math.max(1, prev - 1))}
-                                    disabled={applicationsPage === 1}
-                                    className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setApplicationsPage((prev) => prev + 1)}
-                                    disabled={applicationsPage >= Math.max(1, Math.ceil(applicationsTotal / NAT_PAGE_SIZE))}
-                                    className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
+                        <PaginationControls
+                            page={applicationsPage}
+                            totalItems={applicationsTotal}
+                            currentRowsCount={filteredApplications.length}
+                            onPageChange={setApplicationsPage}
+                            itemLabel="applications"
+                        />
                     </div>
                 ) : activeTab === 'test takers' ? (
-                    <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                    <div className={NAT_TABLE_SHELL_CLASS}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-gray-50 p-4">
                             <div>
                                 <h3 className="font-bold">Test Takers</h3>
                                 <p className="text-xs text-gray-400">{supportsAttendance ? 'Applicants who timed in and timed out on their assigned test day.' : 'Applicants who finished the NAT and are awaiting result tagging.'}</p>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-3">
-                                <span className="text-xs text-gray-500 font-bold">{filteredResults.length} applicant{filteredResults.length !== 1 ? 's' : ''}</span>
+                                <span className="text-xs text-gray-500 font-bold">{testTakersTotal} applicant{testTakersTotal !== 1 ? 's' : ''}</span>
                                 <select value={testTakersCourseFilter} onChange={e => setTestTakersCourseFilter(e.target.value)} className="border rounded-lg px-2 py-1 text-sm"><option value="All">All Courses</option>{courseLimits.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
                                 <button
                                     type="button"
@@ -1086,7 +1252,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                 </button>
                             </div>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="flex-1 overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                                     <tr>
@@ -1108,55 +1274,46 @@ const NATManagementPage = ({ showToast }: any) => {
                                 </thead>
                                 <tbody className="divide-y">
                                     {filteredResults.length === 0 ? (
-                                        <tr><td colSpan={supportsAttendance ? 8 : 7} className="p-8 text-center text-gray-400 text-sm">{supportsAttendance ? 'No timed attendance records yet. Applicants appear here after they time in and time out.' : 'No finished NAT records yet. Applicants move here after they are marked as `Test Taken`.'}</td></tr>
-                                    ) : filteredResults.map(r => (
-                                        <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(r); }}>
-                                            <td className="p-4 font-bold">{r.first_name} {r.last_name}</td>
-                                            <td className="p-4 text-xs text-gray-400 font-mono">{r.reference_id}</td>
-                                            <td className="p-4">{r.priority_course}</td>
-                                            <td className="p-4 text-gray-600">{formatDate(r.test_date)}</td>
-                                            {supportsAttendance ? (
-                                                <>
-                                                    <td className="p-4 text-green-600 font-mono text-xs">{formatTime(r.time_in, '-')}</td>
-                                                    <td className="p-4 text-red-500 font-mono text-xs">{formatTime(r.time_out, '-')}</td>
-                                                </>
-                                            ) : (
-                                                <td className="p-4 text-gray-600 text-xs font-medium">{formatAssignedSlot(r.test_time)}</td>
-                                            )}
-                                            <td className="p-4"><StatusBadge status={r.status} /></td>
-                                            <td className="p-4">
-                                                <div className="flex gap-2">
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(r); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, FAIL_STATUS); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                        <tr><td colSpan={supportsAttendance ? 8 : 7} className="h-[320px] p-8 text-center text-gray-400 text-sm">{supportsAttendance ? 'No timed attendance records yet. Applicants appear here after they time in and time out.' : 'No finished NAT records yet. Applicants move here after they are marked as `Test Taken`.'}</td></tr>
+                                    ) : (
+                                        <>
+                                            {filteredResults.map(r => (
+                                                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(r); }}>
+                                                    <td className="p-4 font-bold">{r.first_name} {r.last_name}</td>
+                                                    <td className="p-4 text-xs text-gray-400 font-mono">{r.reference_id}</td>
+                                                    <td className="p-4">{r.priority_course}</td>
+                                                    <td className="p-4 text-gray-600">{formatDate(r.test_date)}</td>
+                                                    {supportsAttendance ? (
+                                                        <>
+                                                            <td className="p-4 text-green-600 font-mono text-xs">{formatTime(r.time_in, '-')}</td>
+                                                            <td className="p-4 text-red-500 font-mono text-xs">{formatTime(r.time_out, '-')}</td>
+                                                        </>
+                                                    ) : (
+                                                        <td className="p-4 text-gray-600 text-xs font-medium">{formatAssignedSlot(r.test_time)}</td>
+                                                    )}
+                                                    <td className="p-4"><StatusBadge status={r.status} /></td>
+                                                    <td className="p-4">
+                                                        <div className="flex gap-2">
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(r); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, FAIL_STATUS); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {renderTablePaddingRows(supportsAttendance ? 8 : 7, filteredResults.length)}
+                                        </>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
-                        <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Showing page {testTakersPage} ({filteredResults.length} rows) of {Math.max(1, Math.ceil(testTakersTotal / NAT_PAGE_SIZE))}</span>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setTestTakersPage((prev) => Math.max(1, prev - 1))}
-                                    disabled={testTakersPage === 1}
-                                    className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setTestTakersPage((prev) => prev + 1)}
-                                    disabled={testTakersPage >= Math.max(1, Math.ceil(testTakersTotal / NAT_PAGE_SIZE))}
-                                    className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
+                        <PaginationControls
+                            page={testTakersPage}
+                            totalItems={testTakersTotal}
+                            currentRowsCount={filteredResults.length}
+                            onPageChange={setTestTakersPage}
+                            itemLabel="test takers"
+                        />
                     </div>
                 ) : activeTab === 'status board' ? (
                     <div className="space-y-4">
@@ -1178,15 +1335,15 @@ const NATManagementPage = ({ showToast }: any) => {
                             ))}
                         </div>
 
-                        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                        <div className={NAT_TABLE_SHELL_CLASS}>
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-gray-50 p-4">
                                 <div>
                                     <h3 className="font-bold">{activeStatusSection?.label || 'Status Board'}</h3>
                                     <p className="text-xs text-gray-400">{activeStatusSection?.description || 'Review released NAT outcomes and admissions routing.'}</p>
                                 </div>
-                                <span className="text-xs text-gray-500 font-bold">{activeStatusSection?.rows.length || 0} applicant{(activeStatusSection?.rows.length || 0) !== 1 ? 's' : ''}</span>
+                                <span className="text-xs text-gray-500 font-bold">{activeStatusRows.length} applicant{activeStatusRows.length !== 1 ? 's' : ''}</span>
                             </div>
-                            <div className="overflow-x-auto">
+                            <div className="flex-1 overflow-x-auto">
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                                         <tr>
@@ -1199,41 +1356,53 @@ const NATManagementPage = ({ showToast }: any) => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {(activeStatusSection?.rows || []).length === 0 ? (
-                                            <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-sm">No applicants are in this NAT status yet.</td></tr>
-                                        ) : (activeStatusSection?.rows || []).map((app: any) => (
-                                            <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
-                                                <td className="p-4 font-bold">
-                                                    {buildApplicantName(app)}
-                                                    <div className="text-xs text-gray-400 font-normal">{app.student_id || 'Student ID pending'}</div>
-                                                </td>
-                                                <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
-                                                <td className="p-4 text-gray-700">{getApplicantRouteLabel(app)}</td>
-                                                <td className="p-4"><StatusBadge status={app.status} /></td>
-                                                <td className="p-4 text-gray-600 text-xs">
-                                                    {String(app.status || '') === INTERVIEW_STATUS
-                                                        ? (app.interview_date || 'Interview date pending')
-                                                        : formatDate(app.test_date)}
-                                                </td>
-                                                <td className="p-4">
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {activeStatusRows.length === 0 ? (
+                                            <tr><td colSpan={6} className="h-[320px] p-8 text-center text-gray-400 text-sm">No applicants are in this NAT status yet.</td></tr>
+                                        ) : (
+                                            <>
+                                                {paginatedStatusRows.map((app: any) => (
+                                                    <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
+                                                        <td className="p-4 font-bold">
+                                                            {buildApplicantName(app)}
+                                                            <div className="text-xs text-gray-400 font-normal">{app.student_id || 'Student ID pending'}</div>
+                                                        </td>
+                                                        <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
+                                                        <td className="p-4 text-gray-700">{getApplicantRouteLabel(app)}</td>
+                                                        <td className="p-4"><StatusBadge status={app.status} /></td>
+                                                        <td className="p-4 text-gray-600 text-xs">
+                                                            {String(app.status || '') === INTERVIEW_STATUS
+                                                                ? (app.interview_date || 'Interview date pending')
+                                                                : formatDate(app.test_date)}
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {renderTablePaddingRows(6, paginatedStatusRows.length)}
+                                            </>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
+                            <PaginationControls
+                                page={statusBoardPage}
+                                totalItems={activeStatusRows.length}
+                                currentRowsCount={paginatedStatusRows.length}
+                                onPageChange={setStatusBoardPage}
+                                itemLabel="applicants"
+                            />
                         </div>
                     </div>
                 ) : activeTab === 'completed' ? (
-                    <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                    <div className={NAT_TABLE_SHELL_CLASS}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-gray-50 p-4">
                             <div>
                                 <h3 className="font-bold">Completed Logs</h3>
                                 <p className="text-xs text-gray-400">Released NAT results and department admissions outcomes.</p>
                             </div>
                             <div className="flex items-center gap-3">
-                                <span className="text-xs text-gray-500 font-bold">{completedApplications.length} record{completedApplications.length !== 1 ? 's' : ''}</span>
+                                <span className="text-xs text-gray-500 font-bold">{completedTotal} record{completedTotal !== 1 ? 's' : ''}</span>
                                 <select value={completedFilter} onChange={e => setCompletedFilter(e.target.value)} className="border rounded-lg px-2 py-1 text-sm">
                                     <option value="All">All Status</option>
                                     <option value="Passed">Passed NAT (Legacy)</option>
@@ -1247,7 +1416,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                 </select>
                             </div>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="flex-1 overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                                     <tr>
@@ -1261,46 +1430,37 @@ const NATManagementPage = ({ showToast }: any) => {
                                 </thead>
                                 <tbody className="divide-y">
                                     {completedApplications.length === 0 ? (
-                                        <tr><td colSpan={6} className="p-8 text-center text-gray-400 text-sm">No completed logs yet.</td></tr>
-                                    ) : completedApplications.map(app => (
-                                        <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
-                                            <td className="p-4 font-bold">{app.first_name} {app.last_name}</td>
-                                            <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
-                                            <td className="p-4">{app.priority_course}</td>
-                                            <td className="p-4"><StatusBadge status={app.status} /></td>
-                                            <td className="p-4 text-gray-500 text-xs">{formatDate(app.created_at)}</td>
-                                            <td className="p-4">
-                                                <div className="flex gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
-                                                    <button onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Delete</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                        <tr><td colSpan={6} className="h-[320px] p-8 text-center text-gray-400 text-sm">No completed logs yet.</td></tr>
+                                    ) : (
+                                        <>
+                                            {completedApplications.map(app => (
+                                                <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
+                                                    <td className="p-4 font-bold">{app.first_name} {app.last_name}</td>
+                                                    <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
+                                                    <td className="p-4">{app.priority_course}</td>
+                                                    <td className="p-4"><StatusBadge status={app.status} /></td>
+                                                    <td className="p-4 text-gray-500 text-xs">{formatDate(app.created_at)}</td>
+                                                    <td className="p-4">
+                                                        <div className="flex gap-2">
+                                                            <button onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Delete</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {renderTablePaddingRows(6, completedApplications.length)}
+                                        </>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
-                        <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-xs">
-                            <span className="text-gray-500">Showing page {completedPage} ({completedApplications.length} rows) of {Math.max(1, Math.ceil(completedTotal / NAT_PAGE_SIZE))}</span>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setCompletedPage((prev) => Math.max(1, prev - 1))}
-                                    disabled={completedPage === 1}
-                                    className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
-                                >
-                                    Previous
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setCompletedPage((prev) => prev + 1)}
-                                    disabled={completedPage >= Math.max(1, Math.ceil(completedTotal / NAT_PAGE_SIZE))}
-                                    className="px-3 py-1 rounded border border-gray-300 bg-white disabled:opacity-50"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
+                        <PaginationControls
+                            page={completedPage}
+                            totalItems={completedTotal}
+                            currentRowsCount={completedApplications.length}
+                            onPageChange={setCompletedPage}
+                            itemLabel="completed records"
+                        />
                     </div>
                 ) : activeTab === 'schedules' ? (
                     <div className="space-y-4">
@@ -1382,10 +1542,8 @@ const NATManagementPage = ({ showToast }: any) => {
                             </div>
                         </div>
 
-                        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                            {natRequirements.length === 0 ? (
-                                <div className="p-6 text-sm text-gray-500">No NAT requirements added yet.</div>
-                            ) : (
+                        <div className={NAT_TABLE_SHELL_CLASS}>
+                            <div className="flex-1 overflow-x-auto">
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                                         <tr>
@@ -1395,26 +1553,44 @@ const NATManagementPage = ({ showToast }: any) => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {natRequirements.map((requirement: any) => (
-                                            <tr key={requirement.id}>
-                                                <td className="p-4 font-medium text-gray-800">{requirement.name}</td>
-                                                <td className="p-4 text-xs text-gray-500">{formatDateTime(requirement.created_at)}</td>
-                                                <td className="p-4 text-center">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteRequirement(requirement)}
-                                                        disabled={pendingRequirementDeleteId === requirement.id}
-                                                        className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
-                                                    >
-                                                        <Trash2 size={12} />
-                                                        {pendingRequirementDeleteId === requirement.id ? 'Deleting...' : 'Delete'}
-                                                    </button>
+                                        {natRequirements.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={3} className="h-[320px] p-8 text-center text-sm text-gray-500">
+                                                    No NAT requirements added yet.
                                                 </td>
                                             </tr>
-                                        ))}
+                                        ) : (
+                                            <>
+                                                {paginatedRequirements.map((requirement: any) => (
+                                                    <tr key={requirement.id}>
+                                                        <td className="p-4 font-medium text-gray-800">{requirement.name}</td>
+                                                        <td className="p-4 text-xs text-gray-500">{formatDateTime(requirement.created_at)}</td>
+                                                        <td className="p-4 text-center">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteRequirement(requirement)}
+                                                                disabled={pendingRequirementDeleteId === requirement.id}
+                                                                className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                                {pendingRequirementDeleteId === requirement.id ? 'Deleting...' : 'Delete'}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {renderTablePaddingRows(3, paginatedRequirements.length)}
+                                            </>
+                                        )}
                                     </tbody>
                                 </table>
-                            )}
+                            </div>
+                            <PaginationControls
+                                page={requirementsPage}
+                                totalItems={natRequirements.length}
+                                currentRowsCount={paginatedRequirements.length}
+                                onPageChange={setRequirementsPage}
+                                itemLabel="requirements"
+                            />
                         </div>
                     </div>
                 ) : (
@@ -1427,21 +1603,41 @@ const NATManagementPage = ({ showToast }: any) => {
                                 </p>
                             </div>
                         </div>
-                        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="p-4">Course</th><th className="p-4 text-center">Applicants</th><th className="p-4 text-center">Limit</th><th className="p-4 text-center">Status</th><th className="p-4 text-center">Action</th></tr></thead>
-                                <tbody className="divide-y">
-                                    {courseLimits.map(c => (
-                                        <tr key={c.id}>
-                                            <td className="p-4 font-bold">{c.name}</td>
-                                            <td className="p-4 text-center font-mono font-bold text-blue-600">{applications.filter(a => a.priority_course === c.name).length}</td>
-                                            <td className="p-4 text-center"><input type="number" className="border rounded w-20 text-center" defaultValue={c.application_limit || 200} onBlur={e => handleUpdateLimit(c.id, 'application_limit', e.target.value)} /></td>
-                                            <td className="p-4 text-center"><button onClick={() => handleUpdateLimit(c.id, 'status', c.status === 'Closed' ? 'Open' : 'Closed')} className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Closed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{c.status || 'Open'}</button></td>
-                                            <td className="p-4 text-center"><button onClick={() => handleDeleteCourse(c.name, c.id)} className="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition">Delete</button></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className={NAT_TABLE_SHELL_CLASS}>
+                            <div className="flex-1 overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="p-4">Course</th><th className="p-4 text-center">Applicants</th><th className="p-4 text-center">Limit</th><th className="p-4 text-center">Status</th><th className="p-4 text-center">Action</th></tr></thead>
+                                    <tbody className="divide-y">
+                                        {courseLimits.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="h-[320px] p-8 text-center text-sm text-gray-500">
+                                                    No courses found for NAT limits.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            <>
+                                                {paginatedCourseLimits.map(c => (
+                                                    <tr key={c.id}>
+                                                        <td className="p-4 font-bold">{c.name}</td>
+                                                        <td className="p-4 text-center font-mono font-bold text-blue-600">{summaryApplications.filter(a => a.priority_course === c.name).length}</td>
+                                                        <td className="p-4 text-center"><input type="number" className="border rounded w-20 text-center" defaultValue={c.application_limit || 200} onBlur={e => handleUpdateLimit(c.id, 'application_limit', e.target.value)} /></td>
+                                                        <td className="p-4 text-center"><button onClick={() => handleUpdateLimit(c.id, 'status', c.status === 'Closed' ? 'Open' : 'Closed')} className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Closed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{c.status || 'Open'}</button></td>
+                                                        <td className="p-4 text-center"><button onClick={() => handleDeleteCourse(c.name, c.id)} className="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition">Delete</button></td>
+                                                    </tr>
+                                                ))}
+                                                {renderTablePaddingRows(5, paginatedCourseLimits.length)}
+                                            </>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <PaginationControls
+                                page={limitsPage}
+                                totalItems={courseLimits.length}
+                                currentRowsCount={paginatedCourseLimits.length}
+                                onPageChange={setLimitsPage}
+                                itemLabel="courses"
+                            />
                         </div>
                     </div>
                 )

@@ -306,7 +306,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
 
             {/* Event Modal - Enhanced for Create/Edit */}
             {showEventModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-scale-in">
                         <div className="p-6 border-b bg-gradient-to-r from-gray-50 to-purple-50/30 flex justify-between items-center">
                             <h3 className="font-bold text-lg gradient-text">{editingEventId ? 'Edit Item' : 'Create New Item'}</h3>
@@ -375,7 +375,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
                 if (attendeeSectionFilter !== 'All') filtered = filtered.filter(a => a.section === attendeeSectionFilter);
                 const completedCount = attendees.filter(a => a.time_out).length;
                 return (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[80vh]">
                             <div className="p-6 border-b bg-gray-50 rounded-t-2xl">
                                 <div className="flex justify-between items-center mb-3">
@@ -466,7 +466,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
 
             {/* Feedback Modal */}
             {showFeedbackModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[80vh]">
                         <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
                             <div><h3 className="font-bold text-lg">Event Feedback</h3><p className="text-xs text-gray-500">{selectedEventTitle}</p></div>
@@ -505,7 +505,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
 
             {/* Delete Confirmation Modal */}
             {showDeleteEventModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[60] p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 text-center animate-scale-in">
                         <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 size={32} /></div>
                         <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Item</h3>

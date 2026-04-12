@@ -42,7 +42,7 @@ export function renderCareStaffModals(p: any) {
         <>
             {/* Application Details Modal */}
             {showApplicationModal && selectedApp && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
                         <div className="p-6 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg">Application Details</h3>
@@ -106,7 +106,7 @@ export function renderCareStaffModals(p: any) {
 
 
             {showCompleteModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 animate-scale-in">
                         <h3 className="font-bold text-lg mb-4 gradient-text">Complete Counseling Session</h3>
                         <form onSubmit={handleCompleteSession} className="space-y-4">
@@ -279,7 +279,7 @@ export function renderCareStaffModals(p: any) {
 
             {/* Custom Delete Event Modal */}
             {showDeleteEventModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 animate-fade-in">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[100] p-4 animate-fade-in">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center animate-scale-in">
                         <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
                             <AlertTriangle size={32} />
@@ -296,7 +296,7 @@ export function renderCareStaffModals(p: any) {
 
             {/* SYSTEM RESET CONFIRMATION MODAL */}
             {showResetModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-backdrop">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 animate-scale-in">
                         <div className="text-center">
                             <div className="w-16 h-16 bg-gradient-to-br from-red-400 to-rose-500 text-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-red-200/50">
@@ -317,7 +317,7 @@ export function renderCareStaffModals(p: any) {
             {
                 showEditModal && (
                     <div className="fixed inset-0 z-50 flex justify-end">
-                        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowEditModal(false)}></div>
+                        <div className="absolute inset-0 bg-transparent" onClick={() => setShowEditModal(false)}></div>
                         <div className="relative bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col animate-slide-in-right">
                             <div className="px-6 py-5 border-b flex justify-between items-center bg-slate-50">
                                 <div>
@@ -412,7 +412,7 @@ export function renderCareStaffModals(p: any) {
 
             {/* Lifted Delete Student Modal (Shared) */}
             {showDeleteModal && studentToDelete && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl p-6 text-center max-w-sm">
                         <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
                         <h3 className="text-lg font-bold mb-2">Delete Student?</h3>
