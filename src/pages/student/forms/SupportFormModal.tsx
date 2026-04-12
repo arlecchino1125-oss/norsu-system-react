@@ -105,7 +105,7 @@ export default function SupportFormModal({
     }
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
             <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel">
                 <div className="flex justify-between items-center p-4 border-b shrink-0 sm:p-6">
                     <div>

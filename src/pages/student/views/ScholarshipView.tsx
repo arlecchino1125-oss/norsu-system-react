@@ -53,7 +53,7 @@ export default function ScholarshipView({
 
             {showScholarshipModal && selectedScholarship && createPortal(
                 <div className="student-mobile-modal-overlay" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                    <div className="animate-backdrop" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)' }} onClick={() => setShowScholarshipModal(false)} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'transparent' }} onClick={() => setShowScholarshipModal(false)} />
 
                     <div className="animate-scale-in student-mobile-modal-panel" style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ padding: '18px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #4338ca 100%)', color: '#fff', flexShrink: 0 }}>

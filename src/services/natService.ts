@@ -3,7 +3,8 @@ import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
 import type { PageResult } from '../types/pagination';
 import type { PageParams, SortParams } from '../types/query';
 
-const PAGED_LIST_COUNT_MODE = 'planned';
+// NAT pagination needs a reliable total so page controls stay accurate.
+const PAGED_LIST_COUNT_MODE = 'exact';
 
 export type NatListMode = 'applications' | 'completed' | 'test_takers';
 

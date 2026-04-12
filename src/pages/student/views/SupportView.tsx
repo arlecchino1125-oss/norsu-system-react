@@ -79,7 +79,7 @@ export default function SupportView({
             </div>
 
             {showSupportRequestsModal && createPortal(
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-end z-50 student-mobile-modal-overlay" onClick={() => setShowSupportRequestsModal(false)}>
+                <div className="fixed inset-0 bg-transparent flex justify-end z-50 student-mobile-modal-overlay" onClick={() => setShowSupportRequestsModal(false)}>
                     <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-fade-in-up student-mobile-modal-drawer-panel" onClick={(e) => e.stopPropagation()}>
                         <div className="px-6 py-5 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex-shrink-0">
                             <div className="flex justify-between items-center">
@@ -106,7 +106,7 @@ export default function SupportView({
             )}
 
             {selectedSupportRequest && createPortal(
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 student-mobile-modal-overlay" onClick={() => setSelectedSupportRequest(null)}>
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[60] p-4 student-mobile-modal-overlay" onClick={() => setSelectedSupportRequest(null)}>
                     <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-purple-100/50 animate-scale-in student-mobile-modal-panel" onClick={(e) => e.stopPropagation()}>
                         <div className="px-5 py-4 sm:px-6 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0">
                             <h3 className="font-extrabold text-base sm:text-lg">Support Request Details</h3>

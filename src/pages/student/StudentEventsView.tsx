@@ -277,7 +277,7 @@ const StudentEventsView = ({
 
                 return (
                     <div
-                        className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm student-mobile-modal-overlay"
+                        className="fixed inset-0 z-[9998] flex items-center justify-center bg-transparent p-4 student-mobile-modal-overlay"
                         onClick={() => setSelectedEvent(null)}
                     >
                         <div
@@ -434,7 +434,7 @@ const StudentEventsView = ({
 
             {showRatingModal && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 student-mobile-modal-overlay">
-                    <div className="absolute inset-0 animate-backdrop bg-black/60 backdrop-blur-sm" onClick={() => setShowRatingModal(false)} />
+                    <div className="absolute inset-0 bg-transparent" onClick={() => setShowRatingModal(false)} />
                     <div className="student-rating-modal-panel relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scale-in student-mobile-modal-panel">
                         <div className="shrink-0 bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white sm:px-8 sm:py-5">
                             <div className="flex items-start justify-between">

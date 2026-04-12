@@ -40,6 +40,10 @@ describe('careStaffService.getStudentsPage', () => {
             { page: 3, pageSize: 10 }
         );
 
+        expect(queryMock.select).toHaveBeenCalledWith(
+            STUDENT_LIST_COLUMNS,
+            { count: 'exact' }
+        );
         expect(queryMock.or).toHaveBeenCalled();
         expect(queryMock.eq).toHaveBeenCalledWith('department', 'CCS');
         expect(queryMock.eq).toHaveBeenCalledWith('year_level', '1st Year');

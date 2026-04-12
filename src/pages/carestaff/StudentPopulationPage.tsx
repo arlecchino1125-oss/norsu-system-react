@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
     Users, Search, Download, XCircle, Edit, Trash2, Plus, Key,
     PieChart, List, UploadCloud, Info, ArrowUpDown, Activity, TrendingUp,
-    Eye, ChevronLeft, ChevronRight, FileSpreadsheet, RefreshCw, User
+    Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, RefreshCw, User
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
@@ -124,6 +124,37 @@ const PROFILE_CATEGORIES = [
 
 const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
+const CARE_STUDENT_PAGE_SIZE = 5;
+const CARE_STUDENT_TABLE_SHELL_CLASS = 'bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex min-h-[28rem] flex-col';
+
+const getCareStudentTotalPages = (totalItems: number) => Math.max(1, Math.ceil(Math.max(0, totalItems) / CARE_STUDENT_PAGE_SIZE));
+
+const buildCareStudentPaginationItems = (page: number, totalPages: number) => {
+    if (totalPages <= 5) {
+        return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const items: Array<number | string> = [1];
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+
+    if (start > 2) items.push('left-ellipsis');
+    for (let current = start; current <= end; current += 1) {
+        items.push(current);
+    }
+    if (end < totalPages - 1) items.push('right-ellipsis');
+
+    items.push(totalPages);
+    return items;
+};
+
+const renderCareStudentPaddingRows = (columnCount: number, visibleRowCount: number) => (
+    Array.from({ length: Math.max(0, CARE_STUDENT_PAGE_SIZE - visibleRowCount) }, (_, index) => (
+        <tr key={`student-table-padding-${columnCount}-${index}`} aria-hidden="true">
+            <td colSpan={columnCount} className="h-[72px] bg-white">&nbsp;</td>
+        </tr>
+    ))
+);
 
 const toDateTimeLocal = (value?: string | null) => {
     if (!value) return '';
@@ -309,7 +340,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const [schoolYearFilter, setSchoolYearFilter] = useState('All');
     const [sectionFilter, setSectionFilter] = useState('All');
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'stats'
-    const itemsPerPage = 25;
+    const itemsPerPage = CARE_STUDENT_PAGE_SIZE;
     const [tableStudents, setTableStudents] = useState<any[]>([]);
     const [tableStudentsTotal, setTableStudentsTotal] = useState(0);
     const [tableLoading, setTableLoading] = useState(false);
@@ -1026,7 +1057,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
     const visibleTableStudents = schoolYearFilter === 'All'
         ? tableStudents
-        : tableStudents.filter((student: any) => Boolean(getArchivedSnapshotForSchoolYear(student, schoolYearFilter)));
+        : filteredStudents;
 
     const sortedStudents = [...visibleTableStudents].sort((a, b) => {
         let aVal = a[sortConfig.key];
@@ -1044,9 +1075,22 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     });
 
     const effectiveTotal = schoolYearFilter === 'All' ? tableStudentsTotal : sortedStudents.length;
-    const totalPages = Math.max(1, Math.ceil(effectiveTotal / itemsPerPage));
+    const totalPages = getCareStudentTotalPages(effectiveTotal);
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedStudents = sortedStudents;
+    const paginatedStudents = schoolYearFilter === 'All'
+        ? sortedStudents
+        : sortedStudents.slice(startIndex, startIndex + itemsPerPage);
+    const paginationItems = buildCareStudentPaginationItems(currentPage, totalPages);
+    const visibleStudentCount = effectiveTotal === 0
+        ? 0
+        : paginatedStudents.length > 0
+            ? paginatedStudents.length
+            : Math.min(itemsPerPage, Math.max(effectiveTotal - startIndex, 0));
+    const endIndex = effectiveTotal === 0 ? 0 : Math.min(effectiveTotal, startIndex + visibleStudentCount);
+
+    useEffect(() => {
+        setCurrentPage((prev) => Math.min(prev, totalPages));
+    }, [totalPages]);
 
     return (
         <div className="space-y-6 relative min-h-screen">
@@ -1167,10 +1211,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     </div>
                 </div>
             ) : (
-                tableLoading ? <div className="p-12 text-center text-slate-500">Loading students...</div> :
-                    effectiveTotal === 0 ? <div className="p-12 text-center text-slate-500">No students found.</div> :
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full text-left text-sm">
+                <div className={CARE_STUDENT_TABLE_SHELL_CLASS}>
+                    <div className="flex-1 overflow-x-auto">
+                        <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase text-slate-500 font-semibold">
                                     <tr>
                                         <th className="px-6 py-4 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('name')}>Student <ArrowUpDown size={12} className="inline ml-1" /></th>
@@ -1181,7 +1224,17 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {paginatedStudents.map(student => (
+                                    {tableLoading ? (
+                                        <tr>
+                                            <td colSpan={5} className="h-[360px] p-12 text-center text-slate-500">Loading students...</td>
+                                        </tr>
+                                    ) : effectiveTotal === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="h-[360px] p-12 text-center text-slate-500">No students found.</td>
+                                        </tr>
+                                    ) : (
+                                        <>
+                                            {paginatedStudents.map(student => (
                                         <tr key={student.id} onClick={() => openProfileModal(student)} className="hover:bg-slate-50 cursor-pointer">
                                             <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.first_name} {student.last_name}</span></td>
                                             <td className="px-6 py-4 font-mono text-slate-600">{student.student_id}</td>
@@ -1209,20 +1262,82 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                 <button onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-slate-400 hover:text-red-600 p-2"><Trash2 size={16} /></button>
                                             </td>
                                         </tr>
-                                    ))}
+                                            ))}
+                                            {renderCareStudentPaddingRows(5, paginatedStudents.length)}
+                                        </>
+                                    )}
                                 </tbody>
                             </table>
-                            {/* Pagination Controls */}
-                            {effectiveTotal > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-                                    <span className="text-xs text-slate-500">Showing {startIndex + 1} to {Math.min(startIndex + paginatedStudents.length, effectiveTotal)} of {effectiveTotal}</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 rounded border border-slate-300 bg-white text-xs disabled:opacity-50">Previous</button>
-                                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 rounded border border-slate-300 bg-white text-xs disabled:opacity-50">Next</button>
-                                    </div>
-                                </div>
-                            )}
+                    </div>
+                    <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 text-xs md:flex-row md:items-center md:justify-between">
+                        <span className="text-slate-500">
+                            {tableLoading
+                                ? 'Loading students...'
+                                : effectiveTotal === 0
+                                ? 'No students found.'
+                                : `Showing ${startIndex + 1}-${endIndex} of ${effectiveTotal} students`}
+                        </span>
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(1)}
+                                disabled={tableLoading || currentPage === 1}
+                                className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="First page"
+                            >
+                                <ChevronsLeft size={14} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                disabled={tableLoading || currentPage === 1}
+                                className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Previous page"
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            {paginationItems.map((item, index) => (
+                                typeof item === 'number' ? (
+                                    <button
+                                        key={`student-page-${item}`}
+                                        type="button"
+                                        onClick={() => setCurrentPage(item)}
+                                        disabled={tableLoading}
+                                        className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold transition ${item === currentPage
+                                            ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                                            : 'border-slate-300 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700'
+                                            }`}
+                                        aria-current={item === currentPage ? 'page' : undefined}
+                                    >
+                                        {item}
+                                    </button>
+                                ) : (
+                                    <span key={`student-ellipsis-${index}`} className="inline-flex h-8 min-w-8 items-center justify-center text-slate-400">
+                                        ...
+                                    </span>
+                                )
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={tableLoading || currentPage === totalPages}
+                                className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Next page"
+                            >
+                                <ChevronRight size={14} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(totalPages)}
+                                disabled={tableLoading || currentPage === totalPages}
+                                className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Last page"
+                            >
+                                <ChevronsRight size={14} />
+                            </button>
                         </div>
+                    </div>
+                </div>
             )}
 
             {/* Edit Student Modal */}

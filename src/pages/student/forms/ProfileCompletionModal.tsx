@@ -215,7 +215,7 @@ export default function ProfileCompletionModal({
     }
 
     return createPortal(
-        <div className="fixed inset-0 z-[10002] overflow-y-auto bg-black/60 backdrop-blur-sm p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
+        <div className="fixed inset-0 z-[10002] overflow-y-auto bg-transparent p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
             <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
                 <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel">
                     <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
