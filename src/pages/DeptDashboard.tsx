@@ -1986,6 +1986,8 @@ export default function DeptDashboard() {
                             counselingRequests={counselingRequests}
                             admissionsDashboardCounts={admissionsDashboardCounts}
                             departmentAlertItems={departmentAlertItems}
+                            admissionApplicants={admissionApplicants}
+                            eventsList={eventsList}
                             setActiveModule={setActiveModule}
                             setForwardingToStaff={setForwardingToStaff}
                             setReferralForm={setReferralForm}

@@ -1,10 +1,15 @@
-import { UserPlus, XCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, UserPlus, XCircle } from 'lucide-react';
 import {
     COUNSELING_STATUS,
     getCounselingScheduledDate,
     isCounselingAwaitingDept,
     isWithCareStaffCounseling
 } from '../../utils/workflow';
+
+const ITEMS_PER_PAGE_DEFAULT = 15;
+const PAGE_SIZE_OPTIONS = [10, 15, 25, 50];
+const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 
 const DeptCounselingQueuePage = ({
     counselingRequests,
@@ -36,6 +41,9 @@ const DeptCounselingQueuePage = ({
     isSubmittingCounselingReject,
     pendingCounselingCompletionId
 }: any) => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE_DEFAULT);
+
     const openDirectReferral = () => {
         setForwardingToStaff(false);
         setSelectedCounselingReq(null);
@@ -58,9 +66,36 @@ const DeptCounselingQueuePage = ({
         return request.status === counselingTab;
     };
 
-    const filteredRequests = counselingRequests
-        .filter(matchesCounselingTab)
-        .filter((request: any) => matchesCascadeFilters(getStudentForRequest(request)));
+    const filteredRequests = useMemo(() => (
+        counselingRequests
+            .filter(matchesCounselingTab)
+            .filter((request: any) => matchesCascadeFilters(getStudentForRequest(request)))
+    ), [counselingRequests, counselingTab, getStudentForRequest, matchesCascadeFilters]);
+
+    const filteredRequestSignature = useMemo(
+        () => filteredRequests.map((request: any) => String(request?.id || '')).join('|'),
+        [filteredRequests]
+    );
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [counselingTab, filteredRequestSignature]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
+    const startIndex = filteredRequests.length === 0 ? 0 : (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, filteredRequests.length);
+    const paginatedRequests = filteredRequests.slice(startIndex, startIndex + pageSize);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const goToPage = (nextPage: number) => {
+        const safePage = Number.isFinite(nextPage) ? Math.min(Math.max(nextPage, 1), totalPages) : 1;
+        setCurrentPage(safePage);
+    };
 
     return (
         <>
@@ -72,8 +107,9 @@ const DeptCounselingQueuePage = ({
                 </div>
 
                 <button
+                    type="button"
                     onClick={openDirectReferral}
-                    className="card-hover w-full text-left p-4 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 hover:border-emerald-200 shadow-sm flex items-start gap-4 group"
+                    className={`card-hover w-full text-left p-4 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 hover:border-emerald-200 shadow-sm flex items-start gap-4 group ${FOCUS_RING}`}
                 >
                     <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-200/50 group-hover:scale-105 transition-transform">
                         <UserPlus size={18} />
@@ -93,7 +129,7 @@ const DeptCounselingQueuePage = ({
                         { label: 'With CARE Staff', count: counselingRequests.filter((request: any) => isWithCareStaffCounseling(request.status)).length, color: 'purple', tab: 'WithCare' },
                         { label: 'Rejected', count: counselingRequests.filter((request: any) => request.status === COUNSELING_STATUS.REJECTED).length, color: 'red', tab: COUNSELING_STATUS.REJECTED }
                     ].map(stat => (
-                        <button key={stat.tab} onClick={() => setCounselingTab(stat.tab)} className={`p-4 rounded-xl border text-left transition-all ${counselingTab === stat.tab ? `bg-${stat.color}-50 border-${stat.color}-200 shadow-sm` : 'bg-white/80 border-gray-100 hover:border-gray-200'}`}>
+                        <button key={stat.tab} type="button" onClick={() => setCounselingTab(stat.tab)} className={`p-4 rounded-xl border text-left transition-all ${counselingTab === stat.tab ? `bg-${stat.color}-50 border-${stat.color}-200 shadow-sm` : 'bg-white/80 border-gray-100 hover:border-gray-200'} ${FOCUS_RING}`}>
                             <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
                             <p className={`text-2xl font-extrabold ${counselingTab === stat.tab ? `text-${stat.color}-600` : 'text-gray-900'}`}>{stat.count}</p>
                         </button>
@@ -106,7 +142,9 @@ const DeptCounselingQueuePage = ({
                         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-12 text-center">
                             <p className="text-gray-400 text-sm">No requests found in this stage.</p>
                         </div>
-                    ) : filteredRequests.map((req: any, idx: number) => (
+                    ) : (
+                        <>
+                    {paginatedRequests.map((req: any, idx: number) => (
                         (() => {
                             const isCompletingRequest = pendingCounselingCompletionId === String(req.id);
                             return (
@@ -141,6 +179,71 @@ const DeptCounselingQueuePage = ({
                             );
                         })()
                     ))}
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="space-y-1">
+                                <p className="text-sm font-semibold text-gray-800">
+                                    Showing {startIndex + 1}-{endIndex} of {filteredRequests.length} results
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    Page {currentPage} of {totalPages}
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                                <label className="flex items-center gap-2 text-sm text-gray-600">
+                                    <span className="font-semibold">Rows</span>
+                                    <select
+                                        value={pageSize}
+                                        onChange={(event) => {
+                                            setPageSize(Number(event.target.value));
+                                            setCurrentPage(1);
+                                        }}
+                                        className={`rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                                    >
+                                        {PAGE_SIZE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>{option}</option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="flex items-center gap-2 text-sm text-gray-600">
+                                    <span className="font-semibold">Jump to</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={totalPages}
+                                        value={currentPage}
+                                        onChange={(event) => goToPage(Number(event.target.value) || 1)}
+                                        className={`w-20 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                                    />
+                                </label>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => goToPage(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                                    >
+                                        <ChevronLeft size={16} />
+                                        Previous
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => goToPage(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                                    >
+                                        Next
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </>
+                    )}
                 </div>
             </div>
 

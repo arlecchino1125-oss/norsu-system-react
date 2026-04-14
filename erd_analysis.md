@@ -1,278 +1,553 @@
-# NORSU System — Entity Relationship Diagram & Schema Analysis
+# ERD Analysis for NORSU CARE Center System
 
-## ERD Diagram
+This analysis follows the requested workflow and is based on the current repository implementation, especially:
 
-![NORSU System ERD — 11 core tables with crow's foot notation showing PK/FK relationships](C:/Users/kizug/.gemini/antigravity/brain/1f20ea00-07f7-41a2-8c3c-0fc96be967a0/norsu_erd_diagram_1774257954985.png)
+- `supabase/schema.sql`
+- approved feature scope in `APPROVED_FEATURE_CHECKLIST.md`
+- application routes and modules under `src/pages`
 
----
+## System Description Used for Analysis
 
-## System Overview
+The system is a multi-portal student services and admissions platform for NORSU CARE Center. It supports NAT applicant intake, admissions scheduling and interview handling, student profile management, counseling and support workflows, scholarship applications, events, form-based assessments, office logbook tracking, notifications, and role-based staff administration.
 
-The NORSU system is a **university student services management platform** built with React + Supabase. It has **4 main portals**: Admin, CARE Staff, Department, and Student, and covers admissions, counseling, support requests, events, scholarships, surveys, and office visits.
+## STEP 1: Understand the System
 
----
+### Main Purpose of the System
 
-## Important Tables & Key Columns
+- Manage applicant intake through the NAT portal.
+- Support the transition from applicant to enrolled student and activated student account.
+- Deliver student services through the Student Portal and staff dashboards.
+- Give Admin, Department, and CARE Staff role-based control over records, workflows, and reporting.
 
-### Core Identity Tables
+### Types of Users Involved
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **students** | `student_id` (PK-unique), `first_name`, `last_name`, `course`, `year_level`, `department`, `email`, `auth_user_id` | Central student record — all services FK here |
-| **staff_accounts** | `id` (PK), `username`, `role`, `department`, `email`, `auth_user_id` | Admin / CARE Staff / Dept Head accounts |
-| **departments** | `id` (PK), `name` (unique) | Academic departments lookup |
-| **courses** | `id` (PK), `name` (unique), `department_id` → departments | Programs offered per department |
+- Applicant / NAT examinee
+- Student
+- CARE Staff
+- Department Head / department admissions staff
+- Admin
 
-### Admissions Module
+### Key Operations Performed
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **applications** | `id` (PK), `reference_id`, `student_id` → students, `priority_course` → courses, `test_date` → admission_schedules, `status` | NAT applicant records |
-| **admission_schedules** | `id` (PK), `date` (unique), `venue`, `slots`, `time_windows` | Exam/interview schedule slots |
-| **enrolled_students** | `student_id` (PK), `course` → courses, `status`, `year_level` | Pre-registered student IDs for account activation |
+- Submit NAT application and track applicant status
+- Schedule and reschedule interviews
+- Manage interview outcomes and admissions decisions
+- Activate student portal accounts using enrollment records
+- Maintain student profiles
+- Submit and process counseling requests
+- Submit and process support requests
+- Publish scholarships and accept scholarship applications
+- Create events, record attendance, and collect event feedback
+- Create forms, collect submissions, and analyze answers
+- Record office visits
+- Send notifications and collect service feedback
+- Manage departments, courses, staff accounts, and master records
 
-### Student Services Module
+## STEP 2: Extract System Features
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **counseling_requests** | `id` (PK), `student_id` → students, `department` → departments, `request_type`, `status`, `scheduled_date` | Counseling & referral requests |
-| **support_requests** | `id` (PK), `student_id` → students, `department` → departments, `support_type`, `status`, `care_notes`, `dept_notes` | Dean-endorsed support tickets |
-| **office_visits** | `id` (PK), `student_id` → students, `reason` → office_visit_reasons, `time_in`, `time_out`, `status` | Walk-in office visit logs |
-| **office_visit_reasons** | `id` (PK), `reason` (unique) | Configurable visit reason lookup |
-| **notifications** | `id` (PK), `student_id` → students, `message`, `is_read` | Student notification inbox |
+Major functional modules confirmed from the codebase and schema:
 
-### Events & Attendance Module
+1. Authentication and role-based access
+2. NAT application and applicant status tracking
+3. Admissions scheduling, interview queue, and interview updates
+4. Student account activation and enrollment verification
+5. Student profile management
+6. Counseling request and referral management
+7. Support request and approval management
+8. Scholarship management
+9. Event management, attendance, and event evaluation
+10. Needs assessment / form management
+11. Office visit logbook
+12. Notifications
+13. General feedback / service quality feedback
+14. Admin master data management for departments, courses, and staff
+15. Security OTP handling for email/password changes
+16. Audit logging
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **events** | `id` (PK), `title`, `type`, `event_date`, `location`, `latitude`, `longitude` | University events |
-| **event_attendance** | `id` (PK), `event_id` → events, `student_id` → students, `time_in`, `time_out`, `proof_url`, `department` → departments | Geo-tagged attendance records |
-| **event_feedback** | `id` (PK), `event_id` → events, `student_id` → students, `rating`, `q1_score`–`q7_score` | Post-event satisfaction surveys |
+## STEP 3: Convert Features -> Entities
 
-### Scholarships Module
+### Core Master Data
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **scholarships** | `id` (PK), `title`, `deadline`, `requirements` | Available scholarship listings |
-| **scholarship_applications** | `id` (PK), `scholarship_id` → scholarships, `student_id` → students, `status` | Student scholarship applications |
+- Department
+- Course
+- StaffAccount
+- Student
 
-### Surveys / Forms Module
+### Admissions / NAT
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **forms** | `id` (PK), `title`, `is_active` | Configurable survey forms |
-| **questions** | `id` (PK), `form_id` → forms, `question_text`, `question_type`, `order_index` | Survey questions |
-| **submissions** | `id` (PK), `form_id` → forms, `student_id` → students | Survey submission header |
-| **answers** | `id` (PK), `submission_id` → submissions, `question_id` → questions, `answer_value`, `answer_text` | Individual question answers |
-| **general_feedback** | `id` (PK), `student_id`, `cc1`–`cc3`, `sqd0`–`sqd8` | Citizen's Charter feedback form |
+- AdmissionSchedule
+- Application
+- EnrolledStudent
+- NATRequirement
 
-### System Tables
+### Student Services
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| **audit_logs** | `id` (PK), `user_name`, `action`, `details` | Activity audit trail |
-| **security_change_otps** | `id` (PK), `auth_user_id`, `purpose`, `otp_hash`, `expires_at` | OTP for password/email changes |
-| **nat_requirements** | `id` (PK), `name` | NAT exam requirement checklist items |
+- CounselingRequest
+- SupportRequest
+- Scholarship
+- ScholarshipApplication
+- Notification
+- OfficeVisitReason
+- OfficeVisit
+- GeneralFeedback
 
----
+### Events
 
-## Simplified ERD (Mermaid)
+- Event
+- EventAttendance
+- EventFeedback
 
-This diagram focuses on the **core entities and their relationships**, similar in style to the reference ERD you showed. Only the most important columns (PK, FK, key descriptors) are included.
+### Assessment Forms
 
-```mermaid
-erDiagram
+- Form
+- Question
+- Submission
+- Answer
 
-    departments {
-        bigint id PK
-        text name UK
-    }
+### Supporting Operational Tables
 
-    courses {
-        bigint id PK
-        text name UK
-        bigint department_id FK
-    }
+- SecurityChangeOtp
+- AuditLog
+- StudentActivationSetting
 
-    students {
-        bigint id PK
-        text student_id UK
-        text first_name
-        text last_name
-        text email
-        text course FK
-        text department FK
-    }
+## STEP 4: Extract Attributes From Data Flow
 
-    staff_accounts {
-        bigint id PK
-        text username UK
-        text role
-        text department FK
-    }
+Only practical attributes already present in the implementation were kept. Repeating profile fields were trimmed to the most useful ERD-level attributes.
 
-    applications {
-        uuid id PK
-        text reference_id UK
-        text student_id FK
-        text priority_course FK
-        date test_date FK
-        text status
-    }
+### Department
 
-    admission_schedules {
-        bigint id PK
-        date date UK
-        text venue
-        integer slots
-    }
+- `id`
+- `name`
 
-    enrolled_students {
-        text student_id PK
-        text course FK
-        text status
-    }
+### Course
 
-    counseling_requests {
-        bigint id PK
-        text student_id FK
-        text department FK
-        text request_type
-        text status
-    }
+- `id`
+- `name`
+- `department_id`
+- `capacity`
+- `application_limit`
+- `status`
+- `created_at`
 
-    support_requests {
-        bigint id PK
-        text student_id FK
-        text department FK
-        text support_type
-        text status
-    }
+### StaffAccount
 
-    events {
-        bigint id PK
-        text title
-        text type
-        date event_date
-    }
+- `id`
+- `username`
+- `full_name`
+- `role`
+- `department`
+- `email`
+- `auth_user_id`
+- `created_at`
 
-    event_attendance {
-        bigint id PK
-        bigint event_id FK
-        text student_id FK
-        text department FK
-    }
+### Student
 
-    event_feedback {
-        bigint id PK
-        bigint event_id FK
-        text student_id FK
-        integer rating
-    }
+- `id`
+- `student_id`
+- `first_name`
+- `last_name`
+- `middle_name`
+- `course`
+- `year_level`
+- `department`
+- `status`
+- `email`
+- `mobile`
+- `address`
+- `profile_picture_url`
+- `profile_completed`
+- `auth_user_id`
+- `created_at`
 
-    scholarships {
-        bigint id PK
-        text title
-        date deadline
-    }
+### AdmissionSchedule
 
-    scholarship_applications {
-        bigint id PK
-        bigint scholarship_id FK
-        text student_id FK
-        text status
-    }
+- `id`
+- `date`
+- `venue`
+- `slots`
+- `time_windows`
+- `is_active`
+- `created_at`
 
-    office_visits {
-        bigint id PK
-        text student_id FK
-        text reason FK
-    }
+### Application
 
-    office_visit_reasons {
-        bigint id PK
-        text reason UK
-    }
+- `id`
+- `reference_id`
+- `first_name`
+- `last_name`
+- `middle_name`
+- `email`
+- `mobile`
+- `priority_course`
+- `alt_course_1`
+- `alt_course_2`
+- `test_date`
+- `status`
+- `interview_date`
+- `interview_queue_status`
+- `interview_venue`
+- `interview_panel`
+- `student_id`
+- `created_at`
 
-    forms {
-        bigint id PK
-        text title
-    }
+### EnrolledStudent
 
-    questions {
-        bigint id PK
-        bigint form_id FK
-        text question_text
-    }
+- `student_id`
+- `assigned_to_email`
+- `course`
+- `year_level`
+- `status`
+- `is_used`
+- `created_at`
 
-    submissions {
-        bigint id PK
-        bigint form_id FK
-        text student_id FK
-    }
+### NATRequirement
 
-    answers {
-        bigint id PK
-        bigint submission_id FK
-        bigint question_id FK
-    }
+- `id`
+- `name`
+- `created_at`
 
-    notifications {
-        bigint id PK
-        text student_id FK
-        text message
-    }
+### CounselingRequest
 
-    departments ||--o{ courses : "has"
-    departments ||--o{ students : "belongs to"
-    departments ||--o{ staff_accounts : "assigned to"
-    departments ||--o{ counseling_requests : "routed to"
-    departments ||--o{ support_requests : "endorsed to"
-    departments ||--o{ event_attendance : "tagged"
+- `id`
+- `student_id`
+- `student_name`
+- `department`
+- `request_type`
+- `description`
+- `status`
+- `scheduled_date`
+- `resolution_notes`
+- `confidential_notes`
+- `feedback`
+- `rating`
+- `created_at`
 
-    courses ||--o{ applications : "applied for"
-    courses ||--o{ enrolled_students : "enrolled in"
+### SupportRequest
 
-    students ||--o{ applications : "submits"
-    students ||--o{ counseling_requests : "files"
-    students ||--o{ support_requests : "files"
-    students ||--o{ office_visits : "logs"
-    students ||--o{ event_attendance : "attends"
-    students ||--o{ event_feedback : "rates"
-    students ||--o{ scholarship_applications : "applies"
-    students ||--o{ submissions : "submits"
-    students ||--o{ notifications : "receives"
+- `id`
+- `student_id`
+- `student_name`
+- `department`
+- `support_type`
+- `description`
+- `documents_url`
+- `status`
+- `care_notes`
+- `care_documents_url`
+- `dept_notes`
+- `resolution_notes`
+- `created_at`
 
-    admission_schedules ||--o{ applications : "scheduled on"
+### Scholarship
 
-    events ||--o{ event_attendance : "has"
-    events ||--o{ event_feedback : "has"
+- `id`
+- `title`
+- `description`
+- `requirements`
+- `deadline`
+- `created_at`
 
-    scholarships ||--o{ scholarship_applications : "has"
+### ScholarshipApplication
 
-    office_visit_reasons ||--o{ office_visits : "categorized by"
+- `id`
+- `scholarship_id`
+- `student_id`
+- `status`
+- `created_at`
 
-    forms ||--o{ questions : "contains"
-    forms ||--o{ submissions : "collects"
-    submissions ||--o{ answers : "contains"
-    questions ||--o{ answers : "answered in"
-```
+### Event
 
----
+- `id`
+- `title`
+- `type`
+- `description`
+- `location`
+- `event_date`
+- `event_time`
+- `end_time`
+- `latitude`
+- `longitude`
+- `created_at`
 
-## Relationship Summary
+### EventAttendance
 
-The **`students`** table is the central hub — almost every service table has a foreign key pointing to `students.student_id`. The **`departments`** table acts as a shared lookup for courses, staff, students, counseling, support, and attendance. Here's the count of direct FK relationships per table:
+- `id`
+- `event_id`
+- `student_id`
+- `student_name`
+- `checked_in_at`
+- `time_in`
+- `time_out`
+- `proof_url`
+- `latitude`
+- `longitude`
+- `department`
 
-| Entity | Incoming FKs (referenced by) | Outgoing FKs (references) |
-|--------|------------------------------|---------------------------|
-| **students** | 9 tables | 2 (departments, courses) |
-| **departments** | 6 tables | — |
-| **courses** | 3 tables | 1 (departments) |
-| **events** | 2 tables | — |
-| **forms** | 2 tables | — |
-| **scholarships** | 1 table | — |
-| **office_visit_reasons** | 1 table | — |
-| **admission_schedules** | 1 table | — |
-| **submissions** | 1 table | 2 (forms, students) |
-| **questions** | 1 table | 1 (forms) |
+### EventFeedback
+
+- `id`
+- `event_id`
+- `student_id`
+- `student_name`
+- `rating`
+- `feedback`
+- `submitted_at`
+- `q1_score` to `q7_score`
+- `open_best`
+- `open_suggestions`
+- `open_comments`
+
+### Form
+
+- `id`
+- `title`
+- `description`
+- `is_active`
+- `created_at`
+
+### Question
+
+- `id`
+- `form_id`
+- `question_text`
+- `question_type`
+- `scale_min`
+- `scale_max`
+- `order_index`
+- `created_at`
+
+### Submission
+
+- `id`
+- `form_id`
+- `student_id`
+- `submitted_at`
+
+### Answer
+
+- `id`
+- `submission_id`
+- `question_id`
+- `answer_value`
+- `answer_text`
+- `created_at`
+
+### OfficeVisitReason
+
+- `id`
+- `reason`
+- `is_active`
+- `created_at`
+
+### OfficeVisit
+
+- `id`
+- `student_id`
+- `student_name`
+- `reason`
+- `time_in`
+- `time_out`
+- `status`
+
+### Notification
+
+- `id`
+- `student_id`
+- `message`
+- `is_read`
+- `created_at`
+
+### GeneralFeedback
+
+- `id`
+- `student_id`
+- `student_name`
+- `client_type`
+- `service_availed`
+- `cc1`
+- `cc2`
+- `cc3`
+- `sqd0` to `sqd8`
+- `suggestions`
+- `email`
+- `created_at`
+
+### Supporting Tables
+
+#### SecurityChangeOtp
+
+- `id`
+- `auth_user_id`
+- `account_type`
+- `purpose`
+- `target_email`
+- `otp_hash`
+- `expires_at`
+- `consumed_at`
+- `attempt_count`
+- `created_at`
+
+#### AuditLog
+
+- `id`
+- `user_name`
+- `action`
+- `details`
+- `created_at`
+
+#### StudentActivationSetting
+
+- `id`
+- `require_enrollment_key`
+- `updated_at`
+- `updated_by`
+
+## STEP 5: Define Relationships
+
+### Core Relationships
+
+- One Department can have many Courses.
+- One Department can have many StaffAccounts.
+- One Department can have many Students.
+- One Course can have many Students.
+- One Course can have many EnrolledStudents.
+
+### Admissions Relationships
+
+- One AdmissionSchedule can have many Applications.
+- One Course can be chosen by many Applications as priority course.
+- One Course can be chosen by many Applications as alternative course 1.
+- One Course can be chosen by many Applications as alternative course 2.
+- One Student may be linked to an Application after enrollment through `applications.student_id`.
+
+### Student Services Relationships
+
+- One Student can have many CounselingRequests.
+- One Department can receive many CounselingRequests.
+- One Student can have many SupportRequests.
+- One Department can receive many SupportRequests.
+- One Scholarship can have many ScholarshipApplications.
+- One Student can have many ScholarshipApplications.
+- One Student can have many Notifications.
+- One OfficeVisitReason can have many OfficeVisits.
+- One Student can have many OfficeVisits.
+- One Student can submit many GeneralFeedback records.
+
+### Events Relationships
+
+- One Event can have many EventAttendance records.
+- One Student can have many EventAttendance records.
+- One Department can be referenced by many EventAttendance records.
+- One Event can have many EventFeedback records.
+- One Student can submit many EventFeedback records.
+
+### Assessment Relationships
+
+- One Form can have many Questions.
+- One Form can have many Submissions.
+- One Student can have many Submissions.
+- One Submission can have many Answers.
+- One Question can have many Answers.
+
+### Supporting Relationships
+
+- `SecurityChangeOtp`, `AuditLog`, and `StudentActivationSetting` are supporting tables.
+- Their current links to Student or Staff account context are handled mostly through auth IDs or application logic, not strong foreign keys in the schema snapshot.
+
+## STEP 6: Assign Keys
+
+### Primary Keys
+
+- Every entity above has a single-column primary key:
+  - numeric identity keys for most operational tables
+  - UUID for `Application`, `GeneralFeedback`, and `SecurityChangeOtp`
+  - text primary key for `EnrolledStudent.student_id`
+
+### Foreign Keys
+
+- `Course.department_id -> Department.id`
+- `StaffAccount.department -> Department.name`
+- `Student.department -> Department.name`
+- `Student.course -> Course.name`
+- `Application.priority_course -> Course.name`
+- `Application.alt_course_1 -> Course.name`
+- `Application.alt_course_2 -> Course.name`
+- `Application.test_date -> AdmissionSchedule.date`
+- `Application.student_id -> Student.student_id`
+- `EnrolledStudent.course -> Course.name`
+- `CounselingRequest.department -> Department.name`
+- `CounselingRequest.student_id -> Student.student_id`
+- `SupportRequest.department -> Department.name`
+- `SupportRequest.student_id -> Student.student_id`
+- `ScholarshipApplication.scholarship_id -> Scholarship.id`
+- `ScholarshipApplication.student_id -> Student.student_id`
+- `Notification.student_id -> Student.student_id`
+- `OfficeVisit.reason -> OfficeVisitReason.reason`
+- `OfficeVisit.student_id -> Student.student_id`
+- `EventAttendance.event_id -> Event.id`
+- `EventAttendance.department -> Department.name`
+- `EventAttendance.student_id -> Student.student_id`
+- `EventFeedback.event_id -> Event.id`
+- `EventFeedback.student_id -> Student.student_id`
+- `Question.form_id -> Form.id`
+- `Submission.form_id -> Form.id`
+- `Submission.student_id -> Student.student_id`
+- `Answer.submission_id -> Submission.id`
+- `Answer.question_id -> Question.id`
+
+## STEP 7: Simplify and Validate
+
+### Simplifications Applied
+
+- The ERD keeps one table per real feature area and avoids inventing derived entities.
+- Cross-cutting utility tables are separated from the core business flow to keep the model readable.
+- Repeating profile details in `students` were not exploded into extra family/address tables because the current implementation stores them in one profile record.
+
+### Validation Notes
+
+- The design is practical because it matches the current schema and portal workflows.
+- The most important relationship pattern is `Student` as the center of service records.
+- `Department` and `Course` work as shared master data for admissions and student services.
+- `Form -> Question -> Submission -> Answer` is already normalized and should stay that way.
+
+### Current Structural Weak Points
+
+- Several foreign keys use `name` fields instead of numeric IDs.
+- `applications` stores three separate course choice columns, which is denormalized.
+- `nat_requirements` is currently a master list only and is not tied to specific applications.
+- `SecurityChangeOtp` and `StudentActivationSetting` rely on auth/application logic more than relational constraints.
+- A legacy `needs_assessments` table exists in migrations, but the active implementation uses `forms`, `questions`, `submissions`, and `answers`.
+
+## Recommended Core ERD Scope
+
+For presentation or defense, the cleanest implementation-ready ERD should emphasize these entities first:
+
+- Department
+- Course
+- StaffAccount
+- Student
+- AdmissionSchedule
+- Application
+- CounselingRequest
+- SupportRequest
+- Scholarship
+- ScholarshipApplication
+- Event
+- EventAttendance
+- EventFeedback
+- Form
+- Question
+- Submission
+- Answer
+- OfficeVisitReason
+- OfficeVisit
+- Notification
+- GeneralFeedback
+
+Then mention these as supporting tables:
+
+- EnrolledStudent
+- NATRequirement
+- SecurityChangeOtp
+- AuditLog
+- StudentActivationSetting
