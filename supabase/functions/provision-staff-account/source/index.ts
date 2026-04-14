@@ -3,15 +3,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-auth, x-client-authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const STAFF_AUTH_DOMAIN = 'staff.norsu.local';
 const ALLOWED_ROLES = new Set(['Admin', 'Department Head', 'Care Staff']);
-
-const buildStaffAuthEmail = (username: string) =>
-    `${String(username || '').trim().toLowerCase()}@${STAFF_AUTH_DOMAIN}`;
 
 const json = (body: Record<string, unknown>, status = 200) =>
     new Response(JSON.stringify(body), {
@@ -26,6 +22,14 @@ const normalizeText = (value: unknown) => {
     const text = String(value || '').trim();
     return text || null;
 };
+
+const normalizeEmail = (value: unknown) => {
+    const email = String(value || '').trim().toLowerCase();
+    return email || null;
+};
+
+const isValidEmail = (value: string | null) =>
+    Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
 
 const getAdminClient = () => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -52,7 +56,7 @@ const createStaffAuthUser = async (
     department: string | null,
     email: string | null
 ) => {
-    const authEmail = buildStaffAuthEmail(username);
+    const authEmail = email;
     const { data, error } = await adminClient.auth.admin.createUser({
         email: authEmail,
         password,
@@ -76,6 +80,20 @@ const createStaffAuthUser = async (
         user: data.user,
         authEmail
     };
+};
+
+const normalizeCreateAuthError = (error: any, email: string) => {
+    const message = String(error?.message || error || '').toLowerCase();
+
+    if (message.includes('already been registered')
+        || message.includes('already exists')
+        || message.includes('duplicate')) {
+        return new Error(`A Supabase Auth account already exists for "${email}". Use a different email address.`);
+    }
+
+    return error instanceof Error
+        ? error
+        : new Error('Failed to create staff auth account.');
 };
 
 const isPasswordColumnRequiredError = (error: any) => {
@@ -137,14 +155,18 @@ serve(async (request) => {
         const department = role === 'Department Head'
             ? normalizeText(body.department)
             : null;
-        const email = normalizeText(body.email);
+        const email = normalizeEmail(body.email);
 
-        if (!username || !password || !role) {
-            throw new Error('Username, password, and role are required.');
+        if (!username || !password || !role || !email) {
+            throw new Error('Username, password, role, and email are required.');
         }
 
         if (!ALLOWED_ROLES.has(role)) {
             throw new Error('Invalid staff role.');
+        }
+
+        if (!isValidEmail(email)) {
+            throw new Error('A valid staff email address is required.');
         }
 
         if (role === 'Department Head' && !department) {
@@ -170,7 +192,9 @@ serve(async (request) => {
             role,
             department,
             email
-        );
+        ).catch((error) => {
+            throw normalizeCreateAuthError(error, email);
+        });
         createdAuthUserId = user.id;
 
         const insertedStaff = await insertStaffAccount(
@@ -186,10 +210,21 @@ serve(async (request) => {
             password
         );
 
+        const emailPayload = {
+            type: 'STAFF_ACCOUNT_CREATED',
+            email,
+            name: fullName || username,
+            username,
+            password,
+            role,
+            department
+        };
+
         return json({
             success: true,
             account: insertedStaff,
-            authEmail
+            authEmail,
+            emailPayload
         });
     } catch (error) {
         if (createdAuthUserId) {

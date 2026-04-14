@@ -4,18 +4,929 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import {
     GraduationCap, ArrowLeft, FileText, Info, Check, User, Key,
-    Calendar, MapPin, Loader2, X, Clock, HelpCircle, LogOut, Mail, Phone, ArrowRight, ChevronDown
+    Calendar, MapPin, Loader2, Printer, X, Clock, HelpCircle, LogOut, Mail, Moon, Phone, ArrowRight, ChevronDown, SunMedium
 } from 'lucide-react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
+import usePublicTheme from '../hooks/usePublicTheme';
 
 // --- ASSETS & CONSTANTS ---
 const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
 const NAT_SESSION_REFRESH_INTERVAL_MS = 90 * 1000;
 const NAT_SECURE_TIME_CACHE_TTL_MS = 5 * 60 * 1000;
+const NAT_APPLICATION_DRAFT_STORAGE_KEY = 'norsu-nat-application-draft-v1';
+
+const INITIAL_NAT_FORM_DATA = {
+    agreedToPrivacy: false,
+    firstName: '', lastName: '', middleName: '', suffix: '',
+    studentId: '',
+    dob: '', age: '', placeOfBirth: '',
+    nationality: 'Filipino',
+    sex: '',
+    genderIdentity: '',
+    civilStatus: '',
+    street: '', city: '', province: '', zipCode: '',
+    mobile: '', email: '', facebookUrl: '',
+    schoolLastAttended: '', yearLevelApplying: '', reason: '',
+    priorityCourse: '', altCourse1: '', altCourse2: '', altCourse3: '',
+    testDate: '', testTime: '',
+    isWorkingStudent: 'No', workingStudentType: '',
+    supporter: [], supporterContact: '',
+    isPwd: 'No', pwdType: '',
+    isIndigenous: 'No', indigenousGroup: '',
+    witnessedConflict: 'No', isSoloParent: 'No', isChildOfSoloParent: 'No'
+} as const;
+
+const NAT_FORM_STEPS = [
+    { id: 1, title: 'Personal Info' },
+    { id: 2, title: 'Course Selection' },
+    { id: 3, title: 'Contact Details' }
+] as const;
+
+const COURSE_CHOICE_FIELDS = [
+    { name: 'priorityCourse', label: '1st Choice', accent: 'blue' },
+    { name: 'altCourse1', label: '2nd Choice', accent: 'orange' },
+    { name: 'altCourse2', label: '3rd Choice', accent: 'teal' }
+] as const;
+
+const NAT_FIELD_STEP_MAP: Record<string, number> = {
+    agreedToPrivacy: 1,
+    firstName: 1,
+    lastName: 1,
+    dob: 1,
+    age: 1,
+    placeOfBirth: 1,
+    nationality: 1,
+    sex: 1,
+    civilStatus: 1,
+    reason: 2,
+    priorityCourse: 2,
+    altCourse1: 2,
+    altCourse2: 2,
+    testDate: 2,
+    testTime: 2,
+    street: 3,
+    city: 3,
+    province: 3,
+    zipCode: 3,
+    mobile: 3,
+    email: 3
+};
+
+type NatDraftPayload = {
+    currentStep: number;
+    formData: Record<string, any>;
+};
+
+type NatValidationScope =
+    | { type: 'step'; step: number }
+    | { type: 'all' }
+    | null;
+
+const loadNatDraft = (): NatDraftPayload | null => {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        const rawDraft = window.localStorage.getItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
+        if (!rawDraft) return null;
+
+        const parsedDraft = JSON.parse(rawDraft) as NatDraftPayload;
+        if (!parsedDraft || typeof parsedDraft !== 'object') return null;
+
+        return {
+            currentStep: Math.min(Math.max(Number(parsedDraft.currentStep || 1), 1), 3),
+            formData: {
+                ...INITIAL_NAT_FORM_DATA,
+                ...(parsedDraft.formData || {})
+            }
+        };
+    } catch {
+        return null;
+    }
+};
+
+const hasMeaningfulNatDraft = (formData: Record<string, any>, currentStep: number) => {
+    if (currentStep > 1) return true;
+
+    return Object.entries(formData).some(([key, value]) => {
+        const initialValue = (INITIAL_NAT_FORM_DATA as Record<string, any>)[key];
+        if (Array.isArray(value)) return value.length > 0;
+        if (typeof value === 'boolean') return value !== initialValue;
+        return String(value ?? '').trim() !== String(initialValue ?? '').trim();
+    });
+};
+
+const saveNatDraft = (payload: NatDraftPayload) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(NAT_APPLICATION_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+};
+
+const clearNatDraft = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
+};
+
+const normalizeText = (value: unknown) => String(value || '').trim();
+
+const getCourseCapacityMeta = (course: any) => {
+    const limit = Number(course?.application_limit || 200);
+    const applicantCount = Number(course?.applicantCount || 0);
+    const remaining = Math.max(limit - applicantCount, 0);
+    const isClosed = String(course?.status || '') === 'Closed';
+    const isFull = applicantCount >= limit;
+    return {
+        limit,
+        applicantCount,
+        remaining,
+        isClosed,
+        isFull,
+        isSelectable: !isClosed && !isFull
+    };
+};
+
+const getFirstInvalidStep = (errors: Record<string, string>) => {
+    const steps = Object.keys(errors)
+        .map((fieldName) => NAT_FIELD_STEP_MAP[fieldName] || 3)
+        .sort((left, right) => left - right);
+
+    return steps[0] || 1;
+};
+
+const validateNatFormData = ({
+    formData,
+    availableCourses,
+    availableDates,
+    selectedDateTimeSlots,
+    supportsTestTime,
+    scope
+}: {
+    formData: Record<string, any>;
+    availableCourses: any[];
+    availableDates: any[];
+    selectedDateTimeSlots: any[];
+    supportsTestTime: boolean;
+    scope: NatValidationScope;
+}) => {
+    const errors: Record<string, string> = {};
+    const validateStep = (step: number) => scope?.type === 'all' || (scope?.type === 'step' && scope.step === step);
+
+    const selectedPriorityCourse = normalizeText(formData.priorityCourse);
+    const selectedAltCourse1 = normalizeText(formData.altCourse1);
+    const selectedAltCourse2 = normalizeText(formData.altCourse2);
+    const selectedCourseChoices = [selectedPriorityCourse, selectedAltCourse1, selectedAltCourse2].filter(Boolean);
+
+    const courseLookup = new Map(
+        availableCourses.map((course: any) => [normalizeText(course?.name), course])
+    );
+
+    if (validateStep(1)) {
+        if (!formData.agreedToPrivacy) errors.agreedToPrivacy = 'You must agree to the data privacy disclaimer before continuing.';
+        if (!normalizeText(formData.firstName)) errors.firstName = 'First name is required.';
+        if (!normalizeText(formData.lastName)) errors.lastName = 'Last name is required.';
+        if (!normalizeText(formData.dob)) errors.dob = 'Date of birth is required.';
+
+        const parsedAge = Number(formData.age);
+        if (!normalizeText(formData.age)) {
+            errors.age = 'Age is required.';
+        } else if (!Number.isFinite(parsedAge) || parsedAge <= 0) {
+            errors.age = 'Please enter a valid age.';
+        }
+
+        if (!normalizeText(formData.placeOfBirth)) errors.placeOfBirth = 'Place of birth is required.';
+        if (!normalizeText(formData.nationality)) errors.nationality = 'Nationality is required.';
+        if (!normalizeText(formData.sex)) errors.sex = 'Sex assigned at birth is required.';
+        if (!normalizeText(formData.civilStatus)) errors.civilStatus = 'Civil status is required.';
+    }
+
+    if (validateStep(2)) {
+        if (!normalizeText(formData.reason)) errors.reason = 'Please tell us why you want to study at NORSU.';
+
+        if (!selectedPriorityCourse) errors.priorityCourse = 'Please choose your first course preference.';
+        if (!selectedAltCourse1) errors.altCourse1 = 'Please choose your second course preference.';
+        if (!selectedAltCourse2) errors.altCourse2 = 'Please choose your third course preference.';
+
+        if (selectedCourseChoices.length !== new Set(selectedCourseChoices).size) {
+            if (!errors.priorityCourse) errors.priorityCourse = 'Each course preference must be different.';
+            if (!errors.altCourse1) errors.altCourse1 = 'Each course preference must be different.';
+            if (!errors.altCourse2) errors.altCourse2 = 'Each course preference must be different.';
+        }
+
+        COURSE_CHOICE_FIELDS.forEach((choiceField) => {
+            const courseName = normalizeText(formData[choiceField.name]);
+            if (!courseName) return;
+
+            const matchedCourse = courseLookup.get(courseName);
+            if (!matchedCourse) {
+                errors[choiceField.name] = 'Please select a course from the available list.';
+                return;
+            }
+
+            const capacity = getCourseCapacityMeta(matchedCourse);
+            if (!capacity.isSelectable) {
+                errors[choiceField.name] = capacity.isClosed
+                    ? 'That course is currently closed. Please choose another option.'
+                    : 'That course is already full. Please choose another option.';
+            }
+        });
+
+        if (availableDates.length === 0) {
+            errors.testDate = 'No test schedules are currently available. Please check back later.';
+        } else if (!normalizeText(formData.testDate)) {
+            errors.testDate = 'Please choose a preferred test date.';
+        }
+
+        if (supportsTestTime && normalizeText(formData.testDate) && selectedDateTimeSlots.length > 0 && !normalizeText(formData.testTime)) {
+            errors.testTime = 'Please choose a preferred time slot.';
+        }
+    }
+
+    if (validateStep(3)) {
+        if (!normalizeText(formData.street)) errors.street = 'Complete address is required.';
+        if (!normalizeText(formData.city)) errors.city = 'City or municipality is required.';
+        if (!normalizeText(formData.province)) errors.province = 'Province is required.';
+        if (!normalizeText(formData.zipCode)) errors.zipCode = 'Zip code is required.';
+
+        const normalizedMobile = normalizeText(formData.mobile).replace(/\D/g, '');
+        if (!normalizeText(formData.mobile)) {
+            errors.mobile = 'Mobile number is required.';
+        } else if (normalizedMobile.length < 10 || normalizedMobile.length > 13) {
+            errors.mobile = 'Please enter a valid mobile number.';
+        }
+
+        if (!normalizeText(formData.email)) {
+            errors.email = 'Email address is required.';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeText(formData.email))) {
+            errors.email = 'Please enter a valid email address.';
+        }
+    }
+
+    return errors;
+};
+
+const FieldErrorText = ({ message }: { message?: string | null }) => {
+    if (!message) return null;
+
+    return (
+        <p className="mt-1 flex items-start gap-1.5 text-xs font-semibold text-red-600 dark:text-rose-300">
+            <span className="mt-0.5">!</span>
+            <span>{message}</span>
+        </p>
+    );
+};
+
+const SessionSyncIndicator = ({ isSyncing, lastSyncedAt }: { isSyncing: boolean; lastSyncedAt: string | null }) => {
+    const label = isSyncing
+        ? 'Syncing session...'
+        : lastSyncedAt
+            ? `Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+            : 'Session sync ready';
+
+    return (
+        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] ${isSyncing ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-sky-400/30 dark:bg-sky-500/10 dark:text-sky-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300'}`}>
+            {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            <span>{label}</span>
+        </div>
+    );
+};
+
+const NAT_BLUE_INPUT_CLASS = 'w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all hover:bg-white placeholder:text-gray-400 dark:bg-slate-900/80 dark:border-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-900 dark:placeholder:text-slate-500 dark:focus:border-sky-400 dark:focus:ring-sky-400/20';
+const NAT_ORANGE_INPUT_CLASS = 'w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white placeholder:text-gray-400 dark:bg-slate-900/80 dark:border-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-900 dark:placeholder:text-slate-500 dark:focus:border-amber-400 dark:focus:ring-amber-400/20';
+const NAT_ORANGE_SELECT_CLASS = 'w-full px-4 py-3 bg-orange-50/50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white font-medium text-gray-900 dark:bg-slate-900/80 dark:border-amber-500/30 dark:text-slate-100 dark:hover:bg-slate-900 dark:focus:border-amber-400 dark:focus:ring-amber-400/20';
+const NAT_TEAL_INPUT_CLASS = 'w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white placeholder:text-gray-400 dark:bg-slate-900/80 dark:border-slate-700/80 dark:text-slate-100 dark:hover:bg-slate-900 dark:placeholder:text-slate-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20';
+
+const NatPrivacyConsentCard = ({
+    collapsible = false,
+    isOpen = false,
+    onToggleOpen,
+    isAgreed,
+    onChange,
+    errorMessage
+}: {
+    collapsible?: boolean;
+    isOpen?: boolean;
+    onToggleOpen?: () => void;
+    isAgreed: boolean;
+    onChange: (checked: boolean) => void;
+    errorMessage?: string;
+}) => {
+    if (collapsible) {
+        return (
+            <div className="nat-mobile-privacy mt-3 bg-white/40 backdrop-blur-2xl rounded-2xl border border-white shadow-lg shadow-blue-900/5 overflow-hidden">
+                <button
+                    type="button"
+                    onClick={onToggleOpen}
+                    className="w-full flex items-center justify-between p-4 text-left"
+                >
+                    <div className="flex items-center gap-2">
+                        <Info className="w-4 h-4 text-blue-500" />
+                        <span className="text-xs font-black text-slate-800 uppercase tracking-widest">Data Privacy Disclaimer</span>
+                        {isAgreed && <span className="ml-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-3 h-3 text-white" /></span>}
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="px-4 pb-4">
+                        <div className={`relative overflow-hidden rounded-xl border p-4 ${errorMessage ? 'border-red-200 bg-red-50/70' : 'border-blue-100 bg-blue-50/50'}`}>
+                            <p className="text-xs text-slate-600 mb-3 text-justify leading-relaxed font-medium">
+                                By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.
+                            </p>
+                            <label className={`flex items-center gap-2.5 cursor-pointer bg-white p-3 rounded-xl border transition-all w-fit ${errorMessage ? 'border-red-200 hover:bg-red-50' : 'border-white/60 hover:bg-blue-50'}`}>
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isAgreed ? 'bg-blue-600 border-blue-600' : errorMessage ? 'border-red-300' : 'border-slate-300'}`}>
+                                    {isAgreed && <Check className="w-3.5 h-3.5 text-white" />}
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={isAgreed}
+                                    onChange={(event) => onChange(event.target.checked)}
+                                    className="hidden"
+                                />
+                                <span className="text-sm font-bold text-slate-800">I agree to the terms and conditions</span>
+                            </label>
+                            <FieldErrorText message={errorMessage} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="nat-section-card nat-sidebar-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-5 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+            <h4 className="text-[10px] font-black text-slate-800 mb-2 flex items-center gap-1.5 uppercase tracking-widest"><Info className="w-3 h-3 text-blue-500" /> Data Privacy Disclaimer</h4>
+            <p className="text-[11px] text-slate-600 mb-3 text-justify leading-relaxed font-medium">
+                By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.
+            </p>
+            <label className={`flex items-center gap-2 cursor-pointer group/check bg-white/50 p-2.5 rounded-lg border transition-all w-fit ${errorMessage ? 'border-red-200 hover:bg-red-50' : 'border-white/60 hover:bg-white'}`}>
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shadow-sm ${isAgreed ? 'bg-blue-600 border-blue-600' : errorMessage ? 'border-red-300' : 'border-slate-300 group-hover/check:border-blue-400'}`}>
+                    {isAgreed && <Check className="w-3 h-3 text-white" />}
+                </div>
+                <input
+                    type="checkbox"
+                    checked={isAgreed}
+                    onChange={(event) => onChange(event.target.checked)}
+                    className="hidden"
+                />
+                <span className="text-xs font-bold text-slate-800">I agree to the terms and conditions</span>
+            </label>
+            <FieldErrorText message={errorMessage} />
+        </div>
+    );
+};
+
+const NatPersonalInfoStep = ({
+    formData,
+    handleChange,
+    onDobChange,
+    fieldErrors,
+    resolveInputClassName
+}: {
+    formData: Record<string, any>;
+    handleChange: (event: any) => void;
+    onDobChange: (value: string) => void;
+    fieldErrors: Record<string, string>;
+    resolveInputClassName: (baseClassName: string, fieldName: string) => string;
+}) => (
+    <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+        <div className="nat-section-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-blue-600"></div>
+            <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-2.5 rounded-xl shadow-inner border border-blue-200/50"><User className="w-5 h-5 text-blue-700 drop-shadow-sm" /></div>
+                Personal Information
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                {[
+                    { label: 'First Name', name: 'firstName', width: 'md:col-span-1' },
+                    { label: 'Last Name', name: 'lastName', width: 'md:col-span-1' },
+                    { label: 'Middle Name', name: 'middleName', width: 'md:col-span-1', required: false },
+                    { label: 'Suffix', name: 'suffix', width: 'md:col-span-1', placeholder: 'e.g. Jr.', required: false }
+                ].map((field) => (
+                    <div key={field.name} className={`space-y-1.5 ${field.width || ''}`}>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                            {field.label} {field.required !== false && <span className="text-red-500">*</span>}
+                        </label>
+                        <input
+                            type="text"
+                            name={field.name}
+                            value={formData[field.name]}
+                            onChange={handleChange}
+                            required={field.required !== false}
+                            placeholder={field.placeholder || ''}
+                            className={resolveInputClassName(NAT_BLUE_INPUT_CLASS, field.name)}
+                        />
+                        <FieldErrorText message={fieldErrors[field.name]} />
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Date of Birth <span className="text-red-500">*</span></label>
+                    <DatePicker
+                        required
+                        name="dob"
+                        value={formData.dob}
+                        onChange={onDobChange}
+                        placeholder="Select birth date"
+                        className={resolveInputClassName(NAT_BLUE_INPUT_CLASS, 'dob')}
+                    />
+                    <FieldErrorText message={fieldErrors.dob} />
+                </div>
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Age <span className="text-red-500">*</span></label>
+                    <input
+                        type="number"
+                        name="age"
+                        value={formData.age}
+                        onChange={handleChange}
+                        required
+                        className={resolveInputClassName(NAT_BLUE_INPUT_CLASS, 'age')}
+                    />
+                    <FieldErrorText message={fieldErrors.age} />
+                </div>
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Place of Birth <span className="text-red-500">*</span></label>
+                    <input
+                        type="text"
+                        name="placeOfBirth"
+                        value={formData.placeOfBirth}
+                        onChange={handleChange}
+                        required
+                        className={resolveInputClassName(NAT_BLUE_INPUT_CLASS, 'placeOfBirth')}
+                    />
+                    <FieldErrorText message={fieldErrors.placeOfBirth} />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Nationality <span className="text-red-500">*</span></label>
+                    <input
+                        name="nationality"
+                        value={formData.nationality}
+                        onChange={handleChange}
+                        required
+                        className={resolveInputClassName(NAT_BLUE_INPUT_CLASS, 'nationality')}
+                    />
+                    <FieldErrorText message={fieldErrors.nationality} />
+                </div>
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Sex Assigned at Birth <span className="text-red-500">*</span></label>
+                    <select
+                        name="sex"
+                        value={formData.sex}
+                        onChange={handleChange}
+                        required
+                        className={resolveInputClassName(NAT_BLUE_INPUT_CLASS, 'sex')}
+                    >
+                        <option value="">Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                    <FieldErrorText message={fieldErrors.sex} />
+                </div>
+            </div>
+
+            <div className="mb-4">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1 mb-2 block">Gender Identity</label>
+                <div className="flex flex-wrap gap-4">
+                    {['Cis-gender', 'Transgender', 'Non-binary', 'Prefer not to say'].map((option) => (
+                        <label key={option} className="flex items-center gap-2 cursor-pointer bg-white/40 border border-gray-200 px-3 py-2 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-all">
+                            <input type="radio" name="genderIdentity" value={option} checked={formData.genderIdentity === option} onChange={handleChange} className="text-blue-600" />
+                            <span className="text-sm text-gray-700 font-medium">{option}</span>
+                        </label>
+                    ))}
+                </div>
+            </div>
+
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Civil Status <span className="text-red-500">*</span></label>
+                <select
+                    name="civilStatus"
+                    value={formData.civilStatus}
+                    onChange={handleChange}
+                    required
+                    className={resolveInputClassName(NAT_BLUE_INPUT_CLASS, 'civilStatus')}
+                >
+                    <option value="">Select status</option>
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                    <option value="Separated (Legally)">Separated (Legally)</option>
+                    <option value="Separated (Physically)">Separated (Physically)</option>
+                    <option value="With Live-In Partner">With Live-In Partner</option>
+                    <option value="Divorced">Divorced</option>
+                    <option value="Widow/er">Widow/er</option>
+                </select>
+                <FieldErrorText message={fieldErrors.civilStatus} />
+            </div>
+        </div>
+    </motion.div>
+);
+
+const NatCourseSelectionStep = ({
+    formData,
+    handleChange,
+    availableCourses,
+    availableDates,
+    selectedDateTimeSlots,
+    supportsTestTime,
+    fieldErrors,
+    resolveInputClassName
+}: {
+    formData: Record<string, any>;
+    handleChange: (event: any) => void;
+    availableCourses: any[];
+    availableDates: any[];
+    selectedDateTimeSlots: any[];
+    supportsTestTime: boolean;
+    fieldErrors: Record<string, string>;
+    resolveInputClassName: (baseClassName: string, fieldName: string) => string;
+}) => (
+    <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+        <div className="nat-section-card bg-white/60 backdrop-blur-md rounded-3xl p-8 border border-white/50 shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500"></div>
+            <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                <div className="bg-orange-100 p-2 rounded-lg text-orange-600"><Calendar className="w-5 h-5" /></div>
+                Course & Schedule
+            </h3>
+
+            <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl mb-6 flex gap-3 text-sm text-orange-800">
+                <Info className="w-5 h-5 shrink-0" />
+                Please select three different courses in order of preference.
+            </div>
+
+            <div className="space-y-1.5 mb-6">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Reason for Choosing NORSU <span className="text-red-500">*</span></label>
+                <textarea
+                    name="reason"
+                    value={formData.reason}
+                    onChange={handleChange}
+                    required
+                    rows={3}
+                    className={resolveInputClassName(`${NAT_ORANGE_INPUT_CLASS} resize-none`, 'reason')}
+                    placeholder="Briefly explain why you want to study at NORSU..."
+                ></textarea>
+                <FieldErrorText message={fieldErrors.reason} />
+            </div>
+
+            <div className="mb-8">
+                {availableCourses.length > 0 ? (
+                    <div className="grid md:grid-cols-3 gap-6">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Priority Course (1st Choice) <span className="text-red-500">*</span></label>
+                            <select
+                                required
+                                name="priorityCourse"
+                                value={formData.priorityCourse}
+                                onChange={handleChange}
+                                className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'priorityCourse')}
+                            >
+                                <option value="">Select priority course</option>
+                                {availableCourses.map((course) => {
+                                    const capacity = getCourseCapacityMeta(course);
+                                    return (
+                                        <option key={course.name} value={course.name} disabled={!capacity.isSelectable}>
+                                            {course.name} {capacity.isClosed ? '(CLOSED)' : capacity.isFull ? '(FULL)' : `(${capacity.applicantCount}/${capacity.limit})`}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            <FieldErrorText message={fieldErrors.priorityCourse} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Alternative Course (2nd Choice) <span className="text-red-500">*</span></label>
+                            <select
+                                required
+                                name="altCourse1"
+                                value={formData.altCourse1}
+                                onChange={handleChange}
+                                className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'altCourse1')}
+                            >
+                                <option value="">Select alternative course</option>
+                                {availableCourses
+                                    .filter((course) => course.name !== formData.priorityCourse)
+                                    .map((course) => {
+                                        const capacity = getCourseCapacityMeta(course);
+                                        return (
+                                            <option key={course.name} value={course.name} disabled={!capacity.isSelectable}>
+                                                {course.name} {capacity.isClosed ? '(CLOSED)' : capacity.isFull ? '(FULL)' : `(${capacity.applicantCount}/${capacity.limit})`}
+                                            </option>
+                                        );
+                                    })}
+                            </select>
+                            <FieldErrorText message={fieldErrors.altCourse1} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Alternative Course (3rd Choice) <span className="text-red-500">*</span></label>
+                            <select
+                                required
+                                name="altCourse2"
+                                value={formData.altCourse2}
+                                onChange={handleChange}
+                                className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'altCourse2')}
+                            >
+                                <option value="">Select alternative course</option>
+                                {availableCourses
+                                    .filter((course) => course.name !== formData.priorityCourse && course.name !== formData.altCourse1)
+                                    .map((course) => {
+                                        const capacity = getCourseCapacityMeta(course);
+                                        return (
+                                            <option key={course.name} value={course.name} disabled={!capacity.isSelectable}>
+                                                {course.name} {capacity.isClosed ? '(CLOSED)' : capacity.isFull ? '(FULL)' : `(${capacity.applicantCount}/${capacity.limit})`}
+                                            </option>
+                                        );
+                                    })}
+                            </select>
+                            <FieldErrorText message={fieldErrors.altCourse2} />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-medium text-red-700">
+                        No courses are currently available for selection. Please try again later.
+                    </div>
+                )}
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Preferred Test Date <span className="text-red-500">*</span></label>
+                {availableDates.length > 0 ? (
+                    <select
+                        required
+                        name="testDate"
+                        value={formData.testDate}
+                        onChange={handleChange}
+                        className={resolveInputClassName(NAT_ORANGE_SELECT_CLASS, 'testDate')}
+                    >
+                        <option value="">Select a date for examination</option>
+                        {availableDates.map((date) => {
+                            const remaining = (date.slots || 0) - (date.applicantCount || 0);
+                            return (
+                                <option key={date.id} value={date.date} disabled={remaining <= 0}>
+                                    {new Date(date.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                    {date.venue ? ` - ${date.venue}` : ''}
+                                    {date.slots ? ` (${remaining > 0 ? remaining : 0} slots left)` : ''}
+                                </option>
+                            );
+                        })}
+                    </select>
+                ) : (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 flex items-center gap-2">
+                        <Info className="w-5 h-5" /> No test schedules are currently available. Please check back later.
+                    </div>
+                )}
+                <FieldErrorText message={fieldErrors.testDate} />
+
+                {supportsTestTime && formData.testDate && selectedDateTimeSlots.length > 0 && (
+                    <div className="pt-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Preferred Test Time <span className="text-red-500">*</span></label>
+                        <select
+                            required
+                            name="testTime"
+                            value={formData.testTime}
+                            onChange={handleChange}
+                            className={resolveInputClassName(`mt-1 ${NAT_ORANGE_SELECT_CLASS}`, 'testTime')}
+                        >
+                            <option value="">Select a time slot</option>
+                            {selectedDateTimeSlots.map((slot) => (
+                                <option key={slot.key} value={slot.key} disabled={(slot.remaining ?? 0) <= 0}>
+                                    {slot.label} ({slot.remaining ?? 0} slots left)
+                                </option>
+                            ))}
+                        </select>
+                        <FieldErrorText message={fieldErrors.testTime} />
+                    </div>
+                )}
+            </div>
+        </div>
+    </motion.div>
+);
+
+const NatContactInfoStep = ({
+    formData,
+    handleChange,
+    fieldErrors,
+    resolveInputClassName
+}: {
+    formData: Record<string, any>;
+    handleChange: (event: any) => void;
+    fieldErrors: Record<string, string>;
+    resolveInputClassName: (baseClassName: string, fieldName: string) => string;
+}) => (
+    <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+        <div className="nat-section-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-teal-400 to-teal-600"></div>
+            <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                <div className="bg-gradient-to-br from-teal-100 to-teal-200 p-2.5 rounded-xl shadow-inner border border-teal-200/50"><MapPin className="w-5 h-5 text-teal-700 drop-shadow-sm" /></div>
+                Contact Information
+            </h3>
+
+            <div className="space-y-4">
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Complete Address <span className="text-red-500">*</span></label>
+                    <input
+                        name="street"
+                        value={formData.street}
+                        onChange={handleChange}
+                        required
+                        placeholder="Street, Purok, House No."
+                        className={resolveInputClassName(NAT_TEAL_INPUT_CLASS, 'street')}
+                    />
+                    <FieldErrorText message={fieldErrors.street} />
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">City/Municipality <span className="text-red-500">*</span></label>
+                        <input
+                            name="city"
+                            value={formData.city}
+                            onChange={handleChange}
+                            required
+                            className={resolveInputClassName(NAT_TEAL_INPUT_CLASS, 'city')}
+                        />
+                        <FieldErrorText message={fieldErrors.city} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Province <span className="text-red-500">*</span></label>
+                        <input
+                            name="province"
+                            value={formData.province}
+                            onChange={handleChange}
+                            required
+                            className={resolveInputClassName(NAT_TEAL_INPUT_CLASS, 'province')}
+                        />
+                        <FieldErrorText message={fieldErrors.province} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Zip Code <span className="text-red-500">*</span></label>
+                        <input
+                            name="zipCode"
+                            value={formData.zipCode}
+                            onChange={handleChange}
+                            required
+                            className={resolveInputClassName(NAT_TEAL_INPUT_CLASS, 'zipCode')}
+                        />
+                        <FieldErrorText message={fieldErrors.zipCode} />
+                    </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Mobile Number <span className="text-red-500">*</span></label>
+                        <input
+                            type="tel"
+                            name="mobile"
+                            value={formData.mobile}
+                            onChange={handleChange}
+                            required
+                            className={resolveInputClassName(NAT_TEAL_INPUT_CLASS, 'mobile')}
+                            placeholder="09123456789"
+                        />
+                        <FieldErrorText message={fieldErrors.mobile} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email Address <span className="text-red-500">*</span></label>
+                        <input
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                            className={resolveInputClassName(NAT_TEAL_INPUT_CLASS, 'email')}
+                            placeholder="email@example.com"
+                        />
+                        <FieldErrorText message={fieldErrors.email} />
+                    </div>
+                    <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Facebook Account Link (Optional)</label>
+                        <input
+                            name="facebookUrl"
+                            value={formData.facebookUrl}
+                            onChange={handleChange}
+                            className={NAT_TEAL_INPUT_CLASS}
+                            placeholder="https://facebook.com/username"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </motion.div>
+);
+
+const NatStatusSummaryScreen = ({
+    credentials,
+    itemVariants,
+    onPrintSummary,
+    onGoToLogin,
+    onBackToWelcome
+}: {
+    credentials: Record<string, any> | null;
+    itemVariants: Variants;
+    onPrintSummary: () => void;
+    onGoToLogin: () => void;
+    onBackToWelcome: () => void;
+}) => (
+    <div className="nat-page-shell nat-page-shell-md max-w-4xl mx-auto w-full">
+        <motion.div
+            initial="initial"
+            animate="in"
+            variants={{
+                initial: { opacity: 0 },
+                in: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.1, delayChildren: 0.1 }
+                }
+            }}
+            className="nat-screen-card nat-print-summary bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-900/10 border border-white p-6 md:p-12 overflow-hidden relative"
+        >
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 nat-print-hidden"></div>
+
+            <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10 gap-4">
+                <div>
+                    <h1 className="nat-panel-title text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Application Status</h1>
+                    <p className="text-slate-500 text-sm font-semibold mt-2 flex items-center gap-2">Ref ID: <span className="font-mono text-xs md:text-sm text-slate-700 bg-white/60 border border-slate-200 px-2 md:px-3 py-1 rounded-lg shadow-sm">{credentials?.referenceId}</span></p>
+                </div>
+                <span className="px-5 md:px-6 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 text-emerald-700 rounded-2xl text-xs md:text-sm font-bold flex items-center gap-3 shadow-md shadow-emerald-500/10 border border-emerald-200/50 w-full md:w-auto justify-center md:justify-start">
+                    <span className="relative flex h-3.5 w-3.5 nat-print-hidden">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                    </span>
+                    Submitted Successfully
+                </span>
+            </motion.div>
+
+            <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-10">
+                <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-white shadow-sm">
+                    <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1 md:mb-2">Applicant Name</p>
+                    <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{credentials?.firstName} {credentials?.lastName}</p>
+                </motion.div>
+                <motion.div variants={itemVariants} className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-blue-100/50 shadow-sm">
+                    <p className="text-[10px] md:text-xs font-black text-blue-400 uppercase tracking-widest mb-1 md:mb-2">Priority Course</p>
+                    <p className="text-xl md:text-2xl font-black text-blue-700 tracking-tight">{credentials?.priorityCourse}</p>
+                </motion.div>
+            </div>
+
+            <motion.div variants={itemVariants} className="nat-callout bg-gradient-to-br from-blue-50/90 to-indigo-50/90 border border-blue-200/50 rounded-[1.5rem] p-8 mb-8 flex gap-5 shadow-inner">
+                <div className="bg-white p-3 rounded-2xl h-fit text-blue-600 shadow-md shadow-blue-500/10 nat-print-hidden"><Clock className="w-7 h-7" /></div>
+                <div>
+                    <h3 className="font-extrabold text-slate-800 mb-2 text-lg">Next Steps</h3>
+                    <p className="text-slate-600 leading-relaxed font-medium">
+                        Your application is being processed. Please prepare for your admission test on <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{credentials?.testDate}</span>{credentials?.testTime ? <> at <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{formatTimeWindowLabel(credentials?.testTime)}</span></> : ''}.
+                    </p>
+                </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="nat-section-card bg-gradient-to-br from-amber-50/90 to-orange-50/90 border border-amber-200/50 rounded-[2rem] p-8 mb-10 relative overflow-hidden shadow-sm">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-10 -mt-10 nat-print-hidden"></div>
+                <div className="relative z-10">
+                    <h3 className="text-lg font-black text-amber-900 mb-6 flex items-center gap-3">
+                        <div className="bg-white p-2 rounded-xl text-amber-600 shadow-sm nat-print-hidden"><Key className="w-5 h-5" /></div> Your Portal Credentials
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white/80 backdrop-blur-sm border border-amber-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-slate-400 mb-2 uppercase tracking-widest font-black">Username</p>
+                            <p className="font-mono font-black text-2xl text-slate-800 tracking-tight break-all">{credentials?.username}</p>
+                        </div>
+                        <div className="nat-print-hide-sensitive bg-white/80 backdrop-blur-sm border border-amber-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-slate-400 mb-2 uppercase tracking-widest font-black">Password</p>
+                            <p className="font-mono font-black text-2xl text-slate-800 tracking-tight">{credentials?.password}</p>
+                        </div>
+                    </div>
+                    <p className="text-sm text-amber-800 mt-6 font-bold flex items-center gap-2 opacity-90 block">
+                        <Info className="w-4 h-4 nat-print-hidden" /> Please save these credentials. Use Print / Save Summary to keep a PDF copy. Password is hidden from printouts for safety.
+                    </p>
+                </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="nat-action-row nat-print-hidden flex flex-col md:flex-row gap-4">
+                <button
+                    onClick={onPrintSummary}
+                    className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                >
+                    <Printer className="w-5 h-5" /> Print / Save Summary
+                </button>
+                <button
+                    onClick={onGoToLogin}
+                    className="nat-primary-action flex-1 bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 px-6 rounded-2xl font-black text-lg hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
+                    <LogOut className="w-5 h-5 relative z-10" /> <span className="relative z-10">Go to Login Portal</span>
+                    <ArrowRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform relative z-10" />
+                </button>
+                <button
+                    onClick={onBackToWelcome}
+                    className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
+                >
+                    Back to Welcome
+                </button>
+            </motion.div>
+        </motion.div>
+    </div>
+);
 
 let natSecureTimeCache: { datetime: string; fetchedAt: number } | null = null;
 
@@ -43,8 +954,8 @@ const getTrustedNatTime = async () => {
 
 
 // --- REUSABLE LAYOUT COMPONENT ---
-const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false, onBack, rightAction }: any) => (
-    <div className="nat-portal min-h-screen bg-slate-50 relative overflow-hidden font-inter selection:bg-blue-200">
+const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false, onBack, rightAction, isDark = false, onToggleTheme }: any) => (
+    <div className={`${isDark ? 'dark' : ''} nat-portal min-h-screen bg-slate-50 text-slate-900 relative overflow-hidden font-inter selection:bg-blue-200 dark:bg-slate-950 dark:text-slate-100 dark:[color-scheme:dark]`}>
         {/* Animated Background Blobs */}
         <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
             <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-blue-400/30 rounded-full mix-blend-multiply filter blur-[80px] opacity-50 animate-blob"></div>
@@ -56,23 +967,35 @@ const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false,
         {/* Content */}
         <div className="relative z-10 flex flex-col min-h-screen">
             {/* Glass Header */}
-            <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 border-b border-white/50 shadow-sm supports-[backdrop-filter]:bg-white/50">
+            <div className="sticky top-0 z-50 border-b border-white/50 bg-white/70 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/50 dark:border-slate-700/60 dark:bg-slate-900/80 dark:supports-[backdrop-filter]:bg-slate-900/75">
                 <div className="nat-layout-header max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-2.5 shadow-lg shadow-blue-500/20 ring-1 ring-white/50">
                             <GraduationCap className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-lg md:text-xl font-bold text-gray-900 tracking-tight leading-tight">{title}</h1>
-                            <p className="text-xs text-blue-600 font-medium tracking-wide uppercase">Gateway to Excellence</p>
+                            <h1 className="text-lg md:text-xl font-bold text-gray-900 tracking-tight leading-tight dark:text-white">{title}</h1>
+                            <p className="text-xs text-blue-600 font-medium tracking-wide uppercase dark:text-sky-300">Gateway to Excellence</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        {onToggleTheme && (
+                            <button
+                                type="button"
+                                onClick={onToggleTheme}
+                                aria-pressed={isDark}
+                                aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all hover:border-blue-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-sky-400 dark:hover:text-sky-300"
+                            >
+                                {isDark ? <SunMedium className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+                                {isDark ? 'Light mode' : 'Dark mode'}
+                            </button>
+                        )}
                         {rightAction}
                         {showBack && (
                             <button
                                 onClick={onBack}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white/50 border border-transparent hover:border-gray-200 transition-all duration-200 group"
+                                className="group flex items-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-medium text-gray-600 transition-all duration-200 hover:border-gray-200 hover:bg-white/50 hover:text-gray-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800/70 dark:hover:text-white"
                             >
                                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                                 <span className="hidden md:inline">Back</span>
@@ -167,9 +1090,11 @@ const hasNatAttendanceColumns = (record: any) => {
 const NATPortal = () => {
     const navigate = useNavigate();
     const { loginStudent } = useAuth() as any;
+    const { isDark, toggleTheme } = usePublicTheme();
+    const [draftSnapshot] = useState<NatDraftPayload | null>(() => loadNatDraft());
     // Start at 'welcome' screen
     const [currentScreen, setCurrentScreen] = useState<string>('welcome');
-    const [currentStep, setCurrentStep] = useState<number>(1);
+    const [currentStep, setCurrentStep] = useState<number>(draftSnapshot?.currentStep || 1);
     const [loading, setLoading] = useState<boolean>(false);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
@@ -188,32 +1113,19 @@ const NATPortal = () => {
     const [supportsTestTime, setSupportsTestTime] = useState<boolean>(true);
 
     // Form State
-    const [formData, setFormData] = useState<any>({
-        agreedToPrivacy: false,
-        firstName: '', lastName: '', middleName: '', suffix: '',
-        studentId: '', // Optional/If applicable
-        dob: '', age: '', placeOfBirth: '',
-        nationality: 'Filipino',
-        sex: '',
-        genderIdentity: '',
-        civilStatus: '',
-        street: '', city: '', province: '', zipCode: '',
-        mobile: '', email: '', facebookUrl: '',
-        schoolLastAttended: '', yearLevelApplying: '', reason: '',
-        priorityCourse: '', altCourse1: '', altCourse2: '', altCourse3: '',
-        testDate: '', testTime: '',
-        isWorkingStudent: 'No', workingStudentType: '',
-        supporter: [], supporterContact: '',
-        isPwd: 'No', pwdType: '',
-        isIndigenous: 'No', indigenousGroup: '',
-        witnessedConflict: 'No', isSoloParent: 'No', isChildOfSoloParent: 'No'
-    });
+    const [formData, setFormData] = useState<any>(draftSnapshot?.formData || INITIAL_NAT_FORM_DATA);
 
     // Time State for Test Day
     const [timeState, setTimeState] = useState<any>({ isTestDate: false, isOpen: false });
     const [showTimeInConfirm, setShowTimeInConfirm] = useState(false);
     const [showTimeOutConfirm, setShowTimeOutConfirm] = useState(false);
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [validationScope, setValidationScope] = useState<NatValidationScope>(null);
+    const [isSessionSyncing, setIsSessionSyncing] = useState(false);
+    const [lastSessionSyncAt, setLastSessionSyncAt] = useState<string | null>(null);
+    const [isPrivacyOpen, setIsPrivacyOpen] = useState(Boolean(draftSnapshot));
+    const [hasRestoredDraft] = useState(Boolean(draftSnapshot));
 
     const [toast, setToast] = useState<any>(null);
 
@@ -235,6 +1147,29 @@ const NATPortal = () => {
 
     const selectedDateSchedule = availableDates.find((d: any) => d.date === formData.testDate);
     const selectedDateTimeSlots = selectedDateSchedule?.timeSlots || [];
+
+    const runFormValidation = (scope: NatValidationScope) => {
+        const errors = validateNatFormData({
+            formData,
+            availableCourses,
+            availableDates,
+            selectedDateTimeSlots,
+            supportsTestTime,
+            scope
+        });
+
+        setFieldErrors(errors);
+        setValidationScope(scope);
+        return errors;
+    };
+
+    const resolveInputClassName = (baseClassName: string, fieldName: string) => (
+        `${baseClassName} ${fieldErrors[fieldName] ? 'border-red-300 bg-red-50/80 focus:border-red-500 focus:ring-red-500/20 dark:border-rose-400/60 dark:bg-rose-500/10 dark:focus:border-rose-400 dark:focus:ring-rose-400/20' : ''}`
+    );
+
+    const updateFormDraft = (updater: (previous: any) => any) => {
+        setFormData((previous: any) => updater(previous));
+    };
 
     const isWithinAssignedTimeWindow = (timeWindow: string, now: Date) => {
         if (!timeWindow) return null;
@@ -266,7 +1201,10 @@ const NATPortal = () => {
             }
 
             // Fetch Courses
-            const { data: coursesData } = await supabase.from('courses').select('*').order('name');
+            const { data: coursesData } = await supabase
+                .from('courses')
+                .select('id, name, application_limit, status')
+                .order('name');
 
             // Fetch Test Dates
             const { data: datesData } = await supabase
@@ -314,6 +1252,33 @@ const NATPortal = () => {
         };
         void fetchOptions();
     }, []);
+
+    useEffect(() => {
+        if (!hasMeaningfulNatDraft(formData, currentStep)) {
+            clearNatDraft();
+            return;
+        }
+
+        saveNatDraft({
+            currentStep,
+            formData
+        });
+    }, [currentStep, formData]);
+
+    useEffect(() => {
+        if (!validationScope) return;
+
+        const errors = validateNatFormData({
+            formData,
+            availableCourses,
+            availableDates,
+            selectedDateTimeSlots,
+            supportsTestTime,
+            scope: validationScope
+        });
+
+        setFieldErrors(errors);
+    }, [formData, availableCourses, availableDates, selectedDateTimeSlots, supportsTestTime, validationScope]);
 
     useEffect(() => {
         let interval: ReturnType<typeof setInterval> | null = null;
@@ -402,6 +1367,7 @@ const NATPortal = () => {
                 return;
             }
 
+            setIsSessionSyncing(true);
             try {
                 const data = await invokeNatManagementFunction(
                     {
@@ -432,9 +1398,14 @@ const NATPortal = () => {
                 });
 
                 hasCompletedInitialRefresh = true;
+                setLastSessionSyncAt(new Date().toISOString());
             } catch (error) {
                 if (!cancelled) {
                     console.error('Failed to refresh the NAT portal session.', error);
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsSessionSyncing(false);
                 }
             }
         };
@@ -467,49 +1438,68 @@ const NATPortal = () => {
             if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
                 age--;
             }
-            setFormData({ ...formData, [name]: value, age: age >= 0 ? age : '' });
+            updateFormDraft((previous: any) => ({ ...previous, [name]: value, age: age >= 0 ? age : '' }));
         } else if (name === 'testDate') {
-            setFormData({ ...formData, testDate: value, testTime: '' });
+            updateFormDraft((previous: any) => ({ ...previous, testDate: value, testTime: '' }));
         } else {
-            setFormData({ ...formData, [name]: value });
+            updateFormDraft((previous: any) => ({ ...previous, [name]: value }));
         }
     };
 
     const handleCheckboxGroup = (e: any, field: string) => {
         const { value, checked } = e.target;
-        setFormData((prev: any) => {
+        updateFormDraft((prev: any) => {
             const list = prev[field] || [];
             if (checked) return { ...prev, [field]: [...list, value] };
             return { ...prev, [field]: list.filter((item: any) => item !== value) };
         });
     };
 
+    const handlePrivacyAgreementChange = (checked: boolean) => {
+        updateFormDraft((previous: any) => ({ ...previous, agreedToPrivacy: checked }));
+    };
+
+    const handleDobChange = (value: string) => {
+        updateFormDraft((previous: any) => {
+            const age = value
+                ? Math.floor((Date.now() - new Date(`${value}T00:00:00`).getTime()) / 31557600000)
+                : '';
+
+            return {
+                ...previous,
+                dob: value,
+                age: age || age === 0 ? (age >= 0 ? age : '') : ''
+            };
+        });
+    };
+
+    const handlePrintSummary = () => {
+        if (typeof window !== 'undefined') {
+            window.print();
+        }
+    };
+
     const handleSubmit = async (e: any) => {
         e.preventDefault();
         if (loading) return;
 
-        if (currentStep === 1 && !formData.agreedToPrivacy) {
-            showToast("You must agree to the Data Privacy Act Disclaimer.", 'error');
+        if (currentStep < 3) {
+            const stepErrors = runFormValidation({ type: 'step', step: currentStep });
+            if (Object.keys(stepErrors).length > 0) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            setFieldErrors({});
+            setValidationScope(null);
+            setCurrentStep(prev => prev + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
-        if (currentStep === 2) {
-            if (availableDates.length === 0) {
-                showToast("No test schedules are currently available.", 'error');
-                return;
-            }
-            if (!formData.testDate) {
-                showToast("Please select a test date.", 'error');
-                return;
-            }
-            if (supportsTestTime && selectedDateTimeSlots.length > 0 && !formData.testTime) {
-                showToast("Please select a test time.", 'error');
-                return;
-            }
-        }
-
-        if (currentStep < 3) {
-            setCurrentStep(prev => prev + 1);
+        const finalErrors = runFormValidation({ type: 'all' });
+        if (Object.keys(finalErrors).length > 0) {
+            setCurrentStep(getFirstInvalidStep(finalErrors));
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
@@ -591,6 +1581,9 @@ const NATPortal = () => {
             }
 
             setShowSuccessModal(true);
+            clearNatDraft();
+            setFieldErrors({});
+            setValidationScope(null);
         } catch (error: any) {
             if (error.code === '23505' || error.message?.includes('duplicate')) {
                 showToast('Submission Failed: This email address is already registered.', 'error');
@@ -838,9 +1831,6 @@ const NATPortal = () => {
 
     // Render Views
     // Page transition variants
-    // Added error state to ensure form submission doesn't silently fail if connection drops
-    const [submitError, setSubmitError] = useState<string | null>(null);
-
     // --- ANIMATION VARIANTS ---
     const containerVariants: Variants = {
         initial: { opacity: 0 },
@@ -864,8 +1854,10 @@ const NATPortal = () => {
     // --- RENDER SCREEN: WELCOME ---
     if (currentScreen === 'welcome') return (
         <NATLayout
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
             rightAction={
-                <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
+                <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
                     Back to Main
                 </button>
             }
@@ -945,89 +1937,14 @@ const NATPortal = () => {
 
     // --- RENDER SCREEN: STATUS ---
     if (currentScreen === 'status') return (
-        <NATLayout title="Applicant Status" showBack={false}>
-            <div className="nat-page-shell nat-page-shell-md max-w-4xl mx-auto w-full">
-                <motion.div
-                    initial="initial" animate="in" variants={containerVariants}
-                    className="nat-screen-card bg-white/40 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-900/10 border border-white p-6 md:p-12 overflow-hidden relative"
-                >
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500"></div>
-
-                    <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10 gap-4">
-                        <div>
-                            <h1 className="nat-panel-title text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Application Status</h1>
-                            <p className="text-slate-500 text-sm font-semibold mt-2 flex items-center gap-2">Ref ID: <span className="font-mono text-xs md:text-sm text-slate-700 bg-white/60 border border-slate-200 px-2 md:px-3 py-1 rounded-lg shadow-sm">{credentials?.referenceId}</span></p>
-                        </div>
-                        <span className="px-5 md:px-6 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 text-emerald-700 rounded-2xl text-xs md:text-sm font-bold flex items-center gap-3 shadow-md shadow-emerald-500/10 border border-emerald-200/50 w-full md:w-auto justify-center md:justify-start">
-                            <span className="relative flex h-3.5 w-3.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
-                            </span>
-                            Submitted Successfully
-                        </span>
-                    </motion.div>
-
-                    <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-10">
-                        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-white shadow-sm">
-                            <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1 md:mb-2">Applicant Name</p>
-                            <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{credentials?.firstName} {credentials?.lastName}</p>
-                        </motion.div>
-                        <motion.div variants={itemVariants} className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-blue-100/50 shadow-sm">
-                            <p className="text-[10px] md:text-xs font-black text-blue-400 uppercase tracking-widest mb-1 md:mb-2">Priority Course</p>
-                            <p className="text-xl md:text-2xl font-black text-blue-700 tracking-tight">{credentials?.priorityCourse}</p>
-                        </motion.div>
-                    </div>
-
-                    <motion.div variants={itemVariants} className="nat-callout bg-gradient-to-br from-blue-50/90 to-indigo-50/90 border border-blue-200/50 rounded-[1.5rem] p-8 mb-8 flex gap-5 shadow-inner">
-                        <div className="bg-white p-3 rounded-2xl h-fit text-blue-600 shadow-md shadow-blue-500/10"><Clock className="w-7 h-7" /></div>
-                        <div>
-                            <h3 className="font-extrabold text-slate-800 mb-2 text-lg">Next Steps</h3>
-                            <p className="text-slate-600 leading-relaxed font-medium">
-                                Your application is being processed. Please prepare for your admission test on <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{credentials?.testDate}</span>{credentials?.testTime ? <> at <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{formatTimeWindowLabel(credentials?.testTime)}</span></> : ''}.
-                            </p>
-                        </div>
-                    </motion.div>
-
-                    <motion.div variants={itemVariants} className="nat-section-card bg-gradient-to-br from-amber-50/90 to-orange-50/90 border border-amber-200/50 rounded-[2rem] p-8 mb-10 relative overflow-hidden shadow-sm">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                        <div className="relative z-10">
-                            <h3 className="text-lg font-black text-amber-900 mb-6 flex items-center gap-3">
-                                <div className="bg-white p-2 rounded-xl text-amber-600 shadow-sm"><Key className="w-5 h-5" /></div> Your Portal Credentials
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-white/80 backdrop-blur-sm border border-amber-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                                    <p className="text-xs text-slate-400 mb-2 uppercase tracking-widest font-black">Username</p>
-                                    <p className="font-mono font-black text-2xl text-slate-800 tracking-tight">{credentials?.username}</p>
-                                </div>
-                                <div className="bg-white/80 backdrop-blur-sm border border-amber-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                                    <p className="text-xs text-slate-400 mb-2 uppercase tracking-widest font-black">Password</p>
-                                    <p className="font-mono font-black text-2xl text-slate-800 tracking-tight">{credentials?.password}</p>
-                                </div>
-                            </div>
-                            <p className="text-sm text-amber-800 mt-6 font-bold flex items-center gap-2 opacity-90 block">
-                                <Info className="w-4 h-4" /> Please save these credentials. You will need them to take the test.
-                            </p>
-                        </div>
-                    </motion.div>
-
-                    <motion.div variants={itemVariants} className="nat-action-row flex flex-col md:flex-row gap-4">
-                        <button
-                            onClick={() => setCurrentScreen('login')}
-                            className="nat-primary-action flex-1 bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 px-6 rounded-2xl font-black text-lg hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden"
-                        >
-                            <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-                            <LogOut className="w-5 h-5 relative z-10" /> <span className="relative z-10">Go to Login Portal</span>
-                            <ArrowRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform relative z-10" />
-                        </button>
-                        <button
-                            onClick={() => setCurrentScreen('welcome')}
-                            className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            Back to Welcome
-                        </button>
-                    </motion.div>
-                </motion.div>
-            </div>
+        <NATLayout title="Applicant Status" showBack={false} isDark={isDark} onToggleTheme={toggleTheme}>
+            <NatStatusSummaryScreen
+                credentials={credentials}
+                itemVariants={itemVariants}
+                onPrintSummary={handlePrintSummary}
+                onGoToLogin={() => setCurrentScreen('login')}
+                onBackToWelcome={() => setCurrentScreen('welcome')}
+            />
         </NATLayout>
     );
 
@@ -1037,6 +1954,8 @@ const NATPortal = () => {
             title="Applicant Login"
             showBack={true}
             onBack={() => setCurrentScreen('welcome')}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
         >
             <div className="nat-page-shell nat-page-shell-sm max-w-md mx-auto w-full">
                 <motion.div
@@ -1107,10 +2026,10 @@ const NATPortal = () => {
                 </motion.div>
 
                 {toast && (
-                    <div className={`fixed top-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[100] backdrop-blur-md ${toast.type === 'error' ? 'bg-red-500/90' : 'bg-green-500/90'}`}>
-                        <div className="bg-white/20 p-2 rounded-full">{toast.type === 'error' ? '!' : 'OK'}</div>
+                    <div className={`nat-print-hidden fixed top-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[100] backdrop-blur-md ${toast.type === 'error' ? 'bg-red-500/90' : toast.type === 'info' ? 'bg-blue-500/90' : 'bg-green-500/90'}`}>
+                        <div className="bg-white/20 p-2 rounded-full">{toast.type === 'error' ? '!' : toast.type === 'info' ? 'i' : 'OK'}</div>
                         <div>
-                            <h4 className="font-bold text-sm">{toast.type === 'error' ? 'Login Failed' : 'Success'}</h4>
+                            <h4 className="font-bold text-sm">{toast.type === 'error' ? 'Login Failed' : toast.type === 'info' ? 'Update' : 'Success'}</h4>
                             <p className="text-xs opacity-90 font-medium">{toast.msg}</p>
                         </div>
                     </div>
@@ -1121,14 +2040,16 @@ const NATPortal = () => {
 
     // --- RENDER SCREEN: DASHBOARD ---
     if (currentScreen === 'dashboard') {
-        if (!currentUser) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
+        if (!currentUser) return <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
         return (
             <NATLayout
                 title="Applicant Dashboard"
+                isDark={isDark}
+                onToggleTheme={toggleTheme}
                 rightAction={
                     <button
                         onClick={handleNatLogout}
-                        className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-white/80 border border-white/50 rounded-lg text-sm font-bold text-red-600 transition-all shadow-sm hover:shadow active:scale-95"
+                        className="flex items-center gap-2 rounded-lg border border-white/50 bg-white/50 px-4 py-2 text-sm font-bold text-red-600 shadow-sm transition-all hover:bg-white/80 hover:shadow active:scale-95 dark:border-slate-700 dark:bg-slate-800/80 dark:text-rose-300 dark:hover:bg-slate-800"
                     >
                         <LogOut className="w-4 h-4" /> Logout
                     </button>
@@ -1462,6 +2383,9 @@ const NATPortal = () => {
                                     <div>
                                         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Hello, {currentUser.first_name}!</h2>
                                         <p className="text-gray-500 text-xs md:text-sm">Reference ID: <span className="font-mono text-gray-700">{currentUser.reference_id}</span></p>
+                                        <div className="mt-3">
+                                            <SessionSyncIndicator isSyncing={isSessionSyncing} lastSyncedAt={lastSessionSyncAt} />
+                                        </div>
                                     </div>
                                     <span className="px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-[10px] md:text-xs font-bold border border-green-200 w-fit">
                                         Status: {currentUser.status || 'Applied'}
@@ -1659,9 +2583,9 @@ const NATPortal = () => {
                 </div>
 
                 {toast && (
-                    <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[200] ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
-                        <div className="text-xl">{toast.type === 'error' ? '!' : 'OK'}</div>
-                        <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
+                    <div className={`nat-print-hidden fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[200] ${toast.type === 'error' ? 'bg-red-600' : toast.type === 'info' ? 'bg-blue-600' : 'bg-green-600'}`}>
+                        <div className="text-xl">{toast.type === 'error' ? '!' : toast.type === 'info' ? 'i' : 'OK'}</div>
+                        <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : toast.type === 'info' ? 'Update' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
                     </div>
                 )}
             </NATLayout>
@@ -1675,6 +2599,8 @@ const NATPortal = () => {
             title="Application Form"
             showBack={true}
             onBack={() => setCurrentScreen('welcome')}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
         >
             <div className="nat-form-shell flex flex-col lg:flex-row gap-4 lg:gap-8 max-w-6xl mx-auto w-full animate-slide-in-up pb-24">
 
@@ -1711,34 +2637,14 @@ const NATPortal = () => {
                     </div>
 
                     {/* Collapsible Data Privacy Disclaimer */}
-                    <div className="nat-mobile-privacy mt-3 bg-white/40 backdrop-blur-2xl rounded-2xl border border-white shadow-lg shadow-blue-900/5 overflow-hidden">
-                        <button
-                            type="button"
-                            onClick={() => setFormData((prev: any) => ({ ...prev, _disclaimerOpen: !prev._disclaimerOpen }))}
-                            className="w-full flex items-center justify-between p-4 text-left"
-                        >
-                            <div className="flex items-center gap-2">
-                                <Info className="w-4 h-4 text-blue-500" />
-                                <span className="text-xs font-black text-slate-800 uppercase tracking-widest">Data Privacy Disclaimer</span>
-                                {formData.agreedToPrivacy && <span className="ml-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-3 h-3 text-white" /></span>}
-                            </div>
-                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${formData._disclaimerOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${formData._disclaimerOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="px-4 pb-4">
-                                <div className="relative overflow-hidden rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-                                    <p className="text-xs text-slate-600 mb-3 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
-                                    <label className="flex items-center gap-2.5 cursor-pointer bg-white p-3 rounded-xl border border-white/60 hover:bg-blue-50 transition-all w-fit">
-                                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all shadow-sm ${formData.agreedToPrivacy ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
-                                            {formData.agreedToPrivacy && <Check className="w-3.5 h-3.5 text-white" />}
-                                        </div>
-                                        <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
-                                        <span className="text-sm font-bold text-slate-800">I agree to the terms and conditions</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <NatPrivacyConsentCard
+                        collapsible={true}
+                        isOpen={isPrivacyOpen}
+                        onToggleOpen={() => setIsPrivacyOpen((previous) => !previous)}
+                        isAgreed={formData.agreedToPrivacy}
+                        onChange={handlePrivacyAgreementChange}
+                        errorMessage={fieldErrors.agreedToPrivacy}
+                    />
                 </div>
 
                 {/* ===== DESKTOP: Original Sidebar Navigation (hidden on mobile) ===== */}
@@ -1768,18 +2674,11 @@ const NATPortal = () => {
                         </div>
 
                         {/* Data Privacy Act Disclaimer - separate card */}
-                        <div className="nat-section-card nat-sidebar-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-5 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
-                            <h4 className="text-[10px] font-black text-slate-800 mb-2 flex items-center gap-1.5 uppercase tracking-widest"><Info className="w-3 h-3 text-blue-500" /> Data Privacy Disclaimer</h4>
-                            <p className="text-[11px] text-slate-600 mb-3 text-justify leading-relaxed font-medium">By submitting this application, I hereby authorize the NORSU CARE Center and concerned university offices to collect, process, and utilize the information provided herein for admission evaluation, guidance services, research, and other school-related programs and activities, in accordance with the Data Privacy Act of 2012.</p>
-                            <label className="flex items-center gap-2 cursor-pointer group/check bg-white/50 p-2.5 rounded-lg border border-white/60 hover:bg-white transition-all w-fit">
-                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all shadow-sm ${formData.agreedToPrivacy ? 'bg-blue-600 border-blue-600' : 'border-slate-300 group-hover/check:border-blue-400'}`}>
-                                    {formData.agreedToPrivacy && <Check className="w-3 h-3 text-white" />}
-                                </div>
-                                <input type="checkbox" checked={formData.agreedToPrivacy} onChange={e => setFormData({ ...formData, agreedToPrivacy: e.target.checked })} className="hidden" />
-                                <span className="text-xs font-bold text-slate-800">I agree to the terms and conditions</span>
-                            </label>
-                        </div>
+                        <NatPrivacyConsentCard
+                            isAgreed={formData.agreedToPrivacy}
+                            onChange={handlePrivacyAgreementChange}
+                            errorMessage={fieldErrors.agreedToPrivacy}
+                        />
                     </div>
                 </div>
 
@@ -1792,276 +2691,50 @@ const NATPortal = () => {
                             <p className="text-sm text-blue-800/90 leading-relaxed font-medium">
                                 Please fill out all fields accurately. Your application will be used for your official university records. Fields marked with <span className="text-red-500 font-black">*</span> are required.
                             </p>
+                            <p className="mt-2 text-xs font-bold text-blue-700">
+                                {hasRestoredDraft ? 'A saved draft from this browser has been restored for you.' : 'Drafts are saved automatically on this device while you complete the form.'}
+                            </p>
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-8 relative z-10 min-h-[50vh]">
+                    {Object.keys(fieldErrors).length > 0 && (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-semibold text-red-700">
+                            Please review the highlighted fields before continuing.
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} noValidate className="space-y-8 relative z-10 min-h-[50vh]">
                         <AnimatePresence mode="wait">
                             {currentStep === 1 && (
-                                <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
-
-                                    {/* Personal Information */}
-                                    <div className="nat-section-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
-                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-blue-600"></div>
-                                        <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                                            <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-2.5 rounded-xl shadow-inner border border-blue-200/50"><User className="w-5 h-5 text-blue-700 drop-shadow-sm" /></div>
-                                            Personal Information
-                                        </h3>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                                            {[
-                                                { label: 'First Name', name: 'firstName', width: 'md:col-span-1' },
-                                                { label: 'Last Name', name: 'lastName', width: 'md:col-span-1' },
-                                                { label: 'Middle Name', name: 'middleName', width: 'md:col-span-1', required: false },
-                                                { label: 'Suffix', name: 'suffix', width: 'md:col-span-1', placeholder: 'e.g. Jr.', required: false },
-                                            ].map((field) => (
-                                                <div key={field.name} className={`space-y-1.5 ${field.width || ''}`}>
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">{field.label} {field.required !== false && <span className="text-red-500">*</span>}</label>
-                                                    <input
-                                                        type="text"
-                                                        name={field.name}
-                                                        value={formData[field.name]}
-                                                        onChange={handleChange}
-                                                        required={field.required !== false}
-                                                        placeholder={field.placeholder || ''}
-                                                        className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all placeholder:text-gray-400 hover:bg-white"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Date of Birth <span className="text-red-500">*</span></label>
-                                                <DatePicker required name="dob" value={formData.dob} onChange={(val) => { setFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Age <span className="text-red-500">*</span></label>
-                                                <input type="number" name="age" value={formData.age} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all hover:bg-white" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Place of Birth <span className="text-red-500">*</span></label>
-                                                <input type="text" name="placeOfBirth" value={formData.placeOfBirth} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all hover:bg-white" />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Nationality <span className="text-red-500">*</span></label>
-                                                <input name="nationality" value={formData.nationality} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all hover:bg-white" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Sex Assigned at Birth <span className="text-red-500">*</span></label>
-                                                <select name="sex" value={formData.sex} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all hover:bg-white">
-                                                    <option value="">Select</option>
-                                                    <option value="Male">Male</option>
-                                                    <option value="Female">Female</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1 mb-2 block">Gender Identity</label>
-                                            <div className="flex flex-wrap gap-4">
-                                                {['Cis-gender', 'Transgender', 'Non-binary', 'Prefer not to say'].map(opt => (
-                                                    <label key={opt} className="flex items-center gap-2 cursor-pointer bg-white/40 border border-gray-200 px-3 py-2 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-all">
-                                                        <input type="radio" name="genderIdentity" value={opt} checked={formData.genderIdentity === opt} onChange={handleChange} className="text-blue-600" />
-                                                        <span className="text-sm text-gray-700 font-medium">{opt}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Civil Status <span className="text-red-500">*</span></label>
-                                            <select name="civilStatus" value={formData.civilStatus} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all hover:bg-white">
-                                                <option value="">Select status</option>
-                                                <option value="Single">Single</option>
-                                                <option value="Married">Married</option>
-                                                <option value="Separated (Legally)">Separated (Legally)</option>
-                                                <option value="Separated (Physically)">Separated (Physically)</option>
-                                                <option value="With Live-In Partner">With Live-In Partner</option>
-                                                <option value="Divorced">Divorced</option>
-                                                <option value="Widow/er">Widow/er</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                <NatPersonalInfoStep
+                                    formData={formData}
+                                    handleChange={handleChange}
+                                    onDobChange={handleDobChange}
+                                    fieldErrors={fieldErrors}
+                                    resolveInputClassName={resolveInputClassName}
+                                />
                             )}
 
                             {currentStep === 2 && (
-                                <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
-                                    {/* Course & Schedule Selection */}
-                                    <div className="nat-section-card bg-white/60 backdrop-blur-md rounded-3xl p-8 border border-white/50 shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
-                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500"></div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                            <div className="bg-orange-100 p-2 rounded-lg text-orange-600"><Calendar className="w-5 h-5" /></div>
-                                            Course & Schedule
-                                        </h3>
-
-                                        <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl mb-6 flex gap-3 text-sm text-orange-800">
-                                            <Info className="w-5 h-5 shrink-0" />
-                                            Please select three different courses in order of preference.
-                                        </div>
-
-                                        <div className="space-y-1.5 mb-6">
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Reason for Choosing NORSU <span className="text-red-500">*</span></label>
-                                            <textarea
-                                                name="reason"
-                                                value={formData.reason}
-                                                onChange={handleChange}
-                                                required
-                                                rows={3}
-                                                className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white resize-none"
-                                                placeholder="Briefly explain why you want to study at NORSU..."
-                                            ></textarea>
-                                        </div>
-
-                                        <div className="grid md:grid-cols-3 gap-6 mb-8">
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Priority Course (1st Choice) <span className="text-red-500">*</span></label>
-                                                <select required name="priorityCourse" value={formData.priorityCourse} onChange={handleChange} className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white">
-                                                    <option value="">Select priority course</option>
-                                                    {availableCourses.map((c: any) => {
-                                                        const limit = c.application_limit || 200;
-                                                        const isFull = c.applicantCount >= limit;
-                                                        const isClosed = c.status === 'Closed';
-                                                        return (
-                                                            <option key={c.name} value={c.name} disabled={isFull || isClosed}>
-                                                                {c.name} {isClosed ? '(CLOSED)' : isFull ? '(FULL)' : `(${c.applicantCount}/${limit})`}
-                                                            </option>
-                                                        );
-                                                    })}
-                                                </select>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Alternative Course (2nd Choice) <span className="text-red-500">*</span></label>
-                                                <select required name="altCourse1" value={formData.altCourse1} onChange={handleChange} className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white">
-                                                    <option value="">Select alternative course</option>
-                                                    {availableCourses
-                                                        .filter(c => c.name !== formData.priorityCourse)
-                                                        .map((c: any) => {
-                                                            const limit = c.application_limit || 200;
-                                                            const isFull = c.applicantCount >= limit;
-                                                            const isClosed = c.status === 'Closed';
-                                                            return (
-                                                                <option key={c.name} value={c.name} disabled={isFull || isClosed}>
-                                                                    {c.name} {isClosed ? '(CLOSED)' : isFull ? '(FULL)' : `(${c.applicantCount}/${limit})`}
-                                                                </option>
-                                                            );
-                                                        })}
-                                                </select>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Alternative Course (3rd Choice) <span className="text-red-500">*</span></label>
-                                                <select required name="altCourse2" value={formData.altCourse2} onChange={handleChange} className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white">
-                                                    <option value="">Select alternative course</option>
-                                                    {availableCourses
-                                                        .filter(c => c.name !== formData.priorityCourse && c.name !== formData.altCourse1)
-                                                        .map((c: any) => {
-                                                            const limit = c.application_limit || 200;
-                                                            const isFull = c.applicantCount >= limit;
-                                                            const isClosed = c.status === 'Closed';
-                                                            return (
-                                                                <option key={c.name} value={c.name} disabled={isFull || isClosed}>
-                                                                    {c.name} {isClosed ? '(CLOSED)' : isFull ? '(FULL)' : `(${c.applicantCount}/${limit})`}
-                                                                </option>
-                                                            );
-                                                        })}
-                                                </select>
-                                            </div>
-
-
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Preferred Test Date <span className="text-red-500">*</span></label>
-                                            {availableDates.length > 0 ? (
-                                                <select required name="testDate" value={formData.testDate} onChange={handleChange} className="w-full px-4 py-3 bg-orange-50/50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white font-medium text-gray-900">
-                                                    <option value="">Select a date for examination</option>
-                                                    {availableDates.map((d: any) => {
-                                                        const remaining = (d.slots || 0) - (d.applicantCount || 0);
-                                                        return (
-                                                            <option key={d.id} value={d.date} disabled={remaining <= 0}>
-                                                                {new Date(d.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                                                {d.venue ? ` - ${d.venue}` : ''}
-                                                                {d.slots ? ` (${remaining > 0 ? remaining : 0} slots left)` : ''}
-                                                            </option>
-                                                        );
-                                                    })}
-                                                </select>
-                                            ) : (
-                                                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800 flex items-center gap-2">
-                                                    <Info className="w-5 h-5" /> No test schedules are currently available. Please check back later.
-                                                </div>
-                                            )}
-
-                                            {supportsTestTime && formData.testDate && selectedDateTimeSlots.length > 0 && (
-                                                <div className="pt-2">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Preferred Test Time <span className="text-red-500">*</span></label>
-                                                    <select required name="testTime" value={formData.testTime} onChange={handleChange} className="mt-1 w-full px-4 py-3 bg-orange-50/50 border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all hover:bg-white font-medium text-gray-900">
-                                                        <option value="">Select a time slot</option>
-                                                        {selectedDateTimeSlots.map((slot: any) => (
-                                                            <option key={slot.key} value={slot.key} disabled={(slot.remaining ?? 0) <= 0}>
-                                                                {slot.label} ({(slot.remaining ?? 0)} slots left)
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                <NatCourseSelectionStep
+                                    formData={formData}
+                                    handleChange={handleChange}
+                                    availableCourses={availableCourses}
+                                    availableDates={availableDates}
+                                    selectedDateTimeSlots={selectedDateTimeSlots}
+                                    supportsTestTime={supportsTestTime}
+                                    fieldErrors={fieldErrors}
+                                    resolveInputClassName={resolveInputClassName}
+                                />
                             )}
 
                             {currentStep === 3 && (
-                                <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
-                                    {/* Contact Information */}
-                                    <div className="nat-section-card bg-white/40 backdrop-blur-2xl rounded-[2rem] p-8 border border-white shadow-xl shadow-blue-900/5 relative overflow-hidden group hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500">
-                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-teal-400 to-teal-600"></div>
-                                        <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
-                                            <div className="bg-gradient-to-br from-teal-100 to-teal-200 p-2.5 rounded-xl shadow-inner border border-teal-200/50"><MapPin className="w-5 h-5 text-teal-700 drop-shadow-sm" /></div>
-                                            Contact Information
-                                        </h3>
-
-                                        <div className="space-y-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Complete Address <span className="text-red-500">*</span></label>
-                                                <input name="street" value={formData.street} onChange={handleChange} required placeholder="Street, Purok, House No." className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white" />
-                                            </div>
-
-                                            <div className="grid md:grid-cols-3 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">City/Municipality <span className="text-red-500">*</span></label>
-                                                    <input name="city" value={formData.city} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white" />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Province <span className="text-red-500">*</span></label>
-                                                    <input name="province" value={formData.province} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white" />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Zip Code <span className="text-red-500">*</span></label>
-                                                    <input name="zipCode" value={formData.zipCode} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white" />
-                                                </div>
-                                            </div>
-
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Mobile Number <span className="text-red-500">*</span></label>
-                                                    <input type="tel" name="mobile" value={formData.mobile} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white" placeholder="09123456789" />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email Address <span className="text-red-500">*</span></label>
-                                                    <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white" placeholder="email@example.com" />
-                                                </div>
-                                                <div className="md:col-span-2 space-y-1.5">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Facebook Account Link (Optional)</label>
-                                                    <input name="facebookUrl" value={formData.facebookUrl} onChange={handleChange} className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 outline-none transition-all hover:bg-white" placeholder="https://facebook.com/username" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                <NatContactInfoStep
+                                    formData={formData}
+                                    handleChange={handleChange}
+                                    fieldErrors={fieldErrors}
+                                    resolveInputClassName={resolveInputClassName}
+                                />
                             )}
 
                         </AnimatePresence>
@@ -2142,9 +2815,9 @@ const NATPortal = () => {
             )}
 
             {toast && (
-                <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[200] ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
-                    <div className="text-xl">{toast.type === 'error' ? '!' : 'OK'}</div>
-                    <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
+                <div className={`nat-print-hidden fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[200] ${toast.type === 'error' ? 'bg-red-600' : toast.type === 'info' ? 'bg-blue-600' : 'bg-green-600'}`}>
+                    <div className="text-xl">{toast.type === 'error' ? '!' : toast.type === 'info' ? 'i' : 'OK'}</div>
+                    <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : toast.type === 'info' ? 'Update' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
                 </div>
             )}
         </NATLayout>

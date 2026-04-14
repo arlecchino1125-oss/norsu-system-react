@@ -89,6 +89,14 @@ const generatePassword = (length = 12) => {
     return result;
 };
 
+const isDuplicateAuthUserError = (error: unknown) => {
+    const message = String((error as { message?: unknown } | null)?.message ?? error ?? '').toLowerCase();
+    return message.includes('already been registered')
+        || message.includes('already exists')
+        || message.includes('duplicate')
+        || message.includes('email address not authorized');
+};
+
 const json = (body: Record<string, unknown>, status = 200) =>
     new Response(JSON.stringify(body), {
         status,
@@ -187,6 +195,9 @@ const createStudentAuthUser = async (
     });
 
     if (error || !data?.user) {
+        if (isDuplicateAuthUserError(error)) {
+            throw new Error('This Student ID has already been activated. Please sign in instead.');
+        }
         throw error || new Error('Failed to create student auth account.');
     }
 
@@ -305,6 +316,7 @@ const buildStudentPayloadFromProfile = async (adminClient: any, studentId: strin
 const activateStudentProfileAccount = async (adminClient: any, body: Record<string, unknown>) => {
     const studentId = String(body.studentId || '').trim();
     const course = String(body.course || '').trim();
+    const allowEnrollmentCreate = body.allowEnrollmentCreate === true;
     const profile = typeof body.profile === 'object' && body.profile
         ? body.profile as Record<string, unknown>
         : {};
@@ -314,12 +326,23 @@ const activateStudentProfileAccount = async (adminClient: any, body: Record<stri
         throw new Error('Missing required activation details.');
     }
 
-    await ensureEnrollmentKey(adminClient, studentId, course, contactEmail, false);
+    await ensureEnrollmentKey(adminClient, studentId, course, contactEmail, allowEnrollmentCreate);
 
     const generatedPassword = generatePassword();
     let createdAuthUserId: string | null = null;
 
     try {
+        const { data: existingStudent, error: existingStudentError } = await adminClient
+            .from('students')
+            .select('auth_user_id')
+            .eq('student_id', studentId)
+            .maybeSingle();
+
+        if (existingStudentError) throw existingStudentError;
+        if (existingStudent?.auth_user_id) {
+            throw new Error('This Student ID has already been activated. Please sign in instead.');
+        }
+
         const authUser = await createStudentAuthUser(adminClient, studentId, generatedPassword, contactEmail);
         createdAuthUserId = authUser.id;
         const studentPayload = await buildStudentPayloadFromProfile(adminClient, studentId, course, profile);

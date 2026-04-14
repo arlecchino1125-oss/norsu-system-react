@@ -1,5 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, CheckCircle, Mail, MapPin, Phone, Users, XCircle } from 'lucide-react';
+import {
+    AlertTriangle,
+    ArrowRight,
+    Calendar,
+    CalendarClock,
+    CheckCircle2,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Clock3,
+    Download,
+    Eye,
+    Mail,
+    MapPin,
+    MoreHorizontal,
+    Phone,
+    Users,
+    XCircle
+} from 'lucide-react';
 import { getApplicationDetailsById } from '../../services/applicationDetailsService';
 
 const SCHEDULABLE_STATUSES = new Set([
@@ -74,6 +92,66 @@ const getApplicantFullName = (app: any) => [
     .map((value) => String(value || '').trim())
     .filter(Boolean)
     .join(' ');
+
+const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+const ITEMS_PER_PAGE_DEFAULT = 15;
+const PAGE_SIZE_OPTIONS = [10, 15, 25, 50];
+
+const escapeCsvValue = (value: unknown) => {
+    const text = String(value ?? '');
+    if (/[",\n]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+};
+
+const downloadCsv = (filename: string, headers: string[], rows: Array<Record<string, unknown>>) => {
+    if (typeof window === 'undefined') return;
+
+    const csvBody = [
+        headers.join(','),
+        ...rows.map((row) => headers.map((header) => escapeCsvValue(row[header])).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvBody], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+};
+
+const getApplicantDecisionLabel = (app: any) => {
+    const nextChoice = Number(app?.current_choice || 1) + 1;
+    if (nextChoice === 2 && app?.alt_course_1) return 'Forward to 2nd Choice';
+    if (nextChoice === 3 && app?.alt_course_2) return 'Forward to 3rd Choice';
+    return 'Mark Unsuccessful';
+};
+
+const getApplicantStatusMeta = (status: string) => {
+    if (status === 'Qualified for Interview (1st Choice)') {
+        return { label: '1st Choice Pending', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700', icon: <Clock3 size={12} /> };
+    }
+    if (status === 'Forwarded to 2nd Choice for Interview') {
+        return { label: '2nd Choice Pending', tone: 'border-amber-200 bg-amber-50 text-amber-700', icon: <ArrowRight size={12} /> };
+    }
+    if (status === 'Forwarded to 3rd Choice for Interview') {
+        return { label: '3rd Choice Pending', tone: 'border-amber-200 bg-amber-50 text-amber-700', icon: <ArrowRight size={12} /> };
+    }
+    if (status === 'Interview Scheduled') {
+        return { label: 'Interview Scheduled', tone: 'border-blue-200 bg-blue-50 text-blue-700', icon: <CalendarClock size={12} /> };
+    }
+    if (status === 'Approved for Enrollment') {
+        return { label: 'Approved', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700', icon: <CheckCircle2 size={12} /> };
+    }
+    if (status === 'Application Unsuccessful') {
+        return { label: 'Unsuccessful', tone: 'border-rose-200 bg-rose-50 text-rose-700', icon: <AlertTriangle size={12} /> };
+    }
+    return { label: getStatusLabel(status), tone: 'border-slate-200 bg-slate-50 text-slate-700', icon: <Clock3 size={12} /> };
+};
 
 const buildApplicantTimeline = (app: any) => {
     const currentChoice = Number(app?.current_choice || 1);
@@ -167,6 +245,11 @@ const DeptAdmissionsPage = ({
     const [selectedApplicantIds, setSelectedApplicantIds] = useState<string[]>([]);
     const [selectedApplicantDetails, setSelectedApplicantDetails] = useState<any>(null);
     const [isLoadingApplicantDetails, setIsLoadingApplicantDetails] = useState(false);
+    const [isBulkActionMenuOpen, setIsBulkActionMenuOpen] = useState(false);
+    const [openRowActionId, setOpenRowActionId] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE_DEFAULT);
+    const [exportMode, setExportMode] = useState<'selected' | 'filtered'>('selected');
 
     const allApplicants = Array.isArray(applicants) ? applicants : [];
 
@@ -178,6 +261,30 @@ const DeptAdmissionsPage = ({
         );
         setSelectedApplicantIds((prev) => prev.filter((id) => selectableApplicantIds.has(id)));
     }, [allApplicants]);
+
+    useEffect(() => {
+        if (!isBulkActionMenuOpen && !openRowActionId) return;
+
+        const handleGlobalClick = () => {
+            setIsBulkActionMenuOpen(false);
+            setOpenRowActionId(null);
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsBulkActionMenuOpen(false);
+                setOpenRowActionId(null);
+            }
+        };
+
+        document.addEventListener('click', handleGlobalClick);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('click', handleGlobalClick);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isBulkActionMenuOpen, openRowActionId]);
 
     const uniqueCourses = [...new Set(allApplicants.map((app: any) => getActiveCourseName(app)).filter(Boolean))].sort();
 
@@ -193,16 +300,45 @@ const DeptAdmissionsPage = ({
     const filteredDecisionApplicants = filteredApplicants.filter((app: any) => isDecisionReadyApplicant(app));
     const filteredSelectableApplicants = filteredApplicants.filter((app: any) => isBulkSelectableApplicant(app));
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, courseFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredApplicants.length / pageSize));
+    const startIndex = filteredApplicants.length === 0 ? 0 : (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, filteredApplicants.length);
+    const paginatedApplicants = filteredApplicants.slice(startIndex, startIndex + pageSize);
+    const currentPageSelectableApplicants = paginatedApplicants.filter((app: any) => isBulkSelectableApplicant(app));
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
     const selectedFilteredApplicants = filteredSchedulableApplicants.filter((app: any) =>
         selectedApplicantIds.includes(String(app.id))
     );
     const selectedFilteredDecisionApplicants = filteredDecisionApplicants.filter((app: any) =>
         selectedApplicantIds.includes(String(app.id))
     );
+    const selectedFilteredApplicantCount = filteredSelectableApplicants.filter((app: any) =>
+        selectedApplicantIds.includes(String(app.id))
+    ).length;
+    const selectedCurrentPageApplicantCount = currentPageSelectableApplicants.filter((app: any) =>
+        selectedApplicantIds.includes(String(app.id))
+    ).length;
 
     const allFilteredSelectableSelected = filteredSelectableApplicants.length > 0
         && filteredSelectableApplicants.every((app: any) => selectedApplicantIds.includes(String(app.id)));
+    const allCurrentPageSelectableSelected = currentPageSelectableApplicants.length > 0
+        && currentPageSelectableApplicants.every((app: any) => selectedApplicantIds.includes(String(app.id)));
     const isBulkBusy = Boolean(isSchedulingApplicant || isProcessingBulkApplicantAction);
+
+    const goToPage = (nextPage: number) => {
+        const safePage = Number.isFinite(nextPage) ? Math.min(Math.max(nextPage, 1), totalPages) : 1;
+        setCurrentPage(safePage);
+    };
 
     const toggleApplicantSelection = (applicationId: string) => {
         setSelectedApplicantIds((prev) => (
@@ -223,6 +359,17 @@ const DeptAdmissionsPage = ({
         });
     };
 
+    const toggleCurrentPageSelectableApplicants = () => {
+        const pageIds = currentPageSelectableApplicants.map((app: any) => String(app.id));
+        setSelectedApplicantIds((prev) => {
+            if (allCurrentPageSelectableSelected) {
+                return prev.filter((id) => !pageIds.includes(id));
+            }
+
+            return Array.from(new Set([...prev, ...pageIds]));
+        });
+    };
+
     const closeApplicantDetails = () => {
         setSelectedApplicantDetails(null);
         setIsLoadingApplicantDetails(false);
@@ -232,6 +379,7 @@ const DeptAdmissionsPage = ({
         const applicationId = String(application?.id || '').trim();
         if (!applicationId) return;
 
+        setOpenRowActionId(null);
         setSelectedApplicantDetails(application);
         setIsLoadingApplicantDetails(true);
 
@@ -245,69 +393,211 @@ const DeptAdmissionsPage = ({
         }
     };
 
+    const exportApplicants = () => {
+        const selectedVisibleApplicants = filteredApplicants.filter((app: any) =>
+            selectedApplicantIds.includes(String(app?.id || ''))
+        );
+        const exportRows = exportMode === 'selected' ? selectedVisibleApplicants : filteredApplicants;
+        if (exportRows.length === 0) return;
+
+        const headers = [
+            'Reference ID',
+            'Applicant Name',
+            'Status',
+            'Current Choice',
+            'Active Course',
+            'Email',
+            'Mobile',
+            'Interview Schedule',
+            'Interview Venue',
+            'Interview Panel',
+            'Queue Status',
+            'Submitted At'
+        ];
+
+        downloadCsv(
+            'department-admissions.csv',
+            headers,
+            exportRows.map((app: any) => ({
+                'Reference ID': app?.reference_id || 'N/A',
+                'Applicant Name': getApplicantFullName(app) || 'Applicant',
+                Status: getStatusLabel(String(app?.status || '').trim()),
+                'Current Choice': `Priority ${app?.current_choice || 1}`,
+                'Active Course': getActiveCourseName(app) || 'Course not set',
+                Email: app?.email || 'N/A',
+                Mobile: app?.mobile || 'N/A',
+                'Interview Schedule': app?.interview_date || 'Not set',
+                'Interview Venue': app?.interview_venue || 'Not set',
+                'Interview Panel': app?.interview_panel || 'Not set',
+                'Queue Status': app?.interview_queue_status || 'Active',
+                'Submitted At': formatCreatedAtLabel(app?.created_at)
+            }))
+        );
+    };
+
     return (
-        <div className="space-y-4">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-emerald-500 pl-3">Admissions Screening</h2>
-                    <p className="text-sm text-gray-500 mt-1 pl-4">Minimal applicant list for faster department screening and interview actions.</p>
+        <div className="relative isolate space-y-4">
+            <div className={`relative rounded-2xl border border-gray-100/80 bg-white/80 backdrop-blur-sm p-5 shadow-sm card-hover ${isBulkActionMenuOpen ? 'z-30' : 'z-10'}`}>
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-emerald-500 pl-3">Admissions Screening</h2>
+                        <p className="text-sm text-gray-500 mt-1 pl-4">Bulk review stays compact here, while detailed actions live under a single row menu.</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                            <CheckCircle2 size={14} />
+                            {selectedFilteredApplicantCount} selected of {filteredSelectableApplicants.length}
+                        </span>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
+                            <CalendarClock size={14} />
+                            {filteredDecisionApplicants.length} decision-ready
+                        </span>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
+                            <Clock3 size={14} />
+                            {filteredSchedulableApplicants.length} awaiting schedule
+                        </span>
+                    </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+
+                <div className="mt-5 flex flex-wrap items-center gap-2">
                     <button
                         type="button"
                         onClick={toggleAllFilteredSelectableApplicants}
                         disabled={filteredSelectableApplicants.length === 0 || isBulkBusy}
-                        className="px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className={`px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
                     >
                         {allFilteredSelectableSelected ? 'Clear Filtered' : 'Select Filtered'}
                     </button>
+
                     <button
                         type="button"
-                        onClick={() => handleBulkScheduleInterviews(selectedFilteredApplicants)}
-                        disabled={selectedFilteredApplicants.length === 0 || isBulkBusy}
-                        className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={toggleCurrentPageSelectableApplicants}
+                        disabled={currentPageSelectableApplicants.length === 0 || isBulkBusy}
+                        className={`px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-sm font-bold hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
                     >
-                        {isSchedulingApplicant ? 'Scheduling...' : `Bulk Schedule${selectedFilteredApplicants.length > 0 ? ` (${selectedFilteredApplicants.length})` : ''}`}
+                        {allCurrentPageSelectableSelected ? 'Clear Page' : `Select Page (${selectedCurrentPageApplicantCount}/${currentPageSelectableApplicants.length})`}
                     </button>
+
+                    <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                        <button
+                            type="button"
+                            onClick={() => setExportMode('selected')}
+                            className={`rounded-lg px-3 py-2 text-xs font-bold transition ${exportMode === 'selected' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'} ${FOCUS_RING}`}
+                        >
+                            Export Selected
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setExportMode('filtered')}
+                            className={`rounded-lg px-3 py-2 text-xs font-bold transition ${exportMode === 'filtered' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'} ${FOCUS_RING}`}
+                        >
+                            Export All Filtered
+                        </button>
+                    </div>
+
                     <button
                         type="button"
-                        onClick={() => handleBulkApproveApplicants(selectedFilteredDecisionApplicants)}
-                        disabled={selectedFilteredDecisionApplicants.length === 0 || isBulkBusy}
-                        className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={exportApplicants}
+                        disabled={exportMode === 'selected' ? selectedFilteredApplicantCount === 0 : filteredApplicants.length === 0}
+                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-sm font-bold hover:bg-blue-100 disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
                     >
-                        {isProcessingBulkApplicantAction ? 'Working...' : `Bulk Approve${selectedFilteredDecisionApplicants.length > 0 ? ` (${selectedFilteredDecisionApplicants.length})` : ''}`}
+                        <Download size={14} />
+                        Export CSV
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => handleBulkForwardApplicants(selectedFilteredDecisionApplicants)}
-                        disabled={selectedFilteredDecisionApplicants.length === 0 || isBulkBusy}
-                        className="px-3 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                        {isProcessingBulkApplicantAction ? 'Working...' : `Bulk Forward${selectedFilteredDecisionApplicants.length > 0 ? ` (${selectedFilteredDecisionApplicants.length})` : ''}`}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleBulkMarkApplicantsUnsuccessful(selectedFilteredDecisionApplicants)}
-                        disabled={selectedFilteredDecisionApplicants.length === 0 || isBulkBusy}
-                        className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                        {isProcessingBulkApplicantAction ? 'Working...' : `Bulk Unsuccessful${selectedFilteredDecisionApplicants.length > 0 ? ` (${selectedFilteredDecisionApplicants.length})` : ''}`}
-                    </button>
+
+                    <div className="relative">
+                        <button
+                            type="button"
+                            aria-haspopup="menu"
+                            aria-expanded={isBulkActionMenuOpen}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenRowActionId(null);
+                                setIsBulkActionMenuOpen((previous) => !previous);
+                            }}
+                            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition disabled:opacity-60 ${FOCUS_RING}`}
+                        >
+                            Actions
+                            <ChevronDown size={14} />
+                        </button>
+
+                        {isBulkActionMenuOpen && (
+                            <div
+                                role="menu"
+                                onClick={(event) => event.stopPropagation()}
+                                className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-72 rounded-2xl border border-gray-100 bg-white p-2 shadow-2xl"
+                            >
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setIsBulkActionMenuOpen(false);
+                                        handleBulkScheduleInterviews(selectedFilteredApplicants);
+                                    }}
+                                    disabled={selectedFilteredApplicants.length === 0 || isBulkBusy}
+                                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS_RING}`}
+                                >
+                                    <span className="inline-flex items-center gap-2"><CalendarClock size={15} /> Bulk Schedule</span>
+                                    <span>{selectedFilteredApplicants.length}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setIsBulkActionMenuOpen(false);
+                                        handleBulkApproveApplicants(selectedFilteredDecisionApplicants);
+                                    }}
+                                    disabled={selectedFilteredDecisionApplicants.length === 0 || isBulkBusy}
+                                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS_RING}`}
+                                >
+                                    <span className="inline-flex items-center gap-2"><CheckCircle2 size={15} /> Bulk Approve</span>
+                                    <span>{selectedFilteredDecisionApplicants.length}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setIsBulkActionMenuOpen(false);
+                                        handleBulkForwardApplicants(selectedFilteredDecisionApplicants);
+                                    }}
+                                    disabled={selectedFilteredDecisionApplicants.length === 0 || isBulkBusy}
+                                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS_RING}`}
+                                >
+                                    <span className="inline-flex items-center gap-2"><ArrowRight size={15} /> Bulk Forward</span>
+                                    <span>{selectedFilteredDecisionApplicants.length}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setIsBulkActionMenuOpen(false);
+                                        handleBulkMarkApplicantsUnsuccessful(selectedFilteredDecisionApplicants);
+                                    }}
+                                    disabled={selectedFilteredDecisionApplicants.length === 0 || isBulkBusy}
+                                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS_RING}`}
+                                >
+                                    <span className="inline-flex items-center gap-2"><AlertTriangle size={15} /> Bulk Mark Unsuccessful</span>
+                                    <span>{selectedFilteredDecisionApplicants.length}</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <div className="relative z-0 rounded-2xl border border-gray-100/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm">
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                     <input
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        className={`w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
                         placeholder="Search name or reference ID"
                     />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        className={`w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
                     >
                         <option value="All">All Statuses</option>
                         <option value="Qualified for Interview (1st Choice)">1st Choice Pending</option>
@@ -318,7 +608,7 @@ const DeptAdmissionsPage = ({
                     <select
                         value={courseFilter}
                         onChange={(e) => setCourseFilter(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        className={`w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
                     >
                         <option value="All">All Courses</option>
                         {uniqueCourses.map((course: string) => (
@@ -328,29 +618,31 @@ const DeptAdmissionsPage = ({
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+            <div className="space-y-3">
                 {filteredApplicants.length === 0 ? (
-                    <div className="px-4 py-10 text-center text-sm text-gray-500">
+                    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-500">
                         No applicants found for the current filters.
                     </div>
-                ) : filteredApplicants.map((app: any, index: number) => {
+                ) : (
+                    <>
+                {paginatedApplicants.map((app: any, index: number) => {
                     const applicationId = String(app?.id || '');
                     const isPendingApplicantAction = pendingApplicantActionId === applicationId;
                     const currentStatus = String(app?.status || '').trim();
-                    const isSchedulable = isSchedulableApplicant(app);
                     const isInterviewScheduled = DECISION_READY_STATUSES.has(currentStatus);
                     const isAbsent = String(app?.interview_queue_status || '').trim() === 'Absent';
                     const isSelectable = isBulkSelectableApplicant(app);
                     const isSelected = selectedApplicantIds.includes(applicationId);
                     const activeCourse = getActiveCourseName(app) || 'Course not set';
-                    const fullName = `${app?.first_name || ''} ${app?.last_name || ''}`.trim() || 'Applicant';
+                    const fullName = getApplicantFullName(app) || 'Applicant';
+                    const statusMeta = getApplicantStatusMeta(currentStatus);
 
                     return (
-                        <div
+                        <article
                             key={applicationId}
-                            className={`px-4 py-3 ${index !== filteredApplicants.length - 1 ? 'border-b border-gray-100' : ''}`}
+                            className={`relative card-hover rounded-2xl border border-gray-100 bg-white/80 backdrop-blur-sm px-4 py-4 shadow-sm ${openRowActionId === applicationId ? 'z-20' : 'z-0'} ${index !== paginatedApplicants.length - 1 ? '' : ''}`}
                         >
-                            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                                 <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
                                         {isSelectable && (
@@ -358,18 +650,21 @@ const DeptAdmissionsPage = ({
                                                 type="checkbox"
                                                 checked={isSelected}
                                                 onChange={() => toggleApplicantSelection(applicationId)}
-                                                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                aria-label={`Select ${fullName}`}
+                                                className={`h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 ${FOCUS_RING}`}
                                             />
                                         )}
-                                        <p className="text-sm font-semibold text-gray-900">{fullName}</p>
-                                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${isInterviewScheduled ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                            {getStatusLabel(currentStatus)}
+                                        <p className="text-base font-bold text-gray-900">{fullName}</p>
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusMeta.tone}`}>
+                                            {statusMeta.icon}
+                                            {statusMeta.label}
                                         </span>
-                                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-700">
                                             Priority {app?.current_choice || 1}
                                         </span>
                                         {isAbsent && (
-                                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                                                <AlertTriangle size={12} />
                                                 Marked Absent
                                             </span>
                                         )}
@@ -380,7 +675,7 @@ const DeptAdmissionsPage = ({
                                         <span>{activeCourse}</span>
                                     </div>
 
-                                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+                                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
                                         {app?.email && (
                                             <span className="inline-flex items-center gap-1.5">
                                                 <Mail size={12} />
@@ -395,109 +690,200 @@ const DeptAdmissionsPage = ({
                                         )}
                                     </div>
 
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                                         {!isAbsent && app?.interview_date && (
-                                            <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 font-semibold text-blue-700">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 font-semibold text-blue-700">
                                                 <Calendar size={12} />
                                                 {app.interview_date}
                                             </span>
                                         )}
                                         {!isAbsent && app?.interview_venue && (
-                                            <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 font-semibold text-emerald-700">
                                                 <MapPin size={12} />
                                                 {app.interview_venue}
                                             </span>
                                         )}
                                         {!isAbsent && app?.interview_panel && (
-                                            <span className="inline-flex items-center gap-1.5 rounded-md border border-violet-200 bg-violet-50 px-2 py-1 font-semibold text-violet-700">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-semibold text-violet-700">
                                                 <Users size={12} />
                                                 {app.interview_panel}
                                             </span>
                                         )}
                                         {isAbsent && (
-                                            <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-semibold text-amber-700">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 font-semibold text-amber-700">
+                                                <AlertTriangle size={12} />
                                                 Schedule cleared. Awaiting reschedule.
                                             </span>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-2 xl:justify-end">
-                                    {!isInterviewScheduled ? (
-                                        <>
-                                            <button
-                                                onClick={() => handleScheduleInterview(app)}
-                                                className="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-600 hover:text-white transition-colors"
+                                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => { void openApplicantDetails(app); }}
+                                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition ${FOCUS_RING}`}
+                                    >
+                                        <Eye size={14} />
+                                        View Details
+                                    </button>
+
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            aria-haspopup="menu"
+                                            aria-expanded={openRowActionId === applicationId}
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                setIsBulkActionMenuOpen(false);
+                                                setOpenRowActionId((previous) => previous === applicationId ? null : applicationId);
+                                            }}
+                                            className={`inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition ${FOCUS_RING}`}
+                                        >
+                                            <MoreHorizontal size={14} />
+                                            Actions
+                                            <ChevronDown size={14} />
+                                        </button>
+
+                                        {openRowActionId === applicationId && (
+                                            <div
+                                                role="menu"
+                                                onClick={(event) => event.stopPropagation()}
+                                                className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-64 rounded-2xl border border-gray-100 bg-white p-2 shadow-2xl"
                                             >
-                                                Schedule Interview
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => { void openApplicantDetails(app); }}
-                                                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
-                                            >
-                                                View Details
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button
-                                                disabled={isPendingApplicantAction}
-                                                onClick={() => handleApproveApplicant(app)}
-                                                className="px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm font-semibold hover:bg-green-600 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-green-50 disabled:hover:text-green-700"
-                                            >
-                                                <span className="inline-flex items-center gap-1.5">
-                                                    <CheckCircle size={14} className={isPendingApplicantAction ? 'animate-spin' : ''} />
-                                                    {isPendingApplicantAction ? 'Working...' : 'Approve'}
-                                                </span>
-                                            </button>
-                                            <button
-                                                disabled={isPendingApplicantAction}
-                                                onClick={() => handleRejectApplicant(app)}
-                                                className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-semibold hover:bg-red-600 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-red-50 disabled:hover:text-red-700"
-                                            >
-                                                <span className="inline-flex items-center gap-1.5">
-                                                    <XCircle size={14} className={isPendingApplicantAction ? 'animate-spin' : ''} />
-                                                    {isPendingApplicantAction ? 'Working...' : 'Reject'}
-                                                </span>
-                                            </button>
-                                            {isAbsent ? (
-                                                <button
-                                                    disabled={isPendingApplicantAction}
-                                                    onClick={() => handleRescheduleInterview(app)}
-                                                    className="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-600 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-blue-50 disabled:hover:text-blue-700"
-                                                >
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <Calendar size={14} className={isPendingApplicantAction ? 'animate-spin' : ''} />
-                                                        {isPendingApplicantAction ? 'Working...' : 'Reschedule'}
-                                                    </span>
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    disabled={isPendingApplicantAction}
-                                                    onClick={() => handleMarkApplicantAbsent(app)}
-                                                    className="px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm font-semibold hover:bg-amber-600 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-amber-50 disabled:hover:text-amber-700"
-                                                >
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <XCircle size={14} className={isPendingApplicantAction ? 'animate-spin' : ''} />
-                                                        {isPendingApplicantAction ? 'Working...' : 'Mark Absent'}
-                                                    </span>
-                                                </button>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => { void openApplicantDetails(app); }}
-                                                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
-                                            >
-                                                View Details
-                                            </button>
-                                        </>
-                                    )}
+                                                {!isInterviewScheduled ? (
+                                                    <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        onClick={() => {
+                                                            setOpenRowActionId(null);
+                                                            handleScheduleInterview(app);
+                                                        }}
+                                                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 ${FOCUS_RING}`}
+                                                    >
+                                                        <CalendarClock size={15} />
+                                                        Schedule Interview
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            disabled={isPendingApplicantAction}
+                                                            onClick={() => {
+                                                                setOpenRowActionId(null);
+                                                                handleApproveApplicant(app);
+                                                            }}
+                                                            className={`flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS_RING}`}
+                                                        >
+                                                            <CheckCircle2 size={15} className={isPendingApplicantAction ? 'animate-spin' : ''} />
+                                                            {isPendingApplicantAction ? 'Working...' : 'Approve Applicant'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            disabled={isPendingApplicantAction}
+                                                            onClick={() => {
+                                                                setOpenRowActionId(null);
+                                                                if (isAbsent) {
+                                                                    handleRescheduleInterview(app);
+                                                                    return;
+                                                                }
+                                                                handleMarkApplicantAbsent(app);
+                                                            }}
+                                                            className={`flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS_RING}`}
+                                                        >
+                                                            <AlertTriangle size={15} className={isPendingApplicantAction ? 'animate-spin' : ''} />
+                                                            {isAbsent ? 'Reschedule Interview' : 'Mark Absent'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            disabled={isPendingApplicantAction}
+                                                            onClick={() => {
+                                                                setOpenRowActionId(null);
+                                                                handleRejectApplicant(app);
+                                                            }}
+                                                            className={`flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS_RING}`}
+                                                        >
+                                                            <ArrowRight size={15} className={isPendingApplicantAction ? 'animate-spin' : ''} />
+                                                            {isPendingApplicantAction ? 'Working...' : getApplicantDecisionLabel(app)}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    );
+                })}
+                    <div className="rounded-2xl border border-gray-100/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="space-y-1">
+                                <p className="text-sm font-semibold text-gray-800">
+                                    Showing {startIndex + 1}-{endIndex} of {filteredApplicants.length} results
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    Page {currentPage} of {totalPages}
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                                <label className="flex items-center gap-2 text-sm text-gray-600">
+                                    <span className="font-semibold">Rows</span>
+                                    <select
+                                        value={pageSize}
+                                        onChange={(event) => {
+                                            setPageSize(Number(event.target.value));
+                                            setCurrentPage(1);
+                                        }}
+                                        className={`rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                                    >
+                                        {PAGE_SIZE_OPTIONS.map((option) => (
+                                            <option key={option} value={option}>{option}</option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="flex items-center gap-2 text-sm text-gray-600">
+                                    <span className="font-semibold">Jump to</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={totalPages}
+                                        value={currentPage}
+                                        onChange={(event) => goToPage(Number(event.target.value) || 1)}
+                                        className={`w-20 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                                    />
+                                </label>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => goToPage(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                                    >
+                                        <ChevronLeft size={16} />
+                                        Previous
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => goToPage(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                                    >
+                                        Next
+                                        <ChevronRight size={16} />
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    );
-                })}
+                    </div>
+                    </>
+                )}
             </div>
 
             {selectedApplicantDetails && (() => {
@@ -517,8 +903,9 @@ const DeptAdmissionsPage = ({
                                 </div>
                                 <button
                                     type="button"
+                                    aria-label="Close applicant details"
                                     onClick={closeApplicantDetails}
-                                    className="text-gray-400 hover:text-gray-600"
+                                    className={`rounded-xl p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 ${FOCUS_RING}`}
                                 >
                                     <XCircle size={22} />
                                 </button>

@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -9,27 +8,35 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) {
+          const normalizedId = id.replace(/\\/g, '/')
+
+          if (!normalizedId.includes('/node_modules/')) {
             return
           }
 
-          if (id.includes('react-signature-canvas') || id.includes('signature_pad')) {
+          if (normalizedId.includes('react-signature-canvas') || normalizedId.includes('signature_pad')) {
             return 'signature'
           }
 
-          if (id.includes('@supabase/')) {
+          if (normalizedId.includes('@supabase/')) {
             return 'supabase'
           }
 
-          if (id.includes('framer-motion')) {
+          if (normalizedId.includes('framer-motion')) {
             return 'motion'
           }
 
-          if (id.includes('react-router') || id.includes('react-dom') || id.includes(`${path.sep}react${path.sep}`)) {
+          if (
+            normalizedId.includes('/react-router') ||
+            normalizedId.includes('/react-dom/') ||
+            normalizedId.includes('/react/jsx-runtime') ||
+            normalizedId.includes('/react/jsx-dev-runtime') ||
+            normalizedId.includes('/react/')
+          ) {
             return 'react-core'
           }
 
-          if (id.includes('lucide-react')) {
+          if (normalizedId.includes('lucide-react')) {
             return 'icons'
           }
         }
