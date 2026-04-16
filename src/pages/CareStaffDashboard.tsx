@@ -1151,11 +1151,11 @@ const CareStaffDashboard = () => {
 
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 text-gray-800 font-sans overflow-hidden">
-            {/* Mobile Overlay */}
-            {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 lg:hidden animate-backdrop" onClick={() => setSidebarOpen(false)} />}
+            {/* Sidebar Overlay */}
+            {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 animate-backdrop" onClick={() => setSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-sidebar transform transition-all duration-500 ease-out lg:static lg:translate-x-0 flex flex-col ${sidebarOpen ? 'translate-x-0 shadow-2xl shadow-purple-900/30' : '-translate-x-full'}`}>
+            <aside className={`fixed inset-y-0 left-0 z-30 w-72 max-w-[calc(100vw-1rem)] bg-gradient-sidebar transform transition-all duration-500 ease-out flex flex-col ${sidebarOpen ? 'translate-x-0 shadow-2xl shadow-purple-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
                 <div className="p-6 border-b border-white/10">
                     <div className="flex items-center justify-between">
@@ -1163,7 +1163,7 @@ const CareStaffDashboard = () => {
                             <NorsuBrand title="CARE Staff" subtitle="NORSU-G CARE operations" accent="purple" size="sm" className="min-w-0" />
                             <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-purple-200/50 transition-colors group-hover:text-purple-100/80">Open Profile & Settings</p>
                         </div>
-                        <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-purple-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
+                        <button onClick={() => setSidebarOpen(false)} className="text-purple-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                     </div>
                 </div>
 
@@ -1182,7 +1182,7 @@ const CareStaffDashboard = () => {
                                 return (
                                     <button
                                         key={item.tab}
-                                        onClick={() => setActiveTab(item.tab)}
+                                        onClick={() => { setActiveTab(item.tab); setSidebarOpen(false); }}
                                         className={`nav-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeTab === item.tab ? 'nav-item-active text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                     >
                                         <Icon size={18} /> {item.label}
@@ -1206,7 +1206,7 @@ const CareStaffDashboard = () => {
                 {/* Premium Header */}
                 <header className="h-16 glass gradient-border flex items-center justify-between px-6 lg:px-10 relative z-10">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"><Menu /></button>
+                        <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"><Menu /></button>
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-purple-500/70">NORSU-G CARE</p>
                             <h2 className="text-xl font-bold gradient-text">{headerTitle}</h2>

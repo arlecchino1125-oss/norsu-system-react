@@ -165,7 +165,6 @@ export default function AdminDashboard() {
     const [showResetModal, setShowResetModal] = useState<boolean>(false);
     const [newDeptName, setNewDeptName] = useState<string>('');
     const [isRefreshingData, setIsRefreshingData] = useState<boolean>(false);
-    const [isMigratingAuthEmails, setIsMigratingAuthEmails] = useState<boolean>(false);
     const [emailDrafts, setEmailDrafts] = useState<Record<string, string>>({});
     const [savingAccountEmailId, setSavingAccountEmailId] = useState<string | null>(null);
     const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
@@ -235,7 +234,7 @@ export default function AdminDashboard() {
         {
             label: 'Staff accounts missing email',
             value: staffAccountsMissingEmailCount,
-            hint: staffAccountsMissingEmailCount > 0 ? 'Add real email before migration' : 'Email records look complete',
+            hint: staffAccountsMissingEmailCount > 0 ? 'Add a valid email to complete these records' : 'Email records look complete',
             tone: 'border-amber-200 bg-amber-50 text-amber-700'
         },
         {
@@ -780,38 +779,6 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleMigrateAuthEmails = async () => {
-        setIsMigratingAuthEmails(true);
-        try {
-            const staffResult = await invokeManagedStaffFunction({ mode: 'sync-all-auth-emails' });
-            const studentResult = await invokeManagedStudentFunction({ mode: 'sync-all-auth-emails' });
-
-            await Promise.all([
-                refetchAccounts(),
-                refetchStudents()
-            ]);
-
-            const staffWarnings = Array.isArray(staffResult?.warnings) ? staffResult.warnings.length : 0;
-            const studentWarnings = Array.isArray(studentResult?.warnings) ? studentResult.warnings.length : 0;
-
-            showToast(
-                `Auth migration complete. Staff updated: ${staffResult?.updatedCount || 0}, already synced: ${staffResult?.alreadySyncedCount || 0}. Students updated: ${studentResult?.updatedCount || 0}, already synced: ${studentResult?.alreadySyncedCount || 0}.${staffWarnings || studentWarnings ? ` Warnings: ${staffWarnings + studentWarnings}.` : ''}`,
-                staffWarnings || studentWarnings ? 'error' : 'success'
-            );
-
-            if (staffWarnings || studentWarnings) {
-                console.warn('Auth migration warnings', {
-                    staffWarnings: staffResult?.warnings || [],
-                    studentWarnings: studentResult?.warnings || []
-                });
-            }
-        } catch (error: any) {
-            showToast(error?.message || 'Failed to migrate linked auth emails.', 'error');
-        } finally {
-            setIsMigratingAuthEmails(false);
-        }
-    };
-
     const handleSaveAccountEmail = async (account: any) => {
         const normalizedEmail = getAccountEmailDraft(account).trim().toLowerCase();
         if (!normalizedEmail) {
@@ -1106,136 +1073,115 @@ export default function AdminDashboard() {
     return (
         <div className="min-h-screen bg-slate-100">
             <div className="relative overflow-hidden">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-gradient-to-b from-teal-50 via-sky-50 to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[340px] bg-gradient-to-b from-teal-50 via-sky-50 to-transparent" />
                 <div className="pointer-events-none absolute -left-16 top-8 h-72 w-72 rounded-full bg-teal-200/40 blur-3xl" />
                 <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-sky-200/40 blur-3xl" />
 
-                <div className="page-transition relative mx-auto w-full max-w-[1760px] px-4 py-6 sm:px-6 xl:px-8 2xl:px-10">
-                    <div className="overflow-hidden rounded-[32px] border border-slate-900/10 bg-slate-900 text-white shadow-2xl shadow-slate-300/40">
-                        <div className="bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.24),transparent_34%),radial-gradient(circle_at_85%_20%,rgba(56,189,248,0.18),transparent_24%),linear-gradient(135deg,#0f172a_0%,#134e4a_50%,#0f172a_100%)] p-6 sm:p-8">
-                            <div className="grid gap-8 xl:grid-cols-[minmax(0,1.55fr)_420px]">
+                <div className="page-transition relative mx-auto w-full max-w-[1760px] px-4 py-5 sm:px-6 xl:px-8 2xl:px-10">
+                    <div className="overflow-hidden rounded-[24px] border border-slate-900/10 bg-slate-900 text-white shadow-2xl shadow-slate-300/40">
+                        <div className="bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.24),transparent_34%),radial-gradient(circle_at_85%_20%,rgba(56,189,248,0.18),transparent_24%),linear-gradient(135deg,#0f172a_0%,#134e4a_50%,#0f172a_100%)] p-4 sm:p-5">
+                            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.85fr)_290px]">
                                 <div>
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">
-                                        <Shield className="h-3.5 w-3.5" />
-                                        Admin Control Room
-                                    </div>
-                                    <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Account Management</h1>
-                                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base">
-                                        Manage staff access, monitor cross-role activity, and keep institution-wide setup healthy from one admin workspace.
-                                    </p>
+                                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                                        <div className="min-w-0 max-w-xl">
+                                            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">
+                                                <Shield className="h-3.5 w-3.5" />
+                                                Admin Control Room
+                                            </div>
+                                            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-[2rem]">Account Management</h1>
+                                            <p className="mt-1.5 text-sm leading-6 text-slate-200">
+                                                Manage staff access, monitor cross-role activity, and keep institution-wide setup healthy from one admin workspace.
+                                            </p>
+                                        </div>
 
-                                    <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                        <div className="w-full rounded-[20px] border border-white/10 bg-white/10 p-3 backdrop-blur xl:max-w-[340px]">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Dashboard Layout</p>
+                                                    <p className="mt-1 text-[11px] leading-5 text-slate-300">
+                                                        Set how many sections stay open at once.
+                                                    </p>
+                                                </div>
+                                                <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100">
+                                                    {expandedPanels.length} open
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-2.5 flex flex-wrap gap-2">
+                                                {PANEL_LIMIT_OPTIONS.map((limitOption) => {
+                                                    const active = expandedPanelLimit === limitOption;
+                                                    const label = limitOption === 'all' ? 'All' : `${limitOption}`;
+                                                    return (
+                                                        <button
+                                                            key={String(limitOption)}
+                                                            type="button"
+                                                            onClick={() => setPanelLimit(limitOption)}
+                                                            className={`inline-flex items-center justify-center rounded-2xl px-3 py-1.5 text-[11px] font-semibold transition ${
+                                                                active
+                                                                    ? 'bg-white text-slate-900 shadow-lg shadow-slate-950/20'
+                                                                    : 'border border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'
+                                                            }`}
+                                                        >
+                                                            {label} Open
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <div className="mt-2.5 flex items-center justify-between gap-3 text-[11px] text-slate-300">
+                                                <span>Saved automatically after refresh.</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={collapseAllPanels}
+                                                    className="font-semibold text-white transition hover:text-rose-200"
+                                                >
+                                                    Collapse All
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                                         {heroStats.map((stat) => (
-                                            <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+                                            <div key={stat.label} className="rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur">
                                                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">{stat.label}</p>
-                                                <p className="mt-3 text-3xl font-semibold text-white">{stat.value}</p>
-                                                <p className="mt-2 text-xs text-slate-300">{stat.hint}</p>
+                                                <p className="mt-1.5 text-xl font-semibold text-white sm:text-2xl">{stat.value}</p>
+                                                <p className="mt-1 text-[11px] text-slate-300">{stat.hint}</p>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                <div className="rounded-[28px] border border-white/10 bg-white/10 p-5 backdrop-blur">
+                                <div className="rounded-[22px] border border-white/10 bg-white/10 p-3.5 backdrop-blur">
                                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">Operational Controls</p>
-                                    <div className="mt-4 grid gap-3">
+                                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
                                         <button
                                             onClick={handleRefreshData}
                                             disabled={isRefreshingData}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                             <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
                                             <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
                                         </button>
                                         <button
-                                            onClick={handleMigrateAuthEmails}
-                                            disabled={isMigratingAuthEmails}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-teal-200/20 bg-teal-400/15 px-4 py-3 text-sm font-semibold text-teal-50 transition hover:bg-teal-400/25 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            <RefreshCw size={16} className={isMigratingAuthEmails ? 'animate-spin' : ''} />
-                                            <span>{isMigratingAuthEmails ? 'Migrating Auth...' : 'Migrate Auth Emails'}</span>
-                                        </button>
-                                        <button
                                             onClick={() => navigate('/admin/permissions')}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
                                         >
                                             <KeyRound size={16} />
                                             <span>Role Permissions</span>
                                         </button>
-                                    </div>
-
-                                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                                        <button
-                                            onClick={() => setShowResetModal(true)}
-                                            disabled={loading}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200/20 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-50 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            <AlertTriangle className="h-4 w-4" />
-                                            {loading ? 'Working...' : 'Reset System'}
-                                        </button>
                                         <button
                                             onClick={handleLogout}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10 sm:col-span-2 xl:col-span-1"
                                         >
                                             <LogOut className="h-4 w-4" />
                                             Logout
                                         </button>
                                     </div>
-
-                                    <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/20 p-4">
-                                        <p className="text-sm font-semibold text-white">Keep this page for admin work only.</p>
-                                        <p className="mt-2 text-xs leading-5 text-slate-300">
-                                            Student-domain resets now live under CARE Staff advanced controls. This page stays focused on governance, staff access, and structure.
-                                        </p>
-                                    </div>
                                 </div>
                             </div>
                     </div>
                 </div>
-
-                    <div className={`${panelClass} mt-6`}>
-                        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-                            <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Dashboard Layout</p>
-                                <h2 className="mt-2 text-lg font-semibold text-slate-900">Manage expandable sections</h2>
-                                <p className="mt-1 text-sm text-slate-500">
-                                    Choose how many admin sections can stay open at once. When you open more than the current limit, the oldest open section collapses automatically, and your layout stays the same after a refresh.
-                                </p>
-                            </div>
-
-                            <div className="flex flex-col gap-3 sm:items-end">
-                                <div className="flex flex-wrap gap-2">
-                                    {PANEL_LIMIT_OPTIONS.map((limitOption) => {
-                                        const active = expandedPanelLimit === limitOption;
-                                        const label = limitOption === 'all' ? 'All' : `${limitOption}`;
-                                        return (
-                                            <button
-                                                key={String(limitOption)}
-                                                type="button"
-                                                onClick={() => setPanelLimit(limitOption)}
-                                                className={`inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
-                                                    active
-                                                        ? 'bg-slate-900 text-white shadow-lg shadow-slate-200'
-                                                        : 'border border-slate-200 bg-slate-50 text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700'
-                                                }`}
-                                            >
-                                                {label} Open
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <div className="flex items-center gap-3 text-xs text-slate-500">
-                                    <span>{expandedPanels.length} section{expandedPanels.length === 1 ? '' : 's'} open</span>
-                                    <button
-                                        type="button"
-                                        onClick={collapseAllPanels}
-                                        className="font-semibold text-slate-700 transition hover:text-rose-600"
-                                    >
-                                        Collapse All
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <div className="mt-6 mb-8">
                         {renderExpandablePanel({
@@ -1461,7 +1407,7 @@ export default function AdminDashboard() {
                         {renderExpandablePanel({
                             panelKey: 'existingAccounts',
                             title: `Existing Accounts (${accounts.length})`,
-                            description: "If an account has no real email yet, add it here first, then run `Migrate Auth Emails` again.",
+                            description: 'Review staff records, update missing email addresses, and keep account details complete.',
                             icon: <Shield className="h-5 w-5" />,
                             badge: `${accounts.length} accounts`,
                             className: 'min-w-0',
@@ -1647,7 +1593,7 @@ export default function AdminDashboard() {
                                             <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                                                 <li>Staff account creation, deletion, and role assignment</li>
                                                 <li>College and department master-data setup</li>
-                                                <li>Auth/email cleanup, migrations, and full-system maintenance</li>
+                                                <li>Email record cleanup and institution-wide maintenance tasks</li>
                                                 <li>Cross-role audit monitoring and institution-wide alerts</li>
                                             </ul>
                                         </div>

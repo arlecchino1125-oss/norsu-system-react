@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
 import { renderRemainingViews } from './student/StudentPortalViewRouter';
+import { STUDENT_VIEW_FEATURE_MAP, STUDENT_VIEW_LABELS } from './student/StudentPortalRoutes';
 import DatePicker from '../components/ui/DatePicker';
 import {
     getAttendanceHistory,
@@ -55,28 +56,6 @@ type StudentDatasetRefreshKey = keyof typeof DATASET_REFRESH_TTL_MS;
 type DatasetRefreshCacheEntry = {
     loaded: boolean;
     refreshedAt: number;
-};
-
-const STUDENT_VIEW_FEATURE_MAP: Record<string, string> = {
-    dashboard: 'dashboard',
-    profile: 'profile',
-    assessment: 'assessment',
-    counseling: 'counseling',
-    support: 'support',
-    scholarship: 'scholarship',
-    events: 'events',
-    feedback: 'feedback'
-};
-
-const STUDENT_VIEW_LABELS: Record<string, string> = {
-    dashboard: 'Dashboard',
-    profile: 'My Profile',
-    assessment: 'Needs Assessment',
-    counseling: 'Counseling',
-    support: 'Additional Support',
-    scholarship: 'Scholarship',
-    events: 'Events',
-    feedback: 'Feedback'
 };
 
 const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
@@ -3320,15 +3299,15 @@ export default function StudentPortal() {
                 document.body
             )}
 
-            {/* Mobile Overlay */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 lg:hidden animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+            {/* Sidebar Overlay */}
+            {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-30 w-[17rem] bg-gradient-student-sidebar transform transition-all duration-500 ease-out sm:w-72 lg:static lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>
+            <aside className={`fixed inset-y-0 left-0 z-30 w-[17rem] max-w-[calc(100vw-1rem)] bg-gradient-student-sidebar transform transition-all duration-500 ease-out sm:w-72 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
                 <div className="p-4 flex items-center justify-between border-b border-white/10 sm:p-6">
                     <NorsuBrand title="Student Portal" subtitle="NORSU-G CARE student services" accent="blue" size="sm" className="min-w-0" />
-                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-sky-300/60 hover:text-white transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg></button>
+                    <button onClick={() => setIsSidebarOpen(false)} className="text-sky-300/60 hover:text-white transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg></button>
                 </div>
 
                 {/* Navigation */}
@@ -3356,7 +3335,7 @@ export default function StudentPortal() {
                 {/* Premium Header */}
                 <header className={`h-14 relative flex items-center justify-between px-4 z-10 sm:h-16 sm:px-6 lg:px-10 ${isCompactPortalLayout ? 'bg-white border-b border-blue-100/70' : 'glass gradient-border-blue'}`}>
                     <div className="flex items-center gap-3 sm:gap-4">
-                        <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
                         <div>
                             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-sky-500/70 sm:text-[10px] sm:tracking-[0.18em]">NORSU-G CARE</p>
                             <h2 className="text-lg font-bold gradient-text-blue sm:text-xl">{STUDENT_VIEW_LABELS[activeView] || activeView}</h2>
