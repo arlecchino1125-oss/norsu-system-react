@@ -25,3 +25,5 @@ backups
 *.njsproj
 *.sln
 *.sw?
+
+supabase/
