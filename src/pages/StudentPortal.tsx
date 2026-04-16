@@ -17,11 +17,14 @@ import { joinNameParts, splitFullName } from '../utils/nameUtils';
 import { buildStudentAddress, getStudentEmergencyContact, getStudentSex } from '../utils/studentFields';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import NorsuBrand from '../components/NorsuBrand';
+import { usePermissions } from '../hooks/usePermissions';
+import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 import { useStudentProfileData } from '../hooks/student/useStudentProfileData';
 import { useStudentEventsData } from '../hooks/student/useStudentEventsData';
 import { useStudentFormsData } from '../hooks/student/useStudentFormsData';
 import { useStudentCounselingData } from '../hooks/student/useStudentCounselingData';
 import { useStudentSupportData } from '../hooks/student/useStudentSupportData';
+import { getPermissionNotice } from '../types/permissions';
 import {
     clearPendingProfileCompletion,
     getPendingProfileCompletionProfile,
@@ -52,6 +55,28 @@ type StudentDatasetRefreshKey = keyof typeof DATASET_REFRESH_TTL_MS;
 type DatasetRefreshCacheEntry = {
     loaded: boolean;
     refreshedAt: number;
+};
+
+const STUDENT_VIEW_FEATURE_MAP: Record<string, string> = {
+    dashboard: 'dashboard',
+    profile: 'profile',
+    assessment: 'assessment',
+    counseling: 'counseling',
+    support: 'support',
+    scholarship: 'scholarship',
+    events: 'events',
+    feedback: 'feedback'
+};
+
+const STUDENT_VIEW_LABELS: Record<string, string> = {
+    dashboard: 'Dashboard',
+    profile: 'My Profile',
+    assessment: 'Needs Assessment',
+    counseling: 'Counseling',
+    support: 'Additional Support',
+    scholarship: 'Scholarship',
+    events: 'Events',
+    feedback: 'Feedback'
 };
 
 const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
@@ -530,6 +555,12 @@ const StudentHero = ({ firstName }: any) => {
 
 export default function StudentPortal() {
     const { session, loading, updateSession, logout } = useAuth() as any;
+    const {
+        loading: permissionsLoading,
+        error: permissionsError,
+        getFeatureAccessState,
+        isFeatureVisible
+    } = usePermissions();
     const navigate = useNavigate();
 
     const [activeView, setActiveView] = useState('dashboard');
@@ -555,6 +586,81 @@ export default function StudentPortal() {
         setToast({ message, type });
         setTimeout(() => setToast(null), 4000);
     };
+
+    const getStudentViewAccessState = useCallback((viewId: string) => {
+        if (viewId === 'dashboard') {
+            return {
+                isAllowed: true,
+                status: 'enabled' as const,
+                noticeText: null,
+                description: null
+            };
+        }
+
+        const permissionKey = STUDENT_VIEW_FEATURE_MAP[viewId];
+        if (!permissionKey) {
+            return {
+                isAllowed: true,
+                status: 'enabled' as const,
+                noticeText: null,
+                description: null
+            };
+        }
+
+        return getFeatureAccessState(permissionKey);
+    }, [getFeatureAccessState]);
+
+    const isStudentViewEnabled = useCallback((viewId: string) => {
+        const accessState = getStudentViewAccessState(viewId);
+        return accessState.isAllowed && accessState.status === 'enabled';
+    }, [getStudentViewAccessState]);
+
+    const isStudentViewVisible = useCallback((viewId: string) => {
+        if (viewId === 'dashboard') return true;
+
+        const permissionKey = STUDENT_VIEW_FEATURE_MAP[viewId];
+        if (!permissionKey) return true;
+        return isFeatureVisible(permissionKey);
+    }, [isFeatureVisible]);
+
+    const requireStudentViewVisibility = useCallback((
+        viewId: string,
+        deniedMessage?: string,
+        options?: { suppressToast?: boolean }
+    ) => {
+        if (isStudentViewVisible(viewId)) {
+            return true;
+        }
+
+        if (!options?.suppressToast) {
+            showToast(
+                deniedMessage || `${STUDENT_VIEW_LABELS[viewId] || viewId} is currently hidden from the student portal.`,
+                'error'
+            );
+        }
+
+        return false;
+    }, [isStudentViewVisible]);
+
+    const requireStudentFeatureAccess = useCallback((
+        viewId: string,
+        deniedMessage?: string,
+        options?: { suppressToast?: boolean }
+    ) => {
+        const accessState = getStudentViewAccessState(viewId);
+        if (accessState.isAllowed && accessState.status === 'enabled') {
+            return true;
+        }
+
+        if (!options?.suppressToast) {
+            showToast(
+                deniedMessage || getPermissionNotice(accessState, STUDENT_VIEW_LABELS[viewId] || String(STUDENT_VIEW_FEATURE_MAP[viewId] || viewId)),
+                'error'
+            );
+        }
+
+        return false;
+    }, [getStudentViewAccessState]);
 
     // Assessment State
     const [activeForm, setActiveForm] = useState<any>(null);
@@ -1092,11 +1198,16 @@ export default function StudentPortal() {
         return true;
     }, []);
 
-    const transitionToView = useCallback((nextView: string) => {
+    const transitionToView = useCallback((nextView: string, options?: { suppressToast?: boolean }) => {
+        if (!requireStudentViewVisibility(nextView, undefined, options)) {
+            return false;
+        }
+
         startTransition(() => {
             setActiveView(nextView);
         });
-    }, []);
+        return true;
+    }, [requireStudentViewVisibility]);
 
     const { refreshEvents } = useStudentEventsData({ setEventsList });
     const { refreshForms } = useStudentFormsData({
@@ -2408,6 +2519,12 @@ export default function StudentPortal() {
     }, [profileCompletionReminderRequired]);
 
     const openAssessmentFormWithProfileGate = React.useCallback(async (form: any) => {
+        if (!requireStudentFeatureAccess(
+            'assessment',
+            'Needs Assessment is currently disabled for your student role.'
+        )) {
+            return;
+        }
         if (requireCompletedProfileForService(
             'Needs Assessment',
             'To start your needs assessment, please complete your student profile first. We need your emergency contact and remaining student information on file before you continue.'
@@ -2415,9 +2532,15 @@ export default function StudentPortal() {
             return;
         }
         await openAssessmentForm(form);
-    }, [openAssessmentForm, requireCompletedProfileForService]);
+    }, [openAssessmentForm, requireCompletedProfileForService, requireStudentFeatureAccess]);
 
     const openCounselingFormWithProfileGate = React.useCallback(() => {
+        if (!requireStudentFeatureAccess(
+            'counseling',
+            'Counseling is currently disabled for your student role.'
+        )) {
+            return;
+        }
         if (requireCompletedProfileForService(
             'Counseling Request',
             'To request counseling, you must complete your student profile first. Please add your emergency contact and other required profile details before using this service.'
@@ -2425,9 +2548,15 @@ export default function StudentPortal() {
             return;
         }
         setShowCounselingForm(true);
-    }, [requireCompletedProfileForService]);
+    }, [requireCompletedProfileForService, requireStudentFeatureAccess]);
 
     const openSupportFormWithProfileGate = React.useCallback(() => {
+        if (!requireStudentFeatureAccess(
+            'support',
+            'Additional Support is currently disabled for your student role.'
+        )) {
+            return;
+        }
         if (requireCompletedProfileForService(
             'Additional Support Request',
             'To request additional support, you must complete your student profile first. Please finish your profile details so the CARE team has the information they need to assist you.'
@@ -2435,9 +2564,15 @@ export default function StudentPortal() {
             return;
         }
         setShowSupportModal(true);
-    }, [requireCompletedProfileForService]);
+    }, [requireCompletedProfileForService, requireStudentFeatureAccess]);
 
     const handleApplyScholarshipWithProfileGate = React.useCallback(async (scholarship: any) => {
+        if (!requireStudentFeatureAccess(
+            'scholarship',
+            'Scholarship access is currently disabled for your student role.'
+        )) {
+            return;
+        }
         if (requireCompletedProfileForService(
             'Scholarship Application',
             'To apply for scholarships, you must complete your student profile first. Please provide your emergency contact and remaining required profile information before applying.'
@@ -2445,7 +2580,7 @@ export default function StudentPortal() {
             return;
         }
         await handleApplyScholarship(scholarship);
-    }, [handleApplyScholarship, requireCompletedProfileForService]);
+    }, [handleApplyScholarship, requireCompletedProfileForService, requireStudentFeatureAccess]);
 
     const openRequestModal = (req: any) => {
         setSelectedRequest(req);
@@ -2502,7 +2637,7 @@ export default function StudentPortal() {
         }
     };
 
-    const sidebarLinks = [
+    const sidebarLinks = React.useMemo(() => ([
         { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard, group: 'Core' },
         { id: 'profile', label: 'My Profile', icon: Icons.Profile, group: 'Core' },
         { id: 'assessment', label: 'Needs Assessment', icon: Icons.Assessment, group: 'Academic' },
@@ -2511,15 +2646,84 @@ export default function StudentPortal() {
         { id: 'scholarship', label: 'Scholarship', icon: Icons.Scholarship, group: 'Services' },
         { id: 'events', label: 'Events', icon: Icons.Events, group: 'Activities' },
         { id: 'feedback', label: 'Feedback', icon: Icons.Feedback, group: 'Activities' }
-    ];
+    ]), []);
+    const visibleSidebarLinks = React.useMemo(
+        () => sidebarLinks.filter((link) => isStudentViewVisible(link.id)),
+        [isStudentViewVisible, sidebarLinks]
+    );
+    const visibleViewIds = React.useMemo(
+        () => visibleSidebarLinks.map((link) => link.id),
+        [visibleSidebarLinks]
+    );
+
+    useEffect(() => {
+        if (permissionsLoading) {
+            return;
+        }
+
+        if (!visibleViewIds.length) {
+            return;
+        }
+
+        if (!visibleViewIds.includes(activeView)) {
+            transitionToView(visibleViewIds[0], { suppressToast: true });
+        }
+    }, [activeView, permissionsLoading, transitionToView, visibleViewIds]);
 
     // --- LOADING STATE ---
-    if (loading) {
+    if (loading || permissionsLoading) {
         return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-400">Loading Student Portal...</div>;
     }
 
+    if (permissionsError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+                <div className="w-full max-w-2xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-xl">
+                    <h1 className="text-2xl font-bold text-slate-900">Unable to load student permissions</h1>
+                    <p className="mt-3 text-sm leading-6 text-slate-500">{permissionsError}</p>
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        >
+                            Reload
+                        </button>
+                        <button
+                            onClick={() => { logout(); navigate('/student/login'); }}
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                            Back to Login
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!visibleSidebarLinks.length) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+                <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+                    <h1 className="text-2xl font-bold text-slate-900">No student features are enabled</h1>
+                    <p className="mt-3 text-sm leading-6 text-slate-500">
+                        Your student role currently has no enabled portal features. Please contact an administrator or CARE staff for access.
+                    </p>
+                    <button
+                        onClick={() => { logout(); navigate('/student/login'); }}
+                        className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     // --- AUTHENTICATED MAIN RENDER ---
-    const viewLabels = { dashboard: 'Dashboard', profile: 'My Profile', assessment: 'Needs Assessment', counseling: 'Counseling', support: 'Additional Support', scholarship: 'Scholarship', events: 'Events', feedback: 'Feedback' };
+    const activeViewAccessState = getStudentViewAccessState(activeView);
+    const showStudentAvailabilityView = activeView !== 'dashboard'
+        && Object.prototype.hasOwnProperty.call(STUDENT_VIEW_FEATURE_MAP, activeView)
+        && !(activeViewAccessState.isAllowed && activeViewAccessState.status === 'enabled');
 
     // --- ONBOARDING TOUR DATA ---
     const TOUR_STEPS = [
@@ -3132,7 +3336,7 @@ export default function StudentPortal() {
                     {['Core', 'Academic', 'Services', 'Activities'].map((group, gi) => (
                         <div key={group} className={gi > 0 ? 'pt-5 mt-4 border-t border-white/5' : ''}>
                             <p className="px-4 text-[10px] font-bold text-blue-400/50 uppercase tracking-[0.15em] mb-3">{group}</p>
-                            {sidebarLinks.filter(link => link.group === group).map((link: any) => (
+                            {visibleSidebarLinks.filter(link => link.group === group).map((link: any) => (
                                 <button key={link.id} id={`nav-${link.id}`} onClick={() => { transitionToView(link.id); setIsEditing(false); setIsSidebarOpen(false); }} className={`nav-item nav-item-student w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeView === link.id ? 'nav-item-active text-sky-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                     <link.icon /> {link.label}
                                 </button>
@@ -3155,7 +3359,7 @@ export default function StudentPortal() {
                         <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
                         <div>
                             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-sky-500/70 sm:text-[10px] sm:tracking-[0.18em]">NORSU-G CARE</p>
-                            <h2 className="text-lg font-bold gradient-text-blue sm:text-xl">{(viewLabels as any)[activeView] || activeView}</h2>
+                            <h2 className="text-lg font-bold gradient-text-blue sm:text-xl">{STUDENT_VIEW_LABELS[activeView] || activeView}</h2>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -3186,82 +3390,93 @@ export default function StudentPortal() {
                 >
 
 
-                    {/* DASHBOARD */}
-                    {activeView === 'dashboard' && (
-                        <Suspense fallback={null}>
-                            <StudentDashboardView
-                                personalInfo={personalInfo}
-                                activeVisit={activeVisit}
-                                handleOfficeTimeIn={handleOfficeTimeIn}
-                                handleOfficeTimeOut={handleOfficeTimeOut}
-                                notifications={notifications}
-                                colorMap={colorMap}
-                                setActiveView={transitionToView}
-                                eventsList={eventsList}
-                                attendanceMap={attendanceMap}
-                                StudentHero={StudentHero}
-                                showTimeInModal={showTimeInModal}
-                                setShowTimeInModal={setShowTimeInModal}
-                                visitReasons={visitReasons}
-                                selectedReason={selectedReason}
-                                setSelectedReason={setSelectedReason}
-                                submitTimeIn={submitTimeIn}
-                                isSubmittingOfficeTimeIn={isSubmittingOfficeTimeIn}
-                                isCompletingOfficeVisit={isCompletingOfficeVisit}
-                                showTimeOutFeedback={showTimeOutFeedback}
-                                setShowTimeOutFeedback={setShowTimeOutFeedback}
-                                timeOutVisitReason={timeOutVisitReason}
-                                showProfileCompletionBanner={profileCompletionReminderRequired}
-                                openProfileCompletionModal={openProfileCompletionModal}
-                                showToast={showToast}
-                            />
-                        </Suspense>
-                    )}
+                    {showStudentAvailabilityView ? (
+                        <FeatureAvailabilityView
+                            title={STUDENT_VIEW_LABELS[activeView] || activeView}
+                            permission={activeViewAccessState}
+                            description="This page is not available right now. Please try again later or contact the CARE Center if you need help with this service."
+                            accent="blue"
+                        />
+                    ) : (
+                        <>
+                            {/* DASHBOARD */}
+                            {activeView === 'dashboard' && (
+                                <Suspense fallback={null}>
+                                    <StudentDashboardView
+                                        personalInfo={personalInfo}
+                                        activeVisit={activeVisit}
+                                        handleOfficeTimeIn={handleOfficeTimeIn}
+                                        handleOfficeTimeOut={handleOfficeTimeOut}
+                                        notifications={notifications}
+                                        colorMap={colorMap}
+                                        setActiveView={transitionToView}
+                                        eventsList={eventsList}
+                                        attendanceMap={attendanceMap}
+                                        StudentHero={StudentHero}
+                                        showTimeInModal={showTimeInModal}
+                                        setShowTimeInModal={setShowTimeInModal}
+                                        visitReasons={visitReasons}
+                                        selectedReason={selectedReason}
+                                        setSelectedReason={setSelectedReason}
+                                        submitTimeIn={submitTimeIn}
+                                        isSubmittingOfficeTimeIn={isSubmittingOfficeTimeIn}
+                                        isCompletingOfficeVisit={isCompletingOfficeVisit}
+                                        showTimeOutFeedback={showTimeOutFeedback}
+                                        setShowTimeOutFeedback={setShowTimeOutFeedback}
+                                        timeOutVisitReason={timeOutVisitReason}
+                                        showProfileCompletionBanner={profileCompletionReminderRequired}
+                                        openProfileCompletionModal={openProfileCompletionModal}
+                                        showToast={showToast}
+                                    />
+                                </Suspense>
+                            )}
 
-                    {/* EVENTS */}
-                    {activeView === 'events' && (
-                        <Suspense fallback={null}>
-                            <StudentEventsView
-                                eventsList={eventsList}
-                                eventFilter={eventFilter}
-                                setEventFilter={setEventFilter}
-                                attendanceMap={attendanceMap}
-                                fetchHistory={fetchHistory}
-                                handleTimeIn={handleTimeIn}
-                                handleTimeOut={handleTimeOut}
-                                handleRateEvent={handleRateEvent}
-                                ratedEvents={ratedEvents}
-                                isTimingIn={isTimingIn}
-                                timingOutEventId={timingOutEventId}
-                                isSubmittingEventRating={isSubmittingEventRating}
-                                setProofFile={setProofFile}
-                                selectedEvent={selectedEvent}
-                                setSelectedEvent={setSelectedEvent}
-                                showRatingModal={showRatingModal}
-                                setShowRatingModal={setShowRatingModal}
-                                ratingForm={ratingForm}
-                                setRatingForm={setRatingForm}
-                                submitRating={submitRating}
-                                showTimeInModal={showTimeInModal}
-                                setShowTimeInModal={setShowTimeInModal}
-                                visitReasons={visitReasons}
-                                selectedReason={selectedReason}
-                                setSelectedReason={setSelectedReason}
-                                submitTimeIn={submitTimeIn}
-                                personalInfo={personalInfo}
-                                toast={toast}
-                                Icons={Icons}
-                                showCommandHub={showCommandHub}
-                                setShowCommandHub={setShowCommandHub}
-                                setActiveView={transitionToView}
-                                setShowCounselingForm={setShowCounselingForm}
-                                setShowSupportModal={setShowSupportModal}
-                            />
-                        </Suspense>
-                    )}
+                            {/* EVENTS */}
+                            {activeView === 'events' && (
+                                <Suspense fallback={null}>
+                                    <StudentEventsView
+                                        eventsList={eventsList}
+                                        eventFilter={eventFilter}
+                                        setEventFilter={setEventFilter}
+                                        attendanceMap={attendanceMap}
+                                        fetchHistory={fetchHistory}
+                                        handleTimeIn={handleTimeIn}
+                                        handleTimeOut={handleTimeOut}
+                                        handleRateEvent={handleRateEvent}
+                                        ratedEvents={ratedEvents}
+                                        isTimingIn={isTimingIn}
+                                        timingOutEventId={timingOutEventId}
+                                        isSubmittingEventRating={isSubmittingEventRating}
+                                        setProofFile={setProofFile}
+                                        selectedEvent={selectedEvent}
+                                        setSelectedEvent={setSelectedEvent}
+                                        showRatingModal={showRatingModal}
+                                        setShowRatingModal={setShowRatingModal}
+                                        ratingForm={ratingForm}
+                                        setRatingForm={setRatingForm}
+                                        submitRating={submitRating}
+                                        showTimeInModal={showTimeInModal}
+                                        setShowTimeInModal={setShowTimeInModal}
+                                        visitReasons={visitReasons}
+                                        selectedReason={selectedReason}
+                                        setSelectedReason={setSelectedReason}
+                                        submitTimeIn={submitTimeIn}
+                                        personalInfo={personalInfo}
+                                        toast={toast}
+                                        Icons={Icons}
+                                        showCommandHub={showCommandHub}
+                                        setShowCommandHub={setShowCommandHub}
+                                        setActiveView={transitionToView}
+                                        setShowCounselingForm={setShowCounselingForm}
+                                        setShowSupportModal={setShowSupportModal}
+                                    />
+                                </Suspense>
+                            )}
 
-                    {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
-            {renderRemainingViews({ activeView, activeForm, loadingForm, formsList, openAssessmentForm: openAssessmentFormWithProfileGate, showAssessmentModal, setShowAssessmentModal, onAssessmentSubmitted: handleAssessmentSubmitted, showSuccessModal, setShowSuccessModal, showCounselingForm, setShowCounselingForm, openCounselingForm: openCounselingFormWithProfileGate, onCounselingSubmitted: handleCounselingSubmitted, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm: openSupportFormWithProfileGate, onSupportSubmitted: handleSupportSubmitted, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, personalInfo, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship: handleApplyScholarshipWithProfileGate, isApplyingScholarshipId, uploadProfilePicture, setActiveView: transitionToView, feedbackPrefill, setFeedbackPrefill, showToast })}
+                            {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
+                            {renderRemainingViews({ activeView, activeForm, loadingForm, formsList, openAssessmentForm: openAssessmentFormWithProfileGate, showAssessmentModal, setShowAssessmentModal, onAssessmentSubmitted: handleAssessmentSubmitted, showSuccessModal, setShowSuccessModal, showCounselingForm, setShowCounselingForm, openCounselingForm: openCounselingFormWithProfileGate, onCounselingSubmitted: handleCounselingSubmitted, counselingRequests, openRequestModal, selectedRequest, setSelectedRequest, selectedSupportRequest, setSelectedSupportRequest, formatFullDate, sessionFeedback, setSessionFeedback, submitSessionFeedback, Icons, supportRequests, showSupportModal, setShowSupportModal, openSupportForm: openSupportFormWithProfileGate, onSupportSubmitted: handleSupportSubmitted, showCounselingRequestsModal, setShowCounselingRequestsModal, showSupportRequestsModal, setShowSupportRequestsModal, personalInfo, showScholarshipModal, setShowScholarshipModal, selectedScholarship, setSelectedScholarship, feedbackType, setFeedbackType, rating, setRating, profileTab, setProfileTab, isEditing, setIsEditing, setPersonalInfo, saveProfileChanges, isSavingProfileChanges, requestStudentSecurityOtp, confirmStudentSecurityEmailChange, confirmStudentPasswordChange, authEmail: session?.user?.email || session?.auth_email || personalInfo.email || '', attendanceMap, showMoreProfile, setShowMoreProfile, showCommandHub, setShowCommandHub, completedForms, scholarshipsList, myApplications, handleApplyScholarship: handleApplyScholarshipWithProfileGate, isApplyingScholarshipId, uploadProfilePicture, setActiveView: transitionToView, feedbackPrefill, setFeedbackPrefill, showToast })}
+                        </>
+                    )}
                 </div>
 
                 {/* FAB TRIGGER FOR COMMAND HUB */}
@@ -3285,27 +3500,49 @@ export default function StudentPortal() {
                                 <button onClick={() => setShowCommandHub(false)} className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors bg-white/10 p-1 rounded-full"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                             <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4">
-                                <button onClick={() => { setShowCommandHub(false); transitionToView('counseling'); openCounselingFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-purple-50 border border-purple-100 p-3 transition-all group hover:bg-purple-100 sm:p-4">
-                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><Icons.Counseling /></div>
-                                    <span className="text-xs font-bold text-gray-700">Counseling</span>
-                                </button>
-                                <button onClick={() => { setShowCommandHub(false); transitionToView('support'); openSupportFormWithProfileGate(); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-blue-50 border border-blue-100 p-3 transition-all group hover:bg-blue-100 sm:p-4">
-                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Icons.Support /></div>
-                                    <span className="text-xs font-bold text-gray-700">Support</span>
-                                </button>
-                                <button onClick={() => { setShowCommandHub(false); transitionToView('feedback'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-pink-50 border border-pink-100 p-3 transition-all group hover:bg-pink-100 sm:p-4">
-                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-pink-500 group-hover:scale-110 transition-transform"><Icons.Feedback /></div>
-                                    <span className="text-xs font-bold text-gray-700">Feedback</span>
-                                </button>
-                                <button onClick={() => { setShowCommandHub(false); transitionToView('scholarship'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 transition-all group hover:bg-emerald-100 sm:p-4">
-                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><Icons.Scholarship /></div>
-                                    <span className="text-xs font-bold text-gray-700">Scholarships</span>
-                                </button>
+                                {isStudentViewVisible('counseling') && (
+                                    <button onClick={() => {
+                                        setShowCommandHub(false);
+                                        const didNavigate = transitionToView('counseling');
+                                        if (didNavigate && isStudentViewEnabled('counseling')) {
+                                            openCounselingFormWithProfileGate();
+                                        }
+                                    }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-purple-50 border border-purple-100 p-3 transition-all group hover:bg-purple-100 sm:p-4">
+                                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><Icons.Counseling /></div>
+                                        <span className="text-xs font-bold text-gray-700">Counseling</span>
+                                    </button>
+                                )}
+                                {isStudentViewVisible('support') && (
+                                    <button onClick={() => {
+                                        setShowCommandHub(false);
+                                        const didNavigate = transitionToView('support');
+                                        if (didNavigate && isStudentViewEnabled('support')) {
+                                            openSupportFormWithProfileGate();
+                                        }
+                                    }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-blue-50 border border-blue-100 p-3 transition-all group hover:bg-blue-100 sm:p-4">
+                                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><Icons.Support /></div>
+                                        <span className="text-xs font-bold text-gray-700">Support</span>
+                                    </button>
+                                )}
+                                {isStudentViewVisible('feedback') && (
+                                    <button onClick={() => { setShowCommandHub(false); transitionToView('feedback'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-pink-50 border border-pink-100 p-3 transition-all group hover:bg-pink-100 sm:p-4">
+                                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-pink-500 group-hover:scale-110 transition-transform"><Icons.Feedback /></div>
+                                        <span className="text-xs font-bold text-gray-700">Feedback</span>
+                                    </button>
+                                )}
+                                {isStudentViewVisible('scholarship') && (
+                                    <button onClick={() => { setShowCommandHub(false); transitionToView('scholarship'); }} className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 transition-all group hover:bg-emerald-100 sm:p-4">
+                                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><Icons.Scholarship /></div>
+                                        <span className="text-xs font-bold text-gray-700">Scholarships</span>
+                                    </button>
+                                )}
                             </div>
                             <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                                <button onClick={() => { setShowCommandHub(false); transitionToView('profile'); }} className="w-full py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm">
-                                    <Icons.Profile /> View My Profile
-                                </button>
+                                {isStudentViewVisible('profile') && (
+                                    <button onClick={() => { setShowCommandHub(false); transitionToView('profile'); }} className="w-full py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm">
+                                        <Icons.Profile /> View My Profile
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

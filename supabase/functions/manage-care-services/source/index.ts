@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getStudentEmailTarget } from '../../_shared/studentEmailTarget.ts';
+import { requirePermission } from '../../_shared/permissionCheck.ts';
 import { sanitizePlainText } from '../../_shared/plainText.ts';
 import { writeStaffAuditLog } from '../../_shared/staffAuditLog.ts';
 
@@ -30,11 +31,20 @@ const withStatus = (message: string, status: number) => {
     return error;
 };
 
+const getServiceRoleKey = () => {
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceRoleKey) {
+        throw new Error('Missing Supabase service role configuration.');
+    }
+
+    return serviceRoleKey;
+};
+
 const getAdminClient = () => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const serviceRoleKey = getServiceRoleKey();
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl) {
         throw new Error('Missing Supabase service role configuration.');
     }
 
@@ -84,11 +94,12 @@ const assertCareStaffRequest = async (adminClient: any, request: Request) => {
         .maybeSingle();
 
     if (error) throw error;
+    if (!staffAccount?.id) {
+        throw withStatus('Only linked staff accounts can perform this action.', 403);
+    }
 
     const role = String(staffAccount?.role || '').trim();
-    if (role !== 'Care Staff' && role !== 'Admin') {
-        throw withStatus('Care Staff privileges are required for this action.', 403);
-    }
+    await requirePermission(getServiceRoleKey(), role, 'function', 'manage-care-services');
 
     return {
         authUser,

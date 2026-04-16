@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { usePermissions } from '../hooks/usePermissions';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { previewTransactionalEmailNotification, sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { useDeptData } from '../hooks/dept/useDeptData';
@@ -27,6 +28,7 @@ import DeptAdmissionsPage from './dept/DeptAdmissionsPage';
 import DeptInterviewQueuePage from './dept/DeptInterviewQueuePage';
 import StaffCalendarPage from './shared/StaffCalendarPage';
 import StaffExportCenterPage from './shared/StaffExportCenterPage';
+import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 import NorsuBrand from '../components/NorsuBrand';
 import { renderDeptModals } from './dept/modals/DeptModals';
 import {
@@ -41,10 +43,30 @@ const READY_FOR_INTERVIEW_STATUSES = [
     'Forwarded to 3rd Choice for Interview'
 ];
 
+const DEPT_MODULE_FEATURES: Partial<Record<string, string>> = {
+    admissions: 'admissions',
+    interview_queue: 'interview_queue',
+    calendar: 'calendar',
+    export_center: 'export_center',
+    counseling_queue: 'counseling_queue',
+    events: 'events',
+    support_approvals: 'support_approvals',
+    settings: 'settings',
+    students: 'students',
+    counseled: 'counseled',
+    reports: 'reports'
+};
+
 // ─── Live Clock Hook ───
 export default function DeptDashboard() {
     const navigate = useNavigate();
     const { session, isAuthenticated, updateSession, logout } = useAuth() as any;
+    const {
+        loading: permissionsLoading,
+        error: permissionsError,
+        getFeatureAccessState,
+        isFeatureVisible
+    } = usePermissions();
     const [activeModule, setActiveModule] = useState<string>('dashboard');
     const {
         data, setData, eventsList, counselingRequests, setCounselingRequests,
@@ -1865,6 +1887,39 @@ export default function DeptDashboard() {
         reports: 'Reports',
     };
 
+    const isDeptModuleVisible = useCallback((moduleId: string) => {
+        const featureKey = DEPT_MODULE_FEATURES[moduleId];
+        return featureKey ? isFeatureVisible(featureKey) : true;
+    }, [isFeatureVisible]);
+
+    const serviceNavItems = useMemo(
+        () => ([
+            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
+            { id: 'calendar', icon: <CalendarDays size={18} />, label: 'Calendar' },
+            { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
+            { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Additional Support', hasIndicator: supportRequests.length > lastSeenSupportCount },
+        ]).filter((item) => isDeptModuleVisible(item.id)),
+        [counselingRequests, isDeptModuleVisible, lastSeenSupportCount, supportRequests.length]
+    );
+
+    const managementNavItems = useMemo(
+        () => ([
+            { id: 'admissions', icon: <UserPlus size={18} />, label: 'Admissions Screening', hasIndicator: admissionApplicants.length > 0 },
+            { id: 'interview_queue', icon: <CalendarDays size={18} />, label: 'Interview Queue' },
+            { id: 'export_center', icon: <Download size={18} />, label: 'Export Center' },
+            { id: 'students', icon: <Users size={18} />, label: 'Students' },
+            { id: 'counseled', icon: <ClipboardList size={18} />, label: 'Counseled Students' },
+        ]).filter((item) => isDeptModuleVisible(item.id)),
+        [admissionApplicants.length, isDeptModuleVisible]
+    );
+
+    const systemNavItems = useMemo(
+        () => ([
+            { id: 'settings', icon: <Settings size={18} />, label: 'Settings' },
+        ]).filter((item) => isDeptModuleVisible(item.id)),
+        [isDeptModuleVisible]
+    );
+
     const moduleLoadingFallback = (
         <div className="rounded-2xl border border-emerald-100 bg-white/80 p-10 text-center shadow-sm">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500" />
@@ -1872,6 +1927,43 @@ export default function DeptDashboard() {
             <p className="mt-1 text-xs text-gray-500">Preparing charts and analytics for this page.</p>
         </div>
     );
+
+    const activeModuleFeatureKey = DEPT_MODULE_FEATURES[activeModule];
+    const activeModuleAccessState = activeModuleFeatureKey
+        ? getFeatureAccessState(activeModuleFeatureKey)
+        : null;
+    const showModuleAvailabilityView = Boolean(
+        activeModuleAccessState
+        && !(activeModuleAccessState.isAllowed && activeModuleAccessState.status === 'enabled')
+    );
+
+    if (permissionsLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+                <div className="w-full max-w-xl rounded-3xl border border-emerald-100 bg-white p-8 text-center shadow-xl">
+                    <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500" />
+                    <p className="mt-4 text-sm font-semibold text-slate-700">Loading Department Head access rules...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (permissionsError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+                <div className="w-full max-w-2xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-xl">
+                    <h1 className="text-2xl font-bold text-slate-900">Unable to load department permissions</h1>
+                    <p className="mt-3 text-sm leading-6 text-slate-500">{permissionsError}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                        Reload
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 text-gray-800 font-sans overflow-hidden">
@@ -1903,12 +1995,7 @@ export default function DeptDashboard() {
 
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
-                        {[
-                            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
-                            { id: 'calendar', icon: <CalendarDays size={18} />, label: 'Calendar' },
-                            { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
-                            { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Additional Support', hasIndicator: supportRequests.length > lastSeenSupportCount },
-                        ].map((item: any) => (
+                        {serviceNavItems.map((item: any) => (
                             <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                 {item.icon} {item.label}
                                 {item.hasIndicator && <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
@@ -1918,13 +2005,7 @@ export default function DeptDashboard() {
 
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Management</p>
-                        {[
-                            { id: 'admissions', icon: <UserPlus size={18} />, label: 'Admissions Screening', hasIndicator: admissionApplicants.length > 0 },
-                            { id: 'interview_queue', icon: <CalendarDays size={18} />, label: 'Interview Queue' },
-                            { id: 'export_center', icon: <Download size={18} />, label: 'Export Center' },
-                            { id: 'students', icon: <Users size={18} />, label: 'Students' },
-                            { id: 'counseled', icon: <ClipboardList size={18} />, label: 'Counseled Students' },
-                        ].map((item: any) => (
+                        {managementNavItems.map((item: any) => (
                             <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                 {item.icon} {item.label}
                                 {item.hasIndicator && <span className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
@@ -1934,9 +2015,7 @@ export default function DeptDashboard() {
 
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">System</p>
-                        {[
-                            { id: 'settings', icon: <Settings size={18} />, label: 'Settings' },
-                        ].map((item: any) => (
+                        {systemNavItems.map((item: any) => (
                             <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                 {item.icon} {item.label}
                             </button>
@@ -1978,9 +2057,17 @@ export default function DeptDashboard() {
                 </header>
 
                 <div key={activeModule} className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
+                    {showModuleAvailabilityView && activeModuleAccessState && (
+                        <FeatureAvailabilityView
+                            title={(moduleLabels as any)[activeModule] || activeModule}
+                            permission={activeModuleAccessState}
+                            description="This page is currently unavailable in the Department Head portal. Please check back later or contact your administrator if you need access restored."
+                            accent="emerald"
+                        />
+                    )}
 
                     {/* DASHBOARD / HOME */}
-                    {activeModule === 'dashboard' && (
+                    {!showModuleAvailabilityView && activeModule === 'dashboard' && (
                         <DeptHomePage
                             filteredData={filteredData}
                             counselingRequests={counselingRequests}
@@ -1997,7 +2084,7 @@ export default function DeptDashboard() {
                         />
                     )}
 
-                    {activeModule === 'counseling_queue' && (
+                    {!showModuleAvailabilityView && activeModule === 'counseling_queue' && (
                         <DeptCounselingQueuePage
                             counselingRequests={counselingRequests}
                             counselingTab={counselingTab}
@@ -2031,7 +2118,7 @@ export default function DeptDashboard() {
                     )}
 
                     {/* ADMISSIONS SCREENING */}
-                    {activeModule === 'admissions' && (
+                    {!showModuleAvailabilityView && activeModule === 'admissions' && (
                         <DeptAdmissionsPage
                             applicants={admissionApplicants}
                             handleApproveApplicant={handleApproveApplicant}
@@ -2049,7 +2136,7 @@ export default function DeptDashboard() {
                         />
                     )}
 
-                    {activeModule === 'interview_queue' && (
+                    {!showModuleAvailabilityView && activeModule === 'interview_queue' && (
                         <DeptInterviewQueuePage
                             queueDate={interviewQueueDate}
                             setQueueDate={setInterviewQueueDate}
@@ -2060,7 +2147,7 @@ export default function DeptDashboard() {
                         />
                     )}
 
-                    {activeModule === 'calendar' && (
+                    {!showModuleAvailabilityView && activeModule === 'calendar' && (
                         <StaffCalendarPage
                             scope="department"
                             departmentName={data?.profile?.department}
@@ -2068,7 +2155,7 @@ export default function DeptDashboard() {
                         />
                     )}
 
-                    {activeModule === 'export_center' && (
+                    {!showModuleAvailabilityView && activeModule === 'export_center' && (
                         <StaffExportCenterPage
                             scope="department"
                             departmentName={data?.profile?.department}
@@ -2078,14 +2165,14 @@ export default function DeptDashboard() {
                     )}
 
                     {/* REPORTS */}
-                    {activeModule === 'reports' && (
+                    {!showModuleAvailabilityView && activeModule === 'reports' && (
                         <Suspense fallback={moduleLoadingFallback}>
                             <DeptReportsPage chartData={chartData} />
                         </Suspense>
                     )}
 
                     {/* SETTINGS */}
-                    {activeModule === 'settings' && (
+                    {!showModuleAvailabilityView && activeModule === 'settings' && (
                         <DeptSettingsPage
                             data={data}
                             setData={setData}
@@ -2103,7 +2190,7 @@ export default function DeptDashboard() {
                     )}
 
                     {/* SUPPORT APPROVALS */}
-                    {activeModule === 'support_approvals' && (
+                    {!showModuleAvailabilityView && activeModule === 'support_approvals' && (
                         <DeptSupportApprovalsPage
                             data={data}
                             supportRequests={supportRequests}
@@ -2135,7 +2222,7 @@ export default function DeptDashboard() {
                         />
                     )}
 
-                    {activeModule === 'events' && (
+                    {!showModuleAvailabilityView && activeModule === 'events' && (
                         <DeptEventsPage
                             data={data}
                             eventsList={eventsList}
@@ -2144,7 +2231,7 @@ export default function DeptDashboard() {
                     )}
 
                     {/* STUDENTS */}
-                    {activeModule === 'students' && (
+                    {!showModuleAvailabilityView && activeModule === 'students' && (
                         <DeptStudentsPage
                             filteredData={filteredData}
                             studentSearch={studentSearch}
@@ -2157,7 +2244,7 @@ export default function DeptDashboard() {
                     )}
 
                     {/* COUNSELED STUDENTS */}
-                    {activeModule === 'counseled' && (
+                    {!showModuleAvailabilityView && activeModule === 'counseled' && (
                         <DeptCounseledPage
                             filteredData={filteredData}
                             counseledSearch={counseledSearch}

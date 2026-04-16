@@ -23,8 +23,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../lib/auth';
+import { usePermissions } from '../hooks/usePermissions';
 import { createDeferredChannelCleanup } from '../lib/realtime';
 import { supabase } from '../lib/supabase';
+import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 import AuditLogsPage from './carestaff/AuditLogsPage';
 import CareStaffDashboardView from './carestaff/CareStaffDashboardView';
 import CounselingPage from './carestaff/CounselingPage';
@@ -38,6 +40,7 @@ import ScholarshipPage from './carestaff/ScholarshipPage';
 import StudentPopulationPage from './carestaff/StudentPopulationPage';
 import SupportRequestsPage from './carestaff/SupportRequestsPage';
 import StaffAccountSecurityPage from './shared/StaffAccountSecurityPage';
+import StudentDataDangerZoneCard, { type StudentResetImpact } from './shared/StudentDataDangerZoneCard';
 import NorsuBrand from '../components/NorsuBrand';
 import StaffCalendarPage from './shared/StaffCalendarPage';
 import StaffExportCenterPage from './shared/StaffExportCenterPage';
@@ -81,6 +84,23 @@ const ACTIVE_TABS = [
 
 type ActiveTab = (typeof ACTIVE_TABS)[number];
 type CommandHubTab = 'actions' | 'help' | 'notes';
+
+const CARE_STAFF_TAB_FEATURES: Partial<Record<ActiveTab, string>> = {
+    population: 'student_population',
+    analytics: 'student_analytics',
+    nat: 'nat_management',
+    counseling: 'counseling',
+    support: 'support_requests',
+    events: 'events',
+    calendar: 'calendar',
+    scholarship: 'scholarships',
+    forms: 'forms',
+    feedback: 'feedback',
+    export_center: 'export_center',
+    settings: 'settings',
+    audit: 'audit_logs',
+    logbook: 'office_logbook'
+};
 
 interface ToastState {
     msg: string;
@@ -385,6 +405,12 @@ const CareStaffDashboard = () => {
         updateSession?: (updates: any) => void;
         logout: () => void;
     };
+    const {
+        loading: permissionsLoading,
+        error: permissionsError,
+        getFeatureAccessState,
+        isFeatureVisible
+    } = usePermissions();
 
     const [activeTab, setActiveTab] = useState<ActiveTab>('home');
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -392,8 +418,6 @@ const CareStaffDashboard = () => {
 
     // Data States
     const [toast, setToast] = useState<ToastState | null>(null);
-    const [showResetModal, setShowResetModal] = useState<boolean>(false);
-    const [isResettingSystem, setIsResettingSystem] = useState(false);
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [studentActivationPolicy, setStudentActivationPolicy] = useState({
         requireEnrollmentKey: true,
@@ -584,6 +608,49 @@ const CareStaffDashboard = () => {
             console.error('Failed to record staff profile audit log:', error);
         });
     }, [session, syncStaffSession]);
+
+    const loadStudentResetImpact = useCallback(async (): Promise<{ impact?: StudentResetImpact; confirmationText?: string }> => {
+        return invokeEdgeFunction('manage-student-accounts', {
+            body: {
+                mode: 'preview-care-student-reset'
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to load the student reset impact.'
+        });
+    }, []);
+
+    const requestStudentResetOtp = useCallback(async () => {
+        return invokeEdgeFunction('manage-student-accounts', {
+            body: {
+                mode: 'request-care-reset-otp'
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to send the student reset OTP.'
+        });
+    }, []);
+
+    const confirmStudentReset = useCallback(async (payload: {
+        otp: string;
+        reason: string;
+        confirmationText: string;
+    }) => {
+        const result = await invokeEdgeFunction('manage-student-accounts', {
+            body: {
+                mode: 'care-reset-student-data',
+                otp: String(payload.otp || '').trim(),
+                reason: String(payload.reason || '').trim(),
+                confirmationText: String(payload.confirmationText || '').trim()
+            },
+            requireAuth: true,
+            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            fallbackMessage: 'Failed to reset student data.'
+        });
+
+        setRefreshNonce((current) => current + 1);
+        return result;
+    }, []);
 
     const toggleStudentActivationPolicy = useCallback(async () => {
         const nextRequireEnrollmentKey = !studentActivationPolicy.requireEnrollmentKey;
@@ -861,43 +928,6 @@ const CareStaffDashboard = () => {
         }
     }, [session]);
 
-    // System Reset (matches HTML handleResetSystem exactly - wipes 14+ tables)
-    const handleResetSystem = useCallback(async () => {
-        if (isResettingSystem) return;
-        setShowResetModal(false);
-        setIsResettingSystem(true);
-        try {
-            const standardTables = [
-                'answers',
-                'submissions',
-                'notifications',
-                'office_visits',
-                'support_requests',
-                'counseling_requests',
-                'event_feedback',
-                'event_attendance',
-                'applications',
-                'scholarships',
-                'events',
-                'audit_logs',
-                'students'
-            ];
-            for (const table of standardTables) {
-                await supabase.from(table).delete().neq('id', 0);
-            }
-            // Delete from tables with specific PKs
-            await supabase.from('enrolled_students').delete().neq('student_id', '0');
-
-            showToastMessage('System data has been successfully reset.');
-            window.location.reload();
-        } catch (err: unknown) {
-            console.error('Reset error:', err);
-            showToastMessage('Reset completed with some warnings. Check console.', 'error');
-        } finally {
-            setIsResettingSystem(false);
-        }
-    }, [isResettingSystem, showToastMessage]);
-
     const functions = useMemo<CareStaffDashboardFunctions>(() => ({
         showToast: showToastMessage,
         showToastMessage,
@@ -918,8 +948,6 @@ const CareStaffDashboard = () => {
                 setActiveTab(tab);
             }
         },
-        handleResetSystem: () => handleResetSystem(),
-        setShowResetModal,
         handleViewAllActivity: () => setActiveTab('audit'),
         handleQuickAction: (action: string) => {
             const tab = QUICK_ACTION_TAB_MAP[action];
@@ -931,11 +959,26 @@ const CareStaffDashboard = () => {
             setPendingProfileId(studentId);
             setActiveTab('population');
         }
-    }), [handleResetSystem, logAudit, showToastMessage]);
+    }), [logAudit, showToastMessage]);
 
     const setActiveTabFromString = useCallback((tab: string) => {
         setActiveTab(tab as ActiveTab);
     }, []);
+
+    const isCareStaffTabVisible = useCallback((tab: ActiveTab) => {
+        const featureKey = CARE_STAFF_TAB_FEATURES[tab];
+        return featureKey ? isFeatureVisible(featureKey) : true;
+    }, [isFeatureVisible]);
+
+    const visibleNavSections = useMemo(
+        () => NAV_SECTIONS
+            .map((section) => ({
+                ...section,
+                items: section.items.filter((item) => isCareStaffTabVisible(item.tab))
+            }))
+            .filter((section) => section.items.length > 0),
+        [isCareStaffTabVisible]
+    );
 
     const tabLoadingFallback = (
         <div className="rounded-2xl border border-purple-100 bg-white p-10 text-center shadow-sm">
@@ -946,6 +989,21 @@ const CareStaffDashboard = () => {
     );
 
     const renderActiveTab = (): React.ReactNode => {
+        const featureKey = CARE_STAFF_TAB_FEATURES[activeTab];
+        if (featureKey) {
+            const accessState = getFeatureAccessState(featureKey);
+            if (!(accessState.isAllowed && accessState.status === 'enabled')) {
+                return (
+                    <FeatureAvailabilityView
+                        title={HEADER_TITLES[activeTab] || activeTab}
+                        permission={accessState}
+                        description="This section is currently unavailable in the CARE Staff portal. Please check back later or coordinate with your administrator if you need urgent access."
+                        accent="purple"
+                    />
+                );
+            }
+        }
+
         switch (activeTab) {
             case 'home':
                 return <HomePage functions={functions} />;
@@ -1043,6 +1101,13 @@ const CareStaffDashboard = () => {
                                 </p>
                             </div>
                         </div>
+                        <StudentDataDangerZoneCard
+                            portalLabel="CARE Staff"
+                            loadImpact={loadStudentResetImpact}
+                            requestOtp={requestStudentResetOtp}
+                            confirmReset={confirmStudentReset}
+                            showToast={showToastMessage}
+                        />
                     </div>
                 );
             case 'audit':
@@ -1055,6 +1120,34 @@ const CareStaffDashboard = () => {
     };
 
     const headerTitle = HEADER_TITLES[activeTab] || activeTab;
+
+    if (permissionsLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+                <div className="w-full max-w-xl rounded-3xl border border-purple-100 bg-white p-8 text-center shadow-xl">
+                    <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
+                    <p className="mt-4 text-sm font-semibold text-slate-700">Loading CARE Staff access rules...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (permissionsError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+                <div className="w-full max-w-2xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-xl">
+                    <h1 className="text-2xl font-bold text-slate-900">Unable to load CARE Staff permissions</h1>
+                    <p className="mt-3 text-sm leading-6 text-slate-500">{permissionsError}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                        Reload
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 text-gray-800 font-sans overflow-hidden">
@@ -1076,7 +1169,7 @@ const CareStaffDashboard = () => {
 
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                    {NAV_SECTIONS.map((section, sectionIndex) => (
+                    {visibleNavSections.map((section, sectionIndex) => (
                         <div key={section.title || `section-${sectionIndex}`} className={section.withDivider ? 'pt-5 mt-4 border-t border-white/5' : ''}>
                             {section.title && (
                                 <p className="px-4 text-[10px] font-bold text-purple-400/50 uppercase tracking-[0.15em] mb-3">
@@ -1140,7 +1233,6 @@ const CareStaffDashboard = () => {
                     {renderCareStaffModals({
                         showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
                         setActiveTab, toast, setToast,
-                        showResetModal, setShowResetModal, handleResetSystem, isResettingSystem,
                     })}
                 </div>
             </main>
