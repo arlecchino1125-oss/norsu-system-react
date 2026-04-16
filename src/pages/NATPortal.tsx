@@ -12,6 +12,8 @@ import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
 import usePublicTheme from '../hooks/usePublicTheme';
+import { usePermissionsForRole } from '../hooks/usePermissions';
+import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 
 // --- ASSETS & CONSTANTS ---
 const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
@@ -1091,6 +1093,11 @@ const NATPortal = () => {
     const navigate = useNavigate();
     const { loginStudent } = useAuth() as any;
     const { isDark, toggleTheme } = usePublicTheme();
+    const {
+        loading: permissionsLoading,
+        error: permissionsError,
+        getFeatureAccessState
+    } = usePermissionsForRole('Public');
     const [draftSnapshot] = useState<NatDraftPayload | null>(() => loadNatDraft());
     // Start at 'welcome' screen
     const [currentScreen, setCurrentScreen] = useState<string>('welcome');
@@ -1133,6 +1140,9 @@ const NATPortal = () => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3000);
     };
+
+    const natPortalAccessState = getFeatureAccessState('nat_portal');
+    const showNatPortalAvailability = !(natPortalAccessState.isAllowed && natPortalAccessState.status === 'enabled');
 
     const invokeNatManagementFunction = async (body: any, fallbackMessage: string) => {
         return invokeEdgeFunction('manage-nat-applications', {
@@ -1851,6 +1861,76 @@ const NATPortal = () => {
 
 
     // --- DATA FETCHING ---
+    if (permissionsLoading) {
+        return (
+            <NATLayout
+                title="NAT Portal"
+                isDark={isDark}
+                onToggleTheme={toggleTheme}
+                rightAction={(
+                    <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
+                        Back to Main
+                    </button>
+                )}
+            >
+                <div className="nat-page-shell nat-page-shell-sm max-w-3xl mx-auto w-full">
+                    <div className={`rounded-[2.5rem] border p-10 text-center shadow-2xl ${isDark ? 'border-slate-700 bg-slate-900/80 text-slate-100' : 'border-white bg-white/70 text-slate-800'}`}>
+                        <Loader2 className="mx-auto h-10 w-10 animate-spin text-blue-600" />
+                        <p className="mt-4 text-sm font-semibold">Loading NAT portal access...</p>
+                    </div>
+                </div>
+            </NATLayout>
+        );
+    }
+
+    if (permissionsError) {
+        return (
+            <NATLayout
+                title="NAT Portal"
+                isDark={isDark}
+                onToggleTheme={toggleTheme}
+                rightAction={(
+                    <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
+                        Back to Main
+                    </button>
+                )}
+            >
+                <div className="nat-page-shell nat-page-shell-sm max-w-3xl mx-auto w-full">
+                    <div className={`rounded-[2.5rem] border p-10 text-center shadow-2xl ${isDark ? 'border-slate-700 bg-slate-900/80 text-slate-100' : 'border-white bg-white/70 text-slate-800'}`}>
+                        <h2 className="text-2xl font-black tracking-tight">Unable to load NAT portal availability</h2>
+                        <p className={`mt-3 text-sm leading-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {permissionsError}
+                        </p>
+                    </div>
+                </div>
+            </NATLayout>
+        );
+    }
+
+    if (showNatPortalAvailability) {
+        return (
+            <NATLayout
+                title="NAT Portal"
+                isDark={isDark}
+                onToggleTheme={toggleTheme}
+                rightAction={(
+                    <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
+                        Back to Main
+                    </button>
+                )}
+            >
+                <div className="nat-page-shell nat-page-shell-lg max-w-5xl mx-auto w-full">
+                    <FeatureAvailabilityView
+                        title="NAT Portal"
+                        permission={natPortalAccessState}
+                        description="Online NAT services are temporarily unavailable. Please check official NORSU announcements for the next opening schedule or return later."
+                        accent="blue"
+                    />
+                </div>
+            </NATLayout>
+        );
+    }
+
     // --- RENDER SCREEN: WELCOME ---
     if (currentScreen === 'welcome') return (
         <NATLayout

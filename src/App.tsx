@@ -11,6 +11,7 @@ const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const DeptLogin = lazy(() => import('./pages/DeptLogin'));
 const CareStaffLogin = lazy(() => import('./pages/CareStaffLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const RolePermissionsPage = lazy(() => import('./pages/admin/RolePermissionsPage'));
 const DeptDashboard = lazy(() => import('./pages/DeptDashboard'));
 const CareStaffDashboard = lazy(() => import('./pages/CareStaffDashboard'));
 const NATPortal = lazy(() => import('./pages/NATPortal'));
@@ -55,6 +56,13 @@ function App() {
               <ProtectedRoute allowedRoles={['Admin']}>
                 <LazyRoute>
                   <AdminDashboard />
+                </LazyRoute>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/permissions" element={
+              <ProtectedRoute allowedRoles={['Admin']}>
+                <LazyRoute>
+                  <RolePermissionsPage />
                 </LazyRoute>
               </ProtectedRoute>
             } />

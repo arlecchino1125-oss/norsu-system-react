@@ -34,7 +34,6 @@ export function renderCareStaffModals(p: any) {
         showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
         setActiveTab, toast, setToast,
         showDeleteEventModal, setShowDeleteEventModal, setEventToDelete, confirmDeleteEvent,
-        showResetModal, setShowResetModal, handleResetSystem, isResettingSystem,
         showEditModal, setShowEditModal, editForm, setEditForm, handleUpdateStudent, allCourses,
         showDeleteModal, setShowDeleteModal, studentToDelete, confirmDeleteStudent,
     } = p;
@@ -294,25 +293,6 @@ export function renderCareStaffModals(p: any) {
                 </div>
             )}
 
-            {/* SYSTEM RESET CONFIRMATION MODAL */}
-            {showResetModal && (
-                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 animate-scale-in">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-gradient-to-br from-red-400 to-rose-500 text-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-red-200/50">
-                                <AlertTriangle size={32} />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">System Reset</h3>
-                            <p className="text-gray-500 text-sm mb-6">âš ï¸ WARNING: This will DELETE ALL user-submitted data (Students, Applications, Logs, etc.). This action cannot be undone.</p>
-                            <div className="flex gap-3">
-                                <button disabled={Boolean(isResettingSystem)} onClick={() => setShowResetModal(false)} className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-60">Cancel</button>
-                                <button disabled={Boolean(isResettingSystem)} onClick={handleResetSystem} className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-red-200 transition-all duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:hover:shadow-none">{isResettingSystem ? 'Wiping...' : 'Yes, Wipe Data'}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )
-            }
             {/* Lifted Edit Student Modal (Shared) */}
             {
                 showEditModal && (

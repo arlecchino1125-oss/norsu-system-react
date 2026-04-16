@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requirePermission } from '../../_shared/permissionCheck.ts';
 import { writeStaffAuditLog } from '../../_shared/staffAuditLog.ts';
 
 const corsHeaders = {
@@ -37,6 +38,15 @@ const DECISION_READY_APPLICATION_STATUSES = [
     'Interview Scheduled'
 ];
 
+const getServiceRoleKey = () => {
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceRoleKey) {
+        throw new Error('Missing Supabase service role configuration.');
+    }
+
+    return serviceRoleKey;
+};
+
 type DepartmentApplicationRow = {
     id: string;
     reference_id?: string | null;
@@ -58,9 +68,9 @@ type DepartmentCourseNames = Set<string>;
 
 const getAdminClient = () => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const serviceRoleKey = getServiceRoleKey();
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl) {
         throw new Error('Missing Supabase service role configuration.');
     }
 
@@ -110,24 +120,28 @@ const assertDepartmentHeadRequest = async (adminClient: any, request: Request) =
         .maybeSingle();
 
     if (error) throw error;
-    if (String(staffAccount?.role || '').trim() !== 'Department Head') {
-        throw withStatus('Department Head privileges are required for this action.', 403);
+    if (!staffAccount?.id) {
+        throw withStatus('Only linked staff accounts can perform this action.', 403);
     }
+
+    const role = String(staffAccount?.role || '').trim();
+    await requirePermission(getServiceRoleKey(), role, 'function', 'manage-department-admissions');
 
     const department = String(staffAccount?.department || '').trim();
     if (!department) {
-        throw withStatus('Your department assignment is missing.', 403);
+        throw withStatus('A department assignment is required for this action.', 403);
     }
 
     return {
         authUser,
         staffAccountId: String(staffAccount?.id || '').trim() || null,
-        role: 'Department Head',
+        role,
         displayName: String(
             staffAccount?.full_name
             || staffAccount?.username
+            || role
             || department
-        ).trim() || department,
+        ).trim() || department || role,
         department
     };
 };

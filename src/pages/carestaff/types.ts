@@ -1,5 +1,3 @@
-import type { Dispatch, SetStateAction } from 'react';
-
 export type ToastType = 'success' | 'error' | 'info';
 export type ToastHandler = (msg: string, type?: ToastType) => void;
 
@@ -12,8 +10,6 @@ export interface CareStaffDashboardFunctions {
     handleLaunchModule: (module: string) => void;
     handleOpenAnalytics: () => void;
     handleStatClick: (stat: string) => void;
-    handleResetSystem: () => void;
-    setShowResetModal: Dispatch<SetStateAction<boolean>>;
     handleViewAllActivity: () => void;
     handleQuickAction: (action: string) => void;
     handleViewProfile?: (studentId: string) => void;

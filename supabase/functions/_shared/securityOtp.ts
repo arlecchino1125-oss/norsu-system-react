@@ -50,9 +50,13 @@ export const sendSecurityOtpEmail = async ({
   recipientEmail: string;
   recipientName: string;
   otp: string;
-  purpose: "password_change" | "email_change";
+  purpose: "password_change" | "email_change" | "destructive_reset";
 }) => {
-  const actionLabel = purpose === "email_change" ? "email change" : "password change";
+  const actionLabel = purpose === "email_change"
+    ? "email change"
+    : purpose === "destructive_reset"
+      ? "student data reset"
+      : "password change";
   const html = `
         <h2>Security Verification Code</h2>
         <p>Dear ${recipientName || "User"},</p>
