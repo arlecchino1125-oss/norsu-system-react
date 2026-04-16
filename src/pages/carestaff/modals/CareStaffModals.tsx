@@ -4,6 +4,7 @@ import {
     Plus, Calendar, Send, BarChart2, FileText, Users, Info,
     MessageCircle, Rocket, Paperclip, User, GraduationCap
 } from 'lucide-react';
+import DeleteConfirmModal from '../../../components/shared/modals/DeleteConfirmModal';
 
 // Re-use the same exportToExcel utility already defined in NATManagementPage
 function exportToExcel(headers: string[], rows: any[][], filename: string) {
@@ -276,22 +277,16 @@ export function renderCareStaffModals(p: any) {
                 </div>
             )}
 
-            {/* Custom Delete Event Modal */}
-            {showDeleteEventModal && (
-                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[100] p-4 animate-fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center animate-scale-in">
-                        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-                            <AlertTriangle size={32} />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Event?</h3>
-                        <p className="text-gray-500 text-sm mb-6">Are you sure you want to delete this event? This action cannot be undone.</p>
-                        <div className="flex gap-3">
-                            <button onClick={() => { setShowDeleteEventModal(false); setEventToDelete(null); }} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
-                            <button onClick={confirmDeleteEvent} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition-all">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteConfirmModal
+                open={showDeleteEventModal}
+                title="Delete Event?"
+                description="Are you sure you want to delete this event? This action cannot be undone."
+                onClose={() => {
+                    setShowDeleteEventModal(false);
+                    setEventToDelete(null);
+                }}
+                onConfirm={confirmDeleteEvent}
+            />
 
             {/* Lifted Edit Student Modal (Shared) */}
             {
@@ -390,20 +385,13 @@ export function renderCareStaffModals(p: any) {
                     </div>
                 )}
 
-            {/* Lifted Delete Student Modal (Shared) */}
-            {showDeleteModal && studentToDelete && (
-                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl p-6 text-center max-w-sm">
-                        <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-bold mb-2">Delete Student?</h3>
-                        <p className="text-slate-500 text-sm mb-6">Are you sure you want to delete {studentToDelete.first_name}?</p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                            <button onClick={confirmDeleteStudent} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteConfirmModal
+                open={Boolean(showDeleteModal && studentToDelete)}
+                title="Delete Student?"
+                description={studentToDelete ? `Are you sure you want to delete ${studentToDelete.first_name}?` : 'Are you sure you want to delete this student?'}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={confirmDeleteStudent}
+            />
         </>
     );
 }

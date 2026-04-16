@@ -29,6 +29,7 @@ import DeptInterviewQueuePage from './dept/DeptInterviewQueuePage';
 import StaffCalendarPage from './shared/StaffCalendarPage';
 import StaffExportCenterPage from './shared/StaffExportCenterPage';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
+import CascadeFilterBar from '../components/shared/filters/CascadeFilterBar';
 import NorsuBrand from '../components/NorsuBrand';
 import { renderDeptModals } from './dept/modals/DeptModals';
 import {
@@ -561,8 +562,12 @@ export default function DeptDashboard() {
     // Derived cascading filter options — pull ALL courses belonging to this college from courseMap
     const dept = String(data?.profile?.department || '').trim();
     const deptCourses = data?.courseMap
-        ? [...new Set(Object.entries(data.courseMap).filter(([_, d]) => d === dept).map(([courseName]) => courseName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')))].sort()
-        : [...new Set(filteredData.students.map((s: any) => s.course).filter(Boolean))].sort();
+        ? [...new Set(
+            Object.entries(data.courseMap)
+                .filter(([_, d]) => d === dept)
+                .map(([courseName]) => courseName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))
+        )] as string[]
+        : [...new Set(filteredData.students.map((s: any) => s.course).filter(Boolean))] as string[];
 
 
     // Helper: check if a student matches the current cascade filters
@@ -580,34 +585,30 @@ export default function DeptDashboard() {
             String(s.student_id || s.id || '') === String(req.student_id || '')
         );
 
-    // Filter bar rendered as a JSX element (NOT a component function) to prevent unmount/remount on re-render
     const cascadeFilterBar = (
-        <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm font-medium text-gray-500">Filter:</label>
-            <select value={deptCourseFilter} onChange={(e) => { setDeptCourseFilter(e.target.value); setDeptYearFilter('All'); setDeptSectionFilter('All'); }} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white text-gray-700 max-w-[200px]">
-                <option value="All">All Courses</option>
-                {deptCourses.map((c: any) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select value={deptYearFilter} onChange={(e) => { setDeptYearFilter(e.target.value); setDeptSectionFilter('All'); }} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white text-gray-700 max-w-[140px]">
-                <option value="All">All Years</option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-                <option value="5th Year">5th Year</option>
-            </select>
-            <select value={deptSectionFilter} onChange={(e) => setDeptSectionFilter(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 bg-white text-gray-700 max-w-[120px]">
-                <option value="All">All Sections</option>
-                <option value="A">Sec A</option>
-                <option value="B">Sec B</option>
-                <option value="C">Sec C</option>
-                <option value="D">Sec D</option>
-                <option value="E">Sec E</option>
-            </select>
-            {(deptCourseFilter !== 'All' || deptYearFilter !== 'All' || deptSectionFilter !== 'All') && (
-                <button onClick={() => { setDeptCourseFilter('All'); setDeptYearFilter('All'); setDeptSectionFilter('All'); }} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">Reset</button>
-            )}
-        </div>
+        <CascadeFilterBar
+            courseOptions={deptCourses}
+            yearOptions={['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']}
+            sectionOptions={['A', 'B', 'C', 'D', 'E']}
+            selectedCourse={deptCourseFilter}
+            selectedYear={deptYearFilter}
+            selectedSection={deptSectionFilter}
+            onCourseChange={(value) => {
+                setDeptCourseFilter(value);
+                setDeptYearFilter('All');
+                setDeptSectionFilter('All');
+            }}
+            onYearChange={(value) => {
+                setDeptYearFilter(value);
+                setDeptSectionFilter('All');
+            }}
+            onSectionChange={setDeptSectionFilter}
+            onReset={() => {
+                setDeptCourseFilter('All');
+                setDeptYearFilter('All');
+                setDeptSectionFilter('All');
+            }}
+        />
     );
 
     // Chart Data Preparation
@@ -841,6 +842,39 @@ export default function DeptDashboard() {
     }, [applicantScheduleData.date, applicantScheduleData.panel, applicantScheduleData.time, applicantScheduleData.venue, applicantScheduleMode, data?.profile?.department, selectedApplicants]);
 
     // ─── Admissions Actions ───
+    const isDeptModuleVisible = useCallback((moduleId: string) => {
+        const featureKey = DEPT_MODULE_FEATURES[moduleId];
+        return featureKey ? isFeatureVisible(featureKey) : true;
+    }, [isFeatureVisible]);
+
+    const serviceNavItems = useMemo(
+        () => ([
+            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
+            { id: 'calendar', icon: <CalendarDays size={18} />, label: 'Calendar' },
+            { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
+            { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Additional Support', hasIndicator: supportRequests.length > lastSeenSupportCount },
+        ]).filter((item) => isDeptModuleVisible(item.id)),
+        [counselingRequests, isDeptModuleVisible, lastSeenSupportCount, supportRequests.length]
+    );
+
+    const managementNavItems = useMemo(
+        () => ([
+            { id: 'admissions', icon: <UserPlus size={18} />, label: 'Admissions Screening', hasIndicator: admissionApplicants.length > 0 },
+            { id: 'interview_queue', icon: <CalendarDays size={18} />, label: 'Interview Queue' },
+            { id: 'export_center', icon: <Download size={18} />, label: 'Export Center' },
+            { id: 'students', icon: <Users size={18} />, label: 'Students' },
+            { id: 'counseled', icon: <ClipboardList size={18} />, label: 'Counseled Students' },
+        ]).filter((item) => isDeptModuleVisible(item.id)),
+        [admissionApplicants.length, isDeptModuleVisible]
+    );
+
+    const systemNavItems = useMemo(
+        () => ([
+            { id: 'settings', icon: <Settings size={18} />, label: 'Settings' },
+        ]).filter((item) => isDeptModuleVisible(item.id)),
+        [isDeptModuleVisible]
+    );
+
     if (!data) return null;
 
     const closeApplicantScheduleModal = () => {
@@ -1887,39 +1921,6 @@ export default function DeptDashboard() {
         reports: 'Reports',
     };
 
-    const isDeptModuleVisible = useCallback((moduleId: string) => {
-        const featureKey = DEPT_MODULE_FEATURES[moduleId];
-        return featureKey ? isFeatureVisible(featureKey) : true;
-    }, [isFeatureVisible]);
-
-    const serviceNavItems = useMemo(
-        () => ([
-            { id: 'counseling_queue', icon: <ClipboardList size={18} />, label: 'Counseling', hasIndicator: counselingRequests.filter((r: any) => isCounselingAwaitingDept(r.status)).length > 0 },
-            { id: 'calendar', icon: <CalendarDays size={18} />, label: 'Calendar' },
-            { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' },
-            { id: 'support_approvals', icon: <HeartHandshake size={18} />, label: 'Additional Support', hasIndicator: supportRequests.length > lastSeenSupportCount },
-        ]).filter((item) => isDeptModuleVisible(item.id)),
-        [counselingRequests, isDeptModuleVisible, lastSeenSupportCount, supportRequests.length]
-    );
-
-    const managementNavItems = useMemo(
-        () => ([
-            { id: 'admissions', icon: <UserPlus size={18} />, label: 'Admissions Screening', hasIndicator: admissionApplicants.length > 0 },
-            { id: 'interview_queue', icon: <CalendarDays size={18} />, label: 'Interview Queue' },
-            { id: 'export_center', icon: <Download size={18} />, label: 'Export Center' },
-            { id: 'students', icon: <Users size={18} />, label: 'Students' },
-            { id: 'counseled', icon: <ClipboardList size={18} />, label: 'Counseled Students' },
-        ]).filter((item) => isDeptModuleVisible(item.id)),
-        [admissionApplicants.length, isDeptModuleVisible]
-    );
-
-    const systemNavItems = useMemo(
-        () => ([
-            { id: 'settings', icon: <Settings size={18} />, label: 'Settings' },
-        ]).filter((item) => isDeptModuleVisible(item.id)),
-        [isDeptModuleVisible]
-    );
-
     const moduleLoadingFallback = (
         <div className="rounded-2xl border border-emerald-100 bg-white/80 p-10 text-center shadow-sm">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500" />
@@ -1967,11 +1968,11 @@ export default function DeptDashboard() {
 
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 text-gray-800 font-sans overflow-hidden">
-            {/* Mobile Overlay */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 lg:hidden animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+            {/* Sidebar Overlay */}
+            {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-dept-sidebar transform transition-all duration-500 ease-out lg:static lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-emerald-900/30' : '-translate-x-full'}`}>
+            <aside className={`fixed inset-y-0 left-0 z-30 w-72 max-w-[calc(100vw-1rem)] bg-gradient-dept-sidebar transform transition-all duration-500 ease-out flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-emerald-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
                 <div className="p-6 border-b border-white/10">
                     <div className="flex items-center justify-between">
@@ -1979,7 +1980,7 @@ export default function DeptDashboard() {
                             <NorsuBrand title={data.profile.name} subtitle={data.profile.department} accent="emerald" size="sm" className="min-w-0" />
                             <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/50 transition-colors group-hover:text-emerald-100/80">Open Profile & Settings</p>
                         </div>
-                        <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
+                        <button onClick={() => setIsSidebarOpen(false)} className="text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                     </div>
                 </div>
 
@@ -1988,7 +1989,7 @@ export default function DeptDashboard() {
                     {[
                         { id: 'dashboard', icon: <LayoutDashboard size={18} />, label: 'Home' },
                     ].map((item: any) => (
-                        <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                        <button key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                             {item.icon} {item.label}
                         </button>
                     ))}
@@ -1996,7 +1997,7 @@ export default function DeptDashboard() {
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
                         {serviceNavItems.map((item: any) => (
-                            <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                            <button key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                 {item.icon} {item.label}
                                 {item.hasIndicator && <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
                             </button>
@@ -2006,7 +2007,7 @@ export default function DeptDashboard() {
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Management</p>
                         {managementNavItems.map((item: any) => (
-                            <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                            <button key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                 {item.icon} {item.label}
                                 {item.hasIndicator && <span className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
                             </button>
@@ -2016,7 +2017,7 @@ export default function DeptDashboard() {
                     <div className="pt-5 mt-4 border-t border-white/5">
                         <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">System</p>
                         {systemNavItems.map((item: any) => (
-                            <button key={item.id} onClick={() => setActiveModule(item.id)} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                            <button key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
                                 {item.icon} {item.label}
                             </button>
                         ))}
@@ -2036,7 +2037,7 @@ export default function DeptDashboard() {
                 {/* Premium Header */}
                 <header className="h-16 glass gradient-border-green flex items-center justify-between px-6 lg:px-10 relative z-10">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"><Menu /></button>
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"><Menu /></button>
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-500/70">NORSU-G CARE</p>
                             <h2 className="text-xl font-bold gradient-text-green capitalize">{(moduleLabels as any)[activeModule] || activeModule}</h2>
