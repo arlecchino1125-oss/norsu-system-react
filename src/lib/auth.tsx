@@ -175,6 +175,7 @@ const isInvalidAuthCredentialsError = (error: any) => {
         || message.includes('email not confirmed')
         || message.includes('invalid credentials');
 };
+const INVALID_STUDENT_LOGIN_MESSAGE = 'Your email/ID or password is incorrect.';
 
 const signInWithResolvedEmail = async (email: string, password: string) =>
     supabase.auth.signInWithPassword({
@@ -459,24 +460,32 @@ export function AuthProvider({ children }: any) {
     /**
      * Login for Students
      */
-    const loginStudent = useCallback(async (studentId: any, password: any) => {
+    const loginStudent = useCallback(async (identifier: any, password: any, loginMode: 'studentId' | 'email' = 'studentId') => {
         setLoading(true);
         try {
-            const trimmedStudentId = String(studentId || '').trim();
+            const trimmedIdentifier = String(identifier || '').trim();
+            const resolvedLoginMode = loginMode === 'email' || trimmedIdentifier.includes('@')
+                ? 'email'
+                : 'studentId';
             const studentLookup = await resolveAuthLoginAccount('resolve-student-login', {
-                studentId: trimmedStudentId
+                ...(resolvedLoginMode === 'email'
+                    ? { email: trimmedIdentifier }
+                    : { studentId: trimmedIdentifier })
             });
 
             if (!studentLookup) {
                 setLoading(false);
-                return { success: false, error: 'Student ID not found.' };
+                return {
+                    success: false,
+                    error: INVALID_STUDENT_LOGIN_MESSAGE
+                };
             }
 
             if (!studentLookup.auth_user_id) {
                 setLoading(false);
                 return {
                     success: false,
-                    error: 'This student account has not been activated in Supabase Auth yet. Complete student activation first before signing in.'
+                    error: INVALID_STUDENT_LOGIN_MESSAGE
                 };
             }
 
@@ -485,7 +494,7 @@ export function AuthProvider({ children }: any) {
                 setLoading(false);
                 return {
                     success: false,
-                    error: 'This student account has no migrated auth email yet. Run the student auth email sync first.'
+                    error: INVALID_STUDENT_LOGIN_MESSAGE
                 };
             }
 
@@ -495,9 +504,9 @@ export function AuthProvider({ children }: any) {
             if (authError || !authData?.user) {
                 setLoading(false);
                 if (isInvalidAuthCredentialsError(authError)) {
-                    return { success: false, error: 'Incorrect password.' };
+                    return { success: false, error: INVALID_STUDENT_LOGIN_MESSAGE };
                 }
-                return { success: false, error: authError?.message || 'Unable to sign in with the migrated auth email.' };
+                return { success: false, error: INVALID_STUDENT_LOGIN_MESSAGE };
             }
 
             const studentProfile = await getStudentProfileByAuthUser(authData.user);

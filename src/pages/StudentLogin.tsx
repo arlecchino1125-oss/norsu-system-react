@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
-import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User, MapPin, Loader2, X, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { GraduationCap, Lock, CheckCircle, AlertCircle, BookOpen, UserPlus, User, Mail, MapPin, Loader2, X, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
@@ -11,17 +11,33 @@ import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { rememberPendingProfileCompletion } from '../lib/studentProfileCompletionPrompt';
 import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
 
+type StudentLoginMethod = 'studentId' | 'email';
+type ForgotPasswordOtpInfo = {
+    message?: string;
+    expiresInMinutes?: number;
+};
+
 export default function StudentLogin() {
     const navigate = useNavigate();
     const { loginStudent, loading: authLoading } = useAuth() as any;
 
     // Modal State
     const [showActivateModal, setShowActivateModal] = useState<boolean>(false);
+    const [showForgotPasswordModal, setShowForgotPasswordModal] = useState<boolean>(false);
 
     // Login State
+    const [loginMethod, setLoginMethod] = useState<StudentLoginMethod>('studentId');
     const [loginId, setLoginId] = useState<string>('');
     const [loginPassword, setLoginPassword] = useState<string>('');
     const [showPassword, setShowPassword] = useState<boolean>(false);
+    const [forgotPasswordMethod, setForgotPasswordMethod] = useState<StudentLoginMethod>('studentId');
+    const [forgotPasswordIdentifier, setForgotPasswordIdentifier] = useState<string>('');
+    const [forgotPasswordOtp, setForgotPasswordOtp] = useState<string>('');
+    const [forgotPasswordNewPassword, setForgotPasswordNewPassword] = useState<string>('');
+    const [forgotPasswordConfirmPassword, setForgotPasswordConfirmPassword] = useState<string>('');
+    const [forgotPasswordOtpInfo, setForgotPasswordOtpInfo] = useState<ForgotPasswordOtpInfo | null>(null);
+    const [isRequestingForgotPasswordOtp, setIsRequestingForgotPasswordOtp] = useState<boolean>(false);
+    const [isResettingForgotPassword, setIsResettingForgotPassword] = useState<boolean>(false);
 
     // Activation Form State
     const [loading, setLoading] = useState<boolean>(false);
@@ -55,6 +71,14 @@ export default function StudentLogin() {
 
     const TOTAL_STEPS = 3;
     const STEP_LABELS = ['Verify', 'Personal', 'Finish'];
+    const loginFieldLabel = loginMethod === 'email' ? 'Email' : 'Student ID';
+    const loginFieldHelpText = loginMethod === 'email'
+        ? 'Use the email linked to your activated student account.'
+        : 'Use the student ID connected to your student portal account.';
+    const forgotPasswordFieldLabel = forgotPasswordMethod === 'email' ? 'Email' : 'Student ID';
+    const forgotPasswordOtpHint = forgotPasswordOtpInfo
+        ? `${forgotPasswordOtpInfo.message || 'If the account exists, a verification code has been sent to the registered email.'}${forgotPasswordOtpInfo.expiresInMinutes ? ` The code expires in ${forgotPasswordOtpInfo.expiresInMinutes} minutes.` : ''}`
+        : '';
 
     useEffect(() => {
         if (!showActivateModal) return;
@@ -104,6 +128,31 @@ export default function StudentLogin() {
     const showToast = (msg: string, type: string = 'success') => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 5000);
+    };
+
+    const resetForgotPasswordForm = (preserveIdentifier = false) => {
+        if (!preserveIdentifier) {
+            setForgotPasswordIdentifier('');
+        }
+        setForgotPasswordOtp('');
+        setForgotPasswordNewPassword('');
+        setForgotPasswordConfirmPassword('');
+        setForgotPasswordOtpInfo(null);
+    };
+
+    const openForgotPasswordModal = () => {
+        setForgotPasswordMethod(loginMethod);
+        setForgotPasswordIdentifier(String(loginId || '').trim());
+        setForgotPasswordOtp('');
+        setForgotPasswordNewPassword('');
+        setForgotPasswordConfirmPassword('');
+        setForgotPasswordOtpInfo(null);
+        setShowForgotPasswordModal(true);
+    };
+
+    const closeForgotPasswordModal = () => {
+        setShowForgotPasswordModal(false);
+        resetForgotPasswordForm();
     };
 
     const handleChange = (e: any) => {
@@ -165,6 +214,7 @@ export default function StudentLogin() {
             }
 
             setShowActivateModal(false);
+            setLoginMethod('studentId');
             setLoginId(generatedCredentials.username);
             setLoginPassword(generatedCredentials.password);
             showToast(
@@ -182,7 +232,7 @@ export default function StudentLogin() {
     const handleLogin = async (e: any) => {
         e.preventDefault();
         setLoading(true);
-        const result = await loginStudent(loginId, loginPassword);
+        const result = await loginStudent(loginId, loginPassword, loginMethod);
 
         if (result.success) {
             showToast("Login Successful", 'success');
@@ -191,6 +241,90 @@ export default function StudentLogin() {
             showToast(result.error, 'error');
         }
         setLoading(false);
+    };
+
+    const handleRequestForgotPasswordOtp = async () => {
+        const trimmedIdentifier = String(forgotPasswordIdentifier || '').trim();
+        if (!trimmedIdentifier) {
+            showToast(`Enter your ${forgotPasswordFieldLabel.toLowerCase()} first.`, 'error');
+            return;
+        }
+
+        setIsRequestingForgotPasswordOtp(true);
+        try {
+            const result = await invokeEdgeFunction('manage-student-accounts', {
+                body: {
+                    mode: 'request-forgot-password-otp',
+                    identifier: trimmedIdentifier,
+                    loginMode: forgotPasswordMethod
+                },
+                fallbackMessage: 'Failed to send the password reset code.'
+            });
+
+            setForgotPasswordOtpInfo({
+                message: result?.message,
+                expiresInMinutes: result?.expiresInMinutes
+            });
+            setForgotPasswordOtp('');
+            showToast(
+                result?.message || 'If the account exists, a verification code has been sent to the registered email.',
+                'success'
+            );
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to send the password reset code.', 'error');
+        } finally {
+            setIsRequestingForgotPasswordOtp(false);
+        }
+    };
+
+    const handleConfirmForgotPasswordReset = async () => {
+        const trimmedIdentifier = String(forgotPasswordIdentifier || '').trim();
+        const trimmedOtp = String(forgotPasswordOtp || '').trim();
+
+        if (!trimmedIdentifier) {
+            showToast(`Enter your ${forgotPasswordFieldLabel.toLowerCase()} first.`, 'error');
+            return;
+        }
+
+        if (!trimmedOtp) {
+            showToast('Enter the OTP sent to your email.', 'error');
+            return;
+        }
+
+        if (forgotPasswordNewPassword.length < 8) {
+            showToast('Password must be at least 8 characters.', 'error');
+            return;
+        }
+
+        if (forgotPasswordNewPassword !== forgotPasswordConfirmPassword) {
+            showToast('Passwords do not match.', 'error');
+            return;
+        }
+
+        setIsResettingForgotPassword(true);
+        try {
+            await invokeEdgeFunction('manage-student-accounts', {
+                body: {
+                    mode: 'confirm-forgot-password-reset',
+                    identifier: trimmedIdentifier,
+                    loginMode: forgotPasswordMethod,
+                    otp: trimmedOtp,
+                    password: forgotPasswordNewPassword
+                },
+                fallbackMessage: 'Failed to reset your password.'
+            });
+
+            setLoginMethod(forgotPasswordMethod);
+            setLoginId(trimmedIdentifier);
+            setLoginPassword('');
+            setShowForgotPasswordModal(false);
+            resetForgotPasswordForm();
+            showToast('Password updated. Sign in with your new password.', 'success');
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to reset your password.', 'error');
+        } finally {
+            setIsResettingForgotPassword(false);
+        }
     };
 
     // Wizard Next Step Validation
@@ -375,25 +509,61 @@ export default function StudentLogin() {
                                 </div>
 
                                 <form onSubmit={handleLogin} className="space-y-6">
-                                    {/* Student ID Input Group */}
-                                    <div className="relative">
-                                        <input
-                                            required
-                                            id="studentId"
-                                            className="peer w-full bg-indigo-950/30 border border-indigo-800/50 rounded-xl px-5 py-4 pt-6 text-white text-base outline-none transition-all placeholder-transparent focus:bg-indigo-900/40 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
-                                            placeholder="Student ID"
-                                            value={loginId}
-                                            onChange={e => setLoginId(e.target.value)}
-                                        />
-                                        <label
-                                            htmlFor="studentId"
-                                            className="absolute left-5 top-2 text-xs font-bold text-indigo-300/60 uppercase tracking-widest transition-all peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-placeholder-shown:normal-case peer-placeholder-shown:font-normal peer-focus:top-2 peer-focus:text-xs peer-focus:font-bold peer-focus:uppercase peer-focus:text-sky-400 pointer-events-none"
-                                        >
-                                            Student ID
-                                        </label>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400/50 peer-focus:text-sky-400 transition-colors pointer-events-none">
-                                            <User size={20} />
+                                    {/* Login Identifier Input Group */}
+                                    <div className="space-y-3">
+                                        <div className="grid grid-cols-2 rounded-xl border border-indigo-800/50 bg-indigo-950/30 p-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setLoginMethod('studentId')}
+                                                className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                                                    loginMethod === 'studentId'
+                                                        ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20'
+                                                        : 'text-indigo-200/70 hover:text-white'
+                                                }`}
+                                            >
+                                                Student ID
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLoginMethod('email')}
+                                                className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                                                    loginMethod === 'email'
+                                                        ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20'
+                                                        : 'text-indigo-200/70 hover:text-white'
+                                                }`}
+                                            >
+                                                Email
+                                            </button>
                                         </div>
+
+                                        <div className="relative">
+                                            <input
+                                                required
+                                                id="studentLoginIdentifier"
+                                                type={loginMethod === 'email' ? 'email' : 'text'}
+                                                inputMode={loginMethod === 'email' ? 'email' : 'text'}
+                                                autoCapitalize="none"
+                                                autoCorrect="off"
+                                                autoComplete={loginMethod === 'email' ? 'email' : 'username'}
+                                                className="peer w-full bg-indigo-950/30 border border-indigo-800/50 rounded-xl px-5 py-4 pt-6 text-white text-base outline-none transition-all placeholder-transparent focus:bg-indigo-900/40 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                                                placeholder={loginFieldLabel}
+                                                value={loginId}
+                                                onChange={e => setLoginId(e.target.value)}
+                                            />
+                                            <label
+                                                htmlFor="studentLoginIdentifier"
+                                                className="absolute left-5 top-2 text-xs font-bold text-indigo-300/60 uppercase tracking-widest transition-all peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-placeholder-shown:normal-case peer-placeholder-shown:font-normal peer-focus:top-2 peer-focus:text-xs peer-focus:font-bold peer-focus:uppercase peer-focus:text-sky-400 pointer-events-none"
+                                            >
+                                                {loginFieldLabel}
+                                            </label>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400/50 peer-focus:text-sky-400 transition-colors pointer-events-none">
+                                                {loginMethod === 'email' ? <Mail size={20} /> : <User size={20} />}
+                                            </div>
+                                        </div>
+
+                                        <p className="px-1 text-xs text-indigo-200/55">
+                                            {loginFieldHelpText}
+                                        </p>
                                     </div>
 
                                     {/* Password Input Group */}
@@ -419,6 +589,16 @@ export default function StudentLogin() {
                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400/50 hover:text-sky-400 transition-colors focus:outline-none"
                                         >
                                             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
+
+                                    <div className="flex justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={openForgotPasswordModal}
+                                            className="text-sm font-semibold text-sky-400 transition-colors hover:text-sky-300"
+                                        >
+                                            Forgot password?
                                         </button>
                                     </div>
 
@@ -455,6 +635,173 @@ export default function StudentLogin() {
                     </motion.div>
                 </div>
             </div>
+
+            <AnimatePresence>
+                {showForgotPasswordModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0a0f1c]/80 backdrop-blur-md"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 20, opacity: 0 }}
+                            className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl shadow-indigo-900/50 flex flex-col overflow-hidden relative"
+                        >
+                            <div className="border-b border-slate-100 bg-slate-50/70 p-6">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <h2 className="flex items-center gap-2 text-2xl font-extrabold text-slate-800">
+                                            <span className="rounded-xl bg-indigo-100 p-2 text-indigo-600">
+                                                <Lock size={20} />
+                                            </span>
+                                            Forgot Password
+                                        </h2>
+                                        <p className="mt-2 text-sm text-slate-500">
+                                            Request a one-time password and reset your student portal password here.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={closeForgotPasswordModal}
+                                        className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600"
+                                    >
+                                        <X size={22} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-5 p-6 md:p-8">
+                                <div className="grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setForgotPasswordMethod('studentId');
+                                            setForgotPasswordOtpInfo(null);
+                                            setForgotPasswordOtp('');
+                                        }}
+                                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                                            forgotPasswordMethod === 'studentId'
+                                                ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20'
+                                                : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                    >
+                                        Student ID
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setForgotPasswordMethod('email');
+                                            setForgotPasswordOtpInfo(null);
+                                            setForgotPasswordOtp('');
+                                        }}
+                                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                                            forgotPasswordMethod === 'email'
+                                                ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20'
+                                                : 'text-slate-500 hover:text-slate-800'
+                                        }`}
+                                    >
+                                        Email
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                                        {forgotPasswordFieldLabel}
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={forgotPasswordMethod === 'email' ? 'email' : 'text'}
+                                            inputMode={forgotPasswordMethod === 'email' ? 'email' : 'text'}
+                                            autoCapitalize="none"
+                                            autoCorrect="off"
+                                            value={forgotPasswordIdentifier}
+                                            onChange={(event) => setForgotPasswordIdentifier(event.target.value)}
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-11 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-400/20"
+                                            placeholder={forgotPasswordMethod === 'email' ? 'name@example.com' : 'Enter your student ID'}
+                                        />
+                                        <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                            {forgotPasswordMethod === 'email' ? <Mail size={18} /> : <User size={18} />}
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-slate-500">
+                                        We will send the OTP to the registered email linked to this student account.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleRequestForgotPasswordOtp}
+                                    disabled={isRequestingForgotPasswordOtp || isResettingForgotPassword}
+                                    className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isRequestingForgotPasswordOtp ? 'Sending OTP...' : 'Send OTP'}
+                                </button>
+
+                                {forgotPasswordOtpInfo && (
+                                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+                                        <p className="text-sm leading-relaxed text-slate-600">{forgotPasswordOtpHint}</p>
+                                        <div className="mt-4 space-y-4">
+                                            <div>
+                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">OTP Code</label>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    value={forgotPasswordOtp}
+                                                    onChange={(event) => setForgotPasswordOtp(event.target.value)}
+                                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                                                    placeholder="Enter 6-digit OTP"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">New Password</label>
+                                                <input
+                                                    type="password"
+                                                    value={forgotPasswordNewPassword}
+                                                    onChange={(event) => setForgotPasswordNewPassword(event.target.value)}
+                                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                                                    placeholder="At least 8 characters"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Confirm Password</label>
+                                                <input
+                                                    type="password"
+                                                    value={forgotPasswordConfirmPassword}
+                                                    onChange={(event) => setForgotPasswordConfirmPassword(event.target.value)}
+                                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                                                    placeholder="Re-enter your new password"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-5">
+                                <button
+                                    type="button"
+                                    onClick={closeForgotPasswordModal}
+                                    className="rounded-xl px-5 py-2.5 font-bold text-slate-500 transition-colors hover:bg-slate-200"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmForgotPasswordReset}
+                                    disabled={!forgotPasswordOtpInfo || isRequestingForgotPasswordOtp || isResettingForgotPassword}
+                                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-2.5 font-bold text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isResettingForgotPassword ? 'Resetting...' : 'Reset Password'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* --- MULTI-STEP ACTIVATION MODAL WIZARD --- */}
             <AnimatePresence>
@@ -563,6 +910,7 @@ export default function StudentLogin() {
                                                         type="button"
                                                         onClick={() => {
                                                             setShowActivateModal(false);
+                                                            setLoginMethod('studentId');
                                                             setLoginId(generatedCredentials.username);
                                                             setLoginPassword(generatedCredentials.password);
                                                         }}
