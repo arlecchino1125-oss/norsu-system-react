@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Award, Trash2, XCircle, Download, RefreshCw } from 'lucide-react';
+import { Plus, Award, Trash2, XCircle, Download, RefreshCw, Archive } from 'lucide-react';
+import { usePermissions } from '../../hooks/usePermissions';
 import { supabase } from '../../lib/supabase';
+import { managedArchiveService } from '../../services/managedArchiveService';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { Scholarship } from '../../types/models';
@@ -51,10 +53,18 @@ interface ScholarshipPageProps {
 
 const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     const { showToast } = functions || {};
+    const { canPerformAction } = usePermissions();
+    const canArchiveRecords = canPerformAction('archive_records');
 
     // Data States from Custom Hook
-    const { data: scholarships, loading: loadingScholarships, refetch: fetchScholarships } = useSupabaseData<Scholarship>({
+    const { data: scholarships, refetch: fetchScholarships } = useSupabaseData<Scholarship>({
         table: 'scholarships',
+        eq: { column: 'is_active', value: true },
+        order: { column: 'created_at', ascending: false }
+    });
+    const { data: closedScholarships, refetch: fetchClosedScholarships } = useSupabaseData<Scholarship>({
+        table: 'scholarships',
+        eq: { column: 'is_active', value: false },
         order: { column: 'created_at', ascending: false }
     });
 
@@ -64,6 +74,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     // Modal State
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
     const [showApplicantModal, setShowApplicantModal] = useState(false);
+    const [showClosedModal, setShowClosedModal] = useState(false);
     const [applicantsLoading, setApplicantsLoading] = useState(false);
     const [applicantsError, setApplicantsError] = useState('');
 
@@ -71,6 +82,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     const [scholarshipForm, setScholarshipForm] = useState<Partial<Scholarship>>({ title: '', description: '', requirements: '', deadline: '' });
     const [applicantsList, setApplicantsList] = useState<ScholarshipApplicantRecord[]>([]);
     const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
+    const [detailScholarship, setDetailScholarship] = useState<Scholarship | null>(null);
 
     // Form & Data State
     const handleAddScholarship = async () => {
@@ -81,7 +93,8 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
         setLoading(true);
         try {
             const { error } = await supabase.from('scholarships').insert([{
-                ...scholarshipForm
+                ...scholarshipForm,
+                is_active: true
             }]);
             if (error) throw error;
             if (showToast) showToast("Scholarship added successfully!");
@@ -148,7 +161,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     const handleRefreshData = async () => {
         setIsRefreshingData(true);
         try {
-            await fetchScholarships();
+            await Promise.all([fetchScholarships(), fetchClosedScholarships()]);
             showToast?.('Scholarships refreshed.', 'success');
         } finally {
             setIsRefreshingData(false);
@@ -287,12 +300,11 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     };
 
     const handleDeleteScholarship = async (id: string) => {
-        if (!window.confirm("Are you sure you want to delete this scholarship?")) return;
+        if (!window.confirm("Close this scholarship and remove it from active student listings?")) return;
         try {
-            const { error } = await supabase.from('scholarships').delete().eq('id', id);
-            if (error) throw error;
-            if (showToast) showToast("Scholarship deleted.");
-            fetchScholarships();
+            await managedArchiveService.closeScholarship(id);
+            if (showToast) showToast("Scholarship closed.");
+            await Promise.all([fetchScholarships(), fetchClosedScholarships()]);
         } catch (err: any) {
             if (showToast) showToast(err.message, "error");
         }
@@ -307,6 +319,13 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                     <p className="text-gray-500 text-sm mt-1">Manage active scholarships and view applicants.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowClosedModal(true)}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600"
+                    >
+                        <Archive size={16} />
+                        <span>Closed ({closedScholarships.length})</span>
+                    </button>
                     <button
                         onClick={handleRefreshData}
                         disabled={isRefreshingData}
@@ -323,7 +342,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {scholarships.map(s => (
-                    <div key={s.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                    <div key={s.id} onClick={() => setDetailScholarship(s)} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow cursor-pointer">
                         <div>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
@@ -333,13 +352,14 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                                     Deadline: {s.deadline ? new Date(s.deadline).toLocaleDateString() : 'N/A'}
                                 </div>
                             </div>
-                            <h3 className="font-bold text-lg text-gray-900 mb-2">{s.title}</h3>
-                            <p className="text-sm text-gray-500 line-clamp-3 mb-4">{s.description}</p>
+                            <h3 className="font-bold text-lg text-gray-900 mb-4">{s.title}</h3>
                         </div>
                         <div className="pt-4 border-t border-gray-50 flex gap-2">
-                            <button onClick={() => handleViewApplicants(s)} className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition">View Applicants</button>
-                            <button onClick={() => handleExportApplicantsForScholarship(s)} className="py-2 px-3 bg-green-50 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition">Export</button>
-                            <button onClick={() => s.id && handleDeleteScholarship(s.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={16} /></button>
+                            <button onClick={(event) => { event.stopPropagation(); handleViewApplicants(s); }} className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition">View Applicants</button>
+                            <button onClick={(event) => { event.stopPropagation(); handleExportApplicantsForScholarship(s); }} className="py-2 px-3 bg-green-50 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition">Export</button>
+                            {canArchiveRecords && (
+                                <button onClick={(event) => { event.stopPropagation(); s.id && handleDeleteScholarship(s.id); }} className="p-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition" title="Close Scholarship"><Trash2 size={16} /></button>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -398,6 +418,70 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                                         ))}
                                     </tbody>
                                 </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {detailScholarship && (
+                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setDetailScholarship(null)}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden animate-scale-in" onClick={(event) => event.stopPropagation()}>
+                        <div className="p-6 border-b flex justify-between items-start gap-4 bg-gray-50 rounded-t-2xl">
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-900">{detailScholarship.title}</h3>
+                                <p className="text-xs text-gray-500 mt-1">Deadline: {detailScholarship.deadline ? new Date(detailScholarship.deadline).toLocaleDateString() : 'N/A'}</p>
+                            </div>
+                            <button onClick={() => setDetailScholarship(null)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+                            <section>
+                                <h4 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Description</h4>
+                                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{detailScholarship.description || 'No description provided.'}</p>
+                            </section>
+                            <section>
+                                <h4 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Requirements</h4>
+                                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{detailScholarship.requirements || 'No requirements listed.'}</p>
+                            </section>
+                        </div>
+                        <div className="p-4 border-t bg-white text-right">
+                            <button onClick={() => setDetailScholarship(null)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 transition">Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showClosedModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex flex-col max-h-[85vh] overflow-hidden">
+                        <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                            <div>
+                                <h3 className="font-bold text-lg">Closed Scholarships</h3>
+                                <p className="text-xs text-gray-500">These scholarships are hidden from students but kept for reporting and applicant history.</p>
+                            </div>
+                            <button onClick={() => setShowClosedModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1">
+                            {closedScholarships.length === 0 ? (
+                                <div className="text-center py-12 text-gray-400">No closed scholarships yet.</div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {closedScholarships.map((scholarship) => (
+                                        <div key={`closed-scholarship-${scholarship.id}`} onClick={() => setDetailScholarship(scholarship)} className="rounded-xl border border-slate-200 bg-slate-50 p-5 cursor-pointer hover:border-slate-300 transition">
+                                            <div className="flex justify-between items-start gap-3">
+                                                <div>
+                                                    <h4 className="font-semibold text-gray-900">{scholarship.title}</h4>
+                                                    <p className="text-xs text-gray-500 mt-1">Deadline: {scholarship.deadline ? new Date(scholarship.deadline).toLocaleDateString() : 'N/A'}</p>
+                                                </div>
+                                                <span className="rounded-full bg-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700">Closed</span>
+                                            </div>
+                                            <div className="mt-4 flex gap-2">
+                                                <button onClick={(event) => { event.stopPropagation(); handleViewApplicants(scholarship); }} className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition">View Applicants</button>
+                                                <button onClick={(event) => { event.stopPropagation(); handleExportApplicantsForScholarship(scholarship); }} className="py-2 px-3 bg-green-50 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition">Export</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>

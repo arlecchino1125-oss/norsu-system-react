@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 import { getEventsPage } from '../../services/studentPortalService';
+import { isStudentEligibleForEvent } from '../../utils/eventAudience';
 
 interface UseStudentEventsDataArgs {
     setEventsList: (rows: any[]) => void;
+    personalInfo?: any;
 }
 
 /**
@@ -28,18 +30,36 @@ function isEventExpired(event: any): boolean {
     return false;
 }
 
-export const useStudentEventsData = ({ setEventsList }: UseStudentEventsDataArgs) => {
+export const useStudentEventsData = ({ setEventsList, personalInfo }: UseStudentEventsDataArgs) => {
     const refreshEvents = useCallback(async () => {
         try {
             const result = await getEventsPage({ page: 1, pageSize: 100 }, { column: 'created_at', ascending: false });
             // Filter out expired/archived events — students only see active ones
-            const activeEvents = (result.rows || []).filter((ev: any) => !isEventExpired(ev));
+            const studentAudienceProfile = {
+                department: personalInfo?.department,
+                course: personalInfo?.course,
+                year: personalInfo?.year,
+                year_level: personalInfo?.year_level,
+                section: personalInfo?.section,
+                status: personalInfo?.status
+            };
+            const activeEvents = (result.rows || []).filter((ev: any) => (
+                !isEventExpired(ev) && isStudentEligibleForEvent(ev, studentAudienceProfile)
+            ));
             setEventsList(activeEvents);
         } catch (error) {
             console.error('Failed to load student events.', error);
             setEventsList([]);
         }
-    }, [setEventsList]);
+    }, [
+        personalInfo?.course,
+        personalInfo?.department,
+        personalInfo?.section,
+        personalInfo?.status,
+        personalInfo?.year,
+        personalInfo?.year_level,
+        setEventsList
+    ]);
 
     return { refreshEvents };
 };

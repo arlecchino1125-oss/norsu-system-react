@@ -16,7 +16,9 @@ import { STUDENT_LIST_COLUMNS } from '../services/careStaffService';
 import { fetchDepartmentNameForCourse } from '../utils/courseDepartment';
 import { joinNameParts, splitFullName } from '../utils/nameUtils';
 import { buildStudentAddress, getStudentEmergencyContact, getStudentSex } from '../utils/studentFields';
+import { getAudienceLabel, isStudentEligibleForEvent } from '../utils/eventAudience';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import NorsuBrand from '../components/NorsuBrand';
 import { usePermissions } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
@@ -652,6 +654,7 @@ export default function StudentPortal() {
     // Events State (Merged)
     const [eventFilter, setEventFilter] = useState('All');
     const [attendanceMap, setAttendanceMap] = useState<Record<string, any>>({}); // Stores { eventId: { time_in, time_out } }
+    const [registrationMap, setRegistrationMap] = useState<Record<string, any>>({});
     const [ratedEvents, setRatedEvents] = useState<any[]>([]);
     const [showRatingModal, setShowRatingModal] = useState(false);
     const [ratingForm, setRatingForm] = useState<any>({ eventId: null, title: '', rating: 0, comment: '', q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0, open_best: '', open_suggestions: '', open_comments: '' });
@@ -674,6 +677,8 @@ export default function StudentPortal() {
     const [proofFile, setProofFile] = useState<any>(null);
     const [isTimingIn, setIsTimingIn] = useState(false);
     const [timingOutEventId, setTimingOutEventId] = useState<string | null>(null);
+    const [registeringEventId, setRegisteringEventId] = useState<string | null>(null);
+    const [cancellingRegistrationEventId, setCancellingRegistrationEventId] = useState<string | null>(null);
     const [isSubmittingEventRating, setIsSubmittingEventRating] = useState(false);
     const [isApplyingScholarshipId, setIsApplyingScholarshipId] = useState<string | null>(null);
     const [isSubmittingOfficeTimeIn, setIsSubmittingOfficeTimeIn] = useState(false);
@@ -1188,7 +1193,7 @@ export default function StudentPortal() {
         return true;
     }, [requireStudentViewVisibility]);
 
-    const { refreshEvents } = useStudentEventsData({ setEventsList });
+    const { refreshEvents } = useStudentEventsData({ setEventsList, personalInfo });
     const { refreshForms } = useStudentFormsData({
         studentId: personalInfo.studentId,
         setFormsList,
@@ -1248,6 +1253,7 @@ export default function StudentPortal() {
         const { data } = await supabaseClient
             .from('scholarships')
             .select('id, title, description, requirements, deadline')
+            .eq('is_active', true)
             .order('deadline', { ascending: true });
         setScholarshipsList(data || []);
     }, []);
@@ -2126,12 +2132,43 @@ export default function StudentPortal() {
 
     const formatFullDate = (date: any) => date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const formatTime = (date: any) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const isRegistrationEvent = (event: any) => event?.participation_mode === 'registration_required';
+    const isRegistrationDeadlinePassed = (event: any) => {
+        if (!event?.registration_deadline) return false;
+        const deadline = new Date(event.registration_deadline);
+        return !Number.isNaN(deadline.getTime()) && Date.now() > deadline.getTime();
+    };
+    const getStudentDisplayName = () => `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim() || 'Student';
+    const formatEventEmailDate = (value: any) => {
+        if (!value) return 'To be announced';
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime())
+            ? String(value)
+            : date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    };
+    const formatEventEmailTime = (event: any) => {
+        const startTime = String(event?.event_time || '').trim();
+        const endTime = String(event?.end_time || '').trim();
+        if (startTime && endTime) return `${startTime} - ${endTime}`;
+        return startTime || 'To be announced';
+    };
 
     // Fetch Attendance and Rating History
     const fetchHistory = useCallback(async () => {
         if (!personalInfo.studentId) return;
 
-        const attendanceData = await getAttendanceHistory(personalInfo.studentId);
+        const [
+            attendanceData,
+            ratingData,
+            registrationResult
+        ] = await Promise.all([
+            getAttendanceHistory(personalInfo.studentId),
+            getRatedEventIds(personalInfo.studentId),
+            supabaseClient
+                .from('event_registrations')
+                .select('id, event_id, student_id, student_name, email, department, course, year_level, section, status, registered_at, cancelled_at, updated_at')
+                .eq('student_id', personalInfo.studentId)
+        ]);
 
         if (attendanceData) {
             const map: Record<string, any> = {};
@@ -2139,7 +2176,18 @@ export default function StudentPortal() {
             setAttendanceMap(map);
         }
 
-        const ratingData = await getRatedEventIds(personalInfo.studentId);
+        if (registrationResult.error) {
+            if (registrationResult.error.code !== '42P01') {
+                throw registrationResult.error;
+            }
+            setRegistrationMap({});
+        } else {
+            const map: Record<string, any> = {};
+            (registrationResult.data || []).forEach((registration: any) => {
+                map[String(registration.event_id)] = registration;
+            });
+            setRegistrationMap(map);
+        }
 
         setRatedEvents(ratingData || []);
     }, [personalInfo.studentId]);
@@ -2253,8 +2301,155 @@ export default function StudentPortal() {
         )));
     };
 
+    const handleRegisterEvent = async (event: any) => {
+        const eventId = String(event?.id || '').trim();
+        if (!eventId || registeringEventId === eventId) return;
+        if (!personalInfo.studentId) {
+            showToast('Your student profile is still loading.', 'error');
+            return;
+        }
+        if (!isRegistrationEvent(event)) {
+            showToast('This event does not require registration.', 'error');
+            return;
+        }
+        if (!isStudentEligibleForEvent(event, personalInfo)) {
+            showToast('This event is not available for your student group.', 'error');
+            return;
+        }
+        if (isRegistrationDeadlinePassed(event)) {
+            showToast('The registration deadline for this event has passed.', 'error');
+            return;
+        }
+
+        setRegisteringEventId(eventId);
+        try {
+            const { data, error } = await supabaseClient.rpc('register_student_for_event', {
+                p_event_id: Number(event.id)
+            });
+            if (error) throw error;
+
+            const registration = Array.isArray(data) ? data[0] : data;
+            if (registration) {
+                setRegistrationMap((prev: any) => ({
+                    ...prev,
+                    [String(registration.event_id)]: registration
+                }));
+            }
+
+            const shouldSendConfirmationEmail = Boolean(personalInfo.email);
+            if (shouldSendConfirmationEmail) {
+                void sendTransactionalEmailNotification({
+                    type: 'EVENT_REGISTRATION_CONFIRMATION',
+                    email: personalInfo.email,
+                    name: getStudentDisplayName(),
+                    eventTitle: event.title,
+                    eventType: event.type,
+                    eventDate: formatEventEmailDate(event.event_date),
+                    eventTime: formatEventEmailTime(event),
+                    location: event.location || 'To be announced',
+                    audience: getAudienceLabel(event)
+                }, 'Failed to send event registration email.').then((emailResult) => {
+                    if (!emailResult.emailSent && emailResult.emailError) {
+                        console.warn('Event registration email failed:', emailResult.emailError);
+                    }
+                });
+            }
+
+            showToast(shouldSendConfirmationEmail
+                ? 'Registration successful. Event details were sent to your email.'
+                : 'Registration successful.');
+            await Promise.all([
+                fetchHistoryCached({ force: true }),
+                refreshEventsCached({ force: true })
+            ]);
+        } catch (err: any) {
+            showToast(err?.message || 'Failed to register for this event.', 'error');
+        } finally {
+            setRegisteringEventId(null);
+        }
+    };
+
+    const handleCancelRegistration = async (event: any) => {
+        const eventId = String(event?.id || '').trim();
+        if (!eventId || cancellingRegistrationEventId === eventId) return;
+
+        setCancellingRegistrationEventId(eventId);
+        try {
+            const { data, error } = await supabaseClient.rpc('cancel_student_event_registration', {
+                p_event_id: Number(event.id)
+            });
+            if (error) throw error;
+
+            const registration = Array.isArray(data) ? data[0] : data;
+            if (registration) {
+                setRegistrationMap((prev: any) => ({
+                    ...prev,
+                    [String(registration.event_id)]: registration
+                }));
+            }
+
+            showToast('Registration cancelled.');
+            await Promise.all([
+                fetchHistoryCached({ force: true }),
+                refreshEventsCached({ force: true })
+            ]);
+        } catch (err: any) {
+            showToast(err?.message || 'Failed to cancel registration.', 'error');
+        } finally {
+            setCancellingRegistrationEventId(null);
+        }
+    };
+
+    const upsertEventRegistrationAttendanceStatus = async (event: any) => {
+        if (!isRegistrationEvent(event) || !personalInfo.studentId) return;
+
+        const now = new Date().toISOString();
+        const payload = {
+            event_id: event.id,
+            student_id: personalInfo.studentId,
+            student_name: getStudentDisplayName(),
+            email: personalInfo.email || null,
+            department: personalInfo.department || null,
+            course: personalInfo.course || null,
+            year_level: personalInfo.year || personalInfo.year_level || null,
+            section: personalInfo.section || null,
+            status: 'Attended',
+            registered_at: registrationMap[String(event.id)]?.registered_at || now,
+            cancelled_at: null
+        };
+
+        const { data, error } = await supabaseClient
+            .from('event_registrations')
+            .upsert(payload, { onConflict: 'event_id,student_id' })
+            .select('id, event_id, student_id, student_name, email, department, course, year_level, section, status, registered_at, cancelled_at, updated_at')
+            .maybeSingle();
+
+        if (error && error.code !== '42P01') {
+            throw error;
+        }
+
+        if (data) {
+            setRegistrationMap((prev: any) => ({
+                ...prev,
+                [String(data.event_id)]: data
+            }));
+        }
+    };
+
     const handleTimeIn = async (event: any) => {
         if (isTimingIn) return;
+        if (!isStudentEligibleForEvent(event, personalInfo)) {
+            showToast("This event is not available for your student group.", 'error');
+            return;
+        }
+        if (isRegistrationEvent(event) && !event.allow_walk_ins) {
+            const registration = registrationMap[String(event.id)];
+            const registrationStatus = String(registration?.status || '');
+            if (!['Registered', 'Attended'].includes(registrationStatus)) {
+                showToast("Please register for this event before timing in.", 'error');
+                return;
+            }
+        }
         if (!proofFile) { showToast("Please upload a proof photo to Time In.", 'error'); return; }
 
         if (!navigator.geolocation) { showToast("Geolocation is not supported by your browser.", 'error'); return; }
@@ -2327,6 +2522,12 @@ export default function StudentPortal() {
                 if (error) throw error;
 
                 try {
+                    await upsertEventRegistrationAttendanceStatus(event);
+                } catch (registrationStatusError) {
+                    console.warn('Failed to update event registration attendance status.', registrationStatusError);
+                }
+
+                try {
                     await syncEventAttendeeCount(event.id);
                 } catch (countSyncError) {
                     console.warn('Failed to sync event attendee count after time in.', countSyncError);
@@ -2366,6 +2567,10 @@ export default function StudentPortal() {
     const handleTimeOut = async (event: any) => {
         const eventId = String(event?.id || '').trim();
         if (eventId && timingOutEventId === eventId) return;
+        if (!isStudentEligibleForEvent(event, personalInfo)) {
+            showToast("This event is not available for your student group.", 'error');
+            return;
+        }
         if (!navigator.geolocation) { showToast("Geolocation is not supported.", 'error'); return; }
         if (eventId) {
             setTimingOutEventId(eventId);
@@ -3418,13 +3623,18 @@ export default function StudentPortal() {
                                         eventFilter={eventFilter}
                                         setEventFilter={setEventFilter}
                                         attendanceMap={attendanceMap}
+                                        registrationMap={registrationMap}
                                         fetchHistory={fetchHistory}
+                                        handleRegisterEvent={handleRegisterEvent}
+                                        handleCancelRegistration={handleCancelRegistration}
                                         handleTimeIn={handleTimeIn}
                                         handleTimeOut={handleTimeOut}
                                         handleRateEvent={handleRateEvent}
                                         ratedEvents={ratedEvents}
                                         isTimingIn={isTimingIn}
                                         timingOutEventId={timingOutEventId}
+                                        registeringEventId={registeringEventId}
+                                        cancellingRegistrationEventId={cancellingRegistrationEventId}
                                         isSubmittingEventRating={isSubmittingEventRating}
                                         setProofFile={setProofFile}
                                         selectedEvent={selectedEvent}

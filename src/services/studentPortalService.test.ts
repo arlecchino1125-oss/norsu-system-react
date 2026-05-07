@@ -10,6 +10,7 @@ const {
 } = vi.hoisted(() => ({
     eventsQueryMock: {
         select: vi.fn(),
+        eq: vi.fn(),
         order: vi.fn(),
         range: vi.fn()
     } as any,
@@ -54,6 +55,7 @@ import {
 
 const resetMocks = () => {
     eventsQueryMock.select.mockReturnValue(eventsQueryMock);
+    eventsQueryMock.eq.mockReturnValue(eventsQueryMock);
     eventsQueryMock.order.mockReturnValue(eventsQueryMock);
     eventsQueryMock.range.mockResolvedValue({ data: [], error: null, count: 0 });
 
@@ -94,9 +96,10 @@ describe('studentPortalService', () => {
         await getEventsPage({ page: 1, pageSize: 25 });
 
         expect(eventsQueryMock.select).toHaveBeenCalledWith(
-            'id, created_at, title, description, type, location, event_date, event_time, end_time, attendees, latitude, longitude',
+            'id, created_at, title, description, type, location, event_date, event_time, end_time, attendees, latitude, longitude, participation_mode, audience_type, audience_departments, audience_courses, audience_year_levels, audience_sections, attendance_required, allow_walk_ins, capacity, registration_deadline',
             { count: 'planned' }
         );
+        expect(eventsQueryMock.eq).toHaveBeenCalledWith('is_archived', false);
     });
 
     it('queries counseling requests with the student-facing schema fields', async () => {

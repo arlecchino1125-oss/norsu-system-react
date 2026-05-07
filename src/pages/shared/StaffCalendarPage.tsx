@@ -123,6 +123,7 @@ const StaffCalendarPage = ({
             const eventsQuery = supabase
                 .from('events')
                 .select('id, title, type, location, event_date, event_time, created_at')
+                .eq('is_archived', false)
                 .not('event_date', 'is', null)
                 .order('event_date', { ascending: true });
 

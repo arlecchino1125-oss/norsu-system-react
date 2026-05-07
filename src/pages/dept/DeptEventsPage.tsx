@@ -1,3 +1,5 @@
+import { isAttendanceActivityType } from '../../utils/eventAudience';
+
 const DeptEventsPage = ({
     data,
     eventsList,
@@ -13,12 +15,12 @@ const DeptEventsPage = ({
                 {eventsList.map(event => (
                     <div key={event.id} className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm hover:shadow-md transition card-hover">
                         <div className="flex justify-between items-start mb-4">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${event.type === 'Event' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{event.type}</span>
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isAttendanceActivityType(event.type) ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{event.type}</span>
                             <span className="text-xs text-gray-500">{event.event_date}</span>
                         </div>
                         <h3 className="font-bold text-gray-900 mb-2 dark:text-white">{event.title}</h3>
                         <p className="text-sm text-gray-500 mb-4 line-clamp-2 dark:text-gray-400">{event.description}</p>
-                        {event.type === 'Event' && (
+                        {isAttendanceActivityType(event.type) && (
                             <button onClick={() => handleViewDeptAttendees(event)} className="w-full py-2 bg-green-50 text-green-700 font-bold text-xs rounded-lg hover:bg-green-100 transition">
                                 View {data.profile.department.split(' ')[0]} Attendees
                             </button>

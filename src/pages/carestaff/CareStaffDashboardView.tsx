@@ -13,6 +13,7 @@ import {
     SUPPORT_STATUS,
     isCounselingAwaitingDept
 } from '../../utils/workflow';
+import { isAttendanceActivityType } from '../../utils/eventAudience';
 
 interface CareStaffDashboardViewProps {
     setActiveTab: (tab: string) => void;
@@ -104,10 +105,10 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { count: supportForCareCount },
                     { count: profileUpdateCount }
                 ] = await Promise.all([
-                    supabase.from('students').select('*', { count: 'exact', head: true }),
+                    supabase.from('students').select('*', { count: 'exact', head: true }).eq('is_archived', false),
                     supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
                     supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
-                    supabase.from('events').select('*', { count: 'exact', head: true }),
+                    supabase.from('events').select('*', { count: 'exact', head: true }).eq('is_archived', false),
                     supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
                     supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
                     supabase.from('notifications').select('*', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%')
@@ -135,7 +136,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { data: recentProfileUpdates },
                     { data: recentProfileNotifications }
                 ] = await Promise.all([
-                    supabase.from('events').select('id, title, type, created_at').order('created_at', { ascending: false }).limit(10),
+                    supabase.from('events').select('id, title, type, created_at').eq('is_archived', false).order('created_at', { ascending: false }).limit(10),
                     supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', [...CARE_STAFF_COUNSELING_ACTIVITY_STATUSES]).order('created_at', { ascending: false }).limit(10),
                     supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
                     supabase.from('scholarship_applications').select('id, student_id, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
@@ -164,10 +165,10 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                 const combinedActivities = [
                     ...(recentEvents || []).map((e: any) => ({
                         id: `evt-${e.id}`,
-                        type: e.type === 'Announcement' ? 'Announcement' : 'Event',
+                        type: e.type === 'Announcement' ? 'Announcement' : e.type,
                         icon: e.type === 'Announcement' ? <Bell size={16} /> : <Calendar size={16} />,
                         color: e.type === 'Announcement' ? 'from-purple-400 to-indigo-500' : 'from-blue-400 to-indigo-500',
-                        title: e.type === 'Announcement' ? 'Announcement posted' : 'Event scheduled',
+                        title: e.type === 'Announcement' ? 'Announcement posted' : `${e.type || 'Event'} scheduled`,
                         detail: e.title,
                         date: new Date(e.created_at)
                     })),
@@ -323,7 +324,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                         <p className="text-xs text-gray-500">{act.detail}</p>
                                     </div>
                                     <div className="text-right flex-shrink-0">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${act.type === 'Event' ? 'bg-blue-50 text-blue-600' :
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isAttendanceActivityType(act.type) ? 'bg-blue-50 text-blue-600' :
                                             act.type === 'Announcement' ? 'bg-purple-50 text-purple-600' :
                                                 act.type === 'Counseling' ? 'bg-teal-50 text-teal-600' :
                                                     act.type === 'Support' ? 'bg-amber-50 text-amber-600' :

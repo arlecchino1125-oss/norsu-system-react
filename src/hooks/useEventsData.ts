@@ -32,6 +32,10 @@ function isEventExpired(event: SystemEvent): boolean {
     return false;
 }
 
+function isEventArchived(event: SystemEvent): boolean {
+    return Boolean(event?.is_archived) || isEventExpired(event);
+}
+
 export function useEventsData() {
     const [allEvents, setAllEvents] = useState<SystemEvent[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -57,14 +61,17 @@ export function useEventsData() {
                 // Fetch aggregate data in parallel
                 const [
                     { data: attData, error: attErr },
-                    { data: fbData, error: fbErr }
+                    { data: fbData, error: fbErr },
+                    { data: regData, error: regErr }
                 ] = await Promise.all([
                     supabase.from('event_attendance').select('event_id').in('event_id', eventIds),
-                    supabase.from('event_feedback').select('event_id, rating').in('event_id', eventIds)
+                    supabase.from('event_feedback').select('event_id, rating').in('event_id', eventIds),
+                    supabase.from('event_registrations').select('event_id, status').in('event_id', eventIds)
                 ]);
 
                 if (attErr) throw attErr;
                 if (fbErr) throw fbErr;
+                if (regErr && regErr.code !== '42P01') throw regErr;
 
                 const attendanceCounts = new Map<string, number>();
                 (attData || []).forEach((attendance: any) => {
@@ -82,9 +89,37 @@ export function useEventsData() {
                     });
                 });
 
+                const registrationAggregates = new Map<string, {
+                    registered: number;
+                    cancelled: number;
+                    attended: number;
+                    absent: number;
+                }>();
+                (regData || []).forEach((registration: any) => {
+                    const eventId = String(registration.event_id);
+                    const current = registrationAggregates.get(eventId) || {
+                        registered: 0,
+                        cancelled: 0,
+                        attended: 0,
+                        absent: 0
+                    };
+                    const status = String(registration.status || 'Registered');
+                    if (status === 'Cancelled') current.cancelled += 1;
+                    else if (status === 'Attended') current.attended += 1;
+                    else if (status === 'Absent') current.absent += 1;
+                    else current.registered += 1;
+                    registrationAggregates.set(eventId, current);
+                });
+
                 const enrichedEvents = eventsData.map(ev => {
                     const attendanceCount = attendanceCounts.get(String(ev.id)) || 0;
                     const feedbackAggregate = feedbackAggregates.get(String(ev.id));
+                    const registrationAggregate = registrationAggregates.get(String(ev.id)) || {
+                        registered: 0,
+                        cancelled: 0,
+                        attended: 0,
+                        absent: 0
+                    };
                     const feedbackCount = feedbackAggregate?.count || 0;
                     const avgRating = feedbackCount > 0
                         ? (feedbackAggregate!.total / feedbackCount).toFixed(1)
@@ -94,7 +129,11 @@ export function useEventsData() {
                         ...ev,
                         attendees: attendanceCount,
                         avgRating,
-                        feedbackCount
+                        feedbackCount,
+                        registeredCount: registrationAggregate.registered + registrationAggregate.attended + registrationAggregate.absent,
+                        cancelledRegistrationCount: registrationAggregate.cancelled,
+                        attendedRegistrationCount: registrationAggregate.attended,
+                        absentRegistrationCount: registrationAggregate.absent
                     };
                 });
 
@@ -115,8 +154,8 @@ export function useEventsData() {
     }, []);
 
     // Split into active (upcoming/ongoing) and archived (expired)
-    const events = useMemo(() => allEvents.filter(ev => !isEventExpired(ev)), [allEvents]);
-    const archivedEvents = useMemo(() => allEvents.filter(ev => isEventExpired(ev)), [allEvents]);
+    const events = useMemo(() => allEvents.filter(ev => !isEventArchived(ev)), [allEvents]);
+    const archivedEvents = useMemo(() => allEvents.filter(ev => isEventArchived(ev)), [allEvents]);
 
     return { events, archivedEvents, allEvents, loading, error, refetchEvents: fetchEvents };
 }

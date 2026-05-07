@@ -24,7 +24,6 @@ const NAT_APPLICATION_DRAFT_STORAGE_KEY = 'norsu-nat-application-draft-v1';
 const INITIAL_NAT_FORM_DATA = {
     agreedToPrivacy: false,
     firstName: '', lastName: '', middleName: '', suffix: '',
-    studentId: '',
     dob: '', age: '', placeOfBirth: '',
     nationality: 'Filipino',
     sex: '',
@@ -985,7 +984,6 @@ const NATPortal = () => {
                 last_name: formData.lastName,
                 middle_name: formData.middleName,
                 suffix: formData.suffix,
-                student_id: formData.studentId ? formData.studentId.trim() : null,
                 place_of_birth: formData.placeOfBirth,
                 age: formData.age,
                 sex: formData.sex,
@@ -1931,30 +1929,20 @@ const NATPortal = () => {
                                 </div>
 
                                 {/* Activation Status */}
-                                {currentUser.student_id ? (
-                                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 md:p-5 mb-5 md:mb-6 flex items-center gap-3 md:gap-4 shadow-sm">
-                                        <div className="bg-white p-2.5 md:p-3 rounded-full text-green-600 shadow-sm"><Check className="w-5 h-5 md:w-6 md:h-6" /></div>
-                                        <div>
-                                            <p className="text-xs md:text-sm font-bold text-green-900">Student Account Active</p>
-                                            <p className="text-[10px] md:text-xs text-green-700 font-medium">Student ID: <span className="font-mono text-base md:text-lg ml-1">{currentUser.student_id}</span></p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mb-5 md:mb-6">
-                                        <button
-                                            onClick={() => setShowActivationModal(true)}
-                                            disabled={currentUser?.status !== 'Approved for Enrollment'}
-                                            className={`w-full py-3 md:py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm md:text-base ${currentUser?.status === 'Approved for Enrollment' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-blue-500/30 hover:-translate-y-1' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                                        >
-                                            <GraduationCap className="w-4 h-4 md:w-5 md:h-5" /> Activate Student Account
-                                        </button>
-                                        {currentUser?.status !== 'Approved for Enrollment' && (
-                                            <p className="text-center text-[10px] md:text-xs text-gray-500 mt-2 font-medium flex justify-center items-center gap-1 px-2">
-                                                <Info className="w-3 h-3 shrink-0" /> Activation unlocks after your department interview is completed and approved.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
+                                <div className="mb-5 md:mb-6">
+                                    <button
+                                        onClick={() => setShowActivationModal(true)}
+                                        disabled={currentUser?.status !== 'Approved for Enrollment'}
+                                        className={`w-full py-3 md:py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm md:text-base ${currentUser?.status === 'Approved for Enrollment' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-blue-500/30 hover:-translate-y-1' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                    >
+                                        <GraduationCap className="w-4 h-4 md:w-5 md:h-5" /> Activate Student Account
+                                    </button>
+                                    {currentUser?.status !== 'Approved for Enrollment' && (
+                                        <p className="text-center text-[10px] md:text-xs text-gray-500 mt-2 font-medium flex justify-center items-center gap-1 px-2">
+                                            <Info className="w-3 h-3 shrink-0" /> Activation unlocks after your department interview is completed and approved.
+                                        </p>
+                                    )}
+                                </div>
 
                                 {/* Attendance Widget */}
                                 {hasStartedCurrentNat && (

@@ -20,10 +20,10 @@ interface HomePageProps {
 
 const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
     const tools = [
-        { title: 'Student Analytics', desc: 'Deep dive into student population trends and wellness metrics.', icon: <Search />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-200/50' },
-        { title: 'Form Management', desc: 'Build and analyze Needs Assessment forms with real-time feedback.', icon: <ClipboardCheck />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-200/50' },
-        { title: 'Event Broadcasting', desc: 'Schedule campus events and monitor live attendance check-ins.', icon: <CalendarCheck />, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-200/50' },
-        { title: 'Scholarship Tracking', desc: 'Manage grant applications and review student eligibility.', icon: <Award />, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-200/50' },
+        { title: 'Student Analytics', icon: <Search />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-200/50' },
+        { title: 'Form Management', icon: <ClipboardCheck />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-200/50' },
+        { title: 'Event Broadcasting', icon: <CalendarCheck />, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-200/50' },
+        { title: 'Scholarship Tracking', icon: <Award />, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-200/50' },
     ];
 
     return (
@@ -40,8 +40,7 @@ const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
                         <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${tool.color} text-white flex items-center justify-center mb-3 shadow-lg ${tool.shadow} group-hover:scale-105 transition-transform`}>
                             {tool.icon}
                         </div>
-                        <h3 className="font-bold text-gray-900 mb-1 group-hover:text-purple-700 transition-colors">{tool.title}</h3>
-                        <p className="text-xs text-gray-500 leading-relaxed">{tool.desc}</p>
+                        <h3 className="font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{tool.title}</h3>
                     </button>
                 ))}
             </div>

@@ -274,6 +274,7 @@ const StaffExportCenterPage = ({
         const { data, error } = await supabase
             .from('events')
             .select('title, type, location, event_date, event_time, created_at')
+            .eq('is_archived', false)
             .order('event_date', { ascending: true });
 
         if (error) throw error;

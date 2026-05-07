@@ -97,11 +97,16 @@ export const STUDENT_LIST_COLUMNS = [
     'course_year_window_start',
     'course_year_window_end',
     'course_year_confirmed_at',
-    'course_year_archive'
+    'course_year_archive',
+    'is_archived',
+    'archived_at',
+    'archived_reason',
+    'archived_by',
+    'archive_note'
 ].join(', ');
 
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {
-    let next = query;
+    let next = query.eq('is_archived', false);
     if (!filters) return next;
 
     const trimmedSearch = String(filters.search || '').trim();
@@ -171,6 +176,7 @@ export const getAllStudentsForExport = async () => {
     const { data, error } = await supabase
         .from('students')
         .select(STUDENT_LIST_COLUMNS)
+        .eq('is_archived', false)
         .order('last_name', { ascending: true });
     if (error) throw error;
     return data || [];

@@ -155,7 +155,6 @@ const DeptCounselingQueuePage = ({
                                     <div>
                                         <h4 className="font-bold text-gray-900">{req.student_name}</h4>
                                         {req.course_year && <p className="text-xs text-gray-500">{req.course_year}</p>}
-                                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{req.reason_for_referral || req.description || 'No reason provided'}</p>
                                         <p className="text-[10px] text-gray-400 mt-2">{new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
                                 </div>

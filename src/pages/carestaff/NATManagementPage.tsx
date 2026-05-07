@@ -2,16 +2,19 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { ArrowRightLeft, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, FileText, Pencil, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { loadJsPdfAutoTable, loadXlsx } from '../../lib/exportVendors';
+import { usePermissions } from '../../hooks/usePermissions';
+import { managedArchiveService } from '../../services/managedArchiveService';
 import { savePdf } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, formatTime, generateExportFilename } from '../../utils/formatters';
 import StatusBadge from '../../components/StatusBadge';
-import { getAdmissionSchedules, getApplicationsPage, getCoursesForNat, getNatAttendanceSupport, isMissingNatAttendanceColumnsError } from '../../services/natService';
+import { getAdmissionSchedules, getApplicationsPage, getCompletedApplicationsPage, getCoursesForNat, getNatAttendanceSupport, getNatSummaryApplications } from '../../services/natService';
 import { getApplicationDetailsById } from '../../services/applicationDetailsService';
 import { sendTransactionalEmailNotification } from '../../lib/transactionalEmail';
 
 const PASS_STATUS = 'Qualified for Interview (1st Choice)';
 const FAIL_STATUS = 'Failed';
 const APPROVED_STATUS = 'Approved for Enrollment';
+const ENROLLED_STATUS = 'Enrolled';
 const INTERVIEW_STATUS = 'Interview Scheduled';
 const UNSUCCESSFUL_STATUS = 'Application Unsuccessful';
 const BULK_PASS_TEMPLATE_HEADERS = ['reference_id', 'applicant_name'];
@@ -145,6 +148,7 @@ const PaginationControls = ({
 const isNatFinalizedStatus = (status: unknown) => {
     const value = String(status || '');
     return value === 'Passed'
+        || value === ENROLLED_STATUS
         || value === FAIL_STATUS
         || value === PASS_STATUS
         || value === APPROVED_STATUS
@@ -160,6 +164,7 @@ const hasTakenNatStatus = (status: unknown) => {
 
 const isNatForwardedStatus = (status: unknown) => String(status || '').includes('Forwarded to');
 const isNatRejectedStatus = (status: unknown) => String(status || '') === FAIL_STATUS || String(status || '').includes(UNSUCCESSFUL_STATUS);
+const isNatEnrolledStatus = (status: unknown) => String(status || '') === ENROLLED_STATUS;
 
 const normalizeReferenceId = (value: unknown) => String(value || '').trim();
 
@@ -207,6 +212,8 @@ const createEmptyScheduleForm = () => ({
 
 // PAGE 5: NAT Management
 const NATManagementPage = ({ showToast }: any) => {
+    const { canPerformAction } = usePermissions();
+    const canArchiveRecords = canPerformAction('archive_records');
     const [activeTab, setActiveTab] = useState('applications');
     const [applications, setApplications] = useState<any[]>([]);
     const [completedApplications, setCompletedApplications] = useState<any[]>([]);
@@ -215,6 +222,7 @@ const NATManagementPage = ({ showToast }: any) => {
     const [schedules, setSchedules] = useState<any[]>([]);
     const [courseLimits, setCourseLimits] = useState<any[]>([]);
     const [natRequirements, setNatRequirements] = useState<any[]>([]);
+    const [inactiveNatRequirements, setInactiveNatRequirements] = useState<any[]>([]);
     const [supportsAttendance, setSupportsAttendance] = useState(true);
     const [loading, setLoading] = useState(true);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
@@ -266,54 +274,10 @@ const NATManagementPage = ({ showToast }: any) => {
         return (hour * 60) + minute;
     };
 
-    const getSummaryRows = async (attendanceEnabled: boolean) => {
-        const summaryBaseSelect = [
-            'id',
-            'created_at',
-            'reference_id',
-            'status',
-            'first_name',
-            'middle_name',
-            'last_name',
-            'suffix',
-            'student_id',
-            'priority_course',
-            'alt_course_1',
-            'alt_course_2',
-            'current_choice',
-            'test_date',
-            'test_time',
-            'interview_date'
-        ].join(', ');
-        const attendanceSelect = `${summaryBaseSelect}, time_in, time_out`;
-        const fallbackSelect = summaryBaseSelect;
-        const result = await supabase
-            .from('applications')
-            .select(attendanceEnabled ? attendanceSelect : fallbackSelect);
-
-        if (result.error && isMissingNatAttendanceColumnsError(result.error)) {
-            const fallback = await supabase
-                .from('applications')
-                .select(fallbackSelect);
-
-            return {
-                data: fallback.data || [],
-                error: fallback.error,
-                supportsAttendance: false
-            };
-        }
-
-        return {
-            data: result.data || [],
-            error: result.error,
-            supportsAttendance: attendanceEnabled
-        };
-    };
-
     const fetchData = async () => {
         setLoading(true);
         try {
-            const attendanceEnabled = await getNatAttendanceSupport();
+            await getNatAttendanceSupport();
             const [
                 applicationsResult,
                 completedResult,
@@ -327,7 +291,7 @@ const NATManagementPage = ({ showToast }: any) => {
                     { mode: 'applications', search: searchTerm },
                     { page: applicationsPage, pageSize: NAT_PAGE_SIZE }
                 ),
-                getApplicationsPage(
+                getCompletedApplicationsPage(
                     { mode: 'completed', status: completedFilter },
                     { page: completedPage, pageSize: NAT_PAGE_SIZE }
                 ),
@@ -337,16 +301,13 @@ const NATManagementPage = ({ showToast }: any) => {
                 ),
                 getAdmissionSchedules(),
                 getCoursesForNat(),
-                getSummaryRows(attendanceEnabled),
+                getNatSummaryApplications(),
                 supabase
                     .from('nat_requirements')
-                    .select('id, name, created_at')
+                    .select('id, name, created_at, is_active')
                     .order('created_at', { ascending: true })
             ]);
 
-            if (summaryRows.error) {
-                throw summaryRows.error;
-            }
             if (natRequirementsResult.error) {
                 throw natRequirementsResult.error;
             }
@@ -359,9 +320,10 @@ const NATManagementPage = ({ showToast }: any) => {
             setTestTakersTotal(testTakersResult.total);
             setSchedules(scheds || []);
             setCourseLimits(courses || []);
-            setNatRequirements(natRequirementsResult.data || []);
+            setNatRequirements((natRequirementsResult.data || []).filter((row: any) => row.is_active !== false));
+            setInactiveNatRequirements((natRequirementsResult.data || []).filter((row: any) => row.is_active === false));
             setSupportsAttendance(summaryRows.supportsAttendance);
-            setSummaryApplications(summaryRows.data || []);
+            setSummaryApplications(summaryRows.rows || []);
         } catch (error: any) {
             showToast(error.message || 'Failed to load NAT data', 'error');
         } finally {
@@ -453,12 +415,16 @@ const NATManagementPage = ({ showToast }: any) => {
         }
     };
 
-    const deleteApplication = async (id) => {
-        if (!window.confirm('Delete this application?')) return;
-        await supabase.from('applications').delete().eq('id', id);
-        showToast('Application deleted.');
-        fetchData();
-        setShowModal(false);
+    const archiveApplication = async (id) => {
+        if (!window.confirm('Archive this application and move it out of the live NAT list?')) return;
+        try {
+            await managedArchiveService.archiveNatApplication(String(id || '').trim());
+            showToast('Application archived.', 'success');
+            await fetchData();
+            setShowModal(false);
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to archive application.', 'error');
+        }
     };
 
     const closeScheduleModal = () => {
@@ -610,65 +576,45 @@ const NATManagementPage = ({ showToast }: any) => {
     }, [testTakersTotal]);
 
     const toggleSchedule = async (sch) => {
-        await supabase.from('admission_schedules').update({ is_active: !sch.is_active }).eq('id', sch.id);
-        fetchData();
+        try {
+            await managedArchiveService.setNatScheduleActive(Number(sch.id), !sch.is_active);
+            showToast(`Schedule ${sch.is_active ? 'closed' : 'reopened'}.`, 'success');
+            await fetchData();
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to update schedule.', 'error');
+        }
     };
 
     const handleUpdateLimit = async (id, field, value) => {
         try {
-            await supabase.from('courses').update({ [field]: value }).eq('id', id);
-            showToast("Limit updated!");
-            fetchData();
+            if (field === 'status') {
+                const nextStatus = value === 'Closed' ? 'Closed' : 'Open';
+                await managedArchiveService.setNatCourseStatus(Number(id), nextStatus);
+                showToast(`Course ${nextStatus === 'Closed' ? 'closed' : 'reopened'}.`, 'success');
+            } else {
+                await supabase.from('courses').update({ [field]: value }).eq('id', id);
+                showToast("Limit updated!");
+            }
+            await fetchData();
         } catch (err) { showToast(err.message, 'error'); }
     };
 
     const handleDeleteCourse = async (courseName: string, id: number) => {
-        const confirmDelete = window.confirm(
-            `WARNING: You are about to completely delete the course "${courseName}".\n\n` +
-            `NOTE: This deletion process is primarily intended for removing a course if it is being permanently removed from the curriculum or school.\n\n` +
-            `This will permanently delete ALL NAT Applications and Enrolled Students connected to this course. ` +
-            `Current students taking this course will have their course set to "None".\n\n` +
-            `Are you absolutely sure you want to proceed?`
+        const confirmClose = window.confirm(
+            `Close the course "${courseName}" for new NAT activity?\n\n` +
+            `This keeps current records intact and hides the course from active use until it is reopened.`
         );
-        if (!confirmDelete) return;
+        if (!confirmClose) return;
 
         setLoading(true);
         try {
-            // 1. Delete associated applications
-            const { error: appError } = await supabase.from('applications')
-                .delete()
-                .or(`priority_course.eq."${courseName}",alt_course_1.eq."${courseName}",alt_course_2.eq."${courseName}"`);
-            if (appError) console.error("Error deleting applications:", appError);
-
-            // 2. Delete enrolled students
-            const { error: enrollError } = await supabase.from('enrolled_students')
-                .delete()
-                .eq('course', courseName);
-            if (enrollError) console.error("Error deleting enrolled students:", enrollError);
-
-            // 3. Nullify course in students
-            const { error: studentError } = await supabase.from('students')
-                .update({
-                    course: null,
-                    priority_course: null,
-                    alt_course_1: null,
-                    alt_course_2: null
-                })
-                .or(`course.eq."${courseName}",priority_course.eq."${courseName}",alt_course_1.eq."${courseName}",alt_course_2.eq."${courseName}"`);
-            if (studentError) console.error("Error updating students:", studentError);
-
-            // 4. Delete the course itself
-            const { error: courseError } = await supabase.from('courses')
-                .delete()
-                .eq('id', id);
-
-            if (courseError) throw courseError;
-
-            showToast(`Course "${courseName}" and its dependencies have been deleted.`);
-            fetchData();
+            await managedArchiveService.setNatCourseStatus(id, 'Closed');
+            showToast(`Course "${courseName}" closed.`, 'success');
+            await fetchData();
         } catch (err: any) {
-            console.error("Delete sequence failed:", err);
-            showToast(`Error deleting course: ${err.message}`, 'error');
+            console.error("Close sequence failed:", err);
+            showToast(`Error closing course: ${err.message}`, 'error');
+        } finally {
             setLoading(false);
         }
     };
@@ -682,7 +628,7 @@ const NATManagementPage = ({ showToast }: any) => {
         try {
             const { error } = await supabase
                 .from('nat_requirements')
-                .insert({ name: nextName });
+                .insert({ name: nextName, is_active: true });
 
             if (error) throw error;
 
@@ -699,21 +645,15 @@ const NATManagementPage = ({ showToast }: any) => {
     const handleDeleteRequirement = async (requirement: any) => {
         const requirementId = Number(requirement?.id || 0);
         if (!requirementId || pendingRequirementDeleteId === requirementId) return;
-        if (!window.confirm(`Delete requirement "${requirement?.name || 'this item'}"?`)) return;
+        if (!window.confirm(`Deactivate requirement "${requirement?.name || 'this item'}"?`)) return;
 
         setPendingRequirementDeleteId(requirementId);
         try {
-            const { error } = await supabase
-                .from('nat_requirements')
-                .delete()
-                .eq('id', requirementId);
-
-            if (error) throw error;
-
-            showToast('NAT requirement deleted.', 'success');
+            await managedArchiveService.deactivateNatRequirement(requirementId);
+            showToast('NAT requirement deactivated.', 'success');
             await fetchData();
         } catch (error: any) {
-            showToast(error?.message || 'Failed to delete NAT requirement.', 'error');
+            showToast(error?.message || 'Failed to deactivate NAT requirement.', 'error');
         } finally {
             setPendingRequirementDeleteId(null);
         }
@@ -723,6 +663,7 @@ const NATManagementPage = ({ showToast }: any) => {
     const filteredResults = testTakers;
     const hasCompletedAttendance = (app: any) => Boolean(app?.time_in) && Boolean(app?.time_out);
     const isCompletedNatRecord = (app: any) => supportsAttendance ? hasCompletedAttendance(app) : hasTakenNatStatus(app?.status);
+    const getNatCompletedDateLabel = (app: any) => formatDate(app?.completed_at || app?.archived_at || app?.created_at);
 
     const dateApplicantCounts = summaryApplications.reduce((acc: Record<string, number>, app: any) => {
         if (app.test_date) acc[app.test_date] = (acc[app.test_date] || 0) + 1;
@@ -765,23 +706,14 @@ const NATManagementPage = ({ showToast }: any) => {
     };
 
     const handleDeleteSchedule = async (sch: any) => {
-        const assignedApplicants = dateApplicantCounts[sch.date] || 0;
-        if (assignedApplicants > 0) {
-            showToast(`Cannot delete ${formatDate(sch.date)} because ${assignedApplicants} applicant${assignedApplicants !== 1 ? 's are' : ' is'} already assigned to it.`, 'error');
+        if (!window.confirm(`${sch.is_active ? 'Close' : 'Reopen'} the NAT schedule for ${formatDate(sch.date)} at ${sch.venue || 'the selected venue'}?`)) {
             return;
         }
 
-        if (!window.confirm(`Delete the NAT schedule for ${formatDate(sch.date)} at ${sch.venue || 'the selected venue'}?`)) {
-            return;
-        }
-
-        const { error } = await supabase
-            .from('admission_schedules')
-            .delete()
-            .eq('id', sch.id);
-
-        if (error) {
-            showToast(error.message, 'error');
+        try {
+            await managedArchiveService.setNatScheduleActive(Number(sch.id), !sch.is_active);
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to update schedule.', 'error');
             return;
         }
 
@@ -789,7 +721,7 @@ const NATManagementPage = ({ showToast }: any) => {
             closeScheduleModal();
         }
 
-        showToast('Schedule deleted successfully!', 'success');
+        showToast(`Schedule ${sch.is_active ? 'closed' : 'reopened'} successfully!`, 'success');
         fetchData();
     };
 
@@ -1096,6 +1028,12 @@ const NATManagementPage = ({ showToast }: any) => {
                 rows: rows.filter((app: any) => String(app.status || '') === APPROVED_STATUS)
             },
             {
+                id: 'enrolled_students',
+                label: 'Enrolled Students',
+                description: 'Applicants already activated and moved into archived NAT history.',
+                rows: rows.filter((app: any) => isNatEnrolledStatus(app.status))
+            },
+            {
                 id: 'forwarded_alternatives',
                 label: 'Forwarded to Alternatives',
                 description: 'Applicants redirected to 2nd or 3rd choice interviews.',
@@ -1207,7 +1145,9 @@ const NATManagementPage = ({ showToast }: any) => {
                                                             <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
                                                             <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, PASS_STATUS); }} className="text-green-600 font-bold text-xs cursor-pointer hover:bg-green-50 px-2 py-1 rounded transition-colors">Pass</button>
                                                             <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, FAIL_STATUS); }} className="text-red-600 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Fail</button>
-                                                            <button type="button" onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-slate-400 font-bold text-xs cursor-pointer hover:bg-red-50 hover:text-red-600 px-2 py-1 rounded transition-colors">Del</button>
+                                                            {canArchiveRecords && (
+                                                                <button type="button" onClick={(e) => { e.stopPropagation(); archiveApplication(app.id); }} className="text-slate-500 font-bold text-xs cursor-pointer hover:bg-amber-50 hover:text-amber-700 px-2 py-1 rounded transition-colors">Archive</button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1364,7 +1304,6 @@ const NATManagementPage = ({ showToast }: any) => {
                                                     <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
                                                         <td className="p-4 font-bold">
                                                             {buildApplicantName(app)}
-                                                            <div className="text-xs text-gray-400 font-normal">{app.student_id || 'Student ID pending'}</div>
                                                         </td>
                                                         <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
                                                         <td className="p-4 text-gray-700">{getApplicantRouteLabel(app)}</td>
@@ -1409,6 +1348,7 @@ const NATManagementPage = ({ showToast }: any) => {
                                     <option value="Qualified for Interview (1st Choice)">Passed NAT (Interview Prep)</option>
                                     <option value="Interview Scheduled">Interview Scheduled</option>
                                     <option value="Approved for Enrollment">Approved for Enrollment</option>
+                                    <option value="Enrolled">Enrolled</option>
                                     <option value="Forwarded to 2nd Choice for Interview">Forwarded to 2nd Choice</option>
                                     <option value="Forwarded to 3rd Choice for Interview">Forwarded to 3rd Choice</option>
                                     <option value="Application Unsuccessful">Unsuccessful</option>
@@ -1437,13 +1377,17 @@ const NATManagementPage = ({ showToast }: any) => {
                                                 <tr key={app.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { void openApplicantDetails(app); }}>
                                                     <td className="p-4 font-bold">{app.first_name} {app.last_name}</td>
                                                     <td className="p-4 text-xs text-gray-400 font-mono">{app.reference_id}</td>
-                                                    <td className="p-4">{app.priority_course}</td>
+                                                    <td className="p-4">{app.activated_course || app.priority_course}</td>
                                                     <td className="p-4"><StatusBadge status={app.status} /></td>
-                                                    <td className="p-4 text-gray-500 text-xs">{formatDate(app.created_at)}</td>
+                                                    <td className="p-4 text-gray-500 text-xs">{getNatCompletedDateLabel(app)}</td>
                                                     <td className="p-4">
                                                         <div className="flex gap-2">
                                                             <button onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className="text-blue-600 font-bold text-xs cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition-colors">View</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); deleteApplication(app.id); }} className="text-red-500 font-bold text-xs cursor-pointer hover:bg-red-50 px-2 py-1 rounded transition-colors">Delete</button>
+                                                            {app.isArchivedRecord ? (
+                                                                <span className="text-slate-500 font-bold text-xs px-2 py-1 rounded bg-slate-100">Archived</span>
+                                                            ) : canArchiveRecords && (
+                                                                <button onClick={(e) => { e.stopPropagation(); archiveApplication(app.id); }} className="text-amber-600 font-bold text-xs cursor-pointer hover:bg-amber-50 px-2 py-1 rounded transition-colors">Archive</button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1471,7 +1415,11 @@ const NATManagementPage = ({ showToast }: any) => {
                                     <div className="flex justify-between items-start gap-3 mb-2">
                                         <span className="font-bold text-gray-800">{formatDate(sch.date)}</span>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => toggleSchedule(sch)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${sch.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{sch.is_active ? 'Active' : 'Closed'}</button>
+                                            {canArchiveRecords ? (
+                                                <button onClick={() => toggleSchedule(sch)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${sch.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{sch.is_active ? 'Active' : 'Closed'}</button>
+                                            ) : (
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${sch.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{sch.is_active ? 'Active' : 'Closed'}</span>
+                                            )}
                                             <button
                                                 type="button"
                                                 onClick={() => openEditScheduleModal(sch)}
@@ -1479,13 +1427,15 @@ const NATManagementPage = ({ showToast }: any) => {
                                             >
                                                 <Pencil size={12} /> Edit
                                             </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteSchedule(sch)}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-red-700 bg-red-50 hover:bg-red-100"
-                                            >
-                                                <Trash2 size={12} /> Delete
-                                            </button>
+                                            {canArchiveRecords && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteSchedule(sch)}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                                >
+                                                    <Trash2 size={12} /> {sch.is_active ? 'Close' : 'Reopen'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="text-sm text-gray-600">
@@ -1566,15 +1516,17 @@ const NATManagementPage = ({ showToast }: any) => {
                                                         <td className="p-4 font-medium text-gray-800">{requirement.name}</td>
                                                         <td className="p-4 text-xs text-gray-500">{formatDateTime(requirement.created_at)}</td>
                                                         <td className="p-4 text-center">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteRequirement(requirement)}
-                                                                disabled={pendingRequirementDeleteId === requirement.id}
-                                                                className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-60"
-                                                            >
-                                                                <Trash2 size={12} />
-                                                                {pendingRequirementDeleteId === requirement.id ? 'Deleting...' : 'Delete'}
-                                                            </button>
+                                                            {canArchiveRecords && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteRequirement(requirement)}
+                                                                    disabled={pendingRequirementDeleteId === requirement.id}
+                                                                    className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-60"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                    {pendingRequirementDeleteId === requirement.id ? 'Deactivating...' : 'Deactivate'}
+                                                                </button>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -1592,6 +1544,30 @@ const NATManagementPage = ({ showToast }: any) => {
                                 itemLabel="requirements"
                             />
                         </div>
+
+                        <div className="bg-white border rounded-xl p-4 shadow-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h4 className="font-bold text-sm text-gray-900">Inactive Requirements</h4>
+                                    <p className="text-xs text-gray-500 mt-1">These requirements are hidden from the NAT portal but kept for reference.</p>
+                                </div>
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                                    {inactiveNatRequirements.length} archived
+                                </span>
+                            </div>
+                            {inactiveNatRequirements.length === 0 ? (
+                                <p className="text-sm text-gray-500 mt-4">No inactive NAT requirements yet.</p>
+                            ) : (
+                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {inactiveNatRequirements.map((requirement: any) => (
+                                        <div key={`inactive-requirement-${requirement.id}`} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                                            <p className="font-medium text-gray-800">{requirement.name}</p>
+                                            <p className="text-xs text-gray-500 mt-1">Created {formatDateTime(requirement.created_at)}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -1599,7 +1575,7 @@ const NATManagementPage = ({ showToast }: any) => {
                             <div>
                                 <h3 className="font-bold text-blue-800 text-sm">Course Creation Moved</h3>
                                 <p className="text-xs text-blue-700 mt-1 max-w-2xl">
-                                    Add new courses in Student Population &rarr; Enrollment Keys &rarr; Course &amp; Applicant Limits. NAT keeps quota/status monitoring and deletion tools.
+                                    Add new courses in Student Population &rarr; Enrollment Keys &rarr; Course &amp; Applicant Limits. NAT keeps quota/status monitoring and lifecycle controls.
                                 </p>
                             </div>
                         </div>
@@ -1621,8 +1597,18 @@ const NATManagementPage = ({ showToast }: any) => {
                                                         <td className="p-4 font-bold">{c.name}</td>
                                                         <td className="p-4 text-center font-mono font-bold text-blue-600">{summaryApplications.filter(a => a.priority_course === c.name).length}</td>
                                                         <td className="p-4 text-center"><input type="number" className="border rounded w-20 text-center" defaultValue={c.application_limit || 200} onBlur={e => handleUpdateLimit(c.id, 'application_limit', e.target.value)} /></td>
-                                                        <td className="p-4 text-center"><button onClick={() => handleUpdateLimit(c.id, 'status', c.status === 'Closed' ? 'Open' : 'Closed')} className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Closed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{c.status || 'Open'}</button></td>
-                                                        <td className="p-4 text-center"><button onClick={() => handleDeleteCourse(c.name, c.id)} className="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition">Delete</button></td>
+                                                        <td className="p-4 text-center">
+                                                            {canArchiveRecords ? (
+                                                                <button onClick={() => handleUpdateLimit(c.id, 'status', c.status === 'Closed' ? 'Open' : 'Closed')} className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Closed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{c.status || 'Open'}</button>
+                                                            ) : (
+                                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Closed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{c.status || 'Open'}</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            {canArchiveRecords && c.status !== 'Closed' && (
+                                                                <button onClick={() => handleDeleteCourse(c.name, c.id)} className="text-amber-600 hover:text-amber-700 font-bold text-xs bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded transition">Close</button>
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                                 {renderTablePaddingRows(5, paginatedCourseLimits.length)}
@@ -1654,6 +1640,11 @@ const NATManagementPage = ({ showToast }: any) => {
                                         <h3 className="font-extrabold text-lg text-gray-900">NAT APPLICATION FORM</h3>
                                         <p className="text-xs text-gray-400 mt-1">Complete application details submitted by the applicant</p>
                                         <p className="text-[10px] text-gray-400 mt-1">Submitted: {formatDateTime(selectedApp.created_at)}</p>
+                                        {selectedApp.isArchivedRecord && (
+                                            <p className="text-[10px] text-amber-600 mt-1">
+                                                Finalized: {formatDateTime(selectedApp.archived_at || selectedApp.completed_at)}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <StatusBadge status={selectedApp.status} />
@@ -1677,7 +1668,6 @@ const NATManagementPage = ({ showToast }: any) => {
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Last Name</label><p className="text-sm font-bold text-gray-800">{selectedApp.last_name || '—'}</p></div>
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Middle Name</label><p className="text-sm text-gray-700">{selectedApp.middle_name || '—'}</p></div>
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Suffix</label><p className="text-sm text-gray-700">{selectedApp.suffix || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Student ID</label><p className="text-sm text-gray-700 font-mono">{selectedApp.student_id || '—'}</p></div>
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Date of Birth</label><p className="text-sm text-gray-700">{selectedApp.dob || '—'}</p></div>
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Age</label><p className="text-sm text-gray-700">{selectedApp.age || '—'}</p></div>
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Place of Birth</label><p className="text-sm text-gray-700">{selectedApp.place_of_birth || '—'}</p></div>
@@ -1720,6 +1710,9 @@ const NATManagementPage = ({ showToast }: any) => {
                                         <div className="md:col-span-2"><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Priority Course</label><p className="text-sm font-bold text-purple-700">{selectedApp.priority_course || '—'}</p></div>
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Alternative Course 1</label><p className="text-sm text-gray-700">{selectedApp.alt_course_1 || '—'}</p></div>
                                         <div><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Alternative Course 2</label><p className="text-sm text-gray-700">{selectedApp.alt_course_2 || '—'}</p></div>
+                                        {selectedApp.isArchivedRecord && (
+                                            <div className="md:col-span-2"><label className="block text-[10px] font-bold text-gray-400 mb-0.5">Activated Course</label><p className="text-sm text-emerald-700 font-semibold">{selectedApp.activated_course || '—'}</p></div>
+                                        )}
                                     </div>
                                 </div>
 
