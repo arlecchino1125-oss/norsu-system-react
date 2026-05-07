@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Download, ListChecks, RefreshCw, XCircle, Trash2 } from 'lucide-react';
+import { usePermissions } from '../../hooks/usePermissions';
 import { createDeferredChannelCleanup } from '../../lib/realtime';
+import { managedArchiveService } from '../../services/managedArchiveService';
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDateTime, generateExportFilename } from '../../utils/formatters';
@@ -11,19 +13,26 @@ interface OfficeLogbookPageProps {
 }
 
 const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
+    const { canPerformAction } = usePermissions();
+    const canArchiveRecords = canPerformAction('archive_records');
     const sortVisitsByTimeIn = (rows: any[]) =>
         [...rows].sort((a: any, b: any) => new Date(b.time_in || 0).getTime() - new Date(a.time_in || 0).getTime());
 
     const [visits, setVisits] = useState<any[]>([]);
     const [reasons, setReasons] = useState<any[]>([]);
+    const [inactiveReasons, setInactiveReasons] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [showManageModal, setShowManageModal] = useState(false);
     const [newReason, setNewReason] = useState('');
 
     const fetchReasons = async () => {
-        const { data } = await supabase.from('office_visit_reasons').select('*').order('reason');
-        if (data) setReasons(data);
+        const [{ data: activeReasons }, { data: archivedReasons }] = await Promise.all([
+            supabase.from('office_visit_reasons').select('*').eq('is_active', true).order('reason'),
+            supabase.from('office_visit_reasons').select('*').eq('is_active', false).order('reason')
+        ]);
+        if (activeReasons) setReasons(activeReasons);
+        if (archivedReasons) setInactiveReasons(archivedReasons);
     };
 
     useEffect(() => {
@@ -55,12 +64,14 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
     const handleRefreshData = async () => {
         setIsRefreshingData(true);
         try {
-            const [{ data: visitsData }, { data: reasonsData }] = await Promise.all([
+            const [{ data: visitsData }, { data: reasonsData }, { data: inactiveReasonsData }] = await Promise.all([
                 supabase.from('office_visits').select('*').order('time_in', { ascending: false }),
-                supabase.from('office_visit_reasons').select('*').order('reason')
+                supabase.from('office_visit_reasons').select('*').eq('is_active', true).order('reason'),
+                supabase.from('office_visit_reasons').select('*').eq('is_active', false).order('reason')
             ]);
             if (visitsData) setVisits(sortVisitsByTimeIn(visitsData));
             if (reasonsData) setReasons(reasonsData);
+            if (inactiveReasonsData) setInactiveReasons(inactiveReasonsData);
             functions.showToast('Office logbook refreshed.');
         } finally {
             setIsRefreshingData(false);
@@ -71,7 +82,7 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
         e.preventDefault();
         if (!newReason.trim()) return;
         try {
-            const { error } = await supabase.from('office_visit_reasons').insert([{ reason: newReason.trim() }]);
+            const { error } = await supabase.from('office_visit_reasons').insert([{ reason: newReason.trim(), is_active: true }]);
             if (error) throw error;
             functions.showToast("Reason added successfully!");
             setNewReason('');
@@ -80,10 +91,14 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
     };
 
     const handleDeleteReason = async (id) => {
-        if (!confirm("Remove this reason?")) return;
-        await supabase.from('office_visit_reasons').delete().eq('id', id);
-        functions.showToast("Reason removed.");
-        fetchReasons();
+        if (!confirm("Deactivate this reason?")) return;
+        try {
+            await managedArchiveService.deactivateOfficeVisitReason(id);
+            functions.showToast("Reason deactivated.");
+            await fetchReasons();
+        } catch (err: any) {
+            functions.showToast(err.message || 'Failed to deactivate reason.', 'error');
+        }
     };
 
     return (
@@ -143,8 +158,26 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
                             <form onSubmit={handleAddReason} className="flex gap-2 mb-6"><input value={newReason} onChange={e => setNewReason(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-600" placeholder="Enter new reason..." /><button type="submit" className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm hover:bg-blue-700">Add</button></form>
                             <div className="space-y-2 max-h-60 overflow-y-auto">
                                 {reasons.map(r => (
-                                    <div key={r.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100"><span className="text-sm text-gray-700">{r.reason}</span><button onClick={() => handleDeleteReason(r.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16} /></button></div>
+                                    <div key={r.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100"><span className="text-sm text-gray-700">{r.reason}</span>{canArchiveRecords && <button onClick={() => handleDeleteReason(r.id)} className="text-gray-400 hover:text-amber-700" title="Deactivate Reason"><Trash2 size={16} /></button>}</div>
                                 ))}
+                            </div>
+                            <div className="mt-6 border-t border-gray-100 pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-bold text-sm text-gray-800">Inactive Reasons</h4>
+                                    <span className="text-xs font-bold text-gray-500">{inactiveReasons.length}</span>
+                                </div>
+                                {inactiveReasons.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No inactive reasons yet.</p>
+                                ) : (
+                                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                                        {inactiveReasons.map((reason) => (
+                                            <div key={`inactive-reason-${reason.id}`} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                                <span className="text-sm text-slate-600">{reason.reason}</span>
+                                                <span className="rounded-full bg-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700">Inactive</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

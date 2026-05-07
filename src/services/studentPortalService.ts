@@ -17,7 +17,17 @@ const STUDENT_EVENT_COLUMNS = [
     'end_time',
     'attendees',
     'latitude',
-    'longitude'
+    'longitude',
+    'participation_mode',
+    'audience_type',
+    'audience_departments',
+    'audience_courses',
+    'audience_year_levels',
+    'audience_sections',
+    'attendance_required',
+    'allow_walk_ins',
+    'capacity',
+    'registration_deadline'
 ].join(', ');
 
 const STUDENT_FORM_COLUMNS = [
@@ -120,7 +130,8 @@ export const getEventsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('events')
-        .select(STUDENT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
+        .select(STUDENT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
+        .eq('is_archived', false);
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
     query = query.range(from, to);

@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { getAudienceLabel, isAttendanceActivityType } from '../../utils/eventAudience';
 
 const parseDateValue = (value: string) => {
     if (!value) return null;
@@ -74,7 +75,7 @@ const formatAttendanceTimestamp = (value: string) => {
 };
 
 const getEventWindow = (item: any) => {
-    if (item?.type !== 'Event') return { start: null, end: null };
+    if (!isAttendanceActivityType(item?.type)) return { start: null, end: null };
 
     const start = combineDateAndTime(item.event_date, item.event_time);
     if (!start) return { start: null, end: null };
@@ -86,7 +87,7 @@ const getEventWindow = (item: any) => {
 
 const getDisplayDate = (item: any) => formatDateLabel(item?.event_date || item?.created_at || '');
 const getDisplayTime = (item: any) => {
-    if (item?.type !== 'Event') return `Posted ${formatDateLabel(item?.created_at || '')}`;
+    if (!isAttendanceActivityType(item?.type)) return `Posted ${formatDateLabel(item?.created_at || '')}`;
     return formatTimeRangeLabel(item?.event_time || '', item?.end_time || '');
 };
 const getDisplayLocation = (item: any) => item?.location || 'Location to be announced';
@@ -96,13 +97,18 @@ const StudentEventsView = ({
     eventFilter,
     setEventFilter,
     attendanceMap,
+    registrationMap,
     fetchHistory,
+    handleRegisterEvent,
+    handleCancelRegistration,
     handleTimeIn,
     handleTimeOut,
     handleRateEvent,
     ratedEvents,
     isTimingIn,
     timingOutEventId,
+    registeringEventId,
+    cancellingRegistrationEventId,
     isSubmittingEventRating,
     setProofFile,
     selectedEvent,
@@ -117,10 +123,98 @@ const StudentEventsView = ({
     Icons
 }: any) => {
     const filteredEvents = (eventsList || []).filter((item: any) => {
-        if (eventFilter === 'Events') return item.type === 'Event';
+        if (eventFilter === 'Activities') return isAttendanceActivityType(item.type);
         if (eventFilter === 'Announcements') return item.type === 'Announcement';
         return true;
     });
+
+    const isRegistrationEvent = (item: any) => item?.participation_mode === 'registration_required';
+    const getRegistrationRecord = (item: any) => registrationMap?.[String(item?.id)] || registrationMap?.[item?.id];
+    const isRegistrationDeadlinePassed = (item: any) => {
+        if (!item?.registration_deadline) return false;
+        const deadline = new Date(item.registration_deadline);
+        return !Number.isNaN(deadline.getTime()) && Date.now() > deadline.getTime();
+    };
+    const formatRegistrationDeadline = (value: string) => {
+        if (!value) return 'No deadline';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    };
+    const getRegistrationStatus = (item: any, isTimedIn = false) => {
+        const registration = getRegistrationRecord(item);
+        if (isTimedIn) return 'Attended';
+        return registration?.status || 'Not registered';
+    };
+    const getRegistrationStatusClass = (status: string) => {
+        if (status === 'Attended') return 'bg-emerald-100 text-emerald-700';
+        if (status === 'Registered') return 'bg-blue-100 text-blue-700';
+        if (status === 'Cancelled') return 'bg-slate-100 text-slate-500';
+        return 'bg-amber-100 text-amber-700';
+    };
+    const hasActiveRegistration = (item: any, isTimedIn = false) => {
+        const status = getRegistrationStatus(item, isTimedIn);
+        return status === 'Registered' || status === 'Attended';
+    };
+    const renderRegistrationPanel = (item: any, isTimedIn = false, compact = false) => {
+        if (!isRegistrationEvent(item)) return null;
+
+        const eventId = String(item?.id || '');
+        const status = getRegistrationStatus(item, isTimedIn);
+        const canRegister = !isTimedIn && !['Registered', 'Attended'].includes(status) && !isRegistrationDeadlinePassed(item);
+        const canCancel = !isTimedIn && status === 'Registered';
+        const isRegistering = registeringEventId === eventId;
+        const isCancelling = cancellingRegistrationEventId === eventId;
+        const capacityLabel = item.capacity ? `${item.capacity} slots` : 'Unlimited slots';
+
+        return (
+            <div className={`rounded-2xl border border-emerald-100 bg-emerald-50/60 ${compact ? 'p-3' : 'p-4'} text-xs text-emerald-900`} onClick={(event: any) => event.stopPropagation()}>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-extrabold">Student registration</span>
+                    <span className={`rounded-full px-2.5 py-1 font-bold ${getRegistrationStatusClass(status)}`}>
+                        {status}
+                    </span>
+                </div>
+                <div className="mb-3 grid gap-1 text-[11px] font-semibold text-emerald-800 sm:grid-cols-2">
+                    <span>{capacityLabel}</span>
+                    <span>Deadline: {formatRegistrationDeadline(item.registration_deadline)}</span>
+                    <span>{item.allow_walk_ins ? 'Walk-ins allowed' : 'Registration required before time in'}</span>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                    {canRegister && (
+                        <button
+                            onClick={() => handleRegisterEvent(item)}
+                            disabled={isRegistering}
+                            className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isRegistering ? 'Registering...' : 'Register'}
+                        </button>
+                    )}
+                    {canCancel && (
+                        <button
+                            onClick={() => handleCancelRegistration(item)}
+                            disabled={isCancelling}
+                            className="flex-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isCancelling ? 'Cancelling...' : 'Cancel Registration'}
+                        </button>
+                    )}
+                    {!canRegister && !canCancel && status === 'Not registered' && (
+                        <span className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-center font-bold text-amber-700">
+                            Registration closed
+                        </span>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <>
@@ -138,7 +232,7 @@ const StudentEventsView = ({
                         Refresh
                     </button>
                     <div className="student-filter-shell flex w-full gap-1 rounded-xl border border-purple-100/50 bg-white/80 p-1 shadow-sm backdrop-blur-sm sm:w-auto">
-                        {['All', 'Events', 'Announcements'].map((filterName: string) => (
+                        {['All', 'Activities', 'Announcements'].map((filterName: string) => (
                             <button
                                 key={filterName}
                                 onClick={() => setEventFilter(filterName)}
@@ -159,23 +253,33 @@ const StudentEventsView = ({
                         const isTimedIn = Boolean(record?.time_in);
                         const isTimedOut = Boolean(record?.time_out);
                         const isTimingOut = timingOutEventId === String(item.id);
+                        const isAttendanceActivity = isAttendanceActivityType(item.type);
                         const { start, end } = getEventWindow(item);
                         const now = new Date();
-                        const canTimeIn = item.type === 'Event' && Boolean(start) && now >= (start as Date) && !isTimedIn;
-                        const canTimeOut = item.type === 'Event' && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
+                        const canTimeIn = isAttendanceActivity && Boolean(start) && now >= (start as Date) && !isTimedIn;
+                        const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
+                        const mustRegisterForTimeIn = isRegistrationEvent(item) && !item.allow_walk_ins;
+                        const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(item, isTimedIn));
+                        const timeInLabel = isTimedIn
+                            ? 'Checked In'
+                            : isTimingIn
+                                ? 'Processing...'
+                                : mustRegisterForTimeIn && !hasActiveRegistration(item, isTimedIn)
+                                    ? 'Register before Time In'
+                                    : (start ? `Time In opens ${formatTimeLabel(item.event_time)}` : 'Time In unavailable');
 
                         return (
                             <div
                                 key={item.id}
                                 onClick={() => setSelectedEvent(item)}
-                                className={`student-events-card card-hover relative cursor-pointer rounded-2xl border-l-4 bg-white/80 p-5 shadow-sm backdrop-blur-sm animate-fade-in-up sm:p-8 ${item.type === 'Event' ? 'border-l-purple-500' : 'border-l-indigo-400'}`}
+                                className={`student-events-card card-hover relative cursor-pointer rounded-2xl border-l-4 bg-white/80 p-5 shadow-sm backdrop-blur-sm animate-fade-in-up sm:p-8 ${isAttendanceActivity ? 'border-l-purple-500' : 'border-l-indigo-400'}`}
                                 style={{ animationDelay: `${idx * 100}ms` }}
                             >
                                 <div className="mb-5 flex items-start justify-between sm:mb-6">
                                     <span className="rounded-lg bg-gradient-to-r from-slate-800 to-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white">
                                         {item.type}
                                     </span>
-                                    {item.type === 'Event' && isTimedIn && (
+                                    {isAttendanceActivity && isTimedIn && (
                                         <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-600">
                                             <Icons.CheckCircle />
                                             Attended
@@ -194,17 +298,25 @@ const StudentEventsView = ({
                                         <Icons.Clock />
                                         {getDisplayTime(item)}
                                     </p>
-                                    {item.type === 'Event' && (
+                                    {isAttendanceActivity && (
                                         <p className="flex items-center gap-3 text-xs font-medium text-gray-400">
                                             <Icons.Support />
                                             {getDisplayLocation(item)}
                                         </p>
                                     )}
+                                    {isAttendanceActivity && (
+                                        <p className="flex items-center gap-3 text-xs font-medium text-gray-400">
+                                            <Icons.CheckCircle />
+                                            {getAudienceLabel(item)}
+                                        </p>
+                                    )}
                                 </div>
 
-                                {item.type === 'Event' && (
+                                {renderRegistrationPanel(item, isTimedIn, true)}
+
+                                {isAttendanceActivity && (
                                     <div className="flex flex-col gap-3" onClick={(event: any) => event.stopPropagation()}>
-                                        {!isTimedIn && canTimeIn && (
+                                        {!isTimedIn && canUseTimeIn && (
                                             <input
                                                 type="file"
                                                 accept="image/*"
@@ -215,16 +327,16 @@ const StudentEventsView = ({
 
                                         <div className="flex flex-col gap-2 sm:flex-row">
                                             <button
-                                                disabled={!canTimeIn || isTimingIn || isTimedIn}
+                                                disabled={!canUseTimeIn || isTimingIn || isTimedIn}
                                                 onClick={() => handleTimeIn(item)}
                                                 className={`flex-1 rounded-xl py-3 text-xs font-bold transition-all ${isTimedIn
                                                     ? 'cursor-default border border-emerald-200 bg-emerald-100 text-emerald-700'
-                                                    : (!canTimeIn || isTimingIn
+                                                    : (!canUseTimeIn || isTimingIn
                                                         ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                                                         : 'bg-gradient-to-r from-blue-500 to-sky-400 text-white shadow-lg shadow-blue-500/20 hover:from-blue-400 hover:to-sky-300')
                                                     }`}
                                             >
-                                                {isTimedIn ? 'Checked In' : (isTimingIn ? 'Processing...' : (start ? `Time In opens ${formatTimeLabel(item.event_time)}` : 'Time In unavailable'))}
+                                                {timeInLabel}
                                             </button>
                                             <button
                                                 disabled={!canTimeOut || isTimingOut}
@@ -270,10 +382,18 @@ const StudentEventsView = ({
                 const isTimedIn = Boolean(record?.time_in);
                 const isTimedOut = Boolean(record?.time_out);
                 const isTimingOut = timingOutEventId === String(selectedEvent.id);
+                const isAttendanceActivity = isAttendanceActivityType(selectedEvent.type);
                 const { start, end } = getEventWindow(selectedEvent);
                 const now = new Date();
-                const canTimeIn = selectedEvent.type === 'Event' && Boolean(start) && now >= (start as Date) && !isTimedIn;
-                const canTimeOut = selectedEvent.type === 'Event' && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
+                const canTimeIn = isAttendanceActivity && Boolean(start) && now >= (start as Date) && !isTimedIn;
+                const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
+                const mustRegisterForTimeIn = isRegistrationEvent(selectedEvent) && !selectedEvent.allow_walk_ins;
+                const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(selectedEvent, isTimedIn));
+                const timeInLabel = isTimingIn
+                    ? 'Processing...'
+                    : mustRegisterForTimeIn && !hasActiveRegistration(selectedEvent, isTimedIn)
+                        ? 'Register before Time In'
+                        : (canTimeIn ? 'Time In' : `Check-in opens at ${formatTimeLabel(selectedEvent.event_time)}`);
 
                 return (
                     <div
@@ -284,7 +404,7 @@ const StudentEventsView = ({
                             className="student-detail-modal-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel"
                             onClick={(event: any) => event.stopPropagation()}
                         >
-                            <div className={`h-2 w-full rounded-t-3xl ${selectedEvent.type === 'Event' ? 'bg-gradient-to-r from-blue-600 to-sky-500' : 'bg-gradient-to-r from-slate-800 to-slate-600'}`} />
+                            <div className={`h-2 w-full rounded-t-3xl ${isAttendanceActivity ? 'bg-gradient-to-r from-blue-600 to-sky-500' : 'bg-gradient-to-r from-slate-800 to-slate-600'}`} />
 
                             <div className="p-5 sm:p-8">
                                 <div className="mb-5 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
@@ -293,7 +413,7 @@ const StudentEventsView = ({
                                             <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-700">
                                                 {selectedEvent.type}
                                             </span>
-                                            {selectedEvent.type === 'Event' && isTimedIn && (
+                                            {isAttendanceActivity && isTimedIn && (
                                                 <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-700">
                                                     <Icons.CheckCircle />
                                                     {isTimedOut ? 'Attendance completed' : 'Checked in'}
@@ -314,7 +434,7 @@ const StudentEventsView = ({
                                     </button>
                                 </div>
 
-                                <div className={`grid gap-4 ${selectedEvent.type === 'Event' ? 'sm:grid-cols-2 md:grid-cols-3' : 'sm:grid-cols-2 md:grid-cols-2'}`}>
+                                <div className={`grid gap-4 ${isAttendanceActivity ? 'sm:grid-cols-2 md:grid-cols-3' : 'sm:grid-cols-2 md:grid-cols-2'}`}>
                                     <div className="student-modal-section-card rounded-2xl border border-slate-100 bg-slate-50 p-5">
                                         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Date</p>
                                         <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
@@ -324,14 +444,14 @@ const StudentEventsView = ({
                                     </div>
                                     <div className="student-modal-section-card rounded-2xl border border-slate-100 bg-slate-50 p-5">
                                         <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                            {selectedEvent.type === 'Event' ? 'Time' : 'Posted'}
+                                            {isAttendanceActivity ? 'Time' : 'Posted'}
                                         </p>
                                         <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
                                             <Icons.Clock />
                                             {getDisplayTime(selectedEvent)}
                                         </p>
                                     </div>
-                                    {selectedEvent.type === 'Event' && (
+                                    {isAttendanceActivity && (
                                         <div className="student-modal-section-card rounded-2xl border border-slate-100 bg-slate-50 p-5">
                                             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Location</p>
                                             <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
@@ -340,9 +460,18 @@ const StudentEventsView = ({
                                             </p>
                                         </div>
                                     )}
+                                    {isAttendanceActivity && (
+                                        <div className="student-modal-section-card rounded-2xl border border-slate-100 bg-slate-50 p-5 md:col-span-3">
+                                            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Audience</p>
+                                            <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                                <Icons.CheckCircle />
+                                                {getAudienceLabel(selectedEvent)}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {selectedEvent.type === 'Event' && (
+                                {isAttendanceActivity && (
                                     <div className="mt-8 border-t border-slate-100 pt-8">
                                         <div className="mb-4 flex items-center justify-between gap-3">
                                             <h4 className="text-base font-extrabold text-slate-900">Attendance</h4>
@@ -363,6 +492,8 @@ const StudentEventsView = ({
                                                 </div>
                                             </div>
                                         )}
+
+                                        {renderRegistrationPanel(selectedEvent, isTimedIn)}
 
                                         {isTimedIn && isTimedOut ? (
                                             <div className="student-modal-section-card rounded-2xl border border-green-100 bg-green-50 p-5 text-center">
@@ -391,7 +522,7 @@ const StudentEventsView = ({
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                {canTimeIn && (
+                                                {canUseTimeIn && (
                                                     <input
                                                         type="file"
                                                         accept="image/*"
@@ -400,14 +531,14 @@ const StudentEventsView = ({
                                                     />
                                                 )}
                                                 <button
-                                                    disabled={!canTimeIn || isTimingIn}
+                                                    disabled={!canUseTimeIn || isTimingIn}
                                                     onClick={() => handleTimeIn(selectedEvent)}
-                                                    className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${!canTimeIn || isTimingIn
+                                                    className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${!canUseTimeIn || isTimingIn
                                                         ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                                                         : 'bg-blue-600 text-white shadow-lg shadow-blue-100 hover:bg-blue-700'
                                                         }`}
                                                 >
-                                                    {isTimingIn ? 'Processing...' : (canTimeIn ? 'Time In' : `Check-in opens at ${formatTimeLabel(selectedEvent.event_time)}`)}
+                                                    {timeInLabel}
                                                 </button>
                                             </div>
                                         )}

@@ -34,6 +34,7 @@ export function renderCareStaffModals(p: any) {
         showCompleteModal, setShowCompleteModal, completionForm, setCompletionForm, handleCompleteSession,
         showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
         setActiveTab, toast, setToast,
+        canDeleteRecords,
         showDeleteEventModal, setShowDeleteEventModal, setEventToDelete, confirmDeleteEvent,
         showEditModal, setShowEditModal, editForm, setEditForm, handleUpdateStudent, allCourses,
         showDeleteModal, setShowDeleteModal, studentToDelete, confirmDeleteStudent,
@@ -65,7 +66,9 @@ export function renderCareStaffModals(p: any) {
                                 <button onClick={() => handleAppAction(selectedApp.id, 'Approved')} className="flex-1 py-2 bg-green-600 text-white rounded-lg font-bold text-sm hover:bg-green-700">Approve</button>
                                 <button onClick={() => handleAppAction(selectedApp.id, 'Rejected')} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold text-sm hover:bg-red-700">Reject</button>
                             </>)}
-                            <button onClick={() => handleDeleteApplication(selectedApp.id)} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200">Delete</button>
+                            {canDeleteRecords && (
+                                <button onClick={() => handleDeleteApplication(selectedApp.id)} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200">Delete</button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -277,16 +280,18 @@ export function renderCareStaffModals(p: any) {
                 </div>
             )}
 
-            <DeleteConfirmModal
-                open={showDeleteEventModal}
-                title="Delete Event?"
-                description="Are you sure you want to delete this event? This action cannot be undone."
-                onClose={() => {
-                    setShowDeleteEventModal(false);
-                    setEventToDelete(null);
-                }}
-                onConfirm={confirmDeleteEvent}
-            />
+            {canDeleteRecords && (
+                <DeleteConfirmModal
+                    open={showDeleteEventModal}
+                    title="Delete Event?"
+                    description="Are you sure you want to delete this event? This action cannot be undone."
+                    onClose={() => {
+                        setShowDeleteEventModal(false);
+                        setEventToDelete(null);
+                    }}
+                    onConfirm={confirmDeleteEvent}
+                />
+            )}
 
             {/* Lifted Edit Student Modal (Shared) */}
             {
@@ -385,13 +390,15 @@ export function renderCareStaffModals(p: any) {
                     </div>
                 )}
 
-            <DeleteConfirmModal
-                open={Boolean(showDeleteModal && studentToDelete)}
-                title="Delete Student?"
-                description={studentToDelete ? `Are you sure you want to delete ${studentToDelete.first_name}?` : 'Are you sure you want to delete this student?'}
-                onClose={() => setShowDeleteModal(false)}
-                onConfirm={confirmDeleteStudent}
-            />
+            {canDeleteRecords && (
+                <DeleteConfirmModal
+                    open={Boolean(showDeleteModal && studentToDelete)}
+                    title="Delete Student?"
+                    description={studentToDelete ? `Are you sure you want to delete ${studentToDelete.first_name}?` : 'Are you sure you want to delete this student?'}
+                    onClose={() => setShowDeleteModal(false)}
+                    onConfirm={confirmDeleteStudent}
+                />
+            )}
         </>
     );
 }

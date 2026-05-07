@@ -33,12 +33,19 @@ export interface Student {
     father_middle_name?: string;
     course?: string;
     year_level?: string;
+    section?: string;
+    department?: string;
     status?: 'Active' | 'Inactive' | 'Graduated' | 'Transferred';
     created_at?: string;
     priority_course?: string;
     alt_course_1?: string;
     alt_course_2?: string;
     has_profile_picture?: boolean;
+    is_archived?: boolean;
+    archived_at?: string | null;
+    archived_reason?: string | null;
+    archived_by?: string | number | null;
+    archive_note?: string | null;
 }
 
 export interface CareStaffAccount {
@@ -66,7 +73,7 @@ export interface DepartmentAccount {
 export interface SystemEvent {
     id?: string;
     title: string;
-    type: 'Event' | 'Seminar' | 'Meeting' | 'Announcement' | 'Priority';
+    type: 'Event' | 'Seminar' | 'Orientation' | 'Meeting' | 'Announcement' | 'Priority';
     description?: string;
     location?: string;
     event_date?: string;
@@ -75,11 +82,28 @@ export interface SystemEvent {
     latitude?: string;
     longitude?: string;
     created_at?: string;
+    is_archived?: boolean;
+    archived_at?: string | null;
+    archived_by?: string | number | null;
+    participation_mode?: 'general_attendance' | 'registration_required';
+    audience_type?: 'all_students' | 'filtered_students' | 'graduating_students';
+    audience_departments?: string[];
+    audience_courses?: string[];
+    audience_year_levels?: string[];
+    audience_sections?: string[];
+    attendance_required?: boolean;
+    allow_walk_ins?: boolean;
+    capacity?: number | null;
+    registration_deadline?: string | null;
 
     // Virtual fields appended by custom hooks like useEventsData
     attendees?: number;
     avgRating?: string | null;
     feedbackCount?: number;
+    registeredCount?: number;
+    cancelledRegistrationCount?: number;
+    attendedRegistrationCount?: number;
+    absentRegistrationCount?: number;
 }
 
 export interface Scholarship {
@@ -89,6 +113,7 @@ export interface Scholarship {
     requirements?: string;
     deadline?: string;
     created_at?: string;
+    is_active?: boolean;
 }
 
 export interface Course {

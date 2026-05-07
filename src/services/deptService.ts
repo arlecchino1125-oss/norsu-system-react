@@ -83,13 +83,22 @@ const DEPT_EVENT_COLUMNS = [
     'created_at',
     'attendees',
     'latitude',
-    'longitude'
+    'longitude',
+    'participation_mode',
+    'audience_type',
+    'audience_departments',
+    'audience_courses',
+    'audience_year_levels',
+    'audience_sections',
+    'attendance_required',
+    'allow_walk_ins',
+    'capacity',
+    'registration_deadline'
 ].join(', ');
 
 const DEPT_ADMISSION_COLUMNS = [
     'id',
     'created_at',
-    'student_id',
     'first_name',
     'last_name',
     'reference_id',
@@ -152,7 +161,7 @@ const writeDeptCache = <T>(scope: string, payload: unknown, value: T, ttlMs: num
     writeSessionCache(buildDeptCacheKey(scope, payload), value, ttlMs);
 
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {
-    let next = query;
+    let next = query.eq('is_archived', false);
     if (!filters) return next;
 
     if (filters.department && filters.department !== 'All') {
@@ -313,7 +322,8 @@ export const getEventsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('events')
-        .select(DEPT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
+        .select(DEPT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
+        .eq('is_archived', false);
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
     query = query.range(from, to);

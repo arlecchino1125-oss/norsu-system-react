@@ -325,7 +325,7 @@ const DeptHomePage = ({
                                         >
                                             <p className="text-sm font-bold text-gray-900">{request?.student_name || 'Student'}</p>
                                             <p className="mt-1 text-xs text-emerald-700">{getTimeLabel(getCounselingScheduledDate(request))}</p>
-                                            <p className="mt-1 text-xs text-gray-500">{request?.reason_for_referral || request?.description || request?.request_type || 'Counseling request'}</p>
+                                            <p className="mt-1 text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
                                         </button>
                                     ))}
                                 </div>
@@ -524,7 +524,7 @@ const DeptHomePage = ({
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-bold text-gray-900 truncate">{request?.student_name || 'Student'}</p>
-                                                <p className="text-xs text-gray-500 line-clamp-1">{request?.reason_for_referral || request?.description || request?.request_type}</p>
+                                                <p className="text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
                                             </div>
                                         </div>
                                         <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${tone.tone}`}>

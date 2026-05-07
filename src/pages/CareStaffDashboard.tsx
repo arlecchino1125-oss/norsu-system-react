@@ -408,9 +408,11 @@ const CareStaffDashboard = () => {
     const {
         loading: permissionsLoading,
         error: permissionsError,
+        canPerformAction,
         getFeatureAccessState,
         isFeatureVisible
     } = usePermissions();
+    const canDeleteRecords = canPerformAction('delete_records');
 
     const [activeTab, setActiveTab] = useState<ActiveTab>('home');
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -1233,6 +1235,7 @@ const CareStaffDashboard = () => {
                     {renderCareStaffModals({
                         showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
                         setActiveTab, toast, setToast,
+                        canDeleteRecords,
                     })}
                 </div>
             </main>

@@ -54,12 +54,11 @@ export default function AssessmentView({
                                         {isDone ? 'Completed' : 'Active'}
                                     </span>
                                 </div>
-                                <h3 className={`font-bold text-sm mb-1 transition-colors ${isDone ? 'text-gray-500' : 'text-gray-900 group-hover:text-blue-600'}`}>{form.title}</h3>
-                                <p className="text-xs text-gray-400 line-clamp-2 mb-3">{form.description || 'Click to view and complete this assessment.'}</p>
+                                <h3 className={`font-bold text-sm mb-4 transition-colors ${isDone ? 'text-gray-500' : 'text-gray-900 group-hover:text-blue-600'}`}>{form.title}</h3>
                                 <div className="flex items-center gap-2 text-[10px] text-gray-400">
                                     <span>📅 {new Date(form.created_at).toLocaleDateString()}</span>
                                 </div>
-                                {!isDone && <div className="mt-4 text-xs font-bold text-blue-600 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Start Assessment →</div>}
+                                {!isDone && <div className="mt-4 text-xs font-bold text-blue-600 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Open details →</div>}
                             </button>
                         );
                     })}

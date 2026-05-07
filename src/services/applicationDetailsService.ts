@@ -7,7 +7,6 @@ const APPLICATION_DETAIL_COLUMNS = [
     'middle_name',
     'last_name',
     'suffix',
-    'student_id',
     'email',
     'mobile',
     'civil_status',
@@ -39,6 +38,21 @@ const APPLICATION_DETAIL_COLUMNS = [
     'interview_panel'
 ].join(', ');
 
+const APPLICATION_ARCHIVE_DETAIL_FIELDS = APPLICATION_DETAIL_COLUMNS
+    .split(', ')
+    .filter((column) => column !== 'id');
+
+const APPLICATION_ARCHIVE_DETAIL_COLUMNS = [
+    'archive_id',
+    'source_application_id',
+    'archive_outcome',
+    'archived_at',
+    'activated_student_id',
+    'activated_course',
+    'source_status',
+    ...APPLICATION_ARCHIVE_DETAIL_FIELDS
+].join(', ');
+
 export const getApplicationDetailsById = async (applicationId: string) => {
     const normalizedApplicationId = String(applicationId || '').trim();
     if (!normalizedApplicationId) {
@@ -52,6 +66,22 @@ export const getApplicationDetailsById = async (applicationId: string) => {
         .maybeSingle();
 
     if (error) throw error;
-    if (!data) throw new Error('Applicant details not found.');
-    return data;
+    if (data) return data;
+
+    const { data: archivedData, error: archivedError } = await supabase
+        .from('application_archives')
+        .select(APPLICATION_ARCHIVE_DETAIL_COLUMNS)
+        .eq('source_application_id', normalizedApplicationId)
+        .maybeSingle();
+
+    if (archivedError) throw archivedError;
+    if (!archivedData) throw new Error('Applicant details not found.');
+    const archivedRecord: any = archivedData;
+
+    return {
+        ...archivedRecord,
+        id: archivedRecord.source_application_id || normalizedApplicationId,
+        isArchivedRecord: true,
+        completed_at: archivedRecord.archived_at || archivedRecord.created_at || null
+    };
 };

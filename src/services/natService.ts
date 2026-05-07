@@ -24,7 +24,6 @@ const NAT_BASE_APPLICATION_COLUMNS = [
     'last_name',
     'middle_name',
     'suffix',
-    'student_id',
     'dob',
     'age',
     'place_of_birth',
@@ -49,6 +48,21 @@ const NAT_BASE_APPLICATION_COLUMNS = [
     'interview_date'
 ];
 
+const NAT_ARCHIVE_BASE_APPLICATION_COLUMNS = NAT_BASE_APPLICATION_COLUMNS.filter((column) => column !== 'id');
+
+const NAT_ARCHIVE_APPLICATION_COLUMNS = [
+    'archive_id',
+    'source_application_id',
+    'archive_outcome',
+    'archived_at',
+    'activated_student_id',
+    'activated_course',
+    'source_status',
+    ...NAT_ARCHIVE_BASE_APPLICATION_COLUMNS,
+    'time_in',
+    'time_out'
+].join(', ');
+
 let natAttendanceSupport: boolean | null = null;
 
 const getNatApplicationColumns = (includeAttendance: boolean) => {
@@ -56,6 +70,47 @@ const getNatApplicationColumns = (includeAttendance: boolean) => {
         ? [...NAT_BASE_APPLICATION_COLUMNS, 'time_in', 'time_out']
         : NAT_BASE_APPLICATION_COLUMNS;
     return columns.join(', ');
+};
+
+const getArchiveCompletionSortValue = (row: any) => {
+    const firstAvailable = row?.completed_at
+        || row?.archived_at
+        || row?.created_at
+        || null;
+    const parsed = firstAvailable ? new Date(firstAvailable).getTime() : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const mapArchivedApplicationRow = (row: any) => ({
+    ...row,
+    id: row?.source_application_id || row?.archive_id,
+    isArchivedRecord: true,
+    completed_at: row?.archived_at || row?.created_at || null
+});
+
+const sortNatRowsLocally = (rows: any[], sort?: SortParams) => {
+    const sortColumn = sort?.column || 'created_at';
+    const direction = sort?.ascending === true ? 1 : -1;
+
+    return [...rows].sort((left: any, right: any) => {
+        let leftValue: any = left?.[sortColumn];
+        let rightValue: any = right?.[sortColumn];
+
+        if (sortColumn === 'created_at' || sortColumn === 'completed_at') {
+            leftValue = getArchiveCompletionSortValue(left);
+            rightValue = getArchiveCompletionSortValue(right);
+        }
+
+        if (leftValue === rightValue) return 0;
+        if (leftValue == null) return -1 * direction;
+        if (rightValue == null) return 1 * direction;
+        return leftValue > rightValue ? direction : -1 * direction;
+    });
+};
+
+const sliceNatRowsForPage = (rows: any[], pageParams?: PageParams) => {
+    const { from, to } = resolvePageParams(pageParams);
+    return rows.slice(from, to + 1);
 };
 
 export const isMissingNatAttendanceColumnsError = (error: any) => {
@@ -175,6 +230,92 @@ export const getApplicationsPage = async (
 
     if (error) throw error;
     return toPageResult(data, count, pageParams);
+};
+
+export const getCompletedApplicationsPage = async (
+    filters?: NatApplicationsFilters,
+    pageParams?: PageParams,
+    sort?: SortParams
+): Promise<PageResult<any>> => {
+    const shouldTryAttendance = natAttendanceSupport !== false;
+
+    const buildLiveQuery = (supportsAttendance: boolean) => {
+        let query: any = supabase
+            .from('applications')
+            .select(getNatApplicationColumns(supportsAttendance));
+
+        query = applyModeFilters(query, 'completed', supportsAttendance);
+        return query;
+    };
+
+    let liveData: any[] | null = null;
+    let liveError: any = null;
+    ({ data: liveData, error: liveError } = await buildLiveQuery(shouldTryAttendance));
+    if (liveError && shouldTryAttendance && isMissingNatAttendanceColumnsError(liveError)) {
+        natAttendanceSupport = false;
+        ({ data: liveData, error: liveError } = await buildLiveQuery(false));
+    } else if (!liveError && shouldTryAttendance) {
+        natAttendanceSupport = true;
+    }
+
+    if (liveError) throw liveError;
+
+    const { data: archivedRows, error: archivedError } = await supabase
+        .from('application_archives')
+        .select(NAT_ARCHIVE_APPLICATION_COLUMNS)
+        .order('archived_at', { ascending: false });
+
+    if (archivedError) throw archivedError;
+
+    const normalizedStatusFilter = String(filters?.status || '').trim();
+    const combinedRows = [
+        ...((liveData || []).map((row: any) => ({ ...row, isArchivedRecord: false, completed_at: row?.created_at || null }))),
+        ...((archivedRows || []).map(mapArchivedApplicationRow))
+    ].filter((row: any) => {
+        if (!normalizedStatusFilter || normalizedStatusFilter === 'All') return true;
+        return String(row?.status || '').trim() === normalizedStatusFilter;
+    });
+
+    const sortedRows = sortNatRowsLocally(
+        combinedRows,
+        sort || { column: 'completed_at', ascending: false }
+    );
+    const pagedRows = sliceNatRowsForPage(sortedRows, pageParams);
+    return toPageResult(pagedRows, sortedRows.length, pageParams);
+};
+
+export const getNatSummaryApplications = async () => {
+    const shouldTryAttendance = natAttendanceSupport !== false;
+    const buildLiveQuery = (supportsAttendance: boolean) => supabase
+        .from('applications')
+        .select(getNatApplicationColumns(supportsAttendance));
+
+    let liveData: any[] | null = null;
+    let liveError: any = null;
+    ({ data: liveData, error: liveError } = await buildLiveQuery(shouldTryAttendance));
+    if (liveError && shouldTryAttendance && isMissingNatAttendanceColumnsError(liveError)) {
+        natAttendanceSupport = false;
+        ({ data: liveData, error: liveError } = await buildLiveQuery(false));
+    } else if (!liveError && shouldTryAttendance) {
+        natAttendanceSupport = true;
+    }
+
+    if (liveError) throw liveError;
+
+    const { data: archivedRows, error: archivedError } = await supabase
+        .from('application_archives')
+        .select(NAT_ARCHIVE_APPLICATION_COLUMNS)
+        .order('archived_at', { ascending: false });
+
+    if (archivedError) throw archivedError;
+
+    return {
+        rows: [
+            ...((liveData || []).map((row: any) => ({ ...row, isArchivedRecord: false, completed_at: row?.created_at || null }))),
+            ...((archivedRows || []).map(mapArchivedApplicationRow))
+        ],
+        supportsAttendance: natAttendanceSupport !== false
+    };
 };
 
 export const getAdmissionSchedules = async () => {

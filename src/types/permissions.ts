@@ -73,6 +73,9 @@ export const FUNCTION_PERMISSIONS = [
 export const ACTION_PERMISSIONS = [
     'reset_student_data',
     'export_data',
+    'archive_records',
+    'restore_records',
+    'delete_records',
     'approve_applications',
     'schedule_interviews',
     'manage_own_department',
@@ -178,7 +181,8 @@ export const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, 
         feature: [...FEATURE_PERMISSIONS.careStaff],
         action: [
             'reset_student_data',
-            'export_data'
+            'export_data',
+            'archive_records'
         ]
     },
     'Department Head': {
@@ -202,7 +206,8 @@ export const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, 
         action: [
             'approve_applications',
             'schedule_interviews',
-            'manage_own_department'
+            'manage_own_department',
+            'archive_records'
         ]
     },
     Student: {
@@ -313,6 +318,9 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionType, Record<string, stri
     action: {
         reset_student_data: 'Perform the CARE destructive student-data reset workflow.',
         export_data: 'Generate and download staff export files.',
+        archive_records: 'Archive, close, deactivate, or retire records without hard deletion.',
+        restore_records: 'Restore previously archived records back into active use.',
+        delete_records: 'Permanently delete records from the system.',
         approve_applications: 'Approve applications routed to a department.',
         schedule_interviews: 'Schedule or reschedule admissions interviews.',
         manage_own_department: 'Manage records limited to the actor\'s assigned department.',

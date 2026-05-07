@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-    Users, Search, Download, XCircle, Edit, Trash2, Plus, Key,
+    Users, Search, Download, XCircle, Edit, Trash2, Plus, Key, Archive,
     PieChart, List, UploadCloud, Info, ArrowUpDown, Activity, TrendingUp,
     Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, RefreshCw, User
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
+import { managedArchiveService } from '../../services/managedArchiveService';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import type { CareStaffDashboardFunctions } from './types';
@@ -163,6 +165,13 @@ const toDateTimeLocal = (value?: string | null) => {
     return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
 };
 
+const formatDateTimeDisplay = (value?: string | null) => {
+    if (!value) return 'Not recorded';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Not recorded';
+    return date.toLocaleString();
+};
+
 const parseArchiveEntries = (value: any) => {
     if (!value) return [] as any[];
     if (Array.isArray(value)) return value;
@@ -211,12 +220,28 @@ interface StudentPopulationPageProps {
 
 const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }: StudentPopulationPageProps) => {
     const { showToast } = functions || {};
+    const { canPerformAction } = usePermissions();
+    const canArchiveRecords = canPerformAction('archive_records');
+    const canRestoreRecords = canPerformAction('restore_records');
 
     // Use custom hook for data fetching & real-time updates
     const { data: studentsList, refetch: refetchStudents } = useSupabaseData({
         table: 'students',
         select: STUDENT_LIST_COLUMNS,
+        eq: { column: 'is_archived', value: false },
         order: { column: 'created_at', ascending: false },
+        subscribe: true
+    });
+
+    const {
+        data: archivedStudentsList,
+        loading: archivedStudentsLoading,
+        refetch: refetchArchivedStudents
+    } = useSupabaseData({
+        table: 'students',
+        select: STUDENT_LIST_COLUMNS,
+        eq: { column: 'is_archived', value: true },
+        order: { column: 'archived_at', ascending: false },
         subscribe: true
     });
 
@@ -240,10 +265,13 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
     // Modals
     const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
+    const [showArchivedStudentsModal, setShowArchivedStudentsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editForm, setEditForm] = useState<any>({});
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [studentToDelete, setStudentToDelete] = useState<any>(null);
+    const [archivedSearchTerm, setArchivedSearchTerm] = useState('');
+    const [restoringStudentId, setRestoringStudentId] = useState<string | number | null>(null);
 
     const openEditModal = (student: any) => {
         setEditForm({
@@ -316,18 +344,46 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const confirmDeleteStudent = async () => {
         if (!studentToDelete) return;
         try {
-            const { error: keyError } = await supabase.from('enrolled_students').delete().eq('student_id', studentToDelete.student_id);
-            if (keyError) console.warn("Could not delete enrollment key:", keyError.message);
-
-            const { error } = await supabase.from('students').delete().eq('id', studentToDelete.id);
-            if (error) throw error;
-
-            if (showToast) showToast("Student and enrollment key deleted successfully.");
+            await managedArchiveService.archiveStudent(
+                Number(studentToDelete.id),
+                String(studentToDelete.student_id || ''),
+                'Archived from the CARE Staff student population page.',
+                null
+            );
+            if (showToast) showToast("Student archived and linked key marked inactive.");
             setShowDeleteModal(false);
             setStudentToDelete(null);
             refetchStudents();
+            setTableRefreshTick((current) => current + 1);
+            if (showEnrollmentModal) {
+                fetchEnrollmentKeys();
+            }
         } catch (error: any) {
-            if (showToast) showToast("Error deleting student: " + error.message, 'error');
+            if (showToast) showToast("Error archiving student: " + error.message, 'error');
+        }
+    };
+
+    const handleRestoreStudent = async (student: any) => {
+        if (!student?.id || !canRestoreRecords) return;
+        if (!window.confirm(`Restore ${student.first_name} ${student.last_name} to the active roster?`)) return;
+
+        setRestoringStudentId(student.id);
+        try {
+            await managedArchiveService.restoreStudent(
+                Number(student.id),
+                String(student.student_id || '').trim()
+            );
+            if (showToast) showToast('Student restored to the active roster.');
+            refetchStudents();
+            refetchArchivedStudents();
+            setTableRefreshTick((current) => current + 1);
+            if (showEnrollmentModal) {
+                fetchEnrollmentKeys();
+            }
+        } catch (error: any) {
+            if (showToast) showToast('Error restoring student: ' + error.message, 'error');
+        } finally {
+            setRestoringStudentId(null);
         }
     };
     const [searchTerm, setSearchTerm] = useState('');
@@ -535,11 +591,10 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     /* handlers lifted */
 
     const handleDeleteKey = async (studentId) => {
-        if (!window.confirm(`Delete enrollment key for ${studentId}?`)) return;
+        if (!window.confirm(`Revoke the enrollment key for ${studentId}?`)) return;
         try {
-            const { error } = await supabase.from('enrolled_students').delete().eq('student_id', studentId);
-            if (error) throw error;
-            functions.showToast("Enrollment key deleted.");
+            await managedArchiveService.revokeEnrollmentKey(String(studentId || '').trim());
+            functions.showToast("Enrollment key revoked.");
             fetchEnrollmentKeys();
         } catch (err) {
             functions.showToast(err.message, 'error');
@@ -951,6 +1006,22 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesSection && matchesSchoolYear;
     });
 
+    const filteredArchivedStudents = archivedStudentsList.filter((student: any) => {
+        const needle = archivedSearchTerm.trim().toLowerCase();
+        if (!needle) return true;
+
+        return [
+            student.first_name,
+            student.last_name,
+            student.student_id,
+            student.course,
+            student.email
+        ]
+            .map((value) => String(value || '').toLowerCase())
+            .join(' ')
+            .includes(needle);
+    });
+
     const handleExportExcel = async () => {
         if (typeof XLSX === 'undefined') { functions.showToast('Excel library not loaded. Please refresh the page.', 'error'); return; }
         functions.showToast('Preparing Excel export...', 'info');
@@ -1106,6 +1177,11 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     <Button variant="secondary" onClick={handleExportExcel} leftIcon={<FileSpreadsheet size={16} />}>
                         Export Excel
                     </Button>
+                    {(canArchiveRecords || canRestoreRecords) && (
+                        <Button variant="secondary" onClick={() => setShowArchivedStudentsModal(true)} leftIcon={<Archive size={16} />}>
+                            Archived Students ({archivedStudentsList.length})
+                        </Button>
+                    )}
                     <Button variant="primary" onClick={() => setShowEnrollmentModal(true)} leftIcon={<Key size={16} />}>
                         Enrollment Keys
                     </Button>
@@ -1127,9 +1203,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     <p className="text-2xl font-bold text-slate-900">{studentsList.filter(s => s.status === 'Active').length}</p>
                 </div>
                 <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
-                    <div className="w-12 h-12 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mb-4"><Activity size={24} /></div>
-                    <p className="text-slate-600 text-sm mb-1">Support Requests</p>
-                    <p className="text-2xl font-bold text-slate-900">-</p>
+                    <div className="w-12 h-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-4"><Archive size={24} /></div>
+                    <p className="text-slate-600 text-sm mb-1">Archived Students</p>
+                    <p className="text-2xl font-bold text-slate-900">{archivedStudentsList.length}</p>
                 </div>
             </div>
 
@@ -1259,7 +1335,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                             <td className="px-6 py-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{student.status}</span></td>
                                             <td className="px-6 py-4 text-right">
                                                 <button onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-600 hover:text-blue-800 p-2"><Edit size={16} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-slate-400 hover:text-red-600 p-2"><Trash2 size={16} /></button>
+                                                {canArchiveRecords && (
+                                                    <button onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-slate-400 hover:text-amber-700 p-2" title="Archive Student"><Archive size={16} /></button>
+                                                )}
                                             </td>
                                         </tr>
                                             ))}
@@ -1462,24 +1540,119 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             )}
 
             {/* Delete Student Modal */}
-            {showDeleteModal && studentToDelete && (
+            {showDeleteModal && studentToDelete && canArchiveRecords && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b flex justify-between items-center">
-                            <h3 className="font-bold text-lg">Delete Student</h3>
+                            <h3 className="font-bold text-lg">Archive Student</h3>
                             <button onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }}>
                                 <XCircle size={24} className="text-slate-400" />
                             </button>
                         </div>
                         <div className="p-6 space-y-4">
                             <p className="text-sm text-slate-700">
-                                Delete <span className="font-semibold">{studentToDelete.first_name} {studentToDelete.last_name}</span> and their enrollment key?
+                                Archive <span className="font-semibold">{studentToDelete.first_name} {studentToDelete.last_name}</span> and mark the linked enrollment key as archived?
                             </p>
-                            <p className="text-xs text-slate-500">This action cannot be undone.</p>
+                            <p className="text-xs text-slate-500">The student record stays in the database but is removed from the active roster.</p>
                             <div className="pt-2 flex gap-3">
                                 <button type="button" onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
-                                <button type="button" onClick={confirmDeleteStudent} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+                                <button type="button" onClick={confirmDeleteStudent} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">Archive</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showArchivedStudentsModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-start gap-4">
+                            <div>
+                                <h3 className="font-bold text-lg text-slate-900">Archived Students</h3>
+                                <p className="text-sm text-slate-500 mt-1">Student records stay preserved here until they are restored to the active roster.</p>
+                            </div>
+                            <button onClick={() => setShowArchivedStudentsModal(false)} className="text-slate-400 hover:text-slate-600">
+                                <XCircle size={24} />
+                            </button>
+                        </div>
+                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+                            <div className="relative w-full md:w-96">
+                                <Search size={16} className="absolute left-3 top-3 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search archived students..."
+                                    value={archivedSearchTerm}
+                                    onChange={(e) => setArchivedSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-blue-600 bg-white"
+                                />
+                            </div>
+                            <p className="text-xs text-slate-500 mt-3">
+                                Showing {filteredArchivedStudents.length} of {archivedStudentsList.length} archived students.
+                            </p>
+                        </div>
+                        <div className="flex-1 overflow-y-auto bg-slate-50/40 p-6 space-y-3">
+                            {archivedStudentsLoading ? (
+                                <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+                                    Loading archived students...
+                                </div>
+                            ) : filteredArchivedStudents.length === 0 ? (
+                                <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+                                    No archived students found.
+                                </div>
+                            ) : (
+                                filteredArchivedStudents.map((student: any) => (
+                                    <div key={student.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                            <div className="min-w-0 space-y-3">
+                                                <div>
+                                                    <p className="font-semibold text-slate-900">
+                                                        {student.first_name} {student.last_name}
+                                                    </p>
+                                                    <p className="font-mono text-sm text-slate-500">{student.student_id}</p>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 text-xs">
+                                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">
+                                                        {student.course || 'Course not set'}
+                                                    </span>
+                                                    <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
+                                                        {student.year_level || 'Year not set'}
+                                                    </span>
+                                                    <span className={`rounded-full px-2.5 py-1 font-medium ${student.status === 'Active'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : 'bg-amber-100 text-amber-700'
+                                                        }`}>
+                                                        {student.status || 'Inactive'}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1 text-xs text-slate-500">
+                                                    <p>Archived: {formatDateTimeDisplay(student.archived_at)}</p>
+                                                    {student.archived_reason && <p>Reason: {student.archived_reason}</p>}
+                                                    {student.archive_note && <p>Note: {student.archive_note}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openProfileModal(student)}
+                                                    className="px-3 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50"
+                                                >
+                                                    View Profile
+                                                </button>
+                                                {canRestoreRecords && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRestoreStudent(student)}
+                                                        disabled={restoringStudentId === student.id}
+                                                        className="px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-60"
+                                                    >
+                                                        {restoringStudentId === student.id ? 'Restoring...' : 'Restore'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1583,7 +1756,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
                                     <div className="mb-3 mt-6">
                                         <label className="block text-xs font-bold text-slate-700 mb-1">Filter by Status</label>
-                                        <select value={enrollmentStatusFilter} onChange={e => setEnrollmentStatusFilter(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"><option value="All">All Statuses</option><option value="Pending">Pending</option><option value="Activated">Activated</option></select>
+                                        <select value={enrollmentStatusFilter} onChange={e => setEnrollmentStatusFilter(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white"><option value="All">All Statuses</option><option value="Pending">Pending</option><option value="Activated">Activated</option><option value="Revoked">Revoked</option><option value="Archived">Archived</option></select>
                                     </div>
 
                                     <div className="mt-4 border-t border-slate-100 pt-4">
@@ -1597,10 +1770,19 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                         <span className="block text-slate-400">{key.year_level || 'Year not set'}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`px-2 py-1 rounded font-bold ${key.is_used ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{key.is_used ? 'Activated' : 'Pending'}</span>
-                                                        <button onClick={() => handleDeleteKey(key.student_id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete Key">
-                                                            <Trash2 size={14} />
-                                                        </button>
+                                                        <span className={`px-2 py-1 rounded font-bold ${String(key.status || '') === 'Archived'
+                                                            ? 'bg-slate-100 text-slate-700'
+                                                            : String(key.status || '') === 'Revoked'
+                                                                ? 'bg-red-100 text-red-700'
+                                                                : key.is_used
+                                                                    ? 'bg-green-100 text-green-700'
+                                                                    : 'bg-yellow-100 text-yellow-700'
+                                                            }`}>{key.status || (key.is_used ? 'Activated' : 'Pending')}</span>
+                                                        {canArchiveRecords && String(key.status || '') !== 'Archived' && String(key.status || '') !== 'Revoked' && (
+                                                            <button onClick={() => handleDeleteKey(key.student_id)} className="p-1.5 text-slate-400 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors" title="Revoke Key">
+                                                                <XCircle size={14} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
