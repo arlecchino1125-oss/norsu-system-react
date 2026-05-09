@@ -493,16 +493,6 @@ const formatTimeWindowLabel = (range: string) => {
     return `${formatTimeLabel(start)} - ${formatTimeLabel(end)}`;
 };
 
-const toHex = (buffer: ArrayBuffer) =>
-    Array.from(new Uint8Array(buffer))
-        .map((value) => value.toString(16).padStart(2, '0'))
-        .join('');
-
-const hashNatPassword = async (password: string) => {
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
-    return toHex(digest);
-};
-
 const normalizeScheduleTimeWindows = (raw: any) => {
     if (!Array.isArray(raw)) return [];
     return raw
@@ -972,14 +962,11 @@ const NATPortal = () => {
         }
 
         setLoading(true);
-        const username = formData.email;
+        const username = formData.email.trim();
         const password = Math.random().toString(36).slice(-8);
-        const natPasswordHash = await hashNatPassword(password);
-        const referenceId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
         try {
             const payload = {
-                reference_id: referenceId,
                 first_name: formData.firstName,
                 last_name: formData.lastName,
                 middle_name: formData.middleName,
@@ -1003,13 +990,16 @@ const NATPortal = () => {
                 alt_course_2: formData.altCourse2,
                 test_date: formData.testDate,
                 username: username,
-                nat_password_hash: natPasswordHash,
+                password,
                 dob: formData.dob
             } as any;
             if (supportsTestTime) payload.test_time = formData.testTime || null;
 
-            const { error } = await supabase.from('applications').insert([payload]);
-            if (error) throw error;
+            const submission = await invokeEdgeFunction('submit-nat-application', {
+                body: payload,
+                fallbackMessage: 'Failed to submit the NAT application.'
+            });
+            const referenceId = String(submission?.referenceId || submission?.application?.reference_id || '');
 
             setCredentials({ ...formData, username, password, referenceId });
 

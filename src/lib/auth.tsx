@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { buildEdgeFunctionHeaders } from './functionHeaders';
 import { sanitizeStudentSession } from './studentAuth';
 import { sanitizeStaffSession } from './staffAuth';
+import { readEdgeFunctionErrorMessage } from './invokeEdgeFunction';
 import {
     recoverLocalSupabaseSession
 } from './supabaseSessionRecovery';
@@ -176,6 +177,17 @@ const isInvalidAuthCredentialsError = (error: any) => {
         || message.includes('invalid credentials');
 };
 const INVALID_STUDENT_LOGIN_MESSAGE = 'Your email/ID or password is incorrect.';
+const getErrorMessage = (error: any, fallback: string) =>
+    error instanceof Error
+        ? error.message || fallback
+        : String(error || fallback);
+
+const getLoginCatchMessage = (error: any, fallbackPrefix: string) => {
+    const message = getErrorMessage(error, 'Unexpected login error.');
+    return Number(error?.status || 0) === 429
+        ? message
+        : `${fallbackPrefix}: ${message}`;
+};
 
 const signInWithResolvedEmail = async (email: string, password: string) =>
     supabase.auth.signInWithPassword({
@@ -187,7 +199,7 @@ const resolveAuthLoginAccount = async (
     mode: 'resolve-staff-login' | 'resolve-student-login',
     payload: Record<string, unknown>
 ) => {
-    const { data, error } = await supabase.functions.invoke('resolve-auth-login', {
+    const { data, error, response } = await supabase.functions.invoke('resolve-auth-login', {
         body: {
             mode,
             ...payload
@@ -195,8 +207,17 @@ const resolveAuthLoginAccount = async (
         headers: buildEdgeFunctionHeaders()
     });
 
-    if (error || !data?.success) {
-        throw error || new Error(data?.error || 'Unable to resolve the login account.');
+    if (error) {
+        const detailedMessage = await readEdgeFunctionErrorMessage(response || error?.context);
+        const nextError: Error & { status?: number | null } = new Error(
+            detailedMessage || error.message || 'Unable to resolve the login account.'
+        );
+        nextError.status = response?.status || error?.context?.status || null;
+        throw nextError;
+    }
+
+    if (!data?.success) {
+        throw new Error(data?.error || 'Unable to resolve the login account.');
     }
 
     return data.account || null;
@@ -453,7 +474,7 @@ export function AuthProvider({ children }: any) {
 
         } catch (err) {
             setLoading(false);
-            return { success: false, error: 'Connection error: ' + err.message };
+            return { success: false, error: getLoginCatchMessage(err, 'Connection error') };
         }
     }, [getStaffProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
 
@@ -531,7 +552,7 @@ export function AuthProvider({ children }: any) {
             return { success: true, data: sessionData };
         } catch (err) {
             setLoading(false);
-            return { success: false, error: 'Login error: ' + err.message };
+            return { success: false, error: getLoginCatchMessage(err, 'Login error') };
         }
     }, [getStudentProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
 
