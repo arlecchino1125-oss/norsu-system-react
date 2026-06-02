@@ -12,6 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "sanitize:storage": "node scripts/empty-production-storage.mjs",
+    "sanitize:storage:dry-run": "node scripts/empty-production-storage.mjs --dry-run",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {

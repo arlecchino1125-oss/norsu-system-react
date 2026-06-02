@@ -1,159 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { formatAuditDetails, isTrackedStaffAuditRole, type StaffAuditLogRow } from '../lib/staffAudit';
 import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
-import { Trash2, AlertTriangle, AlertCircle, CheckCircle, Plus, RefreshCw, Shield, LogOut, UserPlus, Building2, Users, Activity, Search, ChevronDown, KeyRound, Lock, LockOpen, Globe2, Settings2, Clock3, EyeOff } from 'lucide-react';
+import { Archive, AlertTriangle, AlertCircle, CheckCircle, Plus, RefreshCw, Shield, LogOut, UserPlus, Building2, Users, Activity, Search, KeyRound, Maximize2, X } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
-import { permissionService } from '../services/permissionService';
-import { PERMISSION_STATUS_LABELS, resolvePermissionDetails, type PermissionRecord, type PermissionStatus, type Role } from '../types/permissions';
 
-const STAFF_ACCOUNT_SELECT = 'id, username, full_name, role, department, email, created_at, auth_user_id';
-const ADMIN_PANEL_ORDER = ['alerts', 'portalLocks', 'createStaff', 'existingAccounts', 'studentOverview', 'governance', 'audit', 'colleges'] as const;
-const PANEL_LIMIT_OPTIONS = [1, 2, 3, 'all'] as const;
-const PANEL_PREFERENCES_STORAGE_KEY = 'norsu_admin_dashboard_panel_preferences_v1';
+const STAFF_ACCOUNT_SELECT = '*';
+const ADMIN_PANEL_ORDER = ['alerts', 'staffAccounts', 'studentOverview', 'governance', 'audit', 'colleges'] as const;
 const STAFF_ACCOUNT_PAGE_SIZE = 10;
 const AUDIT_PAGE_SIZE = 25;
 const AUDIT_SEARCH_DEBOUNCE_MS = 280;
 const TRACKED_ADMIN_AUDIT_ROLES = ['Care Staff', 'Department Head'] as const;
 
-const PORTAL_LOCK_GROUPS: Array<{
-    role: Role;
-    title: string;
-    description: string;
-    features: Array<{ key: string; label: string }>;
-}> = [
-    {
-        role: 'Care Staff',
-        title: 'CARE Staff Pages',
-        description: 'Operational pages inside the CARE Staff portal.',
-        features: [
-            { key: 'student_population', label: 'Student Population' },
-            { key: 'student_analytics', label: 'Student Analytics' },
-            { key: 'nat_management', label: 'NAT Management' },
-            { key: 'counseling', label: 'Counseling' },
-            { key: 'support_requests', label: 'Support Portal' },
-            { key: 'events', label: 'Events Portal' },
-            { key: 'scholarships', label: 'Scholarship Portal' },
-            { key: 'forms', label: 'Forms Portal' },
-            { key: 'feedback', label: 'Feedback Portal' },
-            { key: 'audit_logs', label: 'Audit Logs' },
-            { key: 'office_logbook', label: 'Office Logbook' },
-            { key: 'calendar', label: 'Calendar View' },
-            { key: 'export_center', label: 'Export Center' },
-            { key: 'settings', label: 'Settings' }
-        ]
-    },
-    {
-        role: 'Department Head',
-        title: 'Department Head Pages',
-        description: 'Department-facing pages used by Deans and heads.',
-        features: [
-            { key: 'admissions', label: 'Department Admissions' },
-            { key: 'interview_queue', label: 'Interview Queue' },
-            { key: 'counseling_queue', label: 'Counseling Queue' },
-            { key: 'support_approvals', label: 'Support Approvals' },
-            { key: 'students', label: 'Students' },
-            { key: 'counseled', label: 'Counseled Students' },
-            { key: 'events', label: 'Events Portal' },
-            { key: 'reports', label: 'Reports' },
-            { key: 'calendar', label: 'Calendar View' },
-            { key: 'export_center', label: 'Export Center' },
-            { key: 'settings', label: 'Settings' }
-        ]
-    },
-    {
-        role: 'Student',
-        title: 'Student Pages',
-        description: 'Student portal pages outside the dashboard home.',
-        features: [
-            { key: 'profile', label: 'Profile' },
-            { key: 'assessment', label: 'Needs Assessment' },
-            { key: 'counseling', label: 'Counseling Portal' },
-            { key: 'support', label: 'Support Portal' },
-            { key: 'scholarship', label: 'Scholarship Portal' },
-            { key: 'events', label: 'Events Portal' },
-            { key: 'feedback', label: 'Feedback Portal' }
-        ]
-    },
-    {
-        role: 'Public',
-        title: 'Public Pages',
-        description: 'Public-facing admission pages outside authenticated portals.',
-        features: [
-            { key: 'nat_portal', label: 'NAT Portal' }
-        ]
-    }
-] as const;
-
 type AdminPanelKey = typeof ADMIN_PANEL_ORDER[number];
-type PanelLimit = typeof PANEL_LIMIT_OPTIONS[number];
 type AuditRoleFilter = 'All' | (typeof TRACKED_ADMIN_AUDIT_ROLES)[number];
-type PortalLockModalState = {
-    role: Role;
-    roleTitle: string;
-    featureKey: string;
-    featureLabel: string;
-    description: string;
-    nextStatus: PermissionStatus;
-    noticeText: string;
-};
-
-const sortAdminPanelKeys = (keys: AdminPanelKey[]) => {
-    const uniqueKeys = Array.from(new Set(keys));
-    return ADMIN_PANEL_ORDER.filter((panelKey) => uniqueKeys.includes(panelKey));
-};
 
 const sanitizeAuditSearchTerm = (value: string) =>
     String(value || '').replace(/[%(),'"]/g, ' ').trim();
-
-const readStoredPanelPreferences = (): {
-    expandedPanels: AdminPanelKey[];
-    expandedPanelLimit: PanelLimit;
-} => {
-    const defaultState = {
-        expandedPanels: [...ADMIN_PANEL_ORDER],
-        expandedPanelLimit: 'all' as PanelLimit
-    };
-
-    if (typeof window === 'undefined') {
-        return defaultState;
-    }
-
-    try {
-        const rawValue = window.localStorage.getItem(PANEL_PREFERENCES_STORAGE_KEY);
-        if (!rawValue) {
-            return defaultState;
-        }
-
-        const parsed = JSON.parse(rawValue) as {
-            expandedPanels?: unknown;
-            expandedPanelLimit?: unknown;
-        } | null;
-
-        const expandedPanelLimit = PANEL_LIMIT_OPTIONS.includes(parsed?.expandedPanelLimit as PanelLimit)
-            ? parsed?.expandedPanelLimit as PanelLimit
-            : defaultState.expandedPanelLimit;
-        const expandedPanels = Array.isArray(parsed?.expandedPanels)
-            ? sortAdminPanelKeys(parsed?.expandedPanels.filter((panelKey): panelKey is AdminPanelKey =>
-                ADMIN_PANEL_ORDER.includes(panelKey as AdminPanelKey)
-            ))
-            : defaultState.expandedPanels;
-
-        if (expandedPanelLimit === 'all' || expandedPanels.length <= expandedPanelLimit) {
-            return { expandedPanels, expandedPanelLimit };
-        }
-
-        return {
-            expandedPanels: expandedPanels.slice(0, expandedPanelLimit),
-            expandedPanelLimit
-        };
-    } catch {
-        return defaultState;
-    }
-};
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
@@ -167,9 +34,9 @@ export default function AdminDashboard() {
     const [isRefreshingData, setIsRefreshingData] = useState<boolean>(false);
     const [emailDrafts, setEmailDrafts] = useState<Record<string, string>>({});
     const [savingAccountEmailId, setSavingAccountEmailId] = useState<string | null>(null);
-    const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+    const [archivingAccountId, setArchivingAccountId] = useState<string | null>(null);
     const [isAddingDepartment, setIsAddingDepartment] = useState(false);
-    const [deletingDepartmentId, setDeletingDepartmentId] = useState<string | null>(null);
+    const [archivingDepartmentId, setArchivingDepartmentId] = useState<string | null>(null);
     const [auditLogs, setAuditLogs] = useState<StaffAuditLogRow[]>([]);
     const [auditLoading, setAuditLoading] = useState(true);
     const [auditRoleFilter, setAuditRoleFilter] = useState<AuditRoleFilter>('All');
@@ -178,27 +45,24 @@ export default function AdminDashboard() {
     const [auditTotalCount, setAuditTotalCount] = useState(0);
     const [auditPage, setAuditPage] = useState(1);
     const [staffAccountsPage, setStaffAccountsPage] = useState(1);
-    const [portalLockRecords, setPortalLockRecords] = useState<Partial<Record<Role, PermissionRecord>>>({});
-    const [portalLockLoading, setPortalLockLoading] = useState(true);
-    const [portalLockSavingKey, setPortalLockSavingKey] = useState<string | null>(null);
-    const [portalLockModal, setPortalLockModal] = useState<PortalLockModalState | null>(null);
-    const initialPanelPreferences = React.useMemo(() => readStoredPanelPreferences(), []);
-    const [expandedPanelLimit, setExpandedPanelLimit] = useState<PanelLimit>(initialPanelPreferences.expandedPanelLimit);
-    const [expandedPanels, setExpandedPanels] = useState<AdminPanelKey[]>(initialPanelPreferences.expandedPanels);
+    const [activePanelModal, setActivePanelModal] = useState<AdminPanelKey | null>(null);
 
     // Use custom hook for real-time data fetching
-    const { data: accounts, refetch: refetchAccounts } = useSupabaseData({
+    const { data: accountRows, refetch: refetchAccounts } = useSupabaseData({
         table: 'staff_accounts',
         select: STAFF_ACCOUNT_SELECT,
         order: { column: 'created_at', ascending: false },
         subscribe: true
     });
+    const accounts = accountRows.filter((account: any) => !account?.is_archived);
 
-    const { data: departmentsData, refetch: refetchDepartments } = useSupabaseData({
+    const { data: departmentRows, refetch: refetchDepartments } = useSupabaseData({
         table: 'departments',
+        select: '*',
         order: { column: 'name', ascending: true },
         subscribe: true
     });
+    const departmentsData = departmentRows.filter((department: any) => !department?.is_archived);
     const { data: coursesData, refetch: refetchCourses } = useSupabaseData({
         table: 'courses',
         select: 'id, name, department_id',
@@ -258,71 +122,10 @@ export default function AdminDashboard() {
         return coursesData.filter((course: any) => Number(course.department_id) === normalizedDepartmentId);
     };
 
-    const sortPanelKeys = React.useCallback((keys: AdminPanelKey[]) => {
-        return sortAdminPanelKeys(keys);
-    }, []);
-
-    const isPanelExpanded = React.useCallback((panelKey: AdminPanelKey) => {
-        return expandedPanels.includes(panelKey);
-    }, [expandedPanels]);
-
-    const togglePanel = React.useCallback((panelKey: AdminPanelKey) => {
-        setExpandedPanels((prev) => {
-            if (prev.includes(panelKey)) {
-                return prev.filter((key) => key !== panelKey);
-            }
-
-            const next = [...prev.filter((key) => key !== panelKey), panelKey];
-            if (expandedPanelLimit === 'all' || next.length <= expandedPanelLimit) {
-                return next;
-            }
-
-            return next.slice(next.length - expandedPanelLimit);
-        });
-    }, [expandedPanelLimit]);
-
-    const setPanelLimit = React.useCallback((limit: PanelLimit) => {
-        setExpandedPanelLimit(limit);
-        setExpandedPanels((prev) => {
-            const orderedPanels = sortPanelKeys(prev);
-            if (limit === 'all' || orderedPanels.length <= limit) {
-                return orderedPanels;
-            }
-
-            return orderedPanels.slice(0, limit);
-        });
-    }, [sortPanelKeys]);
-
-    const collapseAllPanels = React.useCallback(() => {
-        setExpandedPanels([]);
-    }, []);
-
     const showToast = React.useCallback((msg: string, type: string = 'success') => {
         setToast({ msg, type });
         window.setTimeout(() => setToast(null), 3000);
     }, []);
-
-    const loadPortalLockRecords = React.useCallback(async (forceRefresh = false) => {
-        setPortalLockLoading(true);
-
-        try {
-            if (forceRefresh) {
-                PORTAL_LOCK_GROUPS.forEach((group) => permissionService.clearRoleCache(group.role));
-            }
-
-            const entries = await Promise.all(
-                PORTAL_LOCK_GROUPS.map(async (group) => [group.role, await permissionService.getPermissionsForRole(group.role)] as const)
-            );
-
-            setPortalLockRecords(Object.fromEntries(entries) as Partial<Record<Role, PermissionRecord>>);
-        } catch (error: any) {
-            console.error('Failed to load portal locks:', error);
-            showToast(error?.message || 'Failed to load portal locks.', 'error');
-            setPortalLockRecords({});
-        } finally {
-            setPortalLockLoading(false);
-        }
-    }, [showToast]);
 
     const fetchAuditLogs = React.useCallback(async () => {
         setAuditLoading(true);
@@ -379,16 +182,6 @@ export default function AdminDashboard() {
     }, [isAuthenticated, navigate]);
 
     useEffect(() => {
-        if (!isAuthenticated) {
-            setPortalLockRecords({});
-            setPortalLockLoading(false);
-            return;
-        }
-
-        void loadPortalLockRecords();
-    }, [isAuthenticated, loadPortalLockRecords]);
-
-    useEffect(() => {
         const timeoutId = window.setTimeout(() => {
             setDebouncedAuditSearch(auditSearch);
         }, AUDIT_SEARCH_DEBOUNCE_MS);
@@ -399,21 +192,6 @@ export default function AdminDashboard() {
     useEffect(() => {
         setAuditPage(1);
     }, [auditRoleFilter, debouncedAuditSearch]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        try {
-            window.localStorage.setItem(PANEL_PREFERENCES_STORAGE_KEY, JSON.stringify({
-                expandedPanels,
-                expandedPanelLimit
-            }));
-        } catch {
-            // Ignore storage write issues and keep the current layout in memory.
-        }
-    }, [expandedPanelLimit, expandedPanels]);
 
     useEffect(() => {
         const totalPages = Math.max(1, Math.ceil(accounts.length / STAFF_ACCOUNT_PAGE_SIZE));
@@ -455,6 +233,24 @@ export default function AdminDashboard() {
         };
     }, [fetchAuditLogs, isAuthenticated]);
 
+    useEffect(() => {
+        if (!activePanelModal || typeof window === 'undefined') {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setActivePanelModal(null);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [activePanelModal]);
+
     const isFunctionUnavailableError = (message: string, status?: number | null, errorName?: string | null) => {
         const normalized = String(message || '').toLowerCase();
         if (status === 404) return true;
@@ -464,6 +260,23 @@ export default function AdminDashboard() {
             || normalized.includes('fetch failed')
             || normalized.includes('cors')
             || normalized.includes('not found');
+    };
+
+    const getArchiveSchemaErrorMessage = (error: any, fallback: string) => {
+        const message = String(error?.message || error || '');
+        const normalized = message.toLowerCase();
+        const mentionsArchiveColumn = normalized.includes('is_archived')
+            || normalized.includes('archived_at')
+            || normalized.includes('archive_note');
+        const looksLikeMissingColumn = normalized.includes('schema cache')
+            || normalized.includes('column')
+            || normalized.includes('does not exist');
+
+        if (mentionsArchiveColumn && looksLikeMissingColumn) {
+            return 'Archive fields are not installed in Supabase yet. Apply supabase/migrations/20260527_add_admin_archive_fields.sql, then try again.';
+        }
+
+        return message || fallback;
     };
 
     const invokeManagedStaffFunction = async (body: any) => {
@@ -524,57 +337,42 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleDelete = async (account: any) => {
+    const handleArchiveAccount = async (account: any) => {
         const nextAccountId = String(account?.id || '').trim();
-        if (!nextAccountId || deletingAccountId === nextAccountId) return;
-        if (account.id === session.id) {
-            showToast('You cannot delete the account you are currently using.', 'error');
+        if (!nextAccountId || archivingAccountId === nextAccountId) return;
+
+        const currentSessionId = String(session?.id || '').trim();
+        const currentAuthUserId = String(session?.auth_user_id || session?.user?.id || '').trim();
+        if (
+            (currentSessionId && String(account.id) === currentSessionId)
+            || (currentAuthUserId && String(account.auth_user_id || '') === currentAuthUserId)
+        ) {
+            showToast('You cannot archive the account you are currently using.', 'error');
             return;
         }
 
-        const confirmMessage = account.auth_user_id
-            ? 'Delete this linked account? Its Supabase Auth login will also be removed.'
-            : 'Delete this account?';
-        if (!confirm(confirmMessage)) return;
-        setDeletingAccountId(nextAccountId);
+        const accountLabel = String(account.full_name || account.username || 'this staff account').trim();
+        if (!confirm(`Archive ${accountLabel}? The record stays saved, but it will be removed from active staff account lists and blocked from login.`)) return;
+        setArchivingAccountId(nextAccountId);
 
         try {
-            const result = await invokeManagedStaffFunction({
-                mode: 'delete-account',
-                staffAccountId: nextAccountId
-            });
-
-            if (result?.authCleanupWarning) {
-                showToast(`Staff account deleted. Auth cleanup warning: ${result.authCleanupWarning}`, 'error');
-            } else {
-                showToast(account.auth_user_id ? 'Linked staff account deleted.' : 'Staff account deleted.');
-            }
-            refetchAccounts();
-        } catch (error: any) {
-            if (!isFunctionUnavailableError(error?.message || '', error?.status, error?.errorName)) {
-                showToast(error.message || 'Failed to delete account.', 'error');
-                return;
-            }
-
-            if (account.auth_user_id) {
-                showToast('Delete blocked: deploy manage-staff-accounts before removing linked staff accounts.', 'error');
-                return;
-            }
-
-            const { error: legacyError } = await supabase
+            const { error } = await supabase
                 .from('staff_accounts')
-                .delete()
-                .eq('id', account.id);
+                .update({
+                    is_archived: true,
+                    archived_at: new Date().toISOString(),
+                    archive_note: 'Archived from the admin dashboard.'
+                })
+                .eq('id', nextAccountId);
 
-            if (legacyError) {
-                showToast(legacyError.message, 'error');
-                return;
-            }
+            if (error) throw error;
 
-            showToast('Legacy staff account deleted.');
-            refetchAccounts();
+            showToast(`Staff account "${accountLabel}" archived.`);
+            await refetchAccounts();
+        } catch (error: any) {
+            showToast(getArchiveSchemaErrorMessage(error, 'Failed to archive staff account.'), 'error');
         } finally {
-            setDeletingAccountId(null);
+            setArchivingAccountId(null);
         }
     };
 
@@ -711,51 +509,78 @@ export default function AdminDashboard() {
         if (departments.includes(name)) { showToast('College already exists.', 'error'); return; }
         setIsAddingDepartment(true);
         try {
+            const { data: existingDepartment, error: existingLookupError } = await supabase
+                .from('departments')
+                .select('*')
+                .eq('name', name)
+                .maybeSingle();
+
+            if (existingLookupError) throw existingLookupError;
+
+            if (existingDepartment?.id && existingDepartment?.is_archived) {
+                const { error: restoreError } = await supabase
+                    .from('departments')
+                    .update({
+                        is_archived: false,
+                        archived_at: null,
+                        archive_note: null
+                    })
+                    .eq('id', existingDepartment.id);
+
+                if (restoreError) throw restoreError;
+
+                showToast(`College "${name}" restored from archives.`);
+                setNewDeptName('');
+                refetchDepartments();
+                return;
+            }
+
+            if (existingDepartment?.id) {
+                showToast('College already exists.', 'error');
+                return;
+            }
+
             const { error } = await supabase.from('departments').insert([{ name }]);
-            if (error) showToast(error.message, 'error');
-            else { showToast(`College "${name}" added.`); setNewDeptName(''); refetchDepartments(); }
+            if (error) throw error;
+
+            showToast(`College "${name}" added.`);
+            setNewDeptName('');
+            refetchDepartments();
+        } catch (error: any) {
+            showToast(getArchiveSchemaErrorMessage(error, 'Failed to save college.'), 'error');
         } finally {
             setIsAddingDepartment(false);
         }
     };
 
-    const handleDeleteDepartment = async (dept: any) => {
+    const handleArchiveDepartment = async (dept: any) => {
         const nextDepartmentId = String(dept?.id || '').trim();
-        if (!nextDepartmentId || deletingDepartmentId === nextDepartmentId) return;
+        if (!nextDepartmentId || archivingDepartmentId === nextDepartmentId) return;
         const linkedCourses = getDepartmentCourses(dept.id);
+        const linkedCourseText = linkedCourses.length > 0
+            ? ` ${linkedCourses.length} mapped course(s) will stay saved with this college for history.`
+            : '';
 
-        if (linkedCourses.length > 0) {
-            const coursePreview = linkedCourses
-                .slice(0, 3)
-                .map((course: any) => course.name)
-                .join(', ');
-            const remainingCount = linkedCourses.length - Math.min(linkedCourses.length, 3);
-            const previewSuffix = remainingCount > 0 ? `, and ${remainingCount} more` : '';
-            showToast(
-                `Cannot delete college "${dept.name}" because ${linkedCourses.length} course(s) are still assigned to it: ${coursePreview}${previewSuffix}. Delete or reassign those courses first.`,
-                'error'
-            );
-            return;
-        }
-
-        if (!confirm(`Remove college "${dept.name}"? This will NOT delete accounts or students linked to it.`)) return;
-        setDeletingDepartmentId(nextDepartmentId);
+        if (!confirm(`Archive college "${dept.name}"? It will be hidden from active college lists, but no accounts, students, or courses will be deleted.${linkedCourseText}`)) return;
+        setArchivingDepartmentId(nextDepartmentId);
         try {
-            const { error } = await supabase.from('departments').delete().eq('id', nextDepartmentId);
-            if (error) {
-                if (String(error.message || '').includes('courses_department_id_fkey')) {
-                    showToast(`Cannot delete college "${dept.name}" because it still has linked courses. Delete or reassign those courses first.`, 'error');
-                    refetchCourses();
-                    return;
-                }
-                showToast(error.message, 'error');
-            }
-            else {
-                showToast(`College "${dept.name}" removed.`);
-                refetchDepartments();
-            }
+            const { error } = await supabase
+                .from('departments')
+                .update({
+                    is_archived: true,
+                    archived_at: new Date().toISOString(),
+                    archive_note: 'Archived from the admin dashboard.'
+                })
+                .eq('id', nextDepartmentId);
+
+            if (error) throw error;
+
+            showToast(`College "${dept.name}" archived.`);
+            await refetchDepartments();
+        } catch (error: any) {
+            showToast(getArchiveSchemaErrorMessage(error, 'Failed to archive college.'), 'error');
         } finally {
-            setDeletingDepartmentId(null);
+            setArchivingDepartmentId(null);
         }
     };
 
@@ -768,8 +593,7 @@ export default function AdminDashboard() {
                 refetchCourses(),
                 refetchStudents(),
                 refetchApplications(),
-                fetchAuditLogs(),
-                loadPortalLockRecords(true)
+                fetchAuditLogs()
             ]);
             showToast('Admin data refreshed.');
         } catch (error: any) {
@@ -864,128 +688,6 @@ export default function AdminDashboard() {
         { label: 'Needs Auth', value: authPendingStudentCount, tone: 'border-amber-200 bg-amber-50 text-amber-700' },
         { label: 'Applications', value: applicationsData.length, tone: 'border-violet-200 bg-violet-50 text-violet-700' }
     ];
-    const getPortalLockRoleMeta = (role: Role) => {
-        if (role === 'Care Staff') {
-            return {
-                icon: <Shield className="h-4 w-4" />,
-                iconClass: 'border-sky-200 bg-sky-50 text-sky-700',
-                badgeClass: 'border-sky-200 bg-sky-50 text-sky-700'
-            };
-        }
-
-        if (role === 'Department Head') {
-            return {
-                icon: <Building2 className="h-4 w-4" />,
-                iconClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-                badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700'
-            };
-        }
-
-        if (role === 'Student') {
-            return {
-                icon: <Users className="h-4 w-4" />,
-                iconClass: 'border-violet-200 bg-violet-50 text-violet-700',
-                badgeClass: 'border-violet-200 bg-violet-50 text-violet-700'
-            };
-        }
-
-        return {
-            icon: <Globe2 className="h-4 w-4" />,
-            iconClass: 'border-cyan-200 bg-cyan-50 text-cyan-700',
-            badgeClass: 'border-cyan-200 bg-cyan-50 text-cyan-700'
-        };
-    };
-    const getPortalLockStatusClass = (status: PermissionStatus) => {
-        if (status === 'enabled') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-        if (status === 'maintenance') return 'border-amber-200 bg-amber-50 text-amber-700';
-        if (status === 'coming_soon') return 'border-sky-200 bg-sky-50 text-sky-700';
-        return 'border-rose-200 bg-rose-50 text-rose-700';
-    };
-    const getPortalLockStatusIcon = (status: PermissionStatus) => {
-        if (status === 'enabled') return <LockOpen className="h-3.5 w-3.5" />;
-        if (status === 'maintenance') return <Settings2 className="h-3.5 w-3.5" />;
-        if (status === 'coming_soon') return <Clock3 className="h-3.5 w-3.5" />;
-        return <EyeOff className="h-3.5 w-3.5" />;
-    };
-    const portalLockGroups = React.useMemo(() => {
-        return PORTAL_LOCK_GROUPS.map((group) => {
-            const rolePermissions = (portalLockRecords[group.role] || {}) as PermissionRecord;
-            const features = group.features.map((feature) => {
-                const permission = resolvePermissionDetails(rolePermissions, 'feature', feature.key);
-                const currentStatus = !permission.isAllowed && permission.status === 'enabled'
-                    ? 'hidden'
-                    : permission.status;
-
-                return {
-                    ...feature,
-                    description: String(permission.description || permissionService.getPermissionDescription('feature', feature.key)).trim(),
-                    permission,
-                    currentStatus,
-                    isUnlocked: permission.isAllowed && currentStatus === 'enabled',
-                    savingKey: `${group.role}:${feature.key}`
-                };
-            });
-
-            return {
-                ...group,
-                features,
-                lockedCount: features.filter((feature) => feature.currentStatus !== 'enabled').length
-            };
-        });
-    }, [portalLockRecords]);
-    const totalPortalPageCount = portalLockGroups.reduce((total, group) => total + group.features.length, 0);
-    const enabledPortalPageCount = portalLockGroups.reduce((total, group) =>
-        total + group.features.filter((feature) => feature.currentStatus === 'enabled').length,
-    0);
-    const lockedPortalPageCount = totalPortalPageCount - enabledPortalPageCount;
-    const openPortalLockModal = React.useCallback((params: {
-        role: Role;
-        roleTitle: string;
-        featureKey: string;
-        featureLabel: string;
-        description: string;
-        currentStatus: PermissionStatus;
-        currentNoticeText: string | null;
-    }) => {
-        setPortalLockModal({
-            role: params.role,
-            roleTitle: params.roleTitle,
-            featureKey: params.featureKey,
-            featureLabel: params.featureLabel,
-            description: params.description,
-            nextStatus: params.currentStatus === 'enabled' ? 'hidden' : 'enabled',
-            noticeText: params.currentNoticeText || ''
-        });
-    }, []);
-    const handleConfirmPortalLock = React.useCallback(async () => {
-        if (!portalLockModal) {
-            return;
-        }
-
-        const savingKey = `${portalLockModal.role}:${portalLockModal.featureKey}`;
-        setPortalLockSavingKey(savingKey);
-
-        const success = await permissionService.updatePermission({
-            role: portalLockModal.role,
-            permissionType: 'feature',
-            permissionKey: portalLockModal.featureKey,
-            isAllowed: portalLockModal.nextStatus !== 'hidden',
-            status: portalLockModal.nextStatus,
-            noticeText: portalLockModal.noticeText,
-            description: portalLockModal.description
-        });
-
-        setPortalLockSavingKey(null);
-
-        if (!success) {
-            showToast(`Unable to update ${portalLockModal.featureLabel}.`, 'error');
-            return;
-        }
-
-        await loadPortalLockRecords(true);
-        showToast(`${portalLockModal.featureLabel} is now ${PERMISSION_STATUS_LABELS[portalLockModal.nextStatus].toLowerCase()}.`);
-        setPortalLockModal(null);
-    }, [loadPortalLockRecords, portalLockModal, showToast]);
     const panelClass = 'overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/90 shadow-xl shadow-slate-200/70 backdrop-blur';
     const sectionHeaderIconClass = 'flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700';
     const inputClass = 'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-sm outline-none transition-all focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100';
@@ -1016,55 +718,98 @@ export default function AdminDashboard() {
         bodyClassName?: string;
         headerActions?: React.ReactNode;
     }) => {
-        const expanded = isPanelExpanded(panelKey);
+        const isOpen = activePanelModal === panelKey;
+        const modalBodyClassName = bodyClassName === undefined ? 'p-6 sm:p-7' : bodyClassName;
 
         return (
-            <div className={`${panelClass} ${className}`.trim()}>
-                <div className="border-b border-slate-200/80 p-6 sm:p-7">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <button
-                            type="button"
-                            onClick={() => togglePanel(panelKey)}
-                            className="flex min-w-0 flex-1 items-start gap-4 text-left"
-                            aria-expanded={expanded}
-                        >
-                            <div className={`${sectionHeaderIconClass} transition-transform duration-200 ${expanded ? 'scale-100' : 'scale-95'}`}>
-                                {icon}
-                            </div>
-                            <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-                                    {badge && (
-                                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                            {badge}
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
-                            </div>
-                        </button>
-
-                        <div className="flex flex-wrap items-center gap-3">
-                            {headerActions}
+            <>
+                <div className={`${panelClass} ${className}`.trim()}>
+                    <div className="p-5 sm:p-6">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <button
                                 type="button"
-                                onClick={() => togglePanel(panelKey)}
-                                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
-                                aria-expanded={expanded}
+                                onClick={() => setActivePanelModal(panelKey)}
+                                className="flex min-w-0 flex-1 items-start gap-4 text-left"
                             >
-                                <span>{expanded ? 'Collapse' : 'Expand'}</span>
-                                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+                                <div className={`${sectionHeaderIconClass} transition-transform duration-200 ${isOpen ? 'scale-100 border-teal-200 bg-teal-50 text-teal-700' : 'scale-95'}`}>
+                                    {icon}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+                                        {badge && (
+                                            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                                {badge}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+                                </div>
                             </button>
+
+                            <div className="flex flex-wrap items-center gap-3">
+                                {headerActions}
+                                <button
+                                    type="button"
+                                    onClick={() => setActivePanelModal(panelKey)}
+                                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+                                >
+                                    <Maximize2 className="h-4 w-4" />
+                                    <span>Open</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {expanded && (
-                    <div className={bodyClassName ?? 'p-6 sm:p-7'}>
-                        {children}
-                    </div>
+                {isOpen && typeof document !== 'undefined' && createPortal(
+                    <div
+                        className="fixed left-1/2 z-50 flex -translate-x-1/2 flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl shadow-slate-300/60"
+                        style={{
+                            top: 'clamp(1rem, 7vh, 5.5rem)',
+                            width: 'min(94vw, 1280px)',
+                            height: 'min(82vh, 820px)'
+                        }}
+                        role="dialog"
+                        aria-labelledby={`${panelKey}-modal-title`}
+                    >
+                            <div className="border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="flex min-w-0 items-start gap-4">
+                                        <div className={`${sectionHeaderIconClass} border-teal-200 bg-teal-50 text-teal-700`}>
+                                            {icon}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <h2 id={`${panelKey}-modal-title`} className="text-xl font-semibold text-slate-900">{title}</h2>
+                                                {badge && (
+                                                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                                        {badge}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setActivePanelModal(null)}
+                                        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 lg:shrink-0"
+                                        aria-label={`Close ${title}`}
+                                    >
+                                        <X className="h-5 w-5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className={`min-h-0 flex-1 overflow-y-auto ${modalBodyClassName}`.trim()}>
+                                {children}
+                            </div>
+                    </div>,
+                    document.body
                 )}
-            </div>
+            </>
         );
     };
 
@@ -1097,45 +842,25 @@ export default function AdminDashboard() {
                                         <div className="w-full rounded-[20px] border border-white/10 bg-white/10 p-3 backdrop-blur xl:max-w-[340px]">
                                             <div className="flex items-center justify-between gap-3">
                                                 <div>
-                                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Dashboard Layout</p>
+                                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Section Modals</p>
                                                     <p className="mt-1 text-[11px] leading-5 text-slate-300">
-                                                        Set how many sections stay open at once.
+                                                        Open each admin section in a floating workspace.
                                                     </p>
                                                 </div>
                                                 <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100">
-                                                    {expandedPanels.length} open
+                                                    {activePanelModal ? '1 open' : 'Ready'}
                                                 </span>
                                             </div>
 
-                                            <div className="mt-2.5 flex flex-wrap gap-2">
-                                                {PANEL_LIMIT_OPTIONS.map((limitOption) => {
-                                                    const active = expandedPanelLimit === limitOption;
-                                                    const label = limitOption === 'all' ? 'All' : `${limitOption}`;
-                                                    return (
-                                                        <button
-                                                            key={String(limitOption)}
-                                                            type="button"
-                                                            onClick={() => setPanelLimit(limitOption)}
-                                                            className={`inline-flex items-center justify-center rounded-2xl px-3 py-1.5 text-[11px] font-semibold transition ${
-                                                                active
-                                                                    ? 'bg-white text-slate-900 shadow-lg shadow-slate-950/20'
-                                                                    : 'border border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'
-                                                            }`}
-                                                        >
-                                                            {label} Open
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            <div className="mt-2.5 flex items-center justify-between gap-3 text-[11px] text-slate-300">
-                                                <span>Saved automatically after refresh.</span>
+                                            <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-300">
+                                                <span>Page stays compact while details open on top.</span>
                                                 <button
                                                     type="button"
-                                                    onClick={collapseAllPanels}
-                                                    className="font-semibold text-white transition hover:text-rose-200"
+                                                    onClick={() => setActivePanelModal(null)}
+                                                    disabled={!activePanelModal}
+                                                    className="font-semibold text-white transition hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
                                                 >
-                                                    Collapse All
+                                                    Close Modal
                                                 </button>
                                             </div>
                                         </div>
@@ -1210,298 +935,135 @@ export default function AdminDashboard() {
                         })}
                     </div>
 
-                    <div className="mt-8">
+                    <div className="grid grid-cols-1 gap-8">
                         {renderExpandablePanel({
-                            panelKey: 'portalLocks',
-                            title: 'Portal Locks',
-                            description: 'Manage availability of actual portal pages only. Tables, functions, and actions stay in Role Permissions as backend security controls.',
-                            icon: <Lock className="h-5 w-5" />,
-                            badge: `${lockedPortalPageCount} locked`,
-                            bodyClassName: '',
-                            headerActions: (
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/admin/permissions')}
-                                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
-                                >
-                                    <KeyRound className="h-4 w-4" />
-                                    Open Full RBAC
-                                </button>
-                            ),
-                            children: (
-                                <>
-                                    <div className="grid gap-4 p-6 md:grid-cols-3">
-                                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Enabled Pages</p>
-                                            <p className="mt-3 text-3xl font-semibold text-slate-900">{enabledPortalPageCount}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-700">Locked Pages</p>
-                                            <p className="mt-3 text-3xl font-semibold text-slate-900">{lockedPortalPageCount}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">Tracked Pages</p>
-                                            <p className="mt-3 text-3xl font-semibold text-slate-900">{totalPortalPageCount}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-slate-200/80 px-6 py-5 text-sm leading-6 text-slate-500">
-                                        This panel is for whole-page availability only. Hidden removes a page from navigation, while Maintenance and Coming Soon keep the page visible and replace it with a notice screen.
-                                    </div>
-
-                                    {portalLockLoading ? (
-                                        <div className="border-t border-slate-200/80 px-6 py-16 text-center text-sm text-slate-500">
-                                            Loading portal locks...
-                                        </div>
-                                    ) : (
-                                        <div className="grid gap-5 border-t border-slate-200/80 p-6 xl:grid-cols-2">
-                                            {portalLockGroups.map((group) => {
-                                                const roleMeta = getPortalLockRoleMeta(group.role);
-
-                                                return (
-                                                    <div key={group.role} className="rounded-[26px] border border-slate-200 bg-slate-50/70 p-5 shadow-sm shadow-slate-200/60">
-                                                        <div className="flex items-start justify-between gap-4">
-                                                            <div className="flex min-w-0 items-start gap-3">
-                                                                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${roleMeta.iconClass}`}>
-                                                                    {roleMeta.icon}
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <div className="flex flex-wrap items-center gap-2">
-                                                                        <h3 className="text-lg font-semibold text-slate-900">{group.title}</h3>
-                                                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${roleMeta.badgeClass}`}>
-                                                                            {group.lockedCount} locked
-                                                                        </span>
-                                                                    </div>
-                                                                    <p className="mt-1 text-sm leading-6 text-slate-500">{group.description}</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="mt-5 space-y-3">
-                                                            {group.features.map((feature) => {
-                                                                const isSaving = portalLockSavingKey === feature.savingKey;
-
-                                                                return (
-                                                                    <div key={`${group.role}:${feature.key}`} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                                                                        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                                                                            <div className="min-w-0">
-                                                                                <p className="font-semibold text-slate-900">{feature.label}</p>
-                                                                                <p className="mt-1 text-xs text-slate-400">{feature.key}</p>
-                                                                                <p className="mt-2 text-sm leading-6 text-slate-500">{feature.description}</p>
-                                                                                {String(feature.permission.noticeText || '').trim() && feature.currentStatus !== 'enabled' && (
-                                                                                    <p className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
-                                                                                        Notice: {String(feature.permission.noticeText || '').trim()}
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-
-                                                                            <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-                                                                                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${getPortalLockStatusClass(feature.currentStatus)}`}>
-                                                                                    {getPortalLockStatusIcon(feature.currentStatus)}
-                                                                                    {PERMISSION_STATUS_LABELS[feature.currentStatus]}
-                                                                                </span>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    disabled={isSaving}
-                                                                                    onClick={() => openPortalLockModal({
-                                                                                        role: group.role,
-                                                                                        roleTitle: group.title,
-                                                                                        featureKey: feature.key,
-                                                                                        featureLabel: feature.label,
-                                                                                        description: feature.description,
-                                                                                        currentStatus: feature.currentStatus,
-                                                                                        currentNoticeText: feature.permission.noticeText
-                                                                                    })}
-                                                                                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${feature.isUnlocked ? 'bg-[#14b8a6]' : 'bg-[#cbd5e1]'} ${isSaving ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
-                                                                                    aria-label={`Manage ${feature.label}`}
-                                                                                    aria-pressed={feature.isUnlocked}
-                                                                                >
-                                                                                    <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition ${feature.isUnlocked ? 'translate-x-7' : 'translate-x-1'}`}>
-                                                                                        {isSaving ? (
-                                                                                            <RefreshCw className="h-3.5 w-3.5 animate-spin text-slate-500" />
-                                                                                        ) : feature.isUnlocked ? (
-                                                                                            <LockOpen className="h-3.5 w-3.5 text-emerald-600" />
-                                                                                        ) : (
-                                                                                            <Lock className="h-3.5 w-3.5 text-slate-500" />
-                                                                                        )}
-                                                                                    </span>
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </>
-                            )
-                        })}
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-8 2xl:grid-cols-[420px_minmax(0,1fr)]">
-                        {renderExpandablePanel({
-                            panelKey: 'createStaff',
-                            title: 'Create Staff Account',
-                            description: 'Provision a new admin-side login and link it directly to Supabase Auth.',
+                            panelKey: 'staffAccounts',
+                            title: `Staff Accounts (${accounts.length})`,
+                            description: 'Create staff logins and manage existing accounts in one place.',
                             icon: <UserPlus className="h-5 w-5" />,
-                            badge: 'Provisioning',
-                            className: 'h-fit',
-                            bodyClassName: '',
-                            children: (
-                                <form onSubmit={handleCreate} className="space-y-4 p-6 sm:p-7">
-                                    <div>
-                                        <label className={labelClass}>Role</label>
-                                        <select className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                                            <option value="Department Head">Department Head (Dean)</option>
-                                            <option value="Care Staff">CARE Staff</option>
-                                            <option value="Admin">Admin</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Full Name</label>
-                                        <input required className={inputClass} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Username</label>
-                                        <input required className={inputClass} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Password</label>
-                                        <input required type="password" autoComplete="new-password" className={inputClass} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Email</label>
-                                        <input required type="email" className={inputClass} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-                                    </div>
-
-                                    {form.role === 'Department Head' && (
-                                        <div>
-                                            <label className={labelClass}>College</label>
-                                            <select className={inputClass} value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}>
-                                                <option value="">Select College</option>
-                                                {departments.map((departmentName) => (
-                                                    <option key={departmentName} value={departmentName}>{departmentName}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
-                                        New accounts are created as linked auth users immediately. Department Heads should always have a college assigned.
-                                    </div>
-
-                                    <button
-                                        disabled={isCreatingAccount}
-                                        className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {isCreatingAccount ? 'Creating...' : 'Create Account'}
-                                    </button>
-                                </form>
-                            )
-                        })}
-
-                        {renderExpandablePanel({
-                            panelKey: 'existingAccounts',
-                            title: `Existing Accounts (${accounts.length})`,
-                            description: 'Review staff records, update missing email addresses, and keep account details complete.',
-                            icon: <Shield className="h-5 w-5" />,
                             badge: `${accounts.length} accounts`,
                             className: 'min-w-0',
-                            bodyClassName: '',
+                            bodyClassName: 'p-5 sm:p-6',
                             headerActions: (
                                 <div className="flex flex-wrap gap-2">
                                     {accountOverviewStats.map((stat) => (
-                                        <div key={stat.label} className="min-w-[108px] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-right">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{stat.label}</p>
-                                            <p className="mt-1 text-2xl font-semibold text-slate-900">{stat.value}</p>
+                                        <div key={stat.label} className="min-w-[92px] rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{stat.label}</p>
+                                            <p className="mt-0.5 text-xl font-semibold text-slate-900">{stat.value}</p>
                                         </div>
                                     ))}
                                 </div>
                             ),
                             children: (
-                                <div>
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-[920px] w-full text-left text-sm">
-                                            <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                                <tr>
-                                                    <th className="px-6 py-4 font-semibold">Name</th>
-                                                    <th className="px-6 py-4 font-semibold">Role</th>
-                                                    <th className="px-6 py-4 font-semibold">Details</th>
-                                                    <th className="px-6 py-4 font-semibold">Username</th>
-                                                    <th className="px-6 py-4 font-semibold">Auth</th>
-                                                    <th className="px-6 py-4 text-right font-semibold">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {accounts.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-400">
-                                                            No staff accounts found.
-                                                        </td>
-                                                    </tr>
-                                                ) : paginatedAccounts.map((acc: any) => (
-                                                    <tr key={acc.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70">
-                                                        <td className="px-6 py-5">
-                                                            <div className="font-semibold text-slate-900">{acc.full_name || 'Unnamed Staff'}</div>
-                                                            <div className="mt-1 text-xs text-slate-400">
-                                                                {acc.created_at ? `Created ${new Date(acc.created_at).toLocaleDateString()}` : 'No creation date'}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-5">
-                                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${getStaffRoleBadgeClass(acc.role)}`}>
+                                <div className="space-y-5">
+                                    <form onSubmit={handleCreate} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                            <div>
+                                                <label className={labelClass}>Role</label>
+                                                <select className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                                                    <option value="Department Head">Department Head (Dean)</option>
+                                                    <option value="Care Staff">CARE Staff</option>
+                                                    <option value="Admin">Admin</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelClass}>Full Name</label>
+                                                <input required className={inputClass} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className={labelClass}>Username</label>
+                                                <input required className={inputClass} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className={labelClass}>Password</label>
+                                                <input required type="password" autoComplete="new-password" className={inputClass} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className={labelClass}>Email</label>
+                                                <input required type="email" className={inputClass} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                                            </div>
+                                            {form.role === 'Department Head' && (
+                                                <div>
+                                                    <label className={labelClass}>College</label>
+                                                    <select className={inputClass} value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}>
+                                                        <option value="">Select College</option>
+                                                        {departments.map((departmentName) => (
+                                                            <option key={departmentName} value={departmentName}>{departmentName}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            disabled={isCreatingAccount}
+                                            className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isCreatingAccount ? 'Creating...' : 'Create Staff Account'}
+                                        </button>
+                                    </form>
+
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Existing Accounts</h3>
+                                            <span className="text-sm font-semibold text-slate-700">{accounts.length} total</span>
+                                        </div>
+
+                                        {accounts.length === 0 ? (
+                                            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+                                                No staff accounts found.
+                                            </div>
+                                        ) : paginatedAccounts.map((acc: any) => (
+                                            <div key={acc.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <h4 className="font-semibold text-slate-900">{acc.full_name || 'Unnamed Staff'}</h4>
+                                                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${getStaffRoleBadgeClass(acc.role)}`}>
                                                                 {acc.role === 'Care Staff' ? 'CARE Staff' : acc.role}
                                                             </span>
-                                                        </td>
-                                                        <td className="px-6 py-5 text-slate-500">
-                                                            <div className="text-sm text-slate-600">{acc.department || 'No college assigned'}</div>
-                                                            {acc.email ? (
-                                                                <div className="mt-1 break-all text-xs text-slate-400">{acc.email}</div>
-                                                            ) : (
-                                                                <div className="mt-3 flex min-w-[260px] flex-col gap-2">
-                                                                    <input
-                                                                        type="email"
-                                                                        value={getAccountEmailDraft(acc)}
-                                                                        onChange={(e) => setEmailDrafts((prev) => ({
-                                                                            ...prev,
-                                                                            [String(acc.id)]: e.target.value
-                                                                        }))}
-                                                                        placeholder="Add real email"
-                                                                        className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:outline-none"
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleSaveAccountEmail(acc)}
-                                                                        disabled={savingAccountEmailId === String(acc.id)}
-                                                                        className="inline-flex w-fit items-center rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                    >
-                                                                        {savingAccountEmailId === String(acc.id) ? 'Saving...' : 'Save Email'}
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-5 font-mono text-xs text-slate-600">{acc.username || '-'}</td>
-                                                        <td className="px-6 py-5">
-                                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${acc.auth_user_id ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+                                                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${acc.auth_user_id ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
                                                                 {acc.auth_user_id ? 'Linked' : 'Unlinked'}
                                                             </span>
-                                                        </td>
-                                                        <td className="px-6 py-5 text-right">
-                                                            <button
-                                                                disabled={deletingAccountId === String(acc.id)}
-                                                                onClick={() => handleDelete(acc)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                                            >
-                                                                <Trash2 className={`h-4 w-4 ${deletingAccountId === String(acc.id) ? 'animate-spin' : ''}`} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                        </div>
+                                                        <p className="mt-1 text-sm text-slate-500">
+                                                            {acc.username || 'No username'} - {acc.department || 'No college'}
+                                                        </p>
+                                                        {acc.email ? (
+                                                            <p className="mt-1 break-all text-xs text-slate-400">{acc.email}</p>
+                                                        ) : (
+                                                            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                                <input
+                                                                    type="email"
+                                                                    value={getAccountEmailDraft(acc)}
+                                                                    onChange={(e) => setEmailDrafts((prev) => ({
+                                                                        ...prev,
+                                                                        [String(acc.id)]: e.target.value
+                                                                    }))}
+                                                                    placeholder="Add real email"
+                                                                    className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:outline-none"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleSaveAccountEmail(acc)}
+                                                                    disabled={savingAccountEmailId === String(acc.id)}
+                                                                    className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                >
+                                                                    {savingAccountEmailId === String(acc.id) ? 'Saving...' : 'Save Email'}
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        disabled={archivingAccountId === String(acc.id)}
+                                                        onClick={() => handleArchiveAccount(acc)}
+                                                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-200 text-amber-600 transition hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                        title={`Archive ${acc.full_name || acc.username || 'staff account'}`}
+                                                    >
+                                                        <Archive className={`h-4 w-4 ${archivingAccountId === String(acc.id) ? 'animate-spin' : ''}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
 
                                     {accounts.length > 0 && (
@@ -1591,7 +1153,7 @@ export default function AdminDashboard() {
                                         <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Admin Owns</p>
                                             <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                                                <li>Staff account creation, deletion, and role assignment</li>
+                                                <li>Staff account creation, archiving, and role assignment</li>
                                                 <li>College and department master-data setup</li>
                                                 <li>Email record cleanup and institution-wide maintenance tasks</li>
                                                 <li>Cross-role audit monitoring and institution-wide alerts</li>
@@ -1803,15 +1365,12 @@ export default function AdminDashboard() {
                                                         </span>
                                                     )}
                                                     <button
-                                                        onClick={() => handleDeleteDepartment(dept)}
-                                                        disabled={deletingDepartmentId === String(dept.id)}
-                                                        className="text-rose-400 transition hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-                                                        title={linkedCourseCount > 0
-                                                            ? `Delete blocked: ${linkedCourseCount} course(s) still assigned`
-                                                            : `Delete ${dept.name}`
-                                                        }
+                                                        onClick={() => handleArchiveDepartment(dept)}
+                                                        disabled={archivingDepartmentId === String(dept.id)}
+                                                        className="text-amber-500 transition hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                                        title={`Archive ${dept.name}${linkedCourseCount > 0 ? ` (${linkedCourseCount} mapped course${linkedCourseCount === 1 ? '' : 's'} stay saved)` : ''}`}
                                                     >
-                                                        <Trash2 className={`h-3.5 w-3.5 ${deletingDepartmentId === String(dept.id) ? 'animate-spin' : ''}`} />
+                                                        <Archive className={`h-3.5 w-3.5 ${archivingDepartmentId === String(dept.id) ? 'animate-spin' : ''}`} />
                                                     </button>
                                                 </span>
                                             );
@@ -1821,83 +1380,6 @@ export default function AdminDashboard() {
                             )
                         })}
                     </div>
-
-                {portalLockModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4">
-                        <div className="w-full max-w-xl rounded-[30px] border border-slate-200 bg-white p-6 shadow-2xl">
-                            <div className="flex items-start gap-3">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-700">
-                                    <Lock className="h-5 w-5" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{portalLockModal.roleTitle}</p>
-                                    <h3 className="mt-2 text-xl font-semibold text-slate-900">Manage {portalLockModal.featureLabel}</h3>
-                                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                                        Choose whether this page stays open, hidden, under maintenance, or marked as coming soon.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="mt-6 grid gap-4">
-                                <label className="block">
-                                    <span className={labelClass}>Page Status</span>
-                                    <select
-                                        value={portalLockModal.nextStatus}
-                                        onChange={(event) => setPortalLockModal((prev) => prev ? {
-                                            ...prev,
-                                            nextStatus: event.target.value as PermissionStatus
-                                        } : prev)}
-                                        className={inputClass}
-                                    >
-                                        {(['enabled', 'hidden', 'maintenance', 'coming_soon'] as PermissionStatus[]).map((status) => (
-                                            <option key={status} value={status}>
-                                                {PERMISSION_STATUS_LABELS[status]}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-500">
-                                    Status controls are only available for Pages (portal pages). Hidden removes the page from navigation, while Maintenance and Coming Soon show a locked-page screen instead of the real page.
-                                </div>
-
-                                <label className="block">
-                                    <span className={labelClass}>Locked Page Notice</span>
-                                    <textarea
-                                        rows={4}
-                                        value={portalLockModal.noticeText}
-                                        onChange={(event) => setPortalLockModal((prev) => prev ? {
-                                            ...prev,
-                                            noticeText: event.target.value
-                                        } : prev)}
-                                        placeholder={`${portalLockModal.featureLabel} is currently unavailable.`}
-                                        className={inputClass}
-                                    />
-                                </label>
-                            </div>
-
-                            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => setPortalLockModal(null)}
-                                    disabled={Boolean(portalLockSavingKey)}
-                                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => void handleConfirmPortalLock()}
-                                    disabled={Boolean(portalLockSavingKey)}
-                                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {portalLockSavingKey && <RefreshCw className="h-4 w-4 animate-spin" />}
-                                    <span>Save Portal Status</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {toast && (
                     <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-50 ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
