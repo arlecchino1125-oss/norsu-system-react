@@ -251,11 +251,13 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         order: { column: 'name', ascending: true }
     });
 
-    const { data: allDepartments } = useSupabaseData({
+    const { data: departmentRows } = useSupabaseData({
         table: 'departments',
+        select: '*',
         order: { column: 'name', ascending: true },
         subscribe: true
     });
+    const allDepartments = departmentRows.filter((department: any) => !department?.is_archived);
 
     const { data: natApplications, refetch: refetchNatApplications } = useSupabaseData({
         table: 'applications',

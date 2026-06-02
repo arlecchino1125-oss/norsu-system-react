@@ -43,8 +43,11 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
     };
 
     const refreshDepartments = async () => {
-        const { data } = await supabase.from('departments').select('name').order('name');
-        if (data) setAllDepartments(data);
+        const { data } = await supabase
+            .from('departments')
+            .select('*')
+            .order('name');
+        if (data) setAllDepartments(data.filter((department: any) => !department?.is_archived));
     };
 
     // Smart Date Logic & Filters

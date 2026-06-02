@@ -18,20 +18,14 @@ type StaffProfileRecord = {
     email?: string | null;
     created_at?: string | null;
     auth_user_id?: string | null;
+    is_archived?: boolean | null;
+    archived_at?: string | null;
+    archive_note?: string | null;
     [key: string]: unknown;
 };
 const isStaffProfileRecord = (value: unknown): value is StaffProfileRecord =>
     Boolean(value) && typeof value === 'object' && 'role' in value;
-const STAFF_PROFILE_SELECT = [
-    'id',
-    'username',
-    'full_name',
-    'role',
-    'department',
-    'email',
-    'created_at',
-    'auth_user_id'
-].join(', ');
+const STAFF_PROFILE_SELECT = '*';
 const STUDENT_BOOTSTRAP_SELECT = [
     'id',
     'created_at',
@@ -330,7 +324,7 @@ export function AuthProvider({ children }: any) {
                 .maybeSingle();
 
             if (linkedError) throw linkedError;
-            if (isStaffProfileRecord(linkedStaff)) return linkedStaff;
+            if (isStaffProfileRecord(linkedStaff) && !linkedStaff.is_archived) return linkedStaff;
         }
 
         return null;
@@ -410,6 +404,11 @@ export function AuthProvider({ children }: any) {
             if (!userCheck) {
                 setLoading(false);
                 return { success: false, error: 'Username not found.' };
+            }
+
+            if (userCheck.is_archived) {
+                setLoading(false);
+                return { success: false, error: 'This staff account has been archived. Ask an admin to restore access.' };
             }
 
             if (userCheck.role !== requiredRole) {

@@ -438,12 +438,12 @@ const getDepartmentCourseNames = async (departmentName: string) => {
 
     const { data: department, error: departmentError } = await supabase
         .from('departments')
-        .select('id')
+        .select('*')
         .eq('name', normalizedDepartment)
         .maybeSingle();
 
     if (departmentError) throw departmentError;
-    if (!department?.id) {
+    if (!department?.id || department?.is_archived) {
         return [] as string[];
     }
 

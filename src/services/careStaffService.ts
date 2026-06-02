@@ -213,10 +213,10 @@ export const getCoursesWithDepartments = async () => {
 export const getDepartments = async () => {
     const { data, error } = await supabase
         .from('departments')
-        .select('id, name')
+        .select('*')
         .order('name', { ascending: true });
     if (error) throw error;
-    return data || [];
+    return (data || []).filter((department: any) => !department?.is_archived);
 };
 
 export const getNatApplicationCourseCounts = async () => {
