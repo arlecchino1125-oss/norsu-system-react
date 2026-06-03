@@ -24,6 +24,11 @@ const SUPPORT_CATEGORIES = [
     'Pregnant Women',
     'Women in Especially Difficult Circumstances'
 ];
+const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
+const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
+
+const isSupportedDocumentFile = (file: File) =>
+    file.type.startsWith('image/') || file.type === 'application/pdf';
 
 const createInitialSupportForm = () => ({
     categories: [] as string[],
@@ -50,6 +55,27 @@ export default function SupportFormModal({
             setForm(createInitialSupportForm());
         }
     }, [isOpen]);
+
+    const handleSupportDocumentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFiles = Array.from(event.target.files || []);
+        const validFiles = selectedFiles.filter((file) => {
+            if (!isSupportedDocumentFile(file)) {
+                showToast(`${file.name} must be an image or PDF file.`, 'error');
+                return false;
+            }
+            if (file.size > MAX_SUPPORT_DOCUMENT_BYTES) {
+                showToast(`${file.name} must be under 1 MB.`, 'error');
+                return false;
+            }
+            return true;
+        });
+
+        setForm((prev) => ({
+            ...prev,
+            files: [...prev.files, ...validFiles].slice(0, 4)
+        }));
+        event.target.value = '';
+    };
 
     const handleSubmit = async () => {
         if (form.categories.length === 0 && !form.otherCategory) {
@@ -185,13 +211,9 @@ export default function SupportFormModal({
                             id="support-documents"
                             name="support-documents"
                             type="file"
+                            accept={SUPPORT_DOCUMENT_ACCEPT}
                             multiple
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                                const newFiles = Array.from(event.target.files || []);
-                                const files = [...form.files, ...newFiles].slice(0, 4);
-                                setForm((prev) => ({ ...prev, files }));
-                                event.target.value = '';
-                            }}
+                            onChange={handleSupportDocumentChange}
                             disabled={form.files.length >= 4}
                             className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
                         />

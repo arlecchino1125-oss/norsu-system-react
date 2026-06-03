@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import type { CareStaffDashboardFunctions } from './types';
 import { getAllStudentsForExport, getStudentByStudentId, getStudentsPage, STUDENT_LIST_COLUMNS } from '../../services/careStaffService';
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
+import { openStoredAsset } from '../../utils/storageAssets';
 
 declare const XLSX: any;
 
@@ -23,52 +24,88 @@ const PROFILE_CATEGORIES = [
         key: 'personal', label: 'Personal Information', icon: '\u{1F464}', gradient: 'from-blue-500 to-sky-400', fields: [
             { label: "STUDENT'S I.D. NO.", db: 'student_id' },
             { label: 'FULL NAME', compute: (s: any) => [s.last_name, s.first_name, s.suffix, s.middle_name || 'N/A'].filter(Boolean).join(', ') },
-            { label: 'ADDRESS', compute: (s: any) => [s.street, s.city, s.province, s.zip_code].filter(Boolean).join(', ') },
+            { label: 'EXTENSION NAME', db: 'suffix' },
+            { label: 'MIDDLE NAME', db: 'middle_name' },
+            { label: 'PERMANENT ADDRESS - STREET/SITIO & BARANGAY', db: 'street' },
+            { label: 'PERMANENT ADDRESS - TOWN/CITY MUNICIPALITY', db: 'city' },
+            { label: 'PERMANENT ADDRESS - PROVINCE', db: 'province' },
+            { label: 'PERMANENT ADDRESS - ZIP CODE', db: 'zip_code' },
+            { label: 'PERMANENT ADDRESS - REGION', db: 'region' },
             { label: 'CONTACT NUMBER', db: 'mobile' },
             { label: 'AGE', db: 'age' },
             { label: 'BIRTHDAY', db: 'dob' },
             { label: 'SEX ASSIGNED AT BIRTH', db: 'sex' },
-            { label: 'GENDER IDENTITY', db: 'gender_identity' },
-            { label: 'YEAR LEVEL', db: 'year_level' },
-            { label: 'Complete Program', db: 'course' },
-            { label: 'CIVIL STATUS', db: 'civil_status' },
+            { label: 'GENDER', db: 'gender_identity' },
+            { label: 'CITIZENSHIP', db: 'nationality' },
             { label: 'FB ACCOUNT LINK', db: 'facebook_url' },
             { label: 'PLACE OF BIRTH', db: 'place_of_birth' },
-            { label: 'RELIGION', db: 'religion' },
-            { label: 'SCHOOL LAST ATTENDED', db: 'school_last_attended' },
-            { label: 'PERSON WHO SUPPORTED YOUR STUDIES ASIDE FROM YOUR PARENTS', db: 'supporter' },
-            { label: 'ARE YOU A WORKING STUDENT?', db: 'is_working_student', type: 'boolean' },
-            { label: 'If YES, please select one that applies', db: 'working_student_type' },
-            { label: 'CONTACT INFORMATION OF THE PERSON WHO SUPPORTS YOUR STUDIES ASIDE FROM YOUR PARENTS', db: 'supporter_contact' },
-            { label: 'ARE YOU A PERSON WITH A DISABILITY (PWD)?', db: 'is_pwd', type: 'boolean' },
-            { label: 'If YES, please select your type of disability', db: 'pwd_type' },
-            { label: 'Are you a member of any Indigenous Group?', db: 'is_indigenous', type: 'boolean' },
-            { label: 'If YES, please choose below', db: 'indigenous_group' },
-            { label: 'Have you ever witnessed or been aware of any incidents related to armed conflict or insurgency in your community?', db: 'witnessed_conflict', type: 'boolean' },
-            { label: 'Do you feel safe in your community, or are there situations involving conflict or violence that concern you?', db: 'is_safe_in_community', type: 'boolean' },
-            { label: 'ARE YOU A SOLO PARENT?', db: 'is_solo_parent', type: 'boolean' },
-            { label: 'ARE YOU A SON/DAUGHTER OF A SOLO PARENT?', db: 'is_child_of_solo_parent', type: 'boolean' },
+            { label: 'YEAR LEVEL', db: 'year_level' },
+            { label: 'COLLEGE', db: 'department' },
+            { label: 'COMPLETE PROGRAM', db: 'course' },
+            { label: 'CIVIL STATUS', db: 'civil_status' },
         ]
     },
     {
         key: 'family', label: 'Family Background', icon: '👨‍👩‍👧', gradient: 'from-amber-400 to-orange-500', fields: [
-            { label: "MOTHER'S NAME", db: 'mother_name' },
-            { label: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
-            { label: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
-            { label: "FATHER'S NAME", db: 'father_name' },
-            { label: "FATHER'S OCCUPATION", db: 'father_occupation' },
-            { label: "FATHER'S CONTACT NUMBER", db: 'father_contact' },
-            { label: "PARENT'S ADDRESS", db: 'parent_address' },
-            { label: 'NUMBER OF BROTHERS', db: 'num_brothers' },
-            { label: 'NUMBER OF SISTERS', db: 'num_sisters' },
-            { label: 'YOUR BIRTH ORDER IN THE FAMILY', db: 'birth_order' },
-            { label: 'IF MARRIED, NAME OF SPOUSE', db: 'spouse_name' },
-            { label: 'OCCUPATION', db: 'spouse_occupation' },
+            { label: 'NAME OF SPOUSE', db: 'spouse_name' },
+            { label: "SPOUSE'S OCCUPATION", db: 'spouse_occupation' },
+            { label: "SPOUSE'S EMPLOYER/BUSINESS NAME", db: 'spouse_employer_name' },
+            { label: "SPOUSE'S EMPLOYER/BUSINESS ADDRESS", db: 'spouse_employer_address' },
+            { label: "SPOUSE'S CONTACT NUMBER", db: 'spouse_contact' },
             { label: 'NUMBER OF CHILDREN', db: 'num_children' },
+            { label: 'NAME OF CHILDREN - DATE OF BIRTH', db: 'children_names_birthdates' },
+            { label: 'CURRENTLY PREGNANT?', db: 'currently_pregnant' },
+            { label: "MOTHER'S MAIDEN LAST NAME", db: 'mother_last_name' },
+            { label: "MOTHER'S GIVEN NAME", db: 'mother_given_name' },
+            { label: "MOTHER'S MAIDEN MIDDLE NAME", db: 'mother_middle_name' },
+            { label: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
+            { label: "MOTHER'S STATUS", db: 'mother_status' },
+            { label: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
+            { label: "MOTHER'S ADDRESS", db: 'mother_address' },
+            { label: "FATHER'S LAST NAME", db: 'father_last_name' },
+            { label: "FATHER'S GIVEN NAME", db: 'father_given_name' },
+            { label: "FATHER'S MIDDLE NAME", db: 'father_middle_name' },
+            { label: "FATHER'S OCCUPATION", db: 'father_occupation' },
+            { label: "FATHER'S STATUS", db: 'father_status' },
+            { label: "FATHER'S CONTACT NUMBER", db: 'father_contact' },
+            { label: "FATHER'S ADDRESS", db: 'father_address' },
+            { label: 'NUMBER OF CHILDREN YOUR PARENTS HAVE', db: 'parents_num_children' },
+            { label: 'YOUR BIRTH ORDER IN THE FAMILY', db: 'birth_order' },
+            { label: 'BIRTH ORDER - OTHER', db: 'birth_order_other' },
         ]
     },
     {
-        key: 'guardian', label: 'Guardian', icon: '🛡️', gradient: 'from-indigo-400 to-violet-500', fields: [
+        key: 'socioEconomic', label: 'Socio-Economic Background', icon: 'ℹ️', gradient: 'from-indigo-400 to-violet-500', fields: [
+            { label: 'PERSON/AGENCY WHO SUPPORTS STUDIES FINANCIALLY', db: 'supporter' },
+            { label: 'SUPPORTER CONTACT INFORMATION', db: 'supporter_contact' },
+            { label: 'WORKING STUDENT', db: 'is_working_student', type: 'boolean' },
+            { label: 'TYPE OF WORK', db: 'working_student_type' },
+            { label: 'NAME OF EMPLOYER', db: 'employer_name' },
+            { label: 'ADDRESS OF EMPLOYER', db: 'employer_address' },
+            { label: 'PWD', db: 'is_pwd', type: 'boolean' },
+            { label: 'PWD #', db: 'pwd_number' },
+            { label: 'PWD TYPE', db: 'pwd_type' },
+            { label: 'CAUSE OF DISABILITY', db: 'disability_cause' },
+            { label: 'PWD DOCUMENT', db: 'pwd_document_url', type: 'document' },
+            { label: 'INDIGENOUS GROUP MEMBER', db: 'is_indigenous', type: 'boolean' },
+            { label: 'INDIGENOUS GROUP', db: 'indigenous_group' },
+            { label: 'IP DOCUMENT', db: 'ip_document_url', type: 'document' },
+            { label: '4PS MEMBER', db: 'is_four_ps_member', type: 'boolean' },
+            { label: '4PS DOCUMENT', db: 'four_ps_document_url', type: 'document' },
+            { label: 'REBEL RETURNEE', db: 'is_rebel_returnee', type: 'boolean' },
+            { label: 'CHILD OF SOLO PARENT', db: 'is_child_of_solo_parent', type: 'boolean' },
+            { label: 'SOLO PARENT', db: 'is_solo_parent', type: 'boolean' },
+            { label: 'SOLO PARENT DOCUMENT', db: 'solo_parent_document_url', type: 'document' },
+            { label: 'ORPHAN', db: 'is_orphan', type: 'boolean' },
+            { label: 'ORPHAN CAUSE', db: 'orphan_cause' },
+            { label: 'HOMELESS CITIZEN', db: 'is_homeless_citizen', type: 'boolean' },
+            { label: 'SENIOR CITIZEN', db: 'is_senior_citizen', type: 'boolean' },
+            { label: 'SENIOR CITIZEN DOCUMENT', db: 'senior_citizen_document_url', type: 'document' },
+            { label: 'WORK EXPERIENCES', db: 'work_experiences' },
+        ]
+    },
+    {
+        key: 'guardian', label: 'Guardian', icon: '🛡️', gradient: 'from-slate-500 to-slate-700', fields: [
             { label: 'FULL NAME', db: 'guardian_name' },
             { label: 'ADDRESS', db: 'guardian_address' },
             { label: 'CONTACT NUMBER', db: 'guardian_contact' },
@@ -85,25 +122,35 @@ const PROFILE_CATEGORIES = [
     },
     {
         key: 'education', label: 'Educational Background', icon: '🎓', gradient: 'from-cyan-400 to-blue-500', fields: [
-            { label: 'ELEMENTARY', db: 'elem_school' },
-            { label: 'YEAR GRADUATED', db: 'elem_year_graduated' },
-            { label: 'JUNIOR HIGH SCHOOL', db: 'junior_high_school' },
-            { label: 'YEAR GRADUATED', db: 'junior_high_year_graduated' },
-            { label: 'SENIOR HIGH SCHOOL', db: 'senior_high_school' },
-            { label: 'YEAR GRADUATED', db: 'senior_high_year_graduated' },
-            { label: 'COLLEGE', db: 'college_school' },
-            { label: 'YEAR GRADUATED/CONTINUING', db: 'college_year_graduated' },
+            { label: 'ELEMENTARY: NAME OF SCHOOL', db: 'elem_school' },
+            { label: 'INCLUSIVE YEARS ATTENDED', db: 'elem_year_graduated' },
+            { label: 'JUNIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'junior_high_school' },
+            { label: 'INCLUSIVE YEARS ATTENDED', db: 'junior_high_year_graduated' },
+            { label: 'SENIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'senior_high_school' },
+            { label: 'INCLUSIVE YEARS ATTENDED', db: 'senior_high_year_graduated' },
+            { label: 'IF TRANSFEREE, COLLEGE: NAME OF SCHOOL', db: 'college_school' },
+            { label: 'INCLUSIVE YEARS ATTENDED', db: 'college_year_graduated' },
             { label: 'HONOR/AWARD RECEIVED', db: 'honors_awards' },
+            { label: 'TESDA NC II ACQUIRED - DATE ACQUIRED - VALIDITY', db: 'tesda_nc2_acquired' },
+            { label: 'ELIGIBILITY ACQUIRED - DATE ACQUIRED', db: 'eligibility_acquired' },
+            { label: 'SPECIAL TRAININGS ATTENDED', db: 'special_trainings_attended' },
         ]
     },
     {
         key: 'extracurricular', label: 'Extra-Curricular Involvement', icon: '⚽', gradient: 'from-pink-400 to-rose-500', fields: [
-            { label: 'NAME OF ACTIVITIES', db: 'extracurricular_activities' },
+            { label: 'NAME OF VOLUNTARY ACTIVITIES', db: 'extracurricular_activities' },
+            { label: 'HOLDS LOCAL/NATIONAL POSITION IN PUBLIC SERVICE', db: 'holds_public_service_position' },
+            { label: 'POSITION IN PUBLIC SERVICE', db: 'public_service_position' },
+            { label: 'ORGANIZATIONS', db: 'organizations_memberships' },
+            { label: 'SPORTS', db: 'sports_skills' },
+            { label: 'OTHER TALENT/S', db: 'other_talents' },
         ]
     },
     {
         key: 'scholarships', label: 'Scholarships', icon: '🏆', gradient: 'from-yellow-400 to-amber-500', fields: [
-            { label: 'NAME OF SCHOLARSHIP AVAILED', db: 'scholarships_availed' },
+            { label: 'NAME OF SCHOLARSHIP AVAILED & SPONSOR', db: 'scholarships_availed' },
+            { label: 'CRIMINALLY CHARGED BEFORE ANY COURT', db: 'has_been_criminally_charged' },
+            { label: 'CONVICTED OF ANY CRIME', db: 'has_been_convicted_of_crime' },
         ]
     },
     {
@@ -117,14 +164,19 @@ const PROFILE_CATEGORIES = [
             { label: 'City / Municipality', db: 'city' },
             { label: 'Province', db: 'province' },
             { label: 'Zip Code', db: 'zip_code' },
+            { label: 'Region', db: 'region' },
             { label: 'Priority Course', db: 'priority_course' },
             { label: 'Alt Course 1', db: 'alt_course_1' },
             { label: 'Alt Course 2', db: 'alt_course_2' },
+            { label: 'Religion', db: 'religion' },
+            { label: 'School Last Attended', db: 'school_last_attended' },
+            { label: 'Witnessed Conflict', db: 'witnessed_conflict', type: 'boolean' },
+            { label: 'Safe in Community', db: 'is_safe_in_community', type: 'boolean' },
         ]
     },
 ];
 
-const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year', 'Other'];
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
 const CARE_STUDENT_PAGE_SIZE = 5;
 const CARE_STUDENT_TABLE_SHELL_CLASS = 'bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex min-h-[28rem] flex-col';
@@ -1036,45 +1088,80 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 // ===== PERSONAL INFORMATION =====
                 { header: "STUDENT'S I.D. NO.", db: 'student_id' },
                 { header: 'FULL NAME', compute: (s: any) => [s.last_name, s.first_name, s.suffix, s.middle_name || 'N/A'].filter(Boolean).join(', ') },
-                { header: 'ADDRESS', compute: (s: any) => [s.street, s.city, s.province, s.zip_code].filter(Boolean).join(', ') },
+                { header: 'EXTENSION NAME', db: 'suffix' },
+                { header: 'MIDDLE NAME', db: 'middle_name' },
+                { header: 'PERMANENT ADDRESS - STREET/SITIO & BARANGAY', db: 'street' },
+                { header: 'PERMANENT ADDRESS - TOWN/CITY MUNICIPALITY', db: 'city' },
+                { header: 'PERMANENT ADDRESS - PROVINCE', db: 'province' },
+                { header: 'PERMANENT ADDRESS - ZIP CODE', db: 'zip_code' },
+                { header: 'PERMANENT ADDRESS - REGION', db: 'region' },
                 { header: 'CONTACT NUMBER', db: 'mobile' },
                 { header: 'AGE', db: 'age' },
                 { header: 'BIRTHDAY', db: 'dob' },
                 { header: 'SEX ASSIGNED AT BIRTH', db: 'sex' },
-                { header: 'GENDER IDENTITY', db: 'gender_identity' },
-                { header: 'YEAR LEVEL', db: 'year_level' },
-                { header: 'Complete Program', db: 'course' },
-                { header: 'CIVIL STATUS', db: 'civil_status' },
+                { header: 'GENDER', db: 'gender_identity' },
+                { header: 'CITIZENSHIP', db: 'nationality' },
                 { header: 'FB ACCOUNT LINK', db: 'facebook_url' },
                 { header: 'PLACE OF BIRTH', db: 'place_of_birth' },
+                { header: 'YEAR LEVEL', db: 'year_level' },
+                { header: 'COLLEGE', db: 'department' },
+                { header: 'COMPLETE PROGRAM', db: 'course' },
+                { header: 'CIVIL STATUS', db: 'civil_status' },
                 { header: 'RELIGION', db: 'religion' },
                 { header: 'SCHOOL LAST ATTENDED', db: 'school_last_attended' },
-                { header: 'PERSON WHO SUPPORTED YOUR STUDIES ASIDE FROM YOUR PARENTS', db: 'supporter' },
-                { header: 'ARE YOU A WORKING STUDENT?', db: 'is_working_student', type: 'boolean' },
-                { header: 'If YES, please select one that applies', db: 'working_student_type' },
-                { header: 'CONTACT INFORMATION OF THE PERSON WHO SUPPORTS YOUR STUDIES ASIDE FROM YOUR PARENTS', db: 'supporter_contact' },
-                { header: 'ARE YOU A PERSON WITH A DISABILITY (PWD)?', db: 'is_pwd', type: 'boolean' },
-                { header: 'If YES, please select your type of disability', db: 'pwd_type' },
-                { header: 'Are you a member of any Indigenous Group?', db: 'is_indigenous', type: 'boolean' },
-                { header: 'If YES, please choose below', db: 'indigenous_group' },
-                { header: 'Have you ever witnessed or been aware of any incidents related to armed conflict or insurgency in your community?', db: 'witnessed_conflict', type: 'boolean' },
-                { header: 'Do you feel safe in your community, or are there situations involving conflict or violence that concern you?', db: 'is_safe_in_community', type: 'boolean' },
-                { header: 'ARE YOU A SOLO PARENT?', db: 'is_solo_parent', type: 'boolean' },
-                { header: 'ARE YOU A SON/DAUGHTER OF A SOLO PARENT?', db: 'is_child_of_solo_parent', type: 'boolean' },
                 // ===== FAMILY BACKGROUND =====
-                { header: "MOTHER'S NAME", db: 'mother_name' },
-                { header: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
-                { header: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
-                { header: "FATHER'S NAME", db: 'father_name' },
-                { header: "FATHER'S OCCUPATION", db: 'father_occupation' },
-                { header: "FATHER'S CONTACT NUMBER", db: 'father_contact' },
-                { header: "PARENT'S ADDRESS", db: 'parent_address' },
-                { header: 'NUMBER OF BROTHERS', db: 'num_brothers' },
-                { header: 'NUMBER OF SISTERS', db: 'num_sisters' },
-                { header: 'YOUR BIRTH ORDER IN THE FAMILY', db: 'birth_order' },
-                { header: 'IF MARRIED, NAME OF SPOUSE', db: 'spouse_name' },
-                { header: 'OCCUPATION', db: 'spouse_occupation' },
+                { header: 'NAME OF SPOUSE', db: 'spouse_name' },
+                { header: "SPOUSE'S OCCUPATION", db: 'spouse_occupation' },
+                { header: "SPOUSE'S EMPLOYER/BUSINESS NAME", db: 'spouse_employer_name' },
+                { header: "SPOUSE'S EMPLOYER/BUSINESS ADDRESS", db: 'spouse_employer_address' },
+                { header: "SPOUSE'S CONTACT NUMBER", db: 'spouse_contact' },
                 { header: 'NUMBER OF CHILDREN', db: 'num_children' },
+                { header: 'NAME OF CHILDREN - DATE OF BIRTH', db: 'children_names_birthdates' },
+                { header: 'CURRENTLY PREGNANT?', db: 'currently_pregnant' },
+                { header: "MOTHER'S MAIDEN LAST NAME", db: 'mother_last_name' },
+                { header: "MOTHER'S GIVEN NAME", db: 'mother_given_name' },
+                { header: "MOTHER'S MAIDEN MIDDLE NAME", db: 'mother_middle_name' },
+                { header: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
+                { header: "MOTHER'S STATUS", db: 'mother_status' },
+                { header: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
+                { header: "MOTHER'S ADDRESS", db: 'mother_address' },
+                { header: "FATHER'S LAST NAME", db: 'father_last_name' },
+                { header: "FATHER'S GIVEN NAME", db: 'father_given_name' },
+                { header: "FATHER'S MIDDLE NAME", db: 'father_middle_name' },
+                { header: "FATHER'S OCCUPATION", db: 'father_occupation' },
+                { header: "FATHER'S STATUS", db: 'father_status' },
+                { header: "FATHER'S CONTACT NUMBER", db: 'father_contact' },
+                { header: "FATHER'S ADDRESS", db: 'father_address' },
+                { header: 'NUMBER OF CHILDREN YOUR PARENTS HAVE', db: 'parents_num_children' },
+                { header: 'YOUR BIRTH ORDER IN THE FAMILY', db: 'birth_order' },
+                { header: 'BIRTH ORDER - OTHER', db: 'birth_order_other' },
+                // ===== SOCIO-ECONOMIC BACKGROUND =====
+                { header: 'PERSON/AGENCY WHO SUPPORTS YOUR STUDIES FINANCIALLY OTHER THAN YOURSELF', db: 'supporter' },
+                { header: 'CONTACT INFORMATION OF THE PERSON/AGENCY WHO SUPPORTS YOUR STUDIES FINANCIALLY OTHER THAN YOURSELF', db: 'supporter_contact' },
+                { header: 'ARE YOU A WORKING STUDENT?', db: 'is_working_student', type: 'boolean' },
+                { header: 'TYPE OF WORK', db: 'working_student_type' },
+                { header: 'NAME OF EMPLOYER', db: 'employer_name' },
+                { header: 'ADDRESS OF EMPLOYER', db: 'employer_address' },
+                { header: 'ARE YOU A PERSON WITH A DISABILITY (PWD)?', db: 'is_pwd', type: 'boolean' },
+                { header: 'PWD #', db: 'pwd_number' },
+                { header: 'TYPE OF DISABILITY', db: 'pwd_type' },
+                { header: 'CAUSE OF DISABILITY', db: 'disability_cause' },
+                { header: 'PWD DOCUMENT URL', db: 'pwd_document_url' },
+                { header: 'MEMBER OF INDIGENOUS GROUP / CULTURAL COMMUNITY?', db: 'is_indigenous', type: 'boolean' },
+                { header: 'INDIGENOUS GROUP', db: 'indigenous_group' },
+                { header: 'IP DOCUMENT URL', db: 'ip_document_url' },
+                { header: 'MEMBER OF 4PS?', db: 'is_four_ps_member', type: 'boolean' },
+                { header: '4PS DOCUMENT URL', db: 'four_ps_document_url' },
+                { header: 'REBEL RETURNEE?', db: 'is_rebel_returnee', type: 'boolean' },
+                { header: 'SON/DAUGHTER OF A SOLO PARENT?', db: 'is_child_of_solo_parent', type: 'boolean' },
+                { header: 'SOLO PARENT YOURSELF?', db: 'is_solo_parent', type: 'boolean' },
+                { header: 'SOLO PARENT DOCUMENT URL', db: 'solo_parent_document_url' },
+                { header: 'ORPHAN?', db: 'is_orphan', type: 'boolean' },
+                { header: 'ORPHAN CAUSE', db: 'orphan_cause' },
+                { header: 'HOMELESS CITIZEN?', db: 'is_homeless_citizen', type: 'boolean' },
+                { header: 'SENIOR CITIZEN?', db: 'is_senior_citizen', type: 'boolean' },
+                { header: 'SENIOR CITIZEN DOCUMENT URL', db: 'senior_citizen_document_url' },
+                { header: 'WORK EXPERIENCES', db: 'work_experiences' },
                 // ===== GUARDIAN =====
                 { header: 'FULL NAME', db: 'guardian_name' },
                 { header: 'ADDRESS', db: 'guardian_address' },
@@ -1086,19 +1173,29 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 { header: 'RELATIONSHIP', db: 'emergency_relationship' },
                 { header: 'CONTACT NUMBER', db: 'emergency_number' },
                 // ===== EDUCATIONAL BACKGROUND =====
-                { header: 'ELEMENTARY', db: 'elem_school' },
-                { header: 'YEAR GRADUATED', db: 'elem_year_graduated' },
-                { header: 'JUNIOR HIGH SCHOOL', db: 'junior_high_school' },
-                { header: 'YEAR GRADUATED', db: 'junior_high_year_graduated' },
-                { header: 'SENIOR HIGH SCHOOL', db: 'senior_high_school' },
-                { header: 'YEAR GRADUATED', db: 'senior_high_year_graduated' },
-                { header: 'COLLEGE', db: 'college_school' },
-                { header: 'YEAR GRADUATED/CONTINUING', db: 'college_year_graduated' },
+                { header: 'ELEMENTARY: NAME OF SCHOOL', db: 'elem_school' },
+                { header: 'INCLUSIVE YEARS ATTENDED', db: 'elem_year_graduated' },
+                { header: 'JUNIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'junior_high_school' },
+                { header: 'INCLUSIVE YEARS ATTENDED', db: 'junior_high_year_graduated' },
+                { header: 'SENIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'senior_high_school' },
+                { header: 'INCLUSIVE YEARS ATTENDED', db: 'senior_high_year_graduated' },
+                { header: 'IF TRANSFEREE, COLLEGE: NAME OF SCHOOL', db: 'college_school' },
+                { header: 'INCLUSIVE YEARS ATTENDED', db: 'college_year_graduated' },
                 { header: 'HONOR/AWARD RECEIVED', db: 'honors_awards' },
+                { header: 'TESDA NC II ACQUIRED - DATE ACQUIRED - VALIDITY', db: 'tesda_nc2_acquired' },
+                { header: 'ELIGIBILITY ACQUIRED - DATE ACQUIRED', db: 'eligibility_acquired' },
+                { header: 'SPECIAL TRAININGS ATTENDED', db: 'special_trainings_attended' },
                 // ===== EXTRA-CURRICULAR INVOLVEMENT =====
-                { header: 'NAME OF ACTIVITIES', db: 'extracurricular_activities' },
+                { header: 'NAME OF VOLUNTARY ACTIVITIES', db: 'extracurricular_activities' },
+                { header: 'HOLDS LOCAL/NATIONAL POSITION IN PUBLIC SERVICE', db: 'holds_public_service_position' },
+                { header: 'POSITION IN PUBLIC SERVICE', db: 'public_service_position' },
+                { header: 'ORGANIZATIONS', db: 'organizations_memberships' },
+                { header: 'SPORTS', db: 'sports_skills' },
+                { header: 'OTHER TALENT/S', db: 'other_talents' },
                 // ===== SCHOLARSHIPS =====
-                { header: 'NAME OF SCHOLARSHIP AVAILED', db: 'scholarships_availed' },
+                { header: 'NAME OF SCHOLARSHIP AVAILED & SPONSOR', db: 'scholarships_availed' },
+                { header: 'CRIMINALLY CHARGED BEFORE ANY COURT', db: 'has_been_criminally_charged' },
+                { header: 'CONVICTED OF ANY CRIME', db: 'has_been_convicted_of_crime' },
             ];
 
             const headers = exportColumns.map(c => c.header);
@@ -1966,9 +2063,25 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                 return (
                                                     <div key={(field.db || '') + field.label + idx} className="min-w-0">
                                                         <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide mb-0.5">{field.label}</p>
-                                                        <p className="text-sm font-semibold text-slate-800 break-words" title={String(value || '')}>
-                                                            {value || <span className="text-slate-300 italic font-normal">—</span>}
-                                                        </p>
+                                                        {field.type === 'document' && value ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await openStoredAsset('support_documents', String(value));
+                                                                    } catch (error: any) {
+                                                                        showToast?.(error.message || 'Unable to open the selected file.', 'error');
+                                                                    }
+                                                                }}
+                                                                className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                                                            >
+                                                                View file
+                                                            </button>
+                                                        ) : (
+                                                            <p className="text-sm font-semibold text-slate-800 break-words" title={String(value || '')}>
+                                                                {value || <span className="text-slate-300 italic font-normal">—</span>}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
