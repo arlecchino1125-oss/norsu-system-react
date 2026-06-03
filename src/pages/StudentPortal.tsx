@@ -38,7 +38,31 @@ const supabaseClient = supabase;
 const ProfileCompletionModal = lazy(() => import('./student/forms/ProfileCompletionModal'));
 const StudentDashboardView = lazy(() => import('./student/StudentDashboardView'));
 const StudentEventsView = lazy(() => import('./student/StudentEventsView'));
-const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year', 'Other'];
+const FAMILY_STATUS_OPTIONS = ['Alive', 'Deceased', 'Unknown', 'Prefer not to say'];
+const PREGNANCY_OPTIONS = ['Yes', 'No', 'Maybe'];
+const YES_NO_OPTIONS = ['Yes', 'No'];
+const WORK_TYPE_OPTIONS = ['House help', 'Call Center Agent/BPO employee', 'Fast food/Restaurant', 'Online employee/Freelancer', 'Self-employed', 'N/A', 'Other'];
+const PWD_TYPE_OPTIONS = ['0', 'Visual impairment', 'Hearing impairment', 'Physical/Orthopedic disability', 'Chronic illness', 'Psychosocial disability', 'Communication disability', 'Other'];
+const INDIGENOUS_GROUP_OPTIONS = ['N/A', 'Bukidnon', 'Tabihanon Group', 'ATA', 'IFUGAO', 'Kalahing Kulot', 'Lumad', 'Other'];
+const ORPHAN_CAUSE_OPTIONS = ['N/A', 'Death', 'Abandonment', 'Other'];
+const BIRTH_ORDER_OPTIONS = [
+    { value: '1', label: '1 (1st child/eldest)' },
+    { value: '2', label: '2' },
+    { value: '3', label: '3' },
+    { value: '4', label: '4' },
+    { value: '5', label: '5' },
+    { value: '6', label: '6' },
+    { value: '7', label: '7' },
+    { value: '8', label: '8' },
+    { value: '9', label: '9' },
+    { value: '10', label: '10' },
+    { value: 'Only child', label: 'Only child' },
+    { value: 'Legally adopted', label: 'Legally adopted' },
+    { value: 'Simulated', label: 'Simulated' },
+    { value: 'Foster child', label: 'Foster child' },
+    { value: 'Other', label: 'Other' },
+];
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
 const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
 const DATASET_REFRESH_TTL_MS = {
@@ -139,87 +163,106 @@ const hasFilledProfileValue = (value: unknown) => {
 
     return String(value ?? '').trim() !== '';
 };
-const hasAnsweredYesNo = (value: unknown) => {
-    const normalized = String(value ?? '').trim().toLowerCase();
-    return normalized === 'yes' || normalized === 'no';
-};
 const isProfileCompletionFormComplete = (profile: Record<string, any>) => {
     const requiredFields = [
         'firstName', 'lastName', 'middleName', 'suffix',
+        'profilePictureUrl', 'studentId',
         'dob', 'age', 'placeOfBirth', 'nationality', 'sex', 'genderIdentity', 'civilStatus',
-        'street', 'city', 'province', 'zipCode',
+        'street', 'city', 'province', 'zipCode', 'region',
         'mobile', 'email', 'facebookUrl',
-        'religion', 'schoolLastAttended', 'yearLevelApplying',
+        'yearLevelApplying', 'department', 'course',
+        'spouseName', 'spouseOccupation', 'spouseEmployerName', 'spouseEmployerAddress', 'spouseContact',
+        'numChildren', 'childrenNamesBirthdates', 'currentlyPregnant',
+        'motherLastName', 'motherGivenName', 'motherMiddleName', 'motherOccupation', 'motherStatus', 'motherContact', 'motherAddress',
+        'fatherLastName', 'fatherGivenName', 'fatherMiddleName', 'fatherOccupation', 'fatherStatus', 'fatherContact', 'fatherAddress',
+        'parentsNumChildren', 'birthOrder',
         'supporter', 'supporterContact',
-        'motherLastName', 'motherGivenName', 'motherMiddleName', 'motherOccupation', 'motherContact',
-        'fatherLastName', 'fatherGivenName', 'fatherMiddleName', 'fatherOccupation', 'fatherContact',
-        'parentAddress', 'numBrothers', 'numSisters', 'birthOrder',
-        'spouseName', 'spouseOccupation', 'numChildren',
+        'isWorkingStudent', 'workingStudentType', 'employerName', 'employerAddress',
+        'isPwd', 'pwdNumber', 'pwdType', 'disabilityCause',
+        'isIndigenous', 'indigenousGroup',
+        'isFourPsMember', 'isRebelReturnee',
+        'isSoloParent', 'isChildOfSoloParent',
+        'isOrphan', 'orphanCause',
+        'isHomelessCitizen', 'isSeniorCitizen',
+        'workExperiences',
         'guardianName', 'guardianAddress', 'guardianContact', 'guardianRelation',
         'emergencyName', 'emergencyAddress', 'emergencyRelationship', 'emergencyNumber',
         'elemSchool', 'elemYearGraduated',
         'juniorHighSchool', 'juniorHighYearGraduated',
         'seniorHighSchool', 'seniorHighYearGraduated',
         'collegeSchool', 'collegeYearGraduated',
-        'honorsAwards', 'extracurricularActivities', 'scholarshipsAvailed'
+        'honorsAwards', 'tesdaNc2Acquired', 'eligibilityAcquired', 'specialTrainingsAttended',
+        'extracurricularActivities', 'holdsPublicServicePosition', 'publicServicePosition',
+        'organizationsMemberships', 'sportsSkills', 'otherTalents',
+        'scholarshipsAvailed', 'hasBeenCriminallyCharged', 'hasBeenConvictedOfCrime'
     ];
-    const yesNoFields = [
-        'isWorkingStudent',
-        'isPwd',
-        'isIndigenous',
-        'witnessedConflict',
-        'isSafeInCommunity',
-        'isSoloParent',
-        'isChildOfSoloParent'
-    ];
-
     if (requiredFields.some((field) => !hasFilledProfileValue(profile[field]))) {
         return false;
     }
 
-    if (yesNoFields.some((field) => !hasAnsweredYesNo(profile[field]))) {
+    if (profile.birthOrder === 'Other' && !hasFilledProfileValue(profile.birthOrderOther)) {
         return false;
     }
 
-    if (profile.isWorkingStudent === 'Yes' && !hasFilledProfileValue(profile.workingStudentType)) {
+    if (profile.isPwd === 'Yes' && !hasFilledProfileValue(profile.pwdDocumentUrl)) {
         return false;
     }
 
-    if (profile.isPwd === 'Yes' && !hasFilledProfileValue(profile.pwdType)) {
+    if (profile.isIndigenous === 'Yes' && !hasFilledProfileValue(profile.ipDocumentUrl)) {
         return false;
     }
 
-    if (profile.isIndigenous === 'Yes' && !hasFilledProfileValue(profile.indigenousGroup)) {
+    if (profile.isFourPsMember === 'Yes' && !hasFilledProfileValue(profile.fourPsDocumentUrl)) {
+        return false;
+    }
+
+    if ((profile.isSoloParent === 'Yes' || profile.isChildOfSoloParent === 'Yes') && !hasFilledProfileValue(profile.soloParentDocumentUrl)) {
+        return false;
+    }
+
+    if (profile.isSeniorCitizen === 'Yes' && !hasFilledProfileValue(profile.seniorCitizenDocumentUrl)) {
         return false;
     }
 
     return true;
 };
 const createInitialProfileFormData = () => ({
+    studentId: '', profilePictureUrl: '', profilePictureFile: null as File | null,
     firstName: '', lastName: '', middleName: '', suffix: '',
     dob: '', age: '', placeOfBirth: '',
     nationality: '', sex: '', genderIdentity: '', civilStatus: '',
-    street: '', city: '', province: '', zipCode: '',
+    street: '', city: '', province: '', zipCode: '', region: '',
     mobile: '', email: '', facebookUrl: '',
     religion: '', schoolLastAttended: '', yearLevelApplying: '1st Year',
-    supporter: [] as string[], supporterContact: '',
+    department: '', course: '',
+    supporter: '', supporterContact: '',
     isWorkingStudent: '', workingStudentType: '',
-    isPwd: '', pwdType: '',
-    isIndigenous: '', indigenousGroup: '',
+    employerName: '', employerAddress: '',
+    isPwd: '', pwdNumber: '', pwdType: '', disabilityCause: '', pwdDocumentUrl: '', pwdDocumentFile: null as File | null,
+    isIndigenous: '', indigenousGroup: '', ipDocumentUrl: '', ipDocumentFile: null as File | null,
+    isFourPsMember: '', fourPsDocumentUrl: '', fourPsDocumentFile: null as File | null,
+    isRebelReturnee: '',
     witnessedConflict: '', isSafeInCommunity: '',
-    isSoloParent: '', isChildOfSoloParent: '',
+    isSoloParent: '', isChildOfSoloParent: '', soloParentDocumentUrl: '', soloParentDocumentFile: null as File | null,
+    isOrphan: '', orphanCause: '', isHomelessCitizen: '', isSeniorCitizen: '', seniorCitizenDocumentUrl: '', seniorCitizenDocumentFile: null as File | null,
+    workExperiences: '',
     motherLastName: '', motherGivenName: '', motherMiddleName: '', motherOccupation: '', motherContact: '',
+    motherStatus: '', motherAddress: '',
     fatherLastName: '', fatherGivenName: '', fatherMiddleName: '', fatherOccupation: '', fatherContact: '',
-    parentAddress: '', numBrothers: '', numSisters: '', birthOrder: '',
-    spouseName: '', spouseOccupation: '', numChildren: '',
+    fatherStatus: '', fatherAddress: '',
+    parentAddress: '', numBrothers: '', numSisters: '', parentsNumChildren: '', birthOrder: '', birthOrderOther: '',
+    spouseName: '', spouseOccupation: '', spouseEmployerName: '', spouseEmployerAddress: '', spouseContact: '',
+    numChildren: '', childrenNamesBirthdates: '', currentlyPregnant: '',
     guardianName: '', guardianAddress: '', guardianContact: '', guardianRelation: '',
     emergencyName: '', emergencyAddress: '', emergencyRelationship: '', emergencyNumber: '',
     elemSchool: '', elemYearGraduated: '',
     juniorHighSchool: '', juniorHighYearGraduated: '',
     seniorHighSchool: '', seniorHighYearGraduated: '',
     collegeSchool: '', collegeYearGraduated: '',
-    honorsAwards: '',
-    extracurricularActivities: '', scholarshipsAvailed: '',
+    honorsAwards: '', tesdaNc2Acquired: '', eligibilityAcquired: '', specialTrainingsAttended: '',
+    extracurricularActivities: '', holdsPublicServicePosition: '', publicServicePosition: '',
+    organizationsMemberships: '', sportsSkills: '', otherTalents: '',
+    scholarshipsAvailed: '', hasBeenCriminallyCharged: '', hasBeenConvictedOfCrime: '',
     agreedToPrivacy: false,
 });
 const buildProfileCompletionFormSnapshot = ({
@@ -238,6 +281,8 @@ const buildProfileCompletionFormSnapshot = ({
     fatherParts: { last: string; given: string; middle: string; };
 }) => ({
     ...base,
+    studentId: resolveProfileFormValue(base.studentId, studentData.student_id) || '',
+    profilePictureUrl: resolveProfileFormValue(base.profilePictureUrl, studentData.profile_picture_url) || '',
     firstName: resolveProfileFormValue(base.firstName, studentData.first_name, pendingActivationProfile.firstName, sessionPrefillProfile.firstName) || '',
     lastName: resolveProfileFormValue(base.lastName, studentData.last_name, pendingActivationProfile.lastName, sessionPrefillProfile.lastName) || '',
     middleName: resolveProfileFormValue(base.middleName, studentData.middle_name, pendingActivationProfile.middleName, sessionPrefillProfile.middleName) || '',
@@ -245,7 +290,7 @@ const buildProfileCompletionFormSnapshot = ({
     dob: resolveProfileFormValue(base.dob, studentData.dob, pendingActivationProfile.dob, sessionPrefillProfile.dob) || '',
     age: resolveProfileFormValue(base.age, studentData.age, pendingActivationProfile.age, sessionPrefillProfile.age) ?? '',
     placeOfBirth: resolveProfileFormValue(base.placeOfBirth, studentData.place_of_birth) || '',
-    nationality: resolveProfileFormValue(base.nationality, studentData.nationality) || '',
+    nationality: resolveProfileFormValue(base.nationality, studentData.nationality, 'Filipino') || 'Filipino',
     sex: resolveProfileFormValue(base.sex, getStudentSex(studentData), pendingActivationProfile.sex, sessionPrefillProfile.sex) || '',
     genderIdentity: resolveProfileFormValue(base.genderIdentity, studentData.gender_identity) || '',
     civilStatus: resolveProfileFormValue(base.civilStatus, studentData.civil_status) || '',
@@ -253,6 +298,7 @@ const buildProfileCompletionFormSnapshot = ({
     city: resolveProfileFormValue(base.city, studentData.city, pendingActivationProfile.city, sessionPrefillProfile.city) || '',
     province: resolveProfileFormValue(base.province, studentData.province, pendingActivationProfile.province, sessionPrefillProfile.province) || '',
     zipCode: resolveProfileFormValue(base.zipCode, studentData.zip_code, pendingActivationProfile.zipCode, sessionPrefillProfile.zipCode) || '',
+    region: resolveProfileFormValue(base.region, studentData.region, sessionPrefillProfile.region) || '',
     mobile: resolveProfileFormValue(base.mobile, studentData.mobile, pendingActivationProfile.mobile, sessionPrefillProfile.mobile) || '',
     email: resolveProfileFormValue(base.email, studentData.email, pendingActivationProfile.email, sessionPrefillProfile.email) || '',
     facebookUrl: resolveProfileFormValue(base.facebookUrl, studentData.facebook_url) || '',
@@ -260,36 +306,63 @@ const buildProfileCompletionFormSnapshot = ({
     motherGivenName: resolveProfileFormValue(base.motherGivenName, motherParts.given) || '',
     motherMiddleName: resolveProfileFormValue(base.motherMiddleName, motherParts.middle) || '',
     motherOccupation: resolveProfileFormValue(base.motherOccupation, studentData.mother_occupation) || '',
+    motherStatus: resolveProfileFormValue(base.motherStatus, studentData.mother_status) || '',
     motherContact: resolveProfileFormValue(base.motherContact, studentData.mother_contact) || '',
+    motherAddress: resolveProfileFormValue(base.motherAddress, studentData.mother_address) || '',
     fatherLastName: resolveProfileFormValue(base.fatherLastName, fatherParts.last) || '',
     fatherGivenName: resolveProfileFormValue(base.fatherGivenName, fatherParts.given) || '',
     fatherMiddleName: resolveProfileFormValue(base.fatherMiddleName, fatherParts.middle) || '',
     fatherOccupation: resolveProfileFormValue(base.fatherOccupation, studentData.father_occupation) || '',
+    fatherStatus: resolveProfileFormValue(base.fatherStatus, studentData.father_status) || '',
     fatherContact: resolveProfileFormValue(base.fatherContact, studentData.father_contact) || '',
+    fatherAddress: resolveProfileFormValue(base.fatherAddress, studentData.father_address) || '',
     religion: resolveProfileFormValue(base.religion, studentData.religion) || '',
     schoolLastAttended: resolveProfileFormValue(base.schoolLastAttended, studentData.school_last_attended) || '',
     yearLevelApplying: resolveProfileFormValue(base.yearLevelApplying, studentData.year_level, '1st Year') || '1st Year',
-    supporter: Array.isArray(base.supporter) && base.supporter.length > 0
-        ? base.supporter
-        : (studentData.supporter ? String(studentData.supporter).split(', ').filter(Boolean) : []),
+    department: resolveProfileFormValue(base.department, studentData.department) || '',
+    course: resolveProfileFormValue(base.course, studentData.course) || '',
+    supporter: resolveProfileFormValue(base.supporter, studentData.supporter) || '',
     supporterContact: resolveProfileFormValue(base.supporterContact, studentData.supporter_contact) || '',
     isWorkingStudent: resolveProfileFormValue(base.isWorkingStudent, toYesNoChoice(studentData.is_working_student)) || '',
     workingStudentType: resolveProfileFormValue(base.workingStudentType, studentData.working_student_type) || '',
+    employerName: resolveProfileFormValue(base.employerName, studentData.employer_name) || '',
+    employerAddress: resolveProfileFormValue(base.employerAddress, studentData.employer_address) || '',
     isPwd: resolveProfileFormValue(base.isPwd, toYesNoChoice(studentData.is_pwd)) || '',
+    pwdNumber: resolveProfileFormValue(base.pwdNumber, studentData.pwd_number) || '',
     pwdType: resolveProfileFormValue(base.pwdType, studentData.pwd_type) || '',
+    disabilityCause: resolveProfileFormValue(base.disabilityCause, studentData.disability_cause) || '',
+    pwdDocumentUrl: resolveProfileFormValue(base.pwdDocumentUrl, studentData.pwd_document_url) || '',
     isIndigenous: resolveProfileFormValue(base.isIndigenous, toYesNoChoice(studentData.is_indigenous)) || '',
     indigenousGroup: resolveProfileFormValue(base.indigenousGroup, studentData.indigenous_group) || '',
+    ipDocumentUrl: resolveProfileFormValue(base.ipDocumentUrl, studentData.ip_document_url) || '',
+    isFourPsMember: resolveProfileFormValue(base.isFourPsMember, toYesNoChoice(studentData.is_four_ps_member)) || '',
+    fourPsDocumentUrl: resolveProfileFormValue(base.fourPsDocumentUrl, studentData.four_ps_document_url) || '',
+    isRebelReturnee: resolveProfileFormValue(base.isRebelReturnee, toYesNoChoice(studentData.is_rebel_returnee)) || '',
     witnessedConflict: resolveProfileFormValue(base.witnessedConflict, toYesNoChoice(studentData.witnessed_conflict)) || '',
     isSafeInCommunity: resolveProfileFormValue(base.isSafeInCommunity, toYesNoChoice(studentData.is_safe_in_community)) || '',
     isSoloParent: resolveProfileFormValue(base.isSoloParent, toYesNoChoice(studentData.is_solo_parent)) || '',
     isChildOfSoloParent: resolveProfileFormValue(base.isChildOfSoloParent, toYesNoChoice(studentData.is_child_of_solo_parent)) || '',
+    soloParentDocumentUrl: resolveProfileFormValue(base.soloParentDocumentUrl, studentData.solo_parent_document_url) || '',
+    isOrphan: resolveProfileFormValue(base.isOrphan, toYesNoChoice(studentData.is_orphan)) || '',
+    orphanCause: resolveProfileFormValue(base.orphanCause, studentData.orphan_cause) || '',
+    isHomelessCitizen: resolveProfileFormValue(base.isHomelessCitizen, toYesNoChoice(studentData.is_homeless_citizen)) || '',
+    isSeniorCitizen: resolveProfileFormValue(base.isSeniorCitizen, toYesNoChoice(studentData.is_senior_citizen)) || '',
+    seniorCitizenDocumentUrl: resolveProfileFormValue(base.seniorCitizenDocumentUrl, studentData.senior_citizen_document_url) || '',
+    workExperiences: resolveProfileFormValue(base.workExperiences, studentData.work_experiences) || '',
     parentAddress: resolveProfileFormValue(base.parentAddress, studentData.parent_address) || '',
     numBrothers: resolveProfileFormValue(base.numBrothers, studentData.num_brothers) ?? '',
     numSisters: resolveProfileFormValue(base.numSisters, studentData.num_sisters) ?? '',
+    parentsNumChildren: resolveProfileFormValue(base.parentsNumChildren, studentData.parents_num_children) ?? '',
     birthOrder: resolveProfileFormValue(base.birthOrder, studentData.birth_order) || '',
+    birthOrderOther: resolveProfileFormValue(base.birthOrderOther, studentData.birth_order_other) || '',
     spouseName: resolveProfileFormValue(base.spouseName, studentData.spouse_name) || '',
     spouseOccupation: resolveProfileFormValue(base.spouseOccupation, studentData.spouse_occupation) || '',
+    spouseEmployerName: resolveProfileFormValue(base.spouseEmployerName, studentData.spouse_employer_name) || '',
+    spouseEmployerAddress: resolveProfileFormValue(base.spouseEmployerAddress, studentData.spouse_employer_address) || '',
+    spouseContact: resolveProfileFormValue(base.spouseContact, studentData.spouse_contact) || '',
     numChildren: resolveProfileFormValue(base.numChildren, studentData.num_children) ?? '',
+    childrenNamesBirthdates: resolveProfileFormValue(base.childrenNamesBirthdates, studentData.children_names_birthdates) || '',
+    currentlyPregnant: resolveProfileFormValue(base.currentlyPregnant, studentData.currently_pregnant) || '',
     guardianName: resolveProfileFormValue(base.guardianName, studentData.guardian_name) || '',
     guardianAddress: resolveProfileFormValue(base.guardianAddress, studentData.guardian_address) || '',
     guardianContact: resolveProfileFormValue(base.guardianContact, studentData.guardian_contact) || '',
@@ -307,8 +380,18 @@ const buildProfileCompletionFormSnapshot = ({
     collegeSchool: resolveProfileFormValue(base.collegeSchool, studentData.college_school) || '',
     collegeYearGraduated: resolveProfileFormValue(base.collegeYearGraduated, studentData.college_year_graduated) || '',
     honorsAwards: resolveProfileFormValue(base.honorsAwards, studentData.honors_awards) || '',
+    tesdaNc2Acquired: resolveProfileFormValue(base.tesdaNc2Acquired, studentData.tesda_nc2_acquired) || '',
+    eligibilityAcquired: resolveProfileFormValue(base.eligibilityAcquired, studentData.eligibility_acquired) || '',
+    specialTrainingsAttended: resolveProfileFormValue(base.specialTrainingsAttended, studentData.special_trainings_attended) || '',
     extracurricularActivities: resolveProfileFormValue(base.extracurricularActivities, studentData.extracurricular_activities) || '',
+    holdsPublicServicePosition: resolveProfileFormValue(base.holdsPublicServicePosition, toYesNoChoice(studentData.holds_public_service_position)) || '',
+    publicServicePosition: resolveProfileFormValue(base.publicServicePosition, studentData.public_service_position) || '',
+    organizationsMemberships: resolveProfileFormValue(base.organizationsMemberships, studentData.organizations_memberships) || '',
+    sportsSkills: resolveProfileFormValue(base.sportsSkills, studentData.sports_skills) || '',
+    otherTalents: resolveProfileFormValue(base.otherTalents, studentData.other_talents) || '',
     scholarshipsAvailed: resolveProfileFormValue(base.scholarshipsAvailed, studentData.scholarships_availed) || '',
+    hasBeenCriminallyCharged: resolveProfileFormValue(base.hasBeenCriminallyCharged, toYesNoChoice(studentData.has_been_criminally_charged)) || '',
+    hasBeenConvictedOfCrime: resolveProfileFormValue(base.hasBeenConvictedOfCrime, toYesNoChoice(studentData.has_been_convicted_of_crime)) || '',
 });
 
 interface Student {
@@ -344,12 +427,28 @@ interface Student {
     schoolLastAttended?: string;
     isWorkingStudent?: boolean;
     workingStudentType?: string;
+    employerName?: string;
+    employerAddress?: string;
     supporter?: string;
     supporterContact?: string;
     isPwd?: boolean;
+    pwdNumber?: string;
     pwdType?: string;
+    disabilityCause?: string;
+    pwdDocumentUrl?: string;
     isIndigenous?: boolean;
     indigenousGroup?: string;
+    ipDocumentUrl?: string;
+    isFourPsMember?: boolean;
+    fourPsDocumentUrl?: string;
+    isRebelReturnee?: boolean;
+    soloParentDocumentUrl?: string;
+    isOrphan?: boolean;
+    orphanCause?: string;
+    isHomelessCitizen?: boolean;
+    isSeniorCitizen?: boolean;
+    seniorCitizenDocumentUrl?: string;
+    workExperiences?: string;
     motherLastName?: string;
     motherGivenName?: string;
     motherMiddleName?: string;
@@ -694,21 +793,36 @@ export default function StudentPortal() {
     const [personalInfo, setPersonalInfo] = useState<Student>({
         firstName: "", lastName: "", middleName: "", suffix: "",
         studentId: "", department: "", course: "", year: "", section: "", status: "",
-        address: "", street: "", city: "", province: "", zipCode: "",
+        address: "", street: "", city: "", province: "", zipCode: "", region: "",
         mobile: "", email: "", facebookUrl: "", emergencyContact: "",
+        profile_picture_url: "",
         dob: "", age: "", placeOfBirth: "",
         sex: "", genderIdentity: "",
         civilStatus: "", nationality: "",
         priorityCourse: "", altCourse1: "", altCourse2: "",
         schoolLastAttended: "",
         isWorkingStudent: false, workingStudentType: "",
+        employerName: "", employerAddress: "",
         supporter: "", supporterContact: "",
-        isPwd: false, pwdType: "",
-        isIndigenous: false, indigenousGroup: "",
+        isPwd: false, pwdNumber: "", pwdType: "", disabilityCause: "", pwdDocumentUrl: "",
+        isIndigenous: false, indigenousGroup: "", ipDocumentUrl: "",
+        isFourPsMember: false, fourPsDocumentUrl: "",
+        isRebelReturnee: false,
         motherLastName: "", motherGivenName: "", motherMiddleName: "",
         fatherLastName: "", fatherGivenName: "", fatherMiddleName: "",
         witnessedConflict: "",
-        isSoloParent: false, isChildOfSoloParent: false
+        isSoloParent: false, isChildOfSoloParent: false, soloParentDocumentUrl: "",
+        isOrphan: false, orphanCause: "", isHomelessCitizen: false,
+        isSeniorCitizen: false, seniorCitizenDocumentUrl: "",
+        workExperiences: "",
+        elemSchool: "", elemYearGraduated: "",
+        juniorHighSchool: "", juniorHighYearGraduated: "",
+        seniorHighSchool: "", seniorHighYearGraduated: "",
+        collegeSchool: "", collegeYearGraduated: "",
+        honorsAwards: "", tesdaNc2Acquired: "", eligibilityAcquired: "", specialTrainingsAttended: "",
+        extracurricularActivities: "", holdsPublicServicePosition: "", publicServicePosition: "",
+        organizationsMemberships: "", sportsSkills: "", otherTalents: "",
+        scholarshipsAvailed: "", hasBeenCriminallyCharged: "", hasBeenConvictedOfCrime: ""
     });
     const [showMoreProfile, setShowMoreProfile] = useState(false);
     const [courseYearGate, setCourseYearGate] = useState<any>({
@@ -822,64 +936,104 @@ export default function StudentPortal() {
         city: 'City',
         province: 'Province',
         zip_code: 'Zip Code',
+        region: 'Region',
         mobile: 'Mobile',
         email: 'Email',
         facebook_url: 'Facebook URL',
         religion: 'Religion',
         school_last_attended: 'School Last Attended',
         year_level: 'Year Level',
+        department: 'Department',
+        course: 'Complete Program',
         section: 'Section',
         supporter: 'Supporter',
         supporter_contact: 'Supporter Contact',
         is_working_student: 'Working Student Status',
         working_student_type: 'Working Student Type',
+        employer_name: 'Employer Name',
+        employer_address: 'Employer Address',
         is_pwd: 'PWD Status',
+        pwd_number: 'PWD Number',
         pwd_type: 'PWD Type',
+        disability_cause: 'Cause of Disability',
+        pwd_document_url: 'PWD Claim Document',
         is_indigenous: 'Indigenous Status',
         indigenous_group: 'Indigenous Group',
+        ip_document_url: 'IP Claim Document',
+        is_four_ps_member: '4Ps Membership',
+        four_ps_document_url: '4Ps Document',
+        is_rebel_returnee: 'Rebel Returnee Status',
         witnessed_conflict: 'Witnessed Conflict',
         is_safe_in_community: 'Community Safety',
         is_solo_parent: 'Solo Parent Status',
         is_child_of_solo_parent: 'Child of Solo Parent Status',
+        solo_parent_document_url: 'Solo Parent Document',
+        is_orphan: 'Orphan Status',
+        orphan_cause: 'Orphan Cause',
+        is_homeless_citizen: 'Homeless Citizen Status',
+        is_senior_citizen: 'Senior Citizen Status',
+        senior_citizen_document_url: 'Senior Citizen Document',
+        work_experiences: 'Work Experiences',
         mother_name: 'Mother Name',
         mother_last_name: 'Mother Last Name',
         mother_given_name: 'Mother Given Name',
         mother_middle_name: 'Mother Middle Name',
         mother_occupation: 'Mother Occupation',
+        mother_status: 'Mother Status',
         mother_contact: 'Mother Contact',
+        mother_address: 'Mother Address',
         father_name: 'Father Name',
         father_last_name: 'Father Last Name',
         father_given_name: 'Father Given Name',
         father_middle_name: 'Father Middle Name',
         father_occupation: 'Father Occupation',
+        father_status: 'Father Status',
         father_contact: 'Father Contact',
+        father_address: 'Father Address',
         parent_address: 'Parent Address',
         num_brothers: 'No. of Brothers',
         num_sisters: 'No. of Sisters',
+        parents_num_children: 'Parents Number of Children',
         birth_order: 'Birth Order',
+        birth_order_other: 'Birth Order Other',
         spouse_name: 'Spouse Name',
         spouse_occupation: 'Spouse Occupation',
+        spouse_employer_name: 'Spouse Employer/Business Name',
+        spouse_employer_address: 'Spouse Employer/Business Address',
+        spouse_contact: 'Spouse Contact Number',
         num_children: 'No. of Children',
+        children_names_birthdates: 'Children Names and Birthdates',
+        currently_pregnant: 'Currently Pregnant',
         guardian_name: 'Guardian Name',
         guardian_address: 'Guardian Address',
         guardian_contact: 'Guardian Contact',
         guardian_relation: 'Guardian Relation',
-        emergency_name: 'Emergency Contact Name',
-        emergency_address: 'Emergency Address',
-        emergency_relationship: 'Emergency Relationship',
-        emergency_number: 'Emergency Number',
-        emergency_contact: 'Emergency Contact',
+        emergency_name: 'Person to Contact Full Name',
+        emergency_address: 'Person to Contact Address',
+        emergency_relationship: 'Person to Contact Relationship',
+        emergency_number: 'Person to Contact Number',
+        emergency_contact: 'Person to Contact',
         elem_school: 'Elementary School',
-        elem_year_graduated: 'Elementary Year Graduated',
+        elem_year_graduated: 'Elementary Inclusive Years Attended',
         junior_high_school: 'Junior High School',
-        junior_high_year_graduated: 'Junior High Year Graduated',
+        junior_high_year_graduated: 'Junior High Inclusive Years Attended',
         senior_high_school: 'Senior High School',
-        senior_high_year_graduated: 'Senior High Year Graduated',
-        college_school: 'College School',
-        college_year_graduated: 'College Year Graduated',
+        senior_high_year_graduated: 'Senior High Inclusive Years Attended',
+        college_school: 'Transferee College School',
+        college_year_graduated: 'College Inclusive Years Attended',
         honors_awards: 'Honors/Awards',
-        extracurricular_activities: 'Extracurricular Activities',
-        scholarships_availed: 'Scholarships Availed',
+        tesda_nc2_acquired: 'TESDA NC II Acquired - Date Acquired - Validity',
+        eligibility_acquired: 'Eligibility Acquired - Date Acquired',
+        special_trainings_attended: 'Special Trainings Attended',
+        extracurricular_activities: 'Voluntary Activities',
+        holds_public_service_position: 'Public Service Position Holder',
+        public_service_position: 'Position in Public Service',
+        organizations_memberships: 'Organizations Memberships',
+        sports_skills: 'Sports',
+        other_talents: 'Other Talents',
+        scholarships_availed: 'Scholarship Availed and Sponsor',
+        has_been_criminally_charged: 'Criminally Charged Before Any Court',
+        has_been_convicted_of_crime: 'Convicted of Any Crime',
         profile_completed: 'Profile Completion',
         profile_picture_url: 'Profile Picture'
     };
@@ -991,6 +1145,7 @@ export default function StudentPortal() {
             city: session?.city,
             province: session?.province,
             zipCode: session?.zip_code,
+            region: session?.region,
             mobile: session?.mobile,
             email: session?.email
         };
@@ -1013,6 +1168,7 @@ export default function StudentPortal() {
             middleName: updatedStudent.middle_name || '',
             suffix: updatedStudent.suffix || '',
             studentId: updatedStudent.student_id,
+            profile_picture_url: updatedStudent.profile_picture_url || prev.profile_picture_url || '',
             course: updatedStudent.course || prev.course || '',
             year: updatedStudent.year_level || '',
             status: updatedStudent.status || prev.status || 'Active',
@@ -1026,6 +1182,7 @@ export default function StudentPortal() {
             city: updatedStudent.city || '',
             province: updatedStudent.province || '',
             zipCode: updatedStudent.zip_code || '',
+            region: updatedStudent.region || '',
             emergencyContact: getStudentEmergencyContact(updatedStudent),
             dob: updatedStudent.dob || '',
             age: updatedStudent.age || '',
@@ -1037,34 +1194,61 @@ export default function StudentPortal() {
             schoolLastAttended: updatedStudent.school_last_attended || '',
             isWorkingStudent: updatedStudent.is_working_student || false,
             workingStudentType: updatedStudent.working_student_type || '',
+            employerName: updatedStudent.employer_name || '',
+            employerAddress: updatedStudent.employer_address || '',
             supporter: updatedStudent.supporter || '',
             supporterContact: updatedStudent.supporter_contact || '',
             isPwd: updatedStudent.is_pwd || false,
+            pwdNumber: updatedStudent.pwd_number || '',
             pwdType: updatedStudent.pwd_type || '',
+            disabilityCause: updatedStudent.disability_cause || '',
+            pwdDocumentUrl: updatedStudent.pwd_document_url || '',
             isIndigenous: updatedStudent.is_indigenous || false,
             indigenousGroup: updatedStudent.indigenous_group || '',
+            ipDocumentUrl: updatedStudent.ip_document_url || '',
+            isFourPsMember: updatedStudent.is_four_ps_member || false,
+            fourPsDocumentUrl: updatedStudent.four_ps_document_url || '',
+            isRebelReturnee: updatedStudent.is_rebel_returnee || false,
             witnessedConflict: updatedStudent.witnessed_conflict ? 'Yes' : 'No',
             isSoloParent: updatedStudent.is_solo_parent || false,
             isChildOfSoloParent: updatedStudent.is_child_of_solo_parent || false,
+            soloParentDocumentUrl: updatedStudent.solo_parent_document_url || '',
+            isOrphan: updatedStudent.is_orphan || false,
+            orphanCause: updatedStudent.orphan_cause || '',
+            isHomelessCitizen: updatedStudent.is_homeless_citizen || false,
+            isSeniorCitizen: updatedStudent.is_senior_citizen || false,
+            seniorCitizenDocumentUrl: updatedStudent.senior_citizen_document_url || '',
+            workExperiences: updatedStudent.work_experiences || '',
             religion: updatedStudent.religion || '',
             isSafeInCommunity: updatedStudent.is_safe_in_community ? 'Yes' : 'No',
             motherLastName: motherParts.last,
             motherGivenName: motherParts.given,
             motherMiddleName: motherParts.middle,
             motherOccupation: updatedStudent.mother_occupation || '',
+            motherStatus: updatedStudent.mother_status || '',
             motherContact: updatedStudent.mother_contact || '',
+            motherAddress: updatedStudent.mother_address || '',
             fatherLastName: fatherParts.last,
             fatherGivenName: fatherParts.given,
             fatherMiddleName: fatherParts.middle,
             fatherOccupation: updatedStudent.father_occupation || '',
+            fatherStatus: updatedStudent.father_status || '',
             fatherContact: updatedStudent.father_contact || '',
+            fatherAddress: updatedStudent.father_address || '',
             parentAddress: updatedStudent.parent_address || '',
             numBrothers: updatedStudent.num_brothers || '',
             numSisters: updatedStudent.num_sisters || '',
+            parentsNumChildren: updatedStudent.parents_num_children || '',
             birthOrder: updatedStudent.birth_order || '',
+            birthOrderOther: updatedStudent.birth_order_other || '',
             spouseName: updatedStudent.spouse_name || '',
             spouseOccupation: updatedStudent.spouse_occupation || '',
+            spouseEmployerName: updatedStudent.spouse_employer_name || '',
+            spouseEmployerAddress: updatedStudent.spouse_employer_address || '',
+            spouseContact: updatedStudent.spouse_contact || '',
             numChildren: updatedStudent.num_children || '',
+            childrenNamesBirthdates: updatedStudent.children_names_birthdates || '',
+            currentlyPregnant: updatedStudent.currently_pregnant || '',
             guardianName: updatedStudent.guardian_name || '',
             guardianAddress: updatedStudent.guardian_address || '',
             guardianContact: updatedStudent.guardian_contact || '',
@@ -1082,8 +1266,18 @@ export default function StudentPortal() {
             collegeSchool: updatedStudent.college_school || '',
             collegeYearGraduated: updatedStudent.college_year_graduated || '',
             honorsAwards: updatedStudent.honors_awards || '',
+            tesdaNc2Acquired: updatedStudent.tesda_nc2_acquired || '',
+            eligibilityAcquired: updatedStudent.eligibility_acquired || '',
+            specialTrainingsAttended: updatedStudent.special_trainings_attended || '',
             extracurricularActivities: updatedStudent.extracurricular_activities || '',
+            holdsPublicServicePosition: toYesNoChoice(updatedStudent.holds_public_service_position) || '',
+            publicServicePosition: updatedStudent.public_service_position || '',
+            organizationsMemberships: updatedStudent.organizations_memberships || '',
+            sportsSkills: updatedStudent.sports_skills || '',
+            otherTalents: updatedStudent.other_talents || '',
             scholarshipsAvailed: updatedStudent.scholarships_availed || '',
+            hasBeenCriminallyCharged: toYesNoChoice(updatedStudent.has_been_criminally_charged) || '',
+            hasBeenConvictedOfCrime: toYesNoChoice(updatedStudent.has_been_convicted_of_crime) || '',
             courseYearWindowStart: updatedStudent.course_year_window_start || null,
             courseYearWindowEnd: updatedStudent.course_year_window_end || null
         }));
@@ -1621,6 +1815,7 @@ export default function StudentPortal() {
                 middleName: studentData.middle_name || '',
                 suffix: studentData.suffix || '',
                 studentId: studentData.student_id,
+                profile_picture_url: studentData.profile_picture_url || '',
                 course: course,
                 year: studentData.year_level || '',
                 status: studentData.status || 'Active',
@@ -1634,6 +1829,7 @@ export default function StudentPortal() {
                 city: studentData.city || '',
                 province: studentData.province || '',
                 zipCode: studentData.zip_code || '',
+                region: studentData.region || '',
                 emergencyContact: getStudentEmergencyContact(studentData),
                 dob: studentData.dob || '',
                 age: studentData.age || '',
@@ -1648,34 +1844,61 @@ export default function StudentPortal() {
                 schoolLastAttended: studentData.school_last_attended || '',
                 isWorkingStudent: studentData.is_working_student || false,
                 workingStudentType: studentData.working_student_type || '',
+                employerName: studentData.employer_name || '',
+                employerAddress: studentData.employer_address || '',
                 supporter: studentData.supporter || '',
                 supporterContact: studentData.supporter_contact || '',
                 isPwd: studentData.is_pwd || false,
+                pwdNumber: studentData.pwd_number || '',
                 pwdType: studentData.pwd_type || '',
+                disabilityCause: studentData.disability_cause || '',
+                pwdDocumentUrl: studentData.pwd_document_url || '',
                 isIndigenous: studentData.is_indigenous || false,
                 indigenousGroup: studentData.indigenous_group || '',
+                ipDocumentUrl: studentData.ip_document_url || '',
+                isFourPsMember: studentData.is_four_ps_member || false,
+                fourPsDocumentUrl: studentData.four_ps_document_url || '',
+                isRebelReturnee: studentData.is_rebel_returnee || false,
                 witnessedConflict: studentData.witnessed_conflict ? 'Yes' : 'No',
                 isSoloParent: studentData.is_solo_parent || false,
                 isChildOfSoloParent: studentData.is_child_of_solo_parent || false,
+                soloParentDocumentUrl: studentData.solo_parent_document_url || '',
+                isOrphan: studentData.is_orphan || false,
+                orphanCause: studentData.orphan_cause || '',
+                isHomelessCitizen: studentData.is_homeless_citizen || false,
+                isSeniorCitizen: studentData.is_senior_citizen || false,
+                seniorCitizenDocumentUrl: studentData.senior_citizen_document_url || '',
+                workExperiences: studentData.work_experiences || '',
                 religion: studentData.religion || '',
                 isSafeInCommunity: studentData.is_safe_in_community ? 'Yes' : 'No',
                 motherLastName: motherParts.last,
                 motherGivenName: motherParts.given,
                 motherMiddleName: motherParts.middle,
                 motherOccupation: studentData.mother_occupation || '',
+                motherStatus: studentData.mother_status || '',
                 motherContact: studentData.mother_contact || '',
+                motherAddress: studentData.mother_address || '',
                 fatherLastName: fatherParts.last,
                 fatherGivenName: fatherParts.given,
                 fatherMiddleName: fatherParts.middle,
                 fatherOccupation: studentData.father_occupation || '',
+                fatherStatus: studentData.father_status || '',
                 fatherContact: studentData.father_contact || '',
+                fatherAddress: studentData.father_address || '',
                 parentAddress: studentData.parent_address || '',
                 numBrothers: studentData.num_brothers || '',
                 numSisters: studentData.num_sisters || '',
+                parentsNumChildren: studentData.parents_num_children || '',
                 birthOrder: studentData.birth_order || '',
+                birthOrderOther: studentData.birth_order_other || '',
                 spouseName: studentData.spouse_name || '',
                 spouseOccupation: studentData.spouse_occupation || '',
+                spouseEmployerName: studentData.spouse_employer_name || '',
+                spouseEmployerAddress: studentData.spouse_employer_address || '',
+                spouseContact: studentData.spouse_contact || '',
                 numChildren: studentData.num_children || '',
+                childrenNamesBirthdates: studentData.children_names_birthdates || '',
+                currentlyPregnant: studentData.currently_pregnant || '',
                 guardianName: studentData.guardian_name || '',
                 guardianAddress: studentData.guardian_address || '',
                 guardianContact: studentData.guardian_contact || '',
@@ -1693,8 +1916,18 @@ export default function StudentPortal() {
                 collegeSchool: studentData.college_school || '',
                 collegeYearGraduated: studentData.college_year_graduated || '',
                 honorsAwards: studentData.honors_awards || '',
+                tesdaNc2Acquired: studentData.tesda_nc2_acquired || '',
+                eligibilityAcquired: studentData.eligibility_acquired || '',
+                specialTrainingsAttended: studentData.special_trainings_attended || '',
                 extracurricularActivities: studentData.extracurricular_activities || '',
+                holdsPublicServicePosition: toYesNoChoice(studentData.holds_public_service_position) || '',
+                publicServicePosition: studentData.public_service_position || '',
+                organizationsMemberships: studentData.organizations_memberships || '',
+                sportsSkills: studentData.sports_skills || '',
+                otherTalents: studentData.other_talents || '',
                 scholarshipsAvailed: studentData.scholarships_availed || '',
+                hasBeenCriminallyCharged: toYesNoChoice(studentData.has_been_criminally_charged) || '',
+                hasBeenConvictedOfCrime: toYesNoChoice(studentData.has_been_convicted_of_crime) || '',
                 courseYearWindowStart: studentData.course_year_window_start || null,
                 courseYearWindowEnd: studentData.course_year_window_end || null,
             }));
@@ -1774,6 +2007,7 @@ export default function StudentPortal() {
                 city: session?.city,
                 province: session?.province,
                 zipCode: session?.zip_code,
+                region: session?.region,
                 mobile: session?.mobile,
                 email: session?.email
             };
@@ -1886,20 +2120,6 @@ export default function StudentPortal() {
         }
     }, [loading, session, profileCompletionGateActive, hasSeenTourState]);
 
-    useEffect(() => {
-        if (!profileCompletionGateActive || typeof document === 'undefined') return;
-
-        const previousBodyOverflow = document.body.style.overflow;
-        const previousHtmlOverflow = document.documentElement.style.overflow;
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-
-        return () => {
-            document.body.style.overflow = previousBodyOverflow;
-            document.documentElement.style.overflow = previousHtmlOverflow;
-        };
-    }, [profileCompletionGateActive]);
-
     // Save Profile Changes to Supabase
     const saveProfileChanges = async (nextPersonalInfo = personalInfo) => {
         if (isSavingProfileChanges) return;
@@ -1930,6 +2150,7 @@ export default function StudentPortal() {
                 city: nextPersonalInfo.city || null,
                 province: nextPersonalInfo.province || null,
                 zip_code: nextPersonalInfo.zipCode || null,
+                region: nextPersonalInfo.region || null,
                 mobile: nextPersonalInfo.mobile || null,
                 email: normalizedEmail,
                 civil_status: nextPersonalInfo.civilStatus || null,
@@ -1941,15 +2162,31 @@ export default function StudentPortal() {
                 school_last_attended: nextPersonalInfo.schoolLastAttended || null,
                 is_working_student: Boolean(nextPersonalInfo.isWorkingStudent),
                 working_student_type: nextPersonalInfo.workingStudentType || null,
+                employer_name: nextPersonalInfo.employerName || null,
+                employer_address: nextPersonalInfo.employerAddress || null,
                 supporter: nextPersonalInfo.supporter || null,
                 supporter_contact: nextPersonalInfo.supporterContact || null,
                 is_pwd: Boolean(nextPersonalInfo.isPwd),
+                pwd_number: nextPersonalInfo.pwdNumber || null,
                 pwd_type: nextPersonalInfo.pwdType || null,
+                disability_cause: nextPersonalInfo.disabilityCause || null,
+                pwd_document_url: nextPersonalInfo.pwdDocumentUrl || null,
                 is_indigenous: Boolean(nextPersonalInfo.isIndigenous),
                 indigenous_group: nextPersonalInfo.indigenousGroup || null,
+                ip_document_url: nextPersonalInfo.ipDocumentUrl || null,
+                is_four_ps_member: Boolean(nextPersonalInfo.isFourPsMember),
+                four_ps_document_url: nextPersonalInfo.fourPsDocumentUrl || null,
+                is_rebel_returnee: Boolean(nextPersonalInfo.isRebelReturnee),
                 witnessed_conflict: Boolean(nextPersonalInfo.witnessedConflict),
                 is_solo_parent: Boolean(nextPersonalInfo.isSoloParent),
                 is_child_of_solo_parent: Boolean(nextPersonalInfo.isChildOfSoloParent),
+                solo_parent_document_url: nextPersonalInfo.soloParentDocumentUrl || null,
+                is_orphan: Boolean(nextPersonalInfo.isOrphan),
+                orphan_cause: nextPersonalInfo.orphanCause || null,
+                is_homeless_citizen: Boolean(nextPersonalInfo.isHomelessCitizen),
+                is_senior_citizen: Boolean(nextPersonalInfo.isSeniorCitizen),
+                senior_citizen_document_url: nextPersonalInfo.seniorCitizenDocumentUrl || null,
+                work_experiences: nextPersonalInfo.workExperiences || null,
                 section: nextPersonalInfo.section || null,
                 // New fields
                 religion: nextPersonalInfo.religion || null,
@@ -1963,7 +2200,9 @@ export default function StudentPortal() {
                 mother_given_name: nextPersonalInfo.motherGivenName || null,
                 mother_middle_name: nextPersonalInfo.motherMiddleName || null,
                 mother_occupation: nextPersonalInfo.motherOccupation || null,
+                mother_status: nextPersonalInfo.motherStatus || null,
                 mother_contact: nextPersonalInfo.motherContact || null,
+                mother_address: nextPersonalInfo.motherAddress || null,
                 father_name: joinNameParts({
                     given: nextPersonalInfo.fatherGivenName,
                     middle: nextPersonalInfo.fatherMiddleName,
@@ -1973,14 +2212,23 @@ export default function StudentPortal() {
                 father_given_name: nextPersonalInfo.fatherGivenName || null,
                 father_middle_name: nextPersonalInfo.fatherMiddleName || null,
                 father_occupation: nextPersonalInfo.fatherOccupation || null,
+                father_status: nextPersonalInfo.fatherStatus || null,
                 father_contact: nextPersonalInfo.fatherContact || null,
+                father_address: nextPersonalInfo.fatherAddress || null,
                 parent_address: nextPersonalInfo.parentAddress || null,
                 num_brothers: nextPersonalInfo.numBrothers || null,
                 num_sisters: nextPersonalInfo.numSisters || null,
+                parents_num_children: nextPersonalInfo.parentsNumChildren || null,
                 birth_order: nextPersonalInfo.birthOrder || null,
+                birth_order_other: nextPersonalInfo.birthOrder === 'Other' ? nextPersonalInfo.birthOrderOther || null : null,
                 spouse_name: nextPersonalInfo.spouseName || null,
                 spouse_occupation: nextPersonalInfo.spouseOccupation || null,
+                spouse_employer_name: nextPersonalInfo.spouseEmployerName || null,
+                spouse_employer_address: nextPersonalInfo.spouseEmployerAddress || null,
+                spouse_contact: nextPersonalInfo.spouseContact || null,
                 num_children: nextPersonalInfo.numChildren || null,
+                children_names_birthdates: nextPersonalInfo.childrenNamesBirthdates || null,
+                currently_pregnant: nextPersonalInfo.currentlyPregnant || null,
                 guardian_name: nextPersonalInfo.guardianName || null,
                 guardian_address: nextPersonalInfo.guardianAddress || null,
                 guardian_contact: nextPersonalInfo.guardianContact || null,
@@ -1998,8 +2246,18 @@ export default function StudentPortal() {
                 college_school: nextPersonalInfo.collegeSchool || null,
                 college_year_graduated: nextPersonalInfo.collegeYearGraduated || null,
                 honors_awards: nextPersonalInfo.honorsAwards || null,
+                tesda_nc2_acquired: nextPersonalInfo.tesdaNc2Acquired || null,
+                eligibility_acquired: nextPersonalInfo.eligibilityAcquired || null,
+                special_trainings_attended: nextPersonalInfo.specialTrainingsAttended || null,
                 extracurricular_activities: nextPersonalInfo.extracurricularActivities || null,
+                holds_public_service_position: nextPersonalInfo.holdsPublicServicePosition === 'Yes' || nextPersonalInfo.holdsPublicServicePosition === true,
+                public_service_position: nextPersonalInfo.publicServicePosition || null,
+                organizations_memberships: nextPersonalInfo.organizationsMemberships || null,
+                sports_skills: nextPersonalInfo.sportsSkills || null,
+                other_talents: nextPersonalInfo.otherTalents || null,
                 scholarships_availed: nextPersonalInfo.scholarshipsAvailed || null,
+                has_been_criminally_charged: nextPersonalInfo.hasBeenCriminallyCharged === 'Yes' || nextPersonalInfo.hasBeenCriminallyCharged === true,
+                has_been_convicted_of_crime: nextPersonalInfo.hasBeenConvictedOfCrime === 'Yes' || nextPersonalInfo.hasBeenConvictedOfCrime === true,
             };
 
             await invokeManagedStudentFunction({
@@ -2969,8 +3227,8 @@ export default function StudentPortal() {
             }
         }
     };
-    const PROFILE_TOTAL_STEPS = 8;
-    const PROFILE_STEP_LABELS = ['Personal', 'Family', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
+    const PROFILE_TOTAL_STEPS = 9;
+    const PROFILE_STEP_LABELS = ['Personal', 'Family', 'Socio-Economic', 'Guardian', 'Emergency', 'Education', 'Activities', 'Scholarships', 'Finish'];
     const profileCompletionInputClass = '';
     const profileCompletionTextareaClass = '';
     const profileCompletionLabelClass = '';
@@ -3180,108 +3438,176 @@ export default function StudentPortal() {
                             {profileStep === 2 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Family Background</h3></div>
-                                    <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Last Name</label><input name="motherLastName" placeholder="N/A if not applicable" value={profileFormData.motherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Given Name</label><input name="motherGivenName" placeholder="N/A if not applicable" value={profileFormData.motherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Middle Name</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={profileFormData.motherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    </div>
-                                    <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Occupation</label><input name="motherOccupation" placeholder="N/A" value={profileFormData.motherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Contact</label><input name="motherContact" placeholder="N/A" value={profileFormData.motherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    </div>
-                                    <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Last Name</label><input name="fatherLastName" placeholder="N/A" value={profileFormData.fatherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Given Name</label><input name="fatherGivenName" placeholder="N/A" value={profileFormData.fatherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Middle Name</label><input name="fatherMiddleName" placeholder="N/A" value={profileFormData.fatherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    </div>
-                                    <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Occupation</label><input name="fatherOccupation" placeholder="N/A" value={profileFormData.fatherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Contact</label><input name="fatherContact" placeholder="N/A" value={profileFormData.fatherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    </div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Parent's Address</label><input name="parentAddress" placeholder="N/A" value={profileFormData.parentAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>No. of Brothers</label><input name="numBrothers" placeholder="N/A" value={profileFormData.numBrothers} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>No. of Sisters</label><input name="numSisters" placeholder="N/A" value={profileFormData.numSisters} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Birth Order</label><select name="birthOrder" value={profileFormData.birthOrder} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Only child', 'Legally adopted', 'Simulated', 'Foster child'].map(v => <option key={v} value={v}>{v}</option>)}</select></div>
-                                    </div>
-                                    <div className="pt-3 border-t border-slate-100"><p className="text-xs text-slate-400 mb-2 italic">If married, fill the fields below. Type N/A if not applicable.</p>
+                                    <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
+                                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Spouse and Children</p>
                                         <div className={profileCompletionGridThreeClass}>
-                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse Name</label><input name="spouseName" placeholder="N/A" value={profileFormData.spouseName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse Occupation</label><input name="spouseOccupation" placeholder="N/A" value={profileFormData.spouseOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>No. of Children</label><input name="numChildren" placeholder="N/A" value={profileFormData.numChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Spouse</label><input name="spouseName" placeholder="N/A if not applicable" value={profileFormData.spouseName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Occupation</label><input name="spouseOccupation" placeholder="N/A if not applicable" value={profileFormData.spouseOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Contact Number</label><input name="spouseContact" placeholder="N/A if not applicable" value={profileFormData.spouseContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                         </div>
+                                        <div className={profileCompletionGridTwoClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Employer/Business Name</label><input name="spouseEmployerName" placeholder="N/A if not applicable" value={profileFormData.spouseEmployerName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Employer/Business Address</label><input name="spouseEmployerAddress" placeholder="N/A if not applicable" value={profileFormData.spouseEmployerAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        </div>
+                                        <div className={profileCompletionGridTwoClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Number of Children</label><input name="numChildren" placeholder="N/A if not applicable" value={profileFormData.numChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Currently Pregnant?</label><select name="currentlyPregnant" value={profileFormData.currentlyPregnant} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{PREGNANCY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        </div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Children - Date of Birth</label><textarea name="childrenNamesBirthdates" placeholder="N/A if not applicable" value={profileFormData.childrenNamesBirthdates} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
+                                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Mother</p>
+                                        <div className={profileCompletionGridThreeClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Maiden Last Name</label><input name="motherLastName" placeholder="N/A if not applicable" value={profileFormData.motherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Given Name</label><input name="motherGivenName" placeholder="N/A if not applicable" value={profileFormData.motherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Maiden Middle Name</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={profileFormData.motherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        </div>
+                                        <div className={profileCompletionGridThreeClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Occupation</label><input name="motherOccupation" placeholder="N/A if not applicable" value={profileFormData.motherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Status</label><select name="motherStatus" value={profileFormData.motherStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{FAMILY_STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Contact Number</label><input name="motherContact" placeholder="N/A if not applicable" value={profileFormData.motherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        </div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Address</label><input name="motherAddress" placeholder="N/A if not applicable" value={profileFormData.motherAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
+                                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Father</p>
+                                        <div className={profileCompletionGridThreeClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Last Name</label><input name="fatherLastName" placeholder="N/A if not applicable" value={profileFormData.fatherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Given Name</label><input name="fatherGivenName" placeholder="N/A if not applicable" value={profileFormData.fatherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Middle Name</label><input name="fatherMiddleName" placeholder="N/A if not applicable" value={profileFormData.fatherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        </div>
+                                        <div className={profileCompletionGridThreeClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Occupation</label><input name="fatherOccupation" placeholder="N/A if not applicable" value={profileFormData.fatherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Status</label><select name="fatherStatus" value={profileFormData.fatherStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{FAMILY_STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Contact Number</label><input name="fatherContact" placeholder="N/A if not applicable" value={profileFormData.fatherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        </div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Address</label><input name="fatherAddress" placeholder="N/A if not applicable" value={profileFormData.fatherAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
+                                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Family Order</p>
+                                        <div className={profileCompletionGridTwoClass}>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Number of Children Your Parents Have</label><input name="parentsNumChildren" placeholder="N/A if not applicable" value={profileFormData.parentsNumChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Your Birth Order in the Family</label><select name="birthOrder" value={profileFormData.birthOrder} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{BIRTH_ORDER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+                                        </div>
+                                        {profileFormData.birthOrder === 'Other' && (
+                                            <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Birth Order</label><input name="birthOrderOther" value={profileFormData.birthOrderOther} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        )}
                                     </div>
                                 </div>
                             )}
 
-                            {/* STEP 3: GUARDIAN */}
+                            {/* STEP 3: SOCIO-ECONOMIC BACKGROUND */}
                             {profileStep === 3 && (
+                                <div className="space-y-4">
+                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Socio-Economic Background</h3></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Person/Agency Supporting Studies</label><input name="supporter" value={profileFormData.supporter} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Supporter Contact</label><input name="supporterContact" value={profileFormData.supporterContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Working Student</label><select name="isWorkingStudent" value={profileFormData.isWorkingStudent} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Type of Work</label><select name="workingStudentType" value={profileFormData.workingStudentType} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{WORK_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Employer Name</label><input name="employerName" value={profileFormData.employerName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Employer Address</label><input name="employerAddress" value={profileFormData.employerAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>PWD</label><select name="isPwd" value={profileFormData.isPwd} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>PWD #</label><input name="pwdNumber" value={profileFormData.pwdNumber} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>PWD Type</label><select name="pwdType" value={profileFormData.pwdType} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{PWD_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Cause of Disability</label><input name="disabilityCause" value={profileFormData.disabilityCause} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Indigenous Member</label><select name="isIndigenous" value={profileFormData.isIndigenous} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Indigenous Group</label><select name="indigenousGroup" value={profileFormData.indigenousGroup} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{INDIGENOUS_GROUP_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>4Ps Member</label><select name="isFourPsMember" value={profileFormData.isFourPsMember} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Rebel Returnee</label><select name="isRebelReturnee" value={profileFormData.isRebelReturnee} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Child of Solo Parent</label><select name="isChildOfSoloParent" value={profileFormData.isChildOfSoloParent} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Solo Parent</label><select name="isSoloParent" value={profileFormData.isSoloParent} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Orphan</label><select name="isOrphan" value={profileFormData.isOrphan} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Orphan Cause</label><select name="orphanCause" value={profileFormData.orphanCause} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{ORPHAN_CAUSE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Homeless Citizen</label><select name="isHomelessCitizen" value={profileFormData.isHomelessCitizen} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Senior Citizen</label><select name="isSeniorCitizen" value={profileFormData.isSeniorCitizen} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                    </div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Work Experiences</label><textarea name="workExperiences" value={profileFormData.workExperiences} onChange={handleProfileFormChange} rows={4} className={profileCompletionTextareaClass} /></div>
+                                </div>
+                            )}
+
+                            {/* STEP 4: GUARDIAN */}
+                            {profileStep === 4 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Guardian</h3></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Full Name</label><input name="guardianName" value={profileFormData.guardianName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address</label><input name="guardianAddress" value={profileFormData.guardianAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact</label><input name="guardianContact" value={profileFormData.guardianContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relation</label><select name="guardianRelation" value={profileFormData.guardianRelation} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Relative">Relative</option><option value="Not relative">Not relative</option><option value="Landlord">Landlord</option><option value="Landlady">Landlady</option></select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact Number</label><input name="guardianContact" value={profileFormData.guardianContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relation to the Guardian</label><select name="guardianRelation" value={profileFormData.guardianRelation} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{['Relative', 'Not relative', 'Landlord', 'Landlady', 'Other'].map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* STEP 4: EMERGENCY CONTACT */}
-                            {profileStep === 4 && (
-                                <div className="space-y-4">
-                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Person to Contact (Emergency)</h3></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Full Name</label><input name="emergencyName" value={profileFormData.emergencyName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address</label><input name="emergencyAddress" value={profileFormData.emergencyAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relationship</label><input name="emergencyRelationship" value={profileFormData.emergencyRelationship} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact Number</label><input name="emergencyNumber" value={profileFormData.emergencyNumber} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* STEP 5: EDUCATIONAL BACKGROUND */}
+                            {/* STEP 5: PERSON TO CONTACT */}
                             {profileStep === 5 && (
+                                <div className="space-y-4">
+                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Person to Contact (In Case of Emergency)</h3></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Full Name *</label><input name="emergencyName" value={profileFormData.emergencyName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address *</label><input name="emergencyAddress" value={profileFormData.emergencyAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relationship *</label><input name="emergencyRelationship" value={profileFormData.emergencyRelationship} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact Number *</label><input name="emergencyNumber" value={profileFormData.emergencyNumber} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STEP 6: EDUCATIONAL BACKGROUND */}
+                            {profileStep === 6 && (
                                 <div className="space-y-4">
                                     <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Educational Background</h3></div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Elementary</label><input name="elemSchool" value={profileFormData.elemSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated</label><input name="elemYearGraduated" value={profileFormData.elemYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Elementary: Name of School *</label><input name="elemSchool" value={profileFormData.elemSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Inclusive Years Attended *</label><input name="elemYearGraduated" value={profileFormData.elemYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Junior High School</label><input name="juniorHighSchool" value={profileFormData.juniorHighSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated</label><input name="juniorHighYearGraduated" value={profileFormData.juniorHighYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Junior High School: Name of School *</label><input name="juniorHighSchool" value={profileFormData.juniorHighSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Inclusive Years Attended *</label><input name="juniorHighYearGraduated" value={profileFormData.juniorHighYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Senior High School</label><input name="seniorHighSchool" value={profileFormData.seniorHighSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated</label><input name="seniorHighYearGraduated" value={profileFormData.seniorHighYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Senior High School: Name of School *</label><input name="seniorHighSchool" value={profileFormData.seniorHighSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Inclusive Years Attended *</label><input name="seniorHighYearGraduated" value={profileFormData.seniorHighYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>College</label><input name="collegeSchool" value={profileFormData.collegeSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Graduated / Continuing</label><input name="collegeYearGraduated" value={profileFormData.collegeYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>If Transferee, College: Name of School *</label><input name="collegeSchool" placeholder="N/A if not applicable" value={profileFormData.collegeSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Inclusive Years Attended *</label><input name="collegeYearGraduated" placeholder="N/A if not applicable" value={profileFormData.collegeYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Honor/Award Received</label><input name="honorsAwards" placeholder="N/A if not applicable" value={profileFormData.honorsAwards} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Honor/Award Received. List from Elementary *</label><textarea name="honorsAwards" placeholder="N/A if not applicable" value={profileFormData.honorsAwards} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>TESDA NC II Acquired - Date Acquired - Validity *</label><textarea name="tesdaNc2Acquired" placeholder="N/A if none" value={profileFormData.tesdaNc2Acquired} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Eligibility Acquired - Date Acquired *</label><textarea name="eligibilityAcquired" placeholder="N/A if none" value={profileFormData.eligibilityAcquired} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Special Trainings Attended *</label><textarea name="specialTrainingsAttended" placeholder="N/A if none" value={profileFormData.specialTrainingsAttended} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
                                 </div>
                             )}
 
-                            {/* STEP 6: EXTRA-CURRICULAR */}
-                            {profileStep === 6 && (
-                                <div className="space-y-4">
-                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Extra-Curricular Involvement</h3></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Activities</label><textarea name="extracurricularActivities" placeholder="N/A if not applicable" value={profileFormData.extracurricularActivities} onChange={handleProfileFormChange} rows={5} className={profileCompletionTextareaClass} /></div>
-                                </div>
-                            )}
-
-                            {/* STEP 7: SCHOLARSHIPS */}
+                            {/* STEP 7: EXTRA-CURRICULAR */}
                             {profileStep === 7 && (
                                 <div className="space-y-4">
-                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Scholarships</h3></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Scholarship Availed</label><textarea name="scholarshipsAvailed" placeholder="N/A if not applicable" value={profileFormData.scholarshipsAvailed} onChange={handleProfileFormChange} rows={5} className={profileCompletionTextareaClass} /></div>
+                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Extra-Curricular Involvement</h3></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Voluntary Activities *</label><textarea name="extracurricularActivities" placeholder="N/A if not applicable" value={profileFormData.extracurricularActivities} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Do You Hold a Local/National Position in Public Service? *</label><select name="holdsPublicServicePosition" value={profileFormData.holdsPublicServicePosition} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Position in Public Service *</label><input name="publicServicePosition" placeholder="N/A if not applicable" value={profileFormData.publicServicePosition} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    </div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Organizations You Are a Member Of *</label><textarea name="organizationsMemberships" value={profileFormData.organizationsMemberships} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Sports You Are Good At *</label><textarea name="sportsSkills" value={profileFormData.sportsSkills} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Other Talent/s *</label><textarea name="otherTalents" value={profileFormData.otherTalents} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
                                 </div>
                             )}
 
-                            {/* STEP 8: FINISH */}
+                            {/* STEP 8: SCHOLARSHIPS */}
                             {profileStep === 8 && (
+                                <div className="space-y-4">
+                                    <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Scholarships</h3></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Scholarship Availed & Sponsor *</label><textarea name="scholarshipsAvailed" placeholder="N/A if not applicable" value={profileFormData.scholarshipsAvailed} onChange={handleProfileFormChange} rows={4} className={profileCompletionTextareaClass} /></div>
+                                    <div className={profileCompletionGridTwoClass}>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Have You Been Criminally Charged Before Any Court? *</label><select name="hasBeenCriminallyCharged" value={profileFormData.hasBeenCriminallyCharged} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Have You Been Convicted of Any Crime? *</label><select name="hasBeenConvictedOfCrime" value={profileFormData.hasBeenConvictedOfCrime} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* STEP 9: FINISH */}
+                            {profileStep === 9 && (
                                 <div className="space-y-6 text-center">
                                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto border-2 border-slate-200"><svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></div>
                                     <h3 className="text-xl font-bold text-slate-800 sm:text-2xl">Final Step</h3>
@@ -3295,7 +3621,7 @@ export default function StudentPortal() {
                                             <span className="text-sm font-bold text-slate-800">I have read and agree to the terms</span>
                                         </label>
                                     </div>
-                                    <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100"><p className="text-xs text-emerald-700 italic leading-relaxed">"Thank you for completing your profile. Your responses help us serve you better!"</p></div>
+                                    <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 text-left"><p className="text-xs text-emerald-700 italic leading-relaxed">Thank you for taking the time to complete this form. Your responses will help us serve you better. If you have any questions or need further assistance, please feel free to reach out. We appreciate your time and cooperation! Don't forget to take a screenshot of proof of submission of this form and present it to the CARE Center Staff assigned in the Stamping Area during enrollment. Thank you.</p></div>
                                 </div>
                             )}
                         </div>

@@ -5,6 +5,30 @@ const HTTP_URL_PATTERN = /^https?:\/\//i;
 export const isStoredAssetUrl = (value: string | null | undefined) =>
     HTTP_URL_PATTERN.test(String(value || '').trim());
 
+export const getStoredAssetPath = (bucket: string, value: string | null | undefined) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+
+    if (!isStoredAssetUrl(normalized)) {
+        return normalized.replace(/^\/+/, '');
+    }
+
+    try {
+        const url = new URL(normalized);
+        const segments = url.pathname.split('/').filter(Boolean);
+        const objectIndex = segments.findIndex((segment) => segment === 'object');
+        const bucketSegment = segments[objectIndex + 2];
+
+        if (objectIndex >= 0 && bucketSegment === bucket) {
+            return decodeURIComponent(segments.slice(objectIndex + 3).join('/'));
+        }
+    } catch {
+        return '';
+    }
+
+    return '';
+};
+
 export const getStoredAssetEntries = (value: string | null | undefined) => {
     const normalized = String(value || '').trim();
     if (!normalized) return [] as string[];
@@ -41,11 +65,12 @@ export const resolveStoredAssetUrl = async (
     const normalized = String(value || '').trim();
     if (!normalized) return null;
 
-    if (isStoredAssetUrl(normalized)) {
+    const extractedPath = getStoredAssetPath(bucket, normalized);
+    if (isStoredAssetUrl(normalized) && !extractedPath) {
         return normalized;
     }
 
-    const path = normalized.replace(/^\/+/, '');
+    const path = extractedPath || normalized.replace(/^\/+/, '');
     const { data: signedData, error: signedError } = await supabase
         .storage
         .from(bucket)
@@ -53,6 +78,10 @@ export const resolveStoredAssetUrl = async (
 
     if (!signedError && signedData?.signedUrl) {
         return signedData.signedUrl;
+    }
+
+    if (isStoredAssetUrl(normalized)) {
+        return normalized;
     }
 
     const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);

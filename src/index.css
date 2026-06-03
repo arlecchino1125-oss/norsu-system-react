@@ -29,11 +29,6 @@
         background: #f8fafc;
     }
 
-    /* Lock body scroll only for interactive full-screen overlays, not decorative fixed backgrounds */
-    body:has(.fixed.inset-0:not(.pointer-events-none)) {
-        overflow: hidden;
-    }
-
     /* Global smooth transitions on all interactive elements */
     *,
     *::before,
@@ -52,24 +47,22 @@
     }
 }
 
-/* Lock any scrollable container that contains an interactive overlay */
-.overflow-y-auto:has(.fixed.inset-0:not(.pointer-events-none)),
-.overflow-auto:has(.fixed.inset-0:not(.pointer-events-none)) {
-    overflow: hidden !important;
+/* Modals should not freeze the page or portal surface behind them. */
+.fixed.inset-0,
+.student-mobile-modal-overlay {
+    overscroll-behavior: auto;
 }
 
-/* Prevent scroll chaining from modals to background content */
-.fixed.inset-0 {
-    overscroll-behavior: contain;
+.student-mobile-modal-overlay {
+    overflow: visible !important;
 }
 
 @media (max-width: 639px) {
     .student-mobile-modal-overlay {
         align-items: center !important;
         justify-content: center !important;
-        overflow-y: auto !important;
+        overflow: visible !important;
         padding: 0.75rem !important;
-        -webkit-overflow-scrolling: touch;
     }
 
     .student-mobile-modal-shell {

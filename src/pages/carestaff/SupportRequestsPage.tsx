@@ -25,6 +25,12 @@ interface SupportRequestsPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
+const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
+const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
+
+const isSupportedDocumentFile = (file: File) =>
+    file.type.startsWith('image/') || file.type === 'application/pdf';
+
 const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const { showToast } = functions || {};
     const sortSupportByCreatedAt = (rows: any[]) =>
@@ -158,6 +164,12 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         try {
             let letterPath = null;
             if (letterFile) {
+                if (!isSupportedDocumentFile(letterFile)) {
+                    throw new Error('Endorsement letter must be an image or PDF file.');
+                }
+                if (letterFile.size > MAX_SUPPORT_DOCUMENT_BYTES) {
+                    throw new Error('Endorsement letter must be under 1 MB.');
+                }
                 const fileExt = letterFile.name.split('.').pop();
                 const fileName = `endorsement_${selectedSupportReq.student_id}_${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage.from('support_documents').upload(fileName, letterFile);
@@ -181,6 +193,26 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         } finally {
             setIsForwardingSupport(false);
         }
+    };
+
+    const handleLetterFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
+        event.target.value = '';
+        if (!file) {
+            setLetterFile(null);
+            return;
+        }
+        if (!isSupportedDocumentFile(file)) {
+            showToast?.('Endorsement letter must be an image or PDF file.', 'error');
+            setLetterFile(null);
+            return;
+        }
+        if (file.size > MAX_SUPPORT_DOCUMENT_BYTES) {
+            showToast?.('Endorsement letter must be under 1 MB.', 'error');
+            setLetterFile(null);
+            return;
+        }
+        setLetterFile(file);
     };
 
     const handleFinalizeSupport = async () => {
@@ -653,7 +685,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                         <textarea rows={3} value={supportForm.care_notes} onChange={e => setSupportForm({ ...supportForm, care_notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Add endorsement notes..."></textarea>
                                         <div className="mt-3">
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Attach Endorsement Letter (Optional)</label>
-                                            <input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" onChange={(e: any) => setLetterFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100" />
+                                            <input type="file" accept={SUPPORT_DOCUMENT_ACCEPT} onChange={handleLetterFileChange} className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100" />
                                             {letterFile && (
                                                 <div className="flex items-center gap-2 mt-1.5 bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-1.5">
                                                     <Paperclip size={12} className="text-yellow-600" />
