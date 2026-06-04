@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabase';
+import { getTextInputLimitProps, validateTextInput } from '../../../utils/inputSecurity';
 
 type SupportFormModalProps = {
     isOpen: boolean;
@@ -83,6 +84,17 @@ export default function SupportFormModal({
             return;
         }
 
+        const otherCategoryCheck = validateTextInput(form.otherCategory, 'shortText', { label: 'Other category' });
+        const q1Check = validateTextInput(form.q1, 'notes', { multiline: true, label: 'Disability or special learning need' });
+        const q2Check = validateTextInput(form.q2, 'notes', { multiline: true, label: 'Previous school support' });
+        const q3Check = validateTextInput(form.q3, 'notes', { multiline: true, label: 'Required support' });
+        const q4Check = validateTextInput(form.q4, 'notes', { multiline: true, label: 'Other special needs' });
+        const invalidText = [otherCategoryCheck, q1Check, q2Check, q3Check, q4Check].find((check) => !check.valid);
+        if (invalidText?.error) {
+            showToast(invalidText.error, 'error');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const docUrls: string[] = [];
@@ -96,10 +108,10 @@ export default function SupportFormModal({
                 }
             }
 
-            const description = `[Q1 Description]: ${form.q1}\n[Q2 Previous Support]: ${form.q2}\n[Q3 Required Support]: ${form.q3}\n[Q4 Other Needs]: ${form.q4}`.trim();
+            const description = `[Q1 Description]: ${q1Check.value}\n[Q2 Previous Support]: ${q2Check.value}\n[Q3 Required Support]: ${q3Check.value}\n[Q4 Other Needs]: ${q4Check.value}`.trim();
             const finalCategories = [...form.categories];
-            if (form.otherCategory) {
-                finalCategories.push(`Other: ${form.otherCategory}`);
+            if (otherCategoryCheck.value) {
+                finalCategories.push(`Other: ${otherCategoryCheck.value}`);
             }
 
             const payload = {
@@ -179,7 +191,7 @@ export default function SupportFormModal({
                             <div className="col-span-1 mt-2 flex flex-col items-start gap-3 md:col-span-2 sm:flex-row sm:items-center">
                                 <input id="support-cat-other-check" name="support-cat-other-check" type="checkbox" checked={!!form.otherCategory} readOnly className="w-4 h-4 text-blue-600 rounded shrink-0" />
                                 <label htmlFor="support-other-specify" className="text-sm whitespace-nowrap">Others, specify:</label>
-                                <input id="support-other-specify" name="support-other-specify" value={form.otherCategory} onChange={(event) => setForm((prev) => ({ ...prev, otherCategory: event.target.value }))} className="border-b border-gray-300 focus:border-blue-600 outline-none px-2 py-1 text-sm flex-1 min-w-0 bg-transparent" />
+                                <input id="support-other-specify" name="support-other-specify" {...getTextInputLimitProps('shortText')} value={form.otherCategory} onChange={(event) => setForm((prev) => ({ ...prev, otherCategory: event.target.value }))} className="border-b border-gray-300 focus:border-blue-600 outline-none px-2 py-1 text-sm flex-1 min-w-0 bg-transparent" />
                             </div>
                         </div>
                     </section>
@@ -198,10 +210,10 @@ export default function SupportFormModal({
                         <h4 className="font-bold text-sm text-blue-800 mb-2 uppercase tracking-wider">B. Particulars of your disability or special learning need</h4>
                         <p className="text-xs text-gray-500 mb-4 italic">We would like to gain a better understanding of the kind of support that you may need. However, we might not be able to assist in all the ways that you require, but it might help us with our planning in future.</p>
                         <div className="space-y-4">
-                            <div><label htmlFor="support-q1" className="block text-xs font-bold text-gray-700 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</label><textarea id="support-q1" name="support-q1" rows={2} value={form.q1} onChange={(event) => setForm((prev) => ({ ...prev, q1: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
-                            <div><label htmlFor="support-q2" className="block text-xs font-bold text-gray-700 mb-1">2. What kind of support did you receive at your previous school?</label><textarea id="support-q2" name="support-q2" rows={2} value={form.q2} onChange={(event) => setForm((prev) => ({ ...prev, q2: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
-                            <div><label htmlFor="support-q3" className="block text-xs font-bold text-gray-700 mb-1">3. What support or assistance do you require from NORSU-Guihulngan Campus to enable you to fully participate in campus activities...?</label><textarea id="support-q3" name="support-q3" rows={3} value={form.q3} onChange={(event) => setForm((prev) => ({ ...prev, q3: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
-                            <div><label htmlFor="support-q4" className="block text-xs font-bold text-gray-700 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</label><textarea id="support-q4" name="support-q4" rows={2} value={form.q4} onChange={(event) => setForm((prev) => ({ ...prev, q4: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
+                            <div><label htmlFor="support-q1" className="block text-xs font-bold text-gray-700 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</label><textarea id="support-q1" name="support-q1" {...getTextInputLimitProps('notes')} rows={2} value={form.q1} onChange={(event) => setForm((prev) => ({ ...prev, q1: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
+                            <div><label htmlFor="support-q2" className="block text-xs font-bold text-gray-700 mb-1">2. What kind of support did you receive at your previous school?</label><textarea id="support-q2" name="support-q2" {...getTextInputLimitProps('notes')} rows={2} value={form.q2} onChange={(event) => setForm((prev) => ({ ...prev, q2: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
+                            <div><label htmlFor="support-q3" className="block text-xs font-bold text-gray-700 mb-1">3. What support or assistance do you require from NORSU-Guihulngan Campus to enable you to fully participate in campus activities...?</label><textarea id="support-q3" name="support-q3" {...getTextInputLimitProps('notes')} rows={3} value={form.q3} onChange={(event) => setForm((prev) => ({ ...prev, q3: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
+                            <div><label htmlFor="support-q4" className="block text-xs font-bold text-gray-700 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</label><textarea id="support-q4" name="support-q4" {...getTextInputLimitProps('notes')} rows={2} value={form.q4} onChange={(event) => setForm((prev) => ({ ...prev, q4: event.target.value }))} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none"></textarea></div>
                         </div>
                     </section>
 

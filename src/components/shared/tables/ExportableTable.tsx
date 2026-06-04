@@ -1,6 +1,7 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 import DataTable, { DataTableColumn } from './DataTable';
+import { buildCsv } from '../../../utils/inputSecurity';
 
 export interface ExportableTableProps<T> {
   columns: DataTableColumn<T>[];
@@ -22,9 +23,7 @@ export default function ExportableTable<T>({
   emptyMessage
 }: ExportableTableProps<T>) {
   const handleExport = () => {
-    const csv = [exportHeaders, ...exportRows(rows)]
-      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+    const csv = buildCsv([exportHeaders, ...exportRows(rows)]);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

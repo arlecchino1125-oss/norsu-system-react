@@ -151,7 +151,7 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
 
             {/* Manage Reasons Modal */}
             {showManageModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center"><h3 className="font-bold text-lg text-gray-900">Manage Visit Reasons</h3><button onClick={() => setShowManageModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" size={20} /></button></div>
                         <div className="p-6">

@@ -1,14 +1,15 @@
-﻿import React from 'react';
+import React from 'react';
 import {
     XCircle, CheckCircle, AlertTriangle, Download, MapPin, Trash2,
     Plus, Calendar, Send, BarChart2, FileText, Users, Info,
     MessageCircle, Rocket, Paperclip, User, GraduationCap
 } from 'lucide-react';
 import DeleteConfirmModal from '../../../components/shared/modals/DeleteConfirmModal';
+import { buildCsv } from '../../../utils/inputSecurity';
 
 // Re-use the same exportToExcel utility already defined in NATManagementPage
 function exportToExcel(headers: string[], rows: any[][], filename: string) {
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csv = buildCsv([headers, ...rows]);
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -76,7 +77,7 @@ export function renderCareStaffModals(p: any) {
 
             {/* Schedule Counseling Modal */}
             {showScheduleModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
                         <div className="p-6 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg">Schedule Session</h3>
@@ -186,11 +187,11 @@ export function renderCareStaffModals(p: any) {
                         {commandHubTab === 'help' && (
                             <div className="space-y-3">
                                 {[
-                                    { icon: '📅', title: 'Events & Announcements', desc: 'Create events from the Events tab or use Quick Actions on Dashboard. Students receive real-time push notifications.' },
-                                    { icon: '🧠', title: 'Counseling Workflow', desc: 'Students submit requests → you Schedule → Conduct session → Mark Complete with notes. Confidential notes are private.' },
-                                    { icon: '📋', title: 'NAT Management', desc: 'Track applicants, manage test schedules, and view test takers (students who timed in & out on exam day).' },
-                                    { icon: '📊', title: 'Student Analytics', desc: 'Use form-based needs assessments to analyze student wellness trends across departments and year levels.' },
-                                    { icon: '🔔', title: 'Real-time Updates', desc: 'All data syncs in real-time. You\'ll see toast notifications when students submit feedback or new requests arrive.' },
+                                    { icon: '??', title: 'Events & Announcements', desc: 'Create events from the Events tab or use Quick Actions on Dashboard. Students receive real-time push notifications.' },
+                                    { icon: '??', title: 'Counseling Workflow', desc: 'Students submit requests ? you Schedule ? Conduct session ? Mark Complete with notes. Confidential notes are private.' },
+                                    { icon: '??', title: 'NAT Management', desc: 'Track applicants, manage test schedules, and view test takers (students who timed in & out on exam day).' },
+                                    { icon: '??', title: 'Student Analytics', desc: 'Use form-based needs assessments to analyze student wellness trends across departments and year levels.' },
+                                    { icon: '??', title: 'Real-time Updates', desc: 'All data syncs in real-time. You\'ll see toast notifications when students submit feedback or new requests arrive.' },
                                 ].map((tip, idx) => (
                                     <div key={idx} className="flex gap-3 p-3 rounded-xl bg-gray-50/80 hover:bg-purple-50/50 transition-colors">
                                         <span className="text-lg flex-shrink-0">{tip.icon}</span>

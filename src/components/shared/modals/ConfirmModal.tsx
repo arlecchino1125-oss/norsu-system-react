@@ -69,7 +69,7 @@ export default function ConfirmModal({
   const style = toneStyles[tone];
 
   return (
-    <div className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm`}>
+    <div className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center bg-transparent p-4`}>
       <div className={`w-full ${maxWidthClassName} overflow-hidden rounded-2xl border border-white/70 bg-white p-6 text-center shadow-2xl`}>
         <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${style.iconWrap} ${style.icon}`}>
           {icon || defaultIcons[tone]}

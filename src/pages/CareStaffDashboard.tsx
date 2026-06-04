@@ -1154,7 +1154,7 @@ const CareStaffDashboard = () => {
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 text-gray-800 font-sans overflow-hidden">
             {/* Sidebar Overlay */}
-            {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 animate-backdrop" onClick={() => setSidebarOpen(false)} />}
+            {sidebarOpen && <div className="fixed inset-0 bg-transparent z-20 animate-backdrop" onClick={() => setSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
             <aside className={`fixed inset-y-0 left-0 z-30 w-72 max-w-[calc(100vw-1rem)] bg-gradient-sidebar transform transition-all duration-500 ease-out flex flex-col ${sidebarOpen ? 'translate-x-0 shadow-2xl shadow-purple-900/30' : '-translate-x-full'}`}>

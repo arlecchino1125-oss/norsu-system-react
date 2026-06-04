@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { getAudienceLabel, isAttendanceActivityType } from '../../utils/eventAudience';
+import { getTextInputLimitProps } from '../../utils/inputSecurity';
 
 const parseDateValue = (value: string) => {
     if (!value) return null;
@@ -657,6 +658,7 @@ const StudentEventsView = ({
                                 <div>
                                     <label className="mb-2 block text-xs font-bold text-gray-700">What I like best about the activity:</label>
                                     <textarea
+                                        {...getTextInputLimitProps('notes')}
                                         rows={3}
                                         value={ratingForm.open_best}
                                         onChange={(event: any) => setRatingForm({ ...ratingForm, open_best: event.target.value })}
@@ -667,6 +669,7 @@ const StudentEventsView = ({
                                 <div>
                                     <label className="mb-2 block text-xs font-bold text-gray-700">My suggestions to further improve the activity:</label>
                                     <textarea
+                                        {...getTextInputLimitProps('notes')}
                                         rows={3}
                                         value={ratingForm.open_suggestions}
                                         onChange={(event: any) => setRatingForm({ ...ratingForm, open_suggestions: event.target.value })}
@@ -677,6 +680,7 @@ const StudentEventsView = ({
                                 <div>
                                     <label className="mb-2 block text-xs font-bold text-gray-700">Other comments:</label>
                                     <textarea
+                                        {...getTextInputLimitProps('notes')}
                                         rows={3}
                                         value={ratingForm.open_comments}
                                         onChange={(event: any) => setRatingForm({ ...ratingForm, open_comments: event.target.value })}

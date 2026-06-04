@@ -31,7 +31,7 @@ export function renderDeptModals(props: any) {
         <>
             {/* Applicant Scheduling Modal */}
             {showApplicantScheduleModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <div>
@@ -104,7 +104,7 @@ export function renderDeptModals(props: any) {
             {/* Profile Modal */}
             {
                 showProfileModal && (
-                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md dark:bg-gray-800">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center dark:border-gray-700">
                                 <h3 className="font-bold text-lg dark:text-white">Edit Profile</h3>
@@ -123,7 +123,7 @@ export function renderDeptModals(props: any) {
             {/* Referral Modal — NORSU Counseling Referral Form */}
             {
                 showReferralModal && (
-                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white rounded-t-2xl z-10">
                                 <div>
@@ -214,7 +214,7 @@ export function renderDeptModals(props: any) {
                 showHistoryModal && selectedHistoryStudent && (() => {
                     const studentRecords = (counselingRequests || []).filter((r: any) => r.student_name === selectedHistoryStudent.student_name);
                     return (
-                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl dark:bg-gray-800">
                                 <div className="p-6 border-b border-gray-100 flex justify-between items-center dark:border-gray-700">
                                     <div>
@@ -253,7 +253,7 @@ export function renderDeptModals(props: any) {
             {/* View Form Modal — Same as Care Staff: Student Form or Referral Form */}
             {
                 showStudentModal && selectedStudent && (
-                    <div className="fixed inset-0 bg-black/50 z-[105] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-[105] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                                 <div>
@@ -282,21 +282,21 @@ export function renderDeptModals(props: any) {
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Student ID</label><input readOnly value={selectedStudent.student_id || selectedStudent.id || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Student ID No.</label><input readOnly value={selectedStudent.student_id || selectedStudent.id || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                     <div><label className="block text-xs font-bold text-gray-500 mb-1">Status</label><input readOnly value={selectedStudent.status || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Department</label><input readOnly value={selectedStudent.department || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Course</label><input readOnly value={selectedStudent.course || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">College</label><input readOnly value={selectedStudent.department || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Program</label><input readOnly value={selectedStudent.course || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                     <div><label className="block text-xs font-bold text-gray-500 mb-1">Year Level</label><input readOnly value={selectedStudent.year_level || selectedStudent.year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                     <div><label className="block text-xs font-bold text-gray-500 mb-1">Section</label><input readOnly value={selectedStudent.section || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Mobile</label><input readOnly value={selectedStudent.mobile || selectedStudent.contact_number || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Sex</label><input readOnly value={selectedStudent.sex || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input readOnly value={selectedStudent.mobile || selectedStudent.contact_number || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Sex Assigned at Birth</label><input readOnly value={selectedStudent.sex || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Address</label>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Permanent Address</label>
                                     <textarea
                                         readOnly
                                         rows={3}
-                                        value={selectedStudent.address || [selectedStudent.street, selectedStudent.city, selectedStudent.province, selectedStudent.zip_code].filter(Boolean).join(', ')}
+                                        value={[selectedStudent.street, selectedStudent.city, selectedStudent.province, selectedStudent.zip_code, selectedStudent.region].filter(Boolean).join(', ')}
                                         className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed resize-none"
                                     />
                                 </div>
@@ -313,7 +313,7 @@ export function renderDeptModals(props: any) {
 
             {
                 viewFormRecord && (
-                    <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-[110] flex items-center justify-center p-4">
                         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
                             <div className="p-8">
                                 {/* Referral Form View */}
@@ -437,7 +437,7 @@ export function renderDeptModals(props: any) {
                     const completedCount = deptAttendees.filter((a: any) => a.time_out).length;
 
                     return (
-                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-backdrop">
+                        <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4 animate-backdrop">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[80vh] animate-scale-in">
                                 <div className="p-6 border-b bg-gray-50 rounded-t-2xl dark:bg-gray-700 dark:border-gray-600">
                                     <div className="flex justify-between items-center mb-3">
@@ -544,7 +544,7 @@ export function renderDeptModals(props: any) {
             {/* Decision Modal */}
             {
                 showDecisionModal && (
-                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-[100] flex items-center justify-center p-4">
                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md dark:bg-gray-800">
                             <div className="p-6 border-b border-gray-100 flex justify-between items-center dark:border-gray-700">
                                 <h3 className="font-bold text-lg dark:text-white">Confirm {decisionData.type}</h3>

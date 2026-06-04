@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Users, Search, Download, XCircle, Edit, Trash2, Plus, Key, Archive,
     PieChart, List, UploadCloud, Info, ArrowUpDown, Activity, TrendingUp,
@@ -11,170 +12,158 @@ import { managedArchiveService } from '../../services/managedArchiveService';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import type { CareStaffDashboardFunctions } from './types';
-import { getAllStudentsForExport, getStudentByStudentId, getStudentsPage, STUDENT_LIST_COLUMNS } from '../../services/careStaffService';
+import { getAllStudentsForExport, getStudentByStudentId, getStudentsPage, STUDENT_TABLE_COLUMNS } from '../../services/careStaffService';
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
-import { openStoredAsset } from '../../utils/storageAssets';
+import { openStoredAsset, resolveStoredAssetUrl } from '../../utils/storageAssets';
+import { escapeSpreadsheetFormula } from '../../utils/inputSecurity';
 
 declare const XLSX: any;
+
+const STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS = 60 * 60 * 24 * 7;
 
 // Profile category definitions — exact sdaf.txt labels & order
 // Fields with `db` read directly; fields with `compute` derive the value from the student object
 const PROFILE_CATEGORIES = [
     {
         key: 'personal', label: 'Personal Information', icon: '\u{1F464}', gradient: 'from-blue-500 to-sky-400', fields: [
-            { label: "STUDENT'S I.D. NO.", db: 'student_id' },
-            { label: 'FULL NAME', compute: (s: any) => [s.last_name, s.first_name, s.suffix, s.middle_name || 'N/A'].filter(Boolean).join(', ') },
-            { label: 'EXTENSION NAME', db: 'suffix' },
-            { label: 'MIDDLE NAME', db: 'middle_name' },
-            { label: 'PERMANENT ADDRESS - STREET/SITIO & BARANGAY', db: 'street' },
-            { label: 'PERMANENT ADDRESS - TOWN/CITY MUNICIPALITY', db: 'city' },
-            { label: 'PERMANENT ADDRESS - PROVINCE', db: 'province' },
-            { label: 'PERMANENT ADDRESS - ZIP CODE', db: 'zip_code' },
-            { label: 'PERMANENT ADDRESS - REGION', db: 'region' },
-            { label: 'CONTACT NUMBER', db: 'mobile' },
-            { label: 'AGE', db: 'age' },
-            { label: 'BIRTHDAY', db: 'dob' },
-            { label: 'SEX ASSIGNED AT BIRTH', db: 'sex' },
-            { label: 'GENDER', db: 'gender_identity' },
-            { label: 'CITIZENSHIP', db: 'nationality' },
-            { label: 'FB ACCOUNT LINK', db: 'facebook_url' },
-            { label: 'PLACE OF BIRTH', db: 'place_of_birth' },
-            { label: 'YEAR LEVEL', db: 'year_level' },
-            { label: 'COLLEGE', db: 'department' },
-            { label: 'COMPLETE PROGRAM', db: 'course' },
-            { label: 'CIVIL STATUS', db: 'civil_status' },
+            { label: 'Photo/Portrait', db: 'profile_picture_url', type: 'profilePhoto' },
+            { label: 'Student ID No.', db: 'student_id' },
+            { label: 'Last Name', db: 'last_name' },
+            { label: 'Given Name', db: 'first_name' },
+            { label: 'Extension Name', db: 'suffix' },
+            { label: 'Middle Name', db: 'middle_name' },
+            { label: 'Permanent Address - Street/Sitio & Barangay', db: 'street' },
+            { label: 'Permanent Address - Town/City Municipality', db: 'city' },
+            { label: 'Permanent Address - Province', db: 'province' },
+            { label: 'Permanent Address - Zip Code', db: 'zip_code' },
+            { label: 'Permanent Address - Region', db: 'region' },
+            { label: 'Contact Number', db: 'mobile' },
+            { label: 'Age', db: 'age' },
+            { label: 'Birthday', db: 'dob' },
+            { label: 'Sex Assigned at Birth', db: 'sex' },
+            { label: 'Gender', db: 'gender_identity' },
+            { label: 'Citizenship', db: 'nationality' },
+            { label: 'Facebook Account Link', db: 'facebook_url' },
+            { label: 'Place of Birth', db: 'place_of_birth' },
+            { label: 'Religion', db: 'religion' },
+            { label: 'Year Level', db: 'year_level' },
+            { label: 'College', db: 'department' },
+            { label: 'Program', db: 'course' },
+            { label: 'Civil Status', db: 'civil_status' },
         ]
     },
     {
         key: 'family', label: 'Family Background', icon: '👨‍👩‍👧', gradient: 'from-amber-400 to-orange-500', fields: [
-            { label: 'NAME OF SPOUSE', db: 'spouse_name' },
-            { label: "SPOUSE'S OCCUPATION", db: 'spouse_occupation' },
-            { label: "SPOUSE'S EMPLOYER/BUSINESS NAME", db: 'spouse_employer_name' },
-            { label: "SPOUSE'S EMPLOYER/BUSINESS ADDRESS", db: 'spouse_employer_address' },
-            { label: "SPOUSE'S CONTACT NUMBER", db: 'spouse_contact' },
-            { label: 'NUMBER OF CHILDREN', db: 'num_children' },
-            { label: 'NAME OF CHILDREN - DATE OF BIRTH', db: 'children_names_birthdates' },
-            { label: 'CURRENTLY PREGNANT?', db: 'currently_pregnant' },
-            { label: "MOTHER'S MAIDEN LAST NAME", db: 'mother_last_name' },
-            { label: "MOTHER'S GIVEN NAME", db: 'mother_given_name' },
-            { label: "MOTHER'S MAIDEN MIDDLE NAME", db: 'mother_middle_name' },
-            { label: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
-            { label: "MOTHER'S STATUS", db: 'mother_status' },
-            { label: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
-            { label: "MOTHER'S ADDRESS", db: 'mother_address' },
-            { label: "FATHER'S LAST NAME", db: 'father_last_name' },
-            { label: "FATHER'S GIVEN NAME", db: 'father_given_name' },
-            { label: "FATHER'S MIDDLE NAME", db: 'father_middle_name' },
-            { label: "FATHER'S OCCUPATION", db: 'father_occupation' },
-            { label: "FATHER'S STATUS", db: 'father_status' },
-            { label: "FATHER'S CONTACT NUMBER", db: 'father_contact' },
-            { label: "FATHER'S ADDRESS", db: 'father_address' },
-            { label: 'NUMBER OF CHILDREN YOUR PARENTS HAVE', db: 'parents_num_children' },
-            { label: 'YOUR BIRTH ORDER IN THE FAMILY', db: 'birth_order' },
-            { label: 'BIRTH ORDER - OTHER', db: 'birth_order_other' },
+            { label: 'Name of Spouse', db: 'spouse_name' },
+            { label: "Spouse's Occupation", db: 'spouse_occupation' },
+            { label: "Spouse's Employer/Business Name", db: 'spouse_employer_name' },
+            { label: "Spouse's Employer/Business Address", db: 'spouse_employer_address' },
+            { label: "Spouse's Contact Number", db: 'spouse_contact' },
+            { label: 'Number of Children', db: 'num_children' },
+            { label: 'Name of Children - Date of Birth', db: 'children_names_birthdates' },
+            { label: 'Currently Pregnant', db: 'currently_pregnant' },
+            { label: "Mother's Maiden Last Name", db: 'mother_last_name' },
+            { label: "Mother's Given Name", db: 'mother_given_name' },
+            { label: "Mother's Maiden Middle Name", db: 'mother_middle_name' },
+            { label: "Mother's Occupation", db: 'mother_occupation' },
+            { label: "Mother's Status", db: 'mother_status' },
+            { label: "Mother's Contact Number", db: 'mother_contact' },
+            { label: "Mother's Address", db: 'mother_address' },
+            { label: "Father's Last Name", db: 'father_last_name' },
+            { label: "Father's Given Name", db: 'father_given_name' },
+            { label: "Father's Middle Name", db: 'father_middle_name' },
+            { label: "Father's Occupation", db: 'father_occupation' },
+            { label: "Father's Status", db: 'father_status' },
+            { label: "Father's Contact Number", db: 'father_contact' },
+            { label: "Father's Address", db: 'father_address' },
+            { label: 'Number of Children Your Parents Have', db: 'parents_num_children' },
+            { label: 'Your Birth Order in the Family', db: 'birth_order' },
         ]
     },
     {
         key: 'socioEconomic', label: 'Socio-Economic Background', icon: 'ℹ️', gradient: 'from-indigo-400 to-violet-500', fields: [
-            { label: 'PERSON/AGENCY WHO SUPPORTS STUDIES FINANCIALLY', db: 'supporter' },
-            { label: 'SUPPORTER CONTACT INFORMATION', db: 'supporter_contact' },
-            { label: 'WORKING STUDENT', db: 'is_working_student', type: 'boolean' },
-            { label: 'TYPE OF WORK', db: 'working_student_type' },
-            { label: 'NAME OF EMPLOYER', db: 'employer_name' },
-            { label: 'ADDRESS OF EMPLOYER', db: 'employer_address' },
-            { label: 'PWD', db: 'is_pwd', type: 'boolean' },
-            { label: 'PWD #', db: 'pwd_number' },
-            { label: 'PWD TYPE', db: 'pwd_type' },
-            { label: 'CAUSE OF DISABILITY', db: 'disability_cause' },
-            { label: 'PWD DOCUMENT', db: 'pwd_document_url', type: 'document' },
-            { label: 'INDIGENOUS GROUP MEMBER', db: 'is_indigenous', type: 'boolean' },
-            { label: 'INDIGENOUS GROUP', db: 'indigenous_group' },
-            { label: 'IP DOCUMENT', db: 'ip_document_url', type: 'document' },
-            { label: '4PS MEMBER', db: 'is_four_ps_member', type: 'boolean' },
-            { label: '4PS DOCUMENT', db: 'four_ps_document_url', type: 'document' },
-            { label: 'REBEL RETURNEE', db: 'is_rebel_returnee', type: 'boolean' },
-            { label: 'CHILD OF SOLO PARENT', db: 'is_child_of_solo_parent', type: 'boolean' },
-            { label: 'SOLO PARENT', db: 'is_solo_parent', type: 'boolean' },
-            { label: 'SOLO PARENT DOCUMENT', db: 'solo_parent_document_url', type: 'document' },
-            { label: 'ORPHAN', db: 'is_orphan', type: 'boolean' },
-            { label: 'ORPHAN CAUSE', db: 'orphan_cause' },
-            { label: 'HOMELESS CITIZEN', db: 'is_homeless_citizen', type: 'boolean' },
-            { label: 'SENIOR CITIZEN', db: 'is_senior_citizen', type: 'boolean' },
-            { label: 'SENIOR CITIZEN DOCUMENT', db: 'senior_citizen_document_url', type: 'document' },
-            { label: 'WORK EXPERIENCES', db: 'work_experiences' },
+            { label: 'Person/Agency Who Supports Your Studies Financially Other Than Yourself', db: 'supporter' },
+            { label: 'Contact Information of the Person/Agency Who Supports Your Studies Financially Other Than Yourself', db: 'supporter_contact' },
+            { label: 'Are You a Working Student', db: 'is_working_student', type: 'boolean' },
+            { label: 'Type of Work', db: 'working_student_type' },
+            { label: 'Name of Employer', db: 'employer_name' },
+            { label: 'Address of Employer', db: 'employer_address' },
+            { label: 'Are You a Person With Disability (PWD)', db: 'is_pwd', type: 'boolean' },
+            { label: 'PWD Number', db: 'pwd_number' },
+            { label: 'Type of Disability', db: 'pwd_type' },
+            { label: 'Cause of Disability', db: 'disability_cause' },
+            { label: 'PWD Document', db: 'pwd_document_url', type: 'document' },
+            { label: 'Are You a Member of Any Indigenous Group & Cultural Communities', db: 'is_indigenous', type: 'boolean' },
+            { label: 'Indigenous Group', db: 'indigenous_group' },
+            { label: 'Indigenous Group Document', db: 'ip_document_url', type: 'document' },
+            { label: 'Are You a Member of 4Ps', db: 'is_four_ps_member', type: 'boolean' },
+            { label: '4Ps Document', db: 'four_ps_document_url', type: 'document' },
+            { label: 'Are You a Rebel Returnee', db: 'is_rebel_returnee', type: 'boolean' },
+            { label: 'Are You a Son/Daughter of a Solo Parent', db: 'is_child_of_solo_parent', type: 'boolean' },
+            { label: 'Are You a Solo Parent Yourself', db: 'is_solo_parent', type: 'boolean' },
+            { label: 'Solo Parent Document', db: 'solo_parent_document_url', type: 'document' },
+            { label: 'Are You an Orphan', db: 'is_orphan', type: 'boolean' },
+            { label: 'Cause of Being an Orphan', db: 'orphan_cause' },
+            { label: 'Are You a Homeless Citizen', db: 'is_homeless_citizen', type: 'boolean' },
+            { label: 'Are You a Senior Citizen', db: 'is_senior_citizen', type: 'boolean' },
+            { label: 'Senior Citizen Document', db: 'senior_citizen_document_url', type: 'document' },
+            { label: 'Work Experiences', db: 'work_experiences' },
         ]
     },
     {
         key: 'guardian', label: 'Guardian', icon: '🛡️', gradient: 'from-slate-500 to-slate-700', fields: [
-            { label: 'FULL NAME', db: 'guardian_name' },
-            { label: 'ADDRESS', db: 'guardian_address' },
-            { label: 'CONTACT NUMBER', db: 'guardian_contact' },
-            { label: 'RELATION TO THE GUARDIAN', db: 'guardian_relation' },
+            { label: 'Guardian Full Name', db: 'guardian_name' },
+            { label: 'Guardian Address', db: 'guardian_address' },
+            { label: 'Guardian Contact Number', db: 'guardian_contact' },
+            { label: 'Relation to the Guardian', db: 'guardian_relation' },
         ]
     },
     {
         key: 'emergency', label: 'Person to Contact (In Case of Emergency)', icon: '🚨', gradient: 'from-rose-400 to-red-500', fields: [
-            { label: 'FULL NAME', db: 'emergency_name' },
-            { label: 'ADDRESS', db: 'emergency_address' },
-            { label: 'RELATIONSHIP', db: 'emergency_relationship' },
-            { label: 'CONTACT NUMBER', db: 'emergency_number' },
+            { label: 'Emergency Contact Full Name', db: 'emergency_name' },
+            { label: 'Emergency Contact Address', db: 'emergency_address' },
+            { label: 'Emergency Contact Relationship', db: 'emergency_relationship' },
+            { label: 'Emergency Contact Number', db: 'emergency_number' },
         ]
     },
     {
         key: 'education', label: 'Educational Background', icon: '🎓', gradient: 'from-cyan-400 to-blue-500', fields: [
-            { label: 'ELEMENTARY: NAME OF SCHOOL', db: 'elem_school' },
-            { label: 'INCLUSIVE YEARS ATTENDED', db: 'elem_year_graduated' },
-            { label: 'JUNIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'junior_high_school' },
-            { label: 'INCLUSIVE YEARS ATTENDED', db: 'junior_high_year_graduated' },
-            { label: 'SENIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'senior_high_school' },
-            { label: 'INCLUSIVE YEARS ATTENDED', db: 'senior_high_year_graduated' },
-            { label: 'IF TRANSFEREE, COLLEGE: NAME OF SCHOOL', db: 'college_school' },
-            { label: 'INCLUSIVE YEARS ATTENDED', db: 'college_year_graduated' },
-            { label: 'HONOR/AWARD RECEIVED', db: 'honors_awards' },
-            { label: 'TESDA NC II ACQUIRED - DATE ACQUIRED - VALIDITY', db: 'tesda_nc2_acquired' },
-            { label: 'ELIGIBILITY ACQUIRED - DATE ACQUIRED', db: 'eligibility_acquired' },
-            { label: 'SPECIAL TRAININGS ATTENDED', db: 'special_trainings_attended' },
+            { label: 'Elementary School', db: 'elem_school' },
+            { label: 'Elementary Inclusive Years Attended', db: 'elem_year_graduated' },
+            { label: 'Junior High School', db: 'junior_high_school' },
+            { label: 'Junior High Inclusive Years Attended', db: 'junior_high_year_graduated' },
+            { label: 'Senior High School', db: 'senior_high_school' },
+            { label: 'Senior High Inclusive Years Attended', db: 'senior_high_year_graduated' },
+            { label: 'Transferee College', db: 'college_school' },
+            { label: 'Transferee College Inclusive Years Attended', db: 'college_year_graduated' },
+            { label: 'Honor/Award Received', db: 'honors_awards' },
+            { label: 'TESDA NC II Acquired - Date Acquired - Validity', db: 'tesda_nc2_acquired' },
+            { label: 'Eligibility Acquired - Date Acquired', db: 'eligibility_acquired' },
+            { label: 'Special Trainings Attended', db: 'special_trainings_attended' },
         ]
     },
     {
         key: 'extracurricular', label: 'Extra-Curricular Involvement', icon: '⚽', gradient: 'from-pink-400 to-rose-500', fields: [
-            { label: 'NAME OF VOLUNTARY ACTIVITIES', db: 'extracurricular_activities' },
-            { label: 'HOLDS LOCAL/NATIONAL POSITION IN PUBLIC SERVICE', db: 'holds_public_service_position' },
-            { label: 'POSITION IN PUBLIC SERVICE', db: 'public_service_position' },
-            { label: 'ORGANIZATIONS', db: 'organizations_memberships' },
-            { label: 'SPORTS', db: 'sports_skills' },
-            { label: 'OTHER TALENT/S', db: 'other_talents' },
+            { label: 'Name of Voluntary Activities', db: 'extracurricular_activities' },
+            { label: 'Do You Hold a Local/National Position in Public Service', db: 'holds_public_service_position', type: 'boolean' },
+            { label: 'Position in Public Service', db: 'public_service_position' },
+            { label: 'Organizations You Are a Member Of', db: 'organizations_memberships' },
+            { label: 'Sports You Are Good At', db: 'sports_skills' },
+            { label: 'Other Talent/s', db: 'other_talents' },
         ]
     },
     {
         key: 'scholarships', label: 'Scholarships', icon: '🏆', gradient: 'from-yellow-400 to-amber-500', fields: [
-            { label: 'NAME OF SCHOLARSHIP AVAILED & SPONSOR', db: 'scholarships_availed' },
-            { label: 'CRIMINALLY CHARGED BEFORE ANY COURT', db: 'has_been_criminally_charged' },
-            { label: 'CONVICTED OF ANY CRIME', db: 'has_been_convicted_of_crime' },
+            { label: 'Name of Scholarship Availed & Sponsor', db: 'scholarships_availed' },
+            { label: 'Have You Been Criminally Charged Before Any Court', db: 'has_been_criminally_charged', type: 'boolean' },
+            { label: 'Have You Been Convicted of Any Crime', db: 'has_been_convicted_of_crime', type: 'boolean' },
         ]
     },
     {
         key: 'additional', label: 'Additional Information', icon: 'ℹ️', gradient: 'from-slate-500 to-slate-700', fields: [
-            { label: 'Department', db: 'department' },
-            { label: 'Section', db: 'section' },
-            { label: 'Status', db: 'status' },
-            { label: 'Email', db: 'email' },
-            { label: 'Nationality', db: 'nationality' },
-            { label: 'Street', db: 'street' },
-            { label: 'City / Municipality', db: 'city' },
-            { label: 'Province', db: 'province' },
-            { label: 'Zip Code', db: 'zip_code' },
-            { label: 'Region', db: 'region' },
-            { label: 'Priority Course', db: 'priority_course' },
-            { label: 'Alt Course 1', db: 'alt_course_1' },
-            { label: 'Alt Course 2', db: 'alt_course_2' },
-            { label: 'Religion', db: 'religion' },
-            { label: 'School Last Attended', db: 'school_last_attended' },
-            { label: 'Witnessed Conflict', db: 'witnessed_conflict', type: 'boolean' },
-            { label: 'Safe in Community', db: 'is_safe_in_community', type: 'boolean' },
         ]
     },
-];
+].filter(category => category.fields.length > 0);
 
 const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year', 'Other'];
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
@@ -279,7 +268,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     // Use custom hook for data fetching & real-time updates
     const { data: studentsList, refetch: refetchStudents } = useSupabaseData({
         table: 'students',
-        select: STUDENT_LIST_COLUMNS,
+        select: STUDENT_TABLE_COLUMNS,
         eq: { column: 'is_archived', value: false },
         order: { column: 'created_at', ascending: false },
         subscribe: true
@@ -291,7 +280,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         refetch: refetchArchivedStudents
     } = useSupabaseData({
         table: 'students',
-        select: STUDENT_LIST_COLUMNS,
+        select: STUDENT_TABLE_COLUMNS,
         eq: { column: 'is_archived', value: true },
         order: { column: 'archived_at', ascending: false },
         subscribe: true
@@ -1084,129 +1073,73 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); return; }
 
             // STRICT sdaf.txt fields — exact headers and order
-            const exportColumns: any[] = [
-                // ===== PERSONAL INFORMATION =====
-                { header: "STUDENT'S I.D. NO.", db: 'student_id' },
-                { header: 'FULL NAME', compute: (s: any) => [s.last_name, s.first_name, s.suffix, s.middle_name || 'N/A'].filter(Boolean).join(', ') },
-                { header: 'EXTENSION NAME', db: 'suffix' },
-                { header: 'MIDDLE NAME', db: 'middle_name' },
-                { header: 'PERMANENT ADDRESS - STREET/SITIO & BARANGAY', db: 'street' },
-                { header: 'PERMANENT ADDRESS - TOWN/CITY MUNICIPALITY', db: 'city' },
-                { header: 'PERMANENT ADDRESS - PROVINCE', db: 'province' },
-                { header: 'PERMANENT ADDRESS - ZIP CODE', db: 'zip_code' },
-                { header: 'PERMANENT ADDRESS - REGION', db: 'region' },
-                { header: 'CONTACT NUMBER', db: 'mobile' },
-                { header: 'AGE', db: 'age' },
-                { header: 'BIRTHDAY', db: 'dob' },
-                { header: 'SEX ASSIGNED AT BIRTH', db: 'sex' },
-                { header: 'GENDER', db: 'gender_identity' },
-                { header: 'CITIZENSHIP', db: 'nationality' },
-                { header: 'FB ACCOUNT LINK', db: 'facebook_url' },
-                { header: 'PLACE OF BIRTH', db: 'place_of_birth' },
-                { header: 'YEAR LEVEL', db: 'year_level' },
-                { header: 'COLLEGE', db: 'department' },
-                { header: 'COMPLETE PROGRAM', db: 'course' },
-                { header: 'CIVIL STATUS', db: 'civil_status' },
-                { header: 'RELIGION', db: 'religion' },
-                { header: 'SCHOOL LAST ATTENDED', db: 'school_last_attended' },
-                // ===== FAMILY BACKGROUND =====
-                { header: 'NAME OF SPOUSE', db: 'spouse_name' },
-                { header: "SPOUSE'S OCCUPATION", db: 'spouse_occupation' },
-                { header: "SPOUSE'S EMPLOYER/BUSINESS NAME", db: 'spouse_employer_name' },
-                { header: "SPOUSE'S EMPLOYER/BUSINESS ADDRESS", db: 'spouse_employer_address' },
-                { header: "SPOUSE'S CONTACT NUMBER", db: 'spouse_contact' },
-                { header: 'NUMBER OF CHILDREN', db: 'num_children' },
-                { header: 'NAME OF CHILDREN - DATE OF BIRTH', db: 'children_names_birthdates' },
-                { header: 'CURRENTLY PREGNANT?', db: 'currently_pregnant' },
-                { header: "MOTHER'S MAIDEN LAST NAME", db: 'mother_last_name' },
-                { header: "MOTHER'S GIVEN NAME", db: 'mother_given_name' },
-                { header: "MOTHER'S MAIDEN MIDDLE NAME", db: 'mother_middle_name' },
-                { header: "MOTHER'S OCCUPATION", db: 'mother_occupation' },
-                { header: "MOTHER'S STATUS", db: 'mother_status' },
-                { header: "MOTHER'S CONTACT NUMBER", db: 'mother_contact' },
-                { header: "MOTHER'S ADDRESS", db: 'mother_address' },
-                { header: "FATHER'S LAST NAME", db: 'father_last_name' },
-                { header: "FATHER'S GIVEN NAME", db: 'father_given_name' },
-                { header: "FATHER'S MIDDLE NAME", db: 'father_middle_name' },
-                { header: "FATHER'S OCCUPATION", db: 'father_occupation' },
-                { header: "FATHER'S STATUS", db: 'father_status' },
-                { header: "FATHER'S CONTACT NUMBER", db: 'father_contact' },
-                { header: "FATHER'S ADDRESS", db: 'father_address' },
-                { header: 'NUMBER OF CHILDREN YOUR PARENTS HAVE', db: 'parents_num_children' },
-                { header: 'YOUR BIRTH ORDER IN THE FAMILY', db: 'birth_order' },
-                { header: 'BIRTH ORDER - OTHER', db: 'birth_order_other' },
-                // ===== SOCIO-ECONOMIC BACKGROUND =====
-                { header: 'PERSON/AGENCY WHO SUPPORTS YOUR STUDIES FINANCIALLY OTHER THAN YOURSELF', db: 'supporter' },
-                { header: 'CONTACT INFORMATION OF THE PERSON/AGENCY WHO SUPPORTS YOUR STUDIES FINANCIALLY OTHER THAN YOURSELF', db: 'supporter_contact' },
-                { header: 'ARE YOU A WORKING STUDENT?', db: 'is_working_student', type: 'boolean' },
-                { header: 'TYPE OF WORK', db: 'working_student_type' },
-                { header: 'NAME OF EMPLOYER', db: 'employer_name' },
-                { header: 'ADDRESS OF EMPLOYER', db: 'employer_address' },
-                { header: 'ARE YOU A PERSON WITH A DISABILITY (PWD)?', db: 'is_pwd', type: 'boolean' },
-                { header: 'PWD #', db: 'pwd_number' },
-                { header: 'TYPE OF DISABILITY', db: 'pwd_type' },
-                { header: 'CAUSE OF DISABILITY', db: 'disability_cause' },
-                { header: 'PWD DOCUMENT URL', db: 'pwd_document_url' },
-                { header: 'MEMBER OF INDIGENOUS GROUP / CULTURAL COMMUNITY?', db: 'is_indigenous', type: 'boolean' },
-                { header: 'INDIGENOUS GROUP', db: 'indigenous_group' },
-                { header: 'IP DOCUMENT URL', db: 'ip_document_url' },
-                { header: 'MEMBER OF 4PS?', db: 'is_four_ps_member', type: 'boolean' },
-                { header: '4PS DOCUMENT URL', db: 'four_ps_document_url' },
-                { header: 'REBEL RETURNEE?', db: 'is_rebel_returnee', type: 'boolean' },
-                { header: 'SON/DAUGHTER OF A SOLO PARENT?', db: 'is_child_of_solo_parent', type: 'boolean' },
-                { header: 'SOLO PARENT YOURSELF?', db: 'is_solo_parent', type: 'boolean' },
-                { header: 'SOLO PARENT DOCUMENT URL', db: 'solo_parent_document_url' },
-                { header: 'ORPHAN?', db: 'is_orphan', type: 'boolean' },
-                { header: 'ORPHAN CAUSE', db: 'orphan_cause' },
-                { header: 'HOMELESS CITIZEN?', db: 'is_homeless_citizen', type: 'boolean' },
-                { header: 'SENIOR CITIZEN?', db: 'is_senior_citizen', type: 'boolean' },
-                { header: 'SENIOR CITIZEN DOCUMENT URL', db: 'senior_citizen_document_url' },
-                { header: 'WORK EXPERIENCES', db: 'work_experiences' },
-                // ===== GUARDIAN =====
-                { header: 'FULL NAME', db: 'guardian_name' },
-                { header: 'ADDRESS', db: 'guardian_address' },
-                { header: 'CONTACT NUMBER', db: 'guardian_contact' },
-                { header: 'RELATION TO THE GUARDIAN', db: 'guardian_relation' },
-                // ===== PERSON TO CONTACT (IN CASE OF EMERGENCY) =====
-                { header: 'FULL NAME', db: 'emergency_name' },
-                { header: 'ADDRESS', db: 'emergency_address' },
-                { header: 'RELATIONSHIP', db: 'emergency_relationship' },
-                { header: 'CONTACT NUMBER', db: 'emergency_number' },
-                // ===== EDUCATIONAL BACKGROUND =====
-                { header: 'ELEMENTARY: NAME OF SCHOOL', db: 'elem_school' },
-                { header: 'INCLUSIVE YEARS ATTENDED', db: 'elem_year_graduated' },
-                { header: 'JUNIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'junior_high_school' },
-                { header: 'INCLUSIVE YEARS ATTENDED', db: 'junior_high_year_graduated' },
-                { header: 'SENIOR HIGH SCHOOL: NAME OF SCHOOL', db: 'senior_high_school' },
-                { header: 'INCLUSIVE YEARS ATTENDED', db: 'senior_high_year_graduated' },
-                { header: 'IF TRANSFEREE, COLLEGE: NAME OF SCHOOL', db: 'college_school' },
-                { header: 'INCLUSIVE YEARS ATTENDED', db: 'college_year_graduated' },
-                { header: 'HONOR/AWARD RECEIVED', db: 'honors_awards' },
-                { header: 'TESDA NC II ACQUIRED - DATE ACQUIRED - VALIDITY', db: 'tesda_nc2_acquired' },
-                { header: 'ELIGIBILITY ACQUIRED - DATE ACQUIRED', db: 'eligibility_acquired' },
-                { header: 'SPECIAL TRAININGS ATTENDED', db: 'special_trainings_attended' },
-                // ===== EXTRA-CURRICULAR INVOLVEMENT =====
-                { header: 'NAME OF VOLUNTARY ACTIVITIES', db: 'extracurricular_activities' },
-                { header: 'HOLDS LOCAL/NATIONAL POSITION IN PUBLIC SERVICE', db: 'holds_public_service_position' },
-                { header: 'POSITION IN PUBLIC SERVICE', db: 'public_service_position' },
-                { header: 'ORGANIZATIONS', db: 'organizations_memberships' },
-                { header: 'SPORTS', db: 'sports_skills' },
-                { header: 'OTHER TALENT/S', db: 'other_talents' },
-                // ===== SCHOLARSHIPS =====
-                { header: 'NAME OF SCHOLARSHIP AVAILED & SPONSOR', db: 'scholarships_availed' },
-                { header: 'CRIMINALLY CHARGED BEFORE ANY COURT', db: 'has_been_criminally_charged' },
-                { header: 'CONVICTED OF ANY CRIME', db: 'has_been_convicted_of_crime' },
-            ];
+            const fileLinkCache = new Map<string, string>();
+            const resolveExportFileLink = async (bucket: string, value: unknown) => {
+                const rawValue = String(value || '').trim();
+                if (!rawValue) return '';
+
+                const cacheKey = `${bucket}:${rawValue}`;
+                if (fileLinkCache.has(cacheKey)) {
+                    return fileLinkCache.get(cacheKey) || '';
+                }
+
+                const resolvedUrl = await resolveStoredAssetUrl(
+                    bucket,
+                    rawValue,
+                    STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS
+                );
+                const nextValue = resolvedUrl || rawValue;
+                fileLinkCache.set(cacheKey, nextValue);
+                return nextValue;
+            };
+
+            const exportColumns: any[] = PROFILE_CATEGORIES.flatMap(category =>
+                category.fields.map((field: any) => ({
+                    header: field.label,
+                    db: field.db,
+                    compute: field.compute,
+                    type: field.type === 'document' || field.type === 'profilePhoto' ? 'file' : field.type,
+                    bucket: field.type === 'profilePhoto' ? 'profile-pictures' : 'support_documents',
+                }))
+            );
 
             const headers = exportColumns.map(c => c.header);
-            const rows = allStudents.map(s => exportColumns.map((col: any) => {
-                const val = col.compute ? col.compute(s) : s[col.db];
-                if (col.type === 'boolean') return val ? 'Yes' : 'No';
-                return val ?? '';
-            }));
+            const fileColumnIndexes = exportColumns.reduce((indexes: number[], col: any, index: number) => {
+                if (col.type === 'file') indexes.push(index);
+                return indexes;
+            }, []);
+            const rows = [];
+            for (const student of allStudents) {
+                const row = [];
+                for (const col of exportColumns) {
+                    const val = col.compute ? col.compute(student) : student[col.db];
+                    if (col.type === 'boolean') {
+                        row.push(val ? 'Yes' : 'No');
+                    } else if (col.type === 'file') {
+                        row.push(escapeSpreadsheetFormula(await resolveExportFileLink(col.bucket || 'support_documents', val)));
+                    } else {
+                        row.push(escapeSpreadsheetFormula(val ?? ''));
+                    }
+                }
+                rows.push(row);
+            }
 
             const wsData = [headers, ...rows];
             const ws = XLSX.utils.aoa_to_sheet(wsData);
+            fileColumnIndexes.forEach((columnIndex: number) => {
+                rows.forEach((row, rowIndex) => {
+                    const fileUrl = String(row[columnIndex] || '').trim();
+                    if (!/^https?:\/\//i.test(fileUrl)) return;
+
+                    const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 1, c: columnIndex });
+                    if (ws[cellRef]) {
+                        ws[cellRef].l = {
+                            Target: fileUrl,
+                            Tooltip: 'Open uploaded file'
+                        };
+                    }
+                });
+            });
             // Auto-size columns
             ws['!cols'] = headers.map((h: string) => ({ wch: Math.max(h.length, 18) }));
             const wb = XLSX.utils.book_new();
@@ -1290,21 +1223,27 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
-                    <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-4"><Users size={24} /></div>
-                    <p className="text-slate-600 text-sm mb-1">Total Population</p>
-                    <p className="text-2xl font-bold text-slate-900">{studentsList.length}</p>
+            <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3">
+                <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600"><Users size={18} /></div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-500">Total Population</p>
+                        <p className="text-xl font-bold leading-tight text-slate-900">{studentsList.length}</p>
+                    </div>
                 </div>
-                <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
-                    <div className="w-12 h-12 rounded-lg bg-green-50 text-green-600 flex items-center justify-center mb-4"><TrendingUp size={24} /></div>
-                    <p className="text-slate-600 text-sm mb-1">Active Students</p>
-                    <p className="text-2xl font-bold text-slate-900">{studentsList.filter(s => s.status === 'Active').length}</p>
+                <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600"><TrendingUp size={18} /></div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-500">Active Students</p>
+                        <p className="text-xl font-bold leading-tight text-slate-900">{studentsList.filter(s => s.status === 'Active').length}</p>
+                    </div>
                 </div>
-                <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
-                    <div className="w-12 h-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-4"><Archive size={24} /></div>
-                    <p className="text-slate-600 text-sm mb-1">Archived Students</p>
-                    <p className="text-2xl font-bold text-slate-900">{archivedStudentsList.length}</p>
+                <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600"><Archive size={18} /></div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-500">Archived Students</p>
+                        <p className="text-xl font-bold leading-tight text-slate-900">{archivedStudentsList.length}</p>
+                    </div>
                 </div>
             </div>
 
@@ -1519,7 +1458,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
             {/* Edit Student Modal */}
             {showEditModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
                         <div className="px-6 py-4 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg">Edit Student</h3>
@@ -1640,7 +1579,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
             {/* Delete Student Modal */}
             {showDeleteModal && studentToDelete && canArchiveRecords && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg">Archive Student</h3>
@@ -1663,7 +1602,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             )}
 
             {showArchivedStudentsModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-start gap-4">
                             <div>
@@ -1759,7 +1698,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
             {/* Enrollment Keys Modal */}
             {showEnrollmentModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto animate-fade-in">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg text-slate-900">Manage Enrollment Keys</h3>
@@ -1989,8 +1928,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             )}
 
             {/* ===== FULL STUDENT PROFILE MODAL ===== */}
-            {profileViewStudent && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-6" onClick={() => setProfileViewStudent(null)}>
+            {profileViewStudent && typeof document !== 'undefined' && createPortal(
+                <>
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-2 sm:p-6" onClick={() => setProfileViewStudent(null)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
                         {/* Header */}
                         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 flex flex-col sm:flex-row items-start sm:items-center justify-between shrink-0 gap-3">
@@ -2063,7 +2003,15 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                 return (
                                                     <div key={(field.db || '') + field.label + idx} className="min-w-0">
                                                         <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wide mb-0.5">{field.label}</p>
-                                                        {field.type === 'document' && value ? (
+                                                        {field.type === 'profilePhoto' && value ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowPhotoModal(true)}
+                                                                className="inline-flex items-center rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                                                            >
+                                                                View photo
+                                                            </button>
+                                                        ) : field.type === 'document' && value ? (
                                                             <button
                                                                 type="button"
                                                                 onClick={async () => {
@@ -2113,12 +2061,10 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                         </div>
                     </div>
                 </div>
-            )}
 
-            {/* Full Size Photo Modal */}
-            {profileViewStudent && (
+                {/* Full Size Photo Modal */}
                 <div
-                    className={`fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                    className={`fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                     onClick={() => setShowPhotoModal(false)}
                 >
                     <div
@@ -2155,6 +2101,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                         </div>
                     </div>
                 </div>
+                </>,
+                document.body
             )}
         </div>
     );

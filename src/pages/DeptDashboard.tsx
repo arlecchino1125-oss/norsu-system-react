@@ -1969,7 +1969,7 @@ export default function DeptDashboard() {
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 text-gray-800 font-sans overflow-hidden">
             {/* Sidebar Overlay */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+            {isSidebarOpen && <div className="fixed inset-0 bg-transparent z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
             <aside className={`fixed inset-y-0 left-0 z-30 w-72 max-w-[calc(100vw-1rem)] bg-gradient-dept-sidebar transform transition-all duration-500 ease-out flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-emerald-900/30' : '-translate-x-full'}`}>
@@ -2281,7 +2281,7 @@ export default function DeptDashboard() {
             })}
 
             {emailPreviewState && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-transparent p-4">
                     <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
                         <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
                             <div>
@@ -2326,9 +2326,11 @@ export default function DeptDashboard() {
 
                                     <div className="mt-4">
                                         <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Email Content</p>
-                                        <div
-                                            className="mt-1 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 space-y-2"
-                                            dangerouslySetInnerHTML={{ __html: preview.html || '<p>No preview available.</p>' }}
+                                        <iframe
+                                            title={`Email preview ${index + 1}`}
+                                            sandbox=""
+                                            srcDoc={preview.html || '<p>No preview available.</p>'}
+                                            className="mt-1 h-72 w-full rounded-lg border border-gray-200 bg-white"
                                         />
                                     </div>
                                 </div>

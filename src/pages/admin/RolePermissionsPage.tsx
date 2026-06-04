@@ -810,7 +810,7 @@ export default function RolePermissionsPage() {
             )}
 
             {isResetModalOpen && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 px-4">
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-transparent px-4">
                     <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
                         <div className="flex items-start gap-3">
                             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 text-amber-600">

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Users, XCircle, Clock, Filter, ArrowUpDown,
     BarChart2, TrendingUp, RefreshCw
@@ -475,7 +475,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
 
             {/* VIEW ANSWERS MODAL */}
             {viewingStudent && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col animate-scale-in">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
                             <div>

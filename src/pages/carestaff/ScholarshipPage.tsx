@@ -372,7 +372,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
 
             {/* Modals */}
             {showScholarshipModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-lg">Add New Scholarship</h3>
@@ -390,7 +390,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
             )}
 
             {showApplicantModal && selectedScholarship && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[85vh] animate-scale-in">
                         <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
                             <div><h3 className="font-bold text-lg">Applicants List</h3><p className="text-xs text-gray-500">{selectedScholarship.title}</p></div>
@@ -425,7 +425,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
             )}
 
             {detailScholarship && (
-                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setDetailScholarship(null)}>
+                <div className="fixed inset-0 bg-transparent z-[60] flex items-center justify-center p-4" onClick={() => setDetailScholarship(null)}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden animate-scale-in" onClick={(event) => event.stopPropagation()}>
                         <div className="p-6 border-b flex justify-between items-start gap-4 bg-gray-50 rounded-t-2xl">
                             <div>
@@ -452,7 +452,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
             )}
 
             {showClosedModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex flex-col max-h-[85vh] overflow-hidden">
                         <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
                             <div>

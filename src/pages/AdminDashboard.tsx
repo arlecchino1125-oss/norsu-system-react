@@ -1389,7 +1389,7 @@ export default function AdminDashboard() {
                 )}
 
                 {showResetModal && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                    <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 animate-slide-in-up">
                             <div className="text-center">
                                 <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"><AlertTriangle /></div>

@@ -6,6 +6,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { managedArchiveService } from '../../services/managedArchiveService';
 import { savePdf } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, formatTime, generateExportFilename } from '../../utils/formatters';
+import { buildCsv } from '../../utils/inputSecurity';
 import StatusBadge from '../../components/StatusBadge';
 import { getAdmissionSchedules, getApplicationsPage, getCompletedApplicationsPage, getCoursesForNat, getNatAttendanceSupport, getNatSummaryApplications } from '../../services/natService';
 import { getApplicationDetailsById } from '../../services/applicationDetailsService';
@@ -373,7 +374,7 @@ const NATManagementPage = ({ showToast }: any) => {
         const id = application?.id;
         console.log(`[DEBUG] Attempting to update status for ID: ${id} to ${newStatus}`);
         if (!id) {
-            alert("Error: Invalid Application ID");
+            showToast("Error: Invalid Application ID", 'error');
             return;
         }
 
@@ -386,7 +387,7 @@ const NATManagementPage = ({ showToast }: any) => {
 
             if (error) {
                 console.error("[DEBUG] Supabase Error:", error);
-                alert(`Error: ${error.message}`);
+                showToast(`Error: ${error.message}`, 'error');
                 return;
             }
 
@@ -411,7 +412,7 @@ const NATManagementPage = ({ showToast }: any) => {
             setShowModal(false);
         } catch (err) {
             console.error("[DEBUG] Unexpected Error:", err);
-            alert(`Unexpected error: ${err.message}`);
+            showToast(`Unexpected error: ${err.message}`, 'error');
         }
     };
 
@@ -782,10 +783,16 @@ const NATManagementPage = ({ showToast }: any) => {
         if (filteredApplications.length === 0) { showToast("No applications to export.", 'info'); return; }
         const headers = ["Reference ID", "First Name", "Last Name", "Email", "Mobile", "Course Preference", "Status", "Test Date"];
         const rows = filteredApplications.map(app => [
-            `"${app.reference_id}"`, `"${app.first_name}"`, `"${app.last_name}"`, `"${app.email}"`, `"${app.mobile}"`,
-            `"${app.priority_course}"`, `"${app.status}"`, `"${app.test_date || ''}"`
+            app.reference_id,
+            app.first_name,
+            app.last_name,
+            app.email,
+            app.mobile,
+            app.priority_course,
+            app.status,
+            app.test_date || ''
         ]);
-        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const csvContent = buildCsv([headers, ...rows]);
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -1632,7 +1639,7 @@ const NATManagementPage = ({ showToast }: any) => {
             {/* Application Modal — Full Details */}
             {
                 showModal && selectedApp && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-blue-100/50">
                             <div className="p-8">
                                 <div className="flex justify-between items-start mb-6">
@@ -1753,7 +1760,7 @@ const NATManagementPage = ({ showToast }: any) => {
 
             {
                 showBulkPassModal && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-purple-100">
                             <div className="p-6 border-b bg-gray-50 flex justify-between items-start gap-4">
                                 <div>
@@ -1865,7 +1872,7 @@ const NATManagementPage = ({ showToast }: any) => {
             {/* Schedule Modal */}
             {
                 showScheduleModal && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
                             <div className="flex items-start justify-between gap-4 mb-4">
                                 <div>

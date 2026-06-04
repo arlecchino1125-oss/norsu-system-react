@@ -19,6 +19,7 @@ import {
     XCircle
 } from 'lucide-react';
 import { getApplicationDetailsById } from '../../services/applicationDetailsService';
+import { buildCsv } from '../../utils/inputSecurity';
 
 const SCHEDULABLE_STATUSES = new Set([
     'Qualified for Interview (1st Choice)',
@@ -97,21 +98,13 @@ const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visibl
 const ITEMS_PER_PAGE_DEFAULT = 15;
 const PAGE_SIZE_OPTIONS = [10, 15, 25, 50];
 
-const escapeCsvValue = (value: unknown) => {
-    const text = String(value ?? '');
-    if (/[",\n]/.test(text)) {
-        return `"${text.replace(/"/g, '""')}"`;
-    }
-    return text;
-};
-
 const downloadCsv = (filename: string, headers: string[], rows: Array<Record<string, unknown>>) => {
     if (typeof window === 'undefined') return;
 
-    const csvBody = [
-        headers.join(','),
-        ...rows.map((row) => headers.map((header) => escapeCsvValue(row[header])).join(','))
-    ].join('\n');
+    const csvBody = buildCsv([
+        headers,
+        ...rows.map((row) => headers.map((header) => row[header]))
+    ]);
 
     const blob = new Blob([csvBody], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
@@ -890,7 +883,7 @@ const DeptAdmissionsPage = ({
                 const applicantFullName = getApplicantFullName(selectedApplicantDetails) || 'Applicant';
 
                 return (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-transparent p-4">
                         <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
                             <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
                                 <div>

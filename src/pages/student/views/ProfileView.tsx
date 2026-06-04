@@ -1,6 +1,7 @@
 import React from 'react';
 import AccountSecuritySettings from '../../../components/AccountSecuritySettings';
 import { openStoredAsset } from '../../../utils/storageAssets';
+import { getTextInputLimitProps } from '../../../utils/inputSecurity';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
@@ -32,13 +33,13 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
                         {(options || []).map((o: any) => <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value} className="bg-white text-slate-700">{typeof o === 'string' ? o : o.label}</option>)}
                     </select>
                 ) : type === 'textarea' ? (
-                    <textarea id={fieldId} name={field} autoComplete="off" className={`${INPUT_CLASS} min-h-[112px] resize-none sm:min-h-0`} style={{ colorScheme: 'light' }} rows={3} value={activePersonalInfo[field] || ''} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value }))} />
+                    <textarea id={fieldId} name={field} autoComplete="off" {...getTextInputLimitProps('notes')} className={`${INPUT_CLASS} min-h-[112px] resize-none sm:min-h-0`} style={{ colorScheme: 'light' }} rows={3} value={activePersonalInfo[field] || ''} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value }))} />
                 ) : type === 'boolean' ? (
                     <select id={fieldId} name={field} autoComplete="off" className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] ? 'Yes' : 'No'} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value === 'Yes' }))}>
                         <option value="No" className="bg-white text-slate-700">No</option><option value="Yes" className="bg-white text-slate-700">Yes</option>
                     </select>
                 ) : (
-                    <input id={fieldId} name={field} autoComplete="off" spellCheck={false} type={type || 'text'} className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] || ''} onChange={(e) => {
+                    <input id={fieldId} name={field} autoComplete="off" spellCheck={false} {...getTextInputLimitProps('mediumText')} type={type || 'text'} className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] || ''} onChange={(e) => {
                         if (field === 'dob') {
                             const dob = e.target.value;
                             let age = activePersonalInfo.age;
@@ -208,24 +209,14 @@ function ProfileViewContent(p: any) {
                 </div>
                 <div className={profileSummaryCardClass} style={getCardStyle('100ms')}>
                     <h4 className="text-[10px] font-bold text-purple-400/60 uppercase tracking-widest mb-4">Academic Summary</h4>
-                    <p className="text-[10px] text-gray-400">Department</p>
+                    <p className="text-[10px] text-gray-400">College</p>
                     <p className="text-sm font-bold mb-4">{personalInfo.department}</p>
-                    <p className="text-[10px] text-gray-400">Course</p>
+                    <p className="text-[10px] text-gray-400">Program</p>
                     <p className="text-sm font-bold mb-4">{personalInfo.course}</p>
                     <p className="text-[10px] text-gray-400">Year Level</p>
                     <p className="text-sm font-bold mb-4">{personalInfo.year || '-'}</p>
                     <p className="text-[10px] text-gray-400">Section</p>
                     <p className="text-sm font-bold">{personalInfo.section || '-'}</p>
-                </div>
-                <div className={profileSummaryCardClass} style={getCardStyle('150ms')}>
-                    <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-slate-500 to-slate-700 text-white rounded-lg text-xs"><Icons.Scholarship /></span> Academic Details</h4>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
-                        <Field {...fp} label="Year Level" field="year" type="select" options={[{ value: '1st Year', label: '1st Year' }, { value: '2nd Year', label: '2nd Year' }, { value: '3rd Year', label: '3rd Year' }, { value: '4th Year', label: '4th Year' }, { value: '5th Year', label: '5th Year' }]} readOnly />
-                        <Field {...fp} label="Section" field="section" type="select" options={['A', 'B', 'C']} />
-                        <Field {...fp} label="Priority Course" field="priorityCourse" readOnly colSpan={2} />
-                        <Field {...fp} label="Alt Course 1" field="altCourse1" readOnly colSpan={2} />
-                        <Field {...fp} label="Alt Course 2" field="altCourse2" readOnly colSpan={2} />
-                    </div>
                 </div>
             </div>
             <div className="flex-1 space-y-6">
@@ -241,12 +232,12 @@ function ProfileViewContent(p: any) {
                 {profileTab === 'personal' && (
                     <div className={`space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
                         <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
-                            <Field {...fp} label="Student's I.D. No." field="studentId" readOnly />
+                            <Field {...fp} label="Student ID No." field="studentId" readOnly />
                             <Field {...fp} label="Last Name" field="lastName" />
-                            <Field {...fp} label="First Name" field="firstName" />
+                            <Field {...fp} label="Given Name" field="firstName" />
                             <Field {...fp} label="Middle Name" field="middleName" />
                             <Field {...fp} label="Extension Name" field="suffix" />
-                            <Field {...fp} label="Date of Birth" field="dob" type="date" />
+                            <Field {...fp} label="Birthday" field="dob" type="date" />
                             <Field {...fp} label="Age" field="age" readOnly />
                             <Field {...fp} label="Sex Assigned at Birth" field="sex" type="select" options={['Male', 'Female']} />
                             <Field {...fp} label="Gender" field="genderIdentity" type="select" options={['Cis-gender', 'Transgender', 'Non-binary gender', 'Prefer not to say']} />
@@ -254,20 +245,18 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Citizenship" field="nationality" />
                             <Field {...fp} label="Year Level" field="year" readOnly />
                             <Field {...fp} label="College" field="department" readOnly />
-                            <Field {...fp} label="Complete Program" field="course" readOnly colSpan={2} />
+                            <Field {...fp} label="Program" field="course" readOnly colSpan={2} />
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
                         </Section>
 
                         <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Events />} gradient="from-emerald-400 to-teal-500" title="Contact & Address">
-                            <Field {...fp} label="Email" field="email" colSpan={2} readOnly />
-                            <Field {...fp} label="Mobile" field="mobile" />
-                            <Field {...fp} label="Facebook" field="facebookUrl" />
-                            <Field {...fp} label="Street / Barangay" field="street" colSpan={2} />
-                            <Field {...fp} label="City / Municipality" field="city" />
-                            <Field {...fp} label="Province" field="province" />
-                            <Field {...fp} label="Zip Code" field="zipCode" />
-                            <Field {...fp} label="Region" field="region" type="select" options={['Region XVIII (NIR)', 'Region VII (Central Visayas)', 'Region VI (Western Visayas)', 'Other']} />
-                            <Field {...fp} label="Current Residence" field="address" />
+                            <Field {...fp} label="Contact Number" field="mobile" />
+                            <Field {...fp} label="Facebook Account Link" field="facebookUrl" />
+                            <Field {...fp} label="Permanent Address - Street/Sitio & Barangay" field="street" colSpan={2} />
+                            <Field {...fp} label="Permanent Address - Town/City Municipality" field="city" />
+                            <Field {...fp} label="Permanent Address - Province" field="province" />
+                            <Field {...fp} label="Permanent Address - Zip Code" field="zipCode" />
+                            <Field {...fp} label="Permanent Address - Region" field="region" type="select" options={['Region XVIII (NIR)', 'Region VII (Central Visayas)', 'Region VI (Western Visayas)', 'Other']} />
                         </Section>
                         {!shouldRenderFullPersonalTab && (
                             <div className="rounded-2xl border border-blue-100/60 bg-blue-50/60 p-5 shadow-sm">
@@ -282,85 +271,85 @@ function ProfileViewContent(p: any) {
                             <>
 
                         <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="👨‍👩‍👧" gradient="from-amber-400 to-orange-500" title="Family Background">
-                            <Field {...fp} label="Spouse Name" field="spouseName" />
-                            <Field {...fp} label="Spouse Occupation" field="spouseOccupation" />
-                            <Field {...fp} label="Spouse Employer/Business" field="spouseEmployerName" colSpan={2} />
-                            <Field {...fp} label="Spouse Employer Address" field="spouseEmployerAddress" colSpan={2} />
-                            <Field {...fp} label="Spouse Contact" field="spouseContact" />
-                            <Field {...fp} label="No. of Children" field="numChildren" />
-                            <Field {...fp} label="Children / Birthdates" field="childrenNamesBirthdates" type="textarea" colSpan={2} />
+                            <Field {...fp} label="Name of Spouse" field="spouseName" />
+                            <Field {...fp} label="Spouse's Occupation" field="spouseOccupation" />
+                            <Field {...fp} label="Spouse's Employer/Business Name" field="spouseEmployerName" colSpan={2} />
+                            <Field {...fp} label="Spouse's Employer/Business Address" field="spouseEmployerAddress" colSpan={2} />
+                            <Field {...fp} label="Spouse's Contact Number" field="spouseContact" />
+                            <Field {...fp} label="Number of Children" field="numChildren" />
+                            <Field {...fp} label="Name of Children - Date of Birth" field="childrenNamesBirthdates" type="textarea" colSpan={2} />
                             <Field {...fp} label="Currently Pregnant" field="currentlyPregnant" type="select" options={['Yes', 'No', 'Maybe']} />
                             <Field {...fp} label="Mother's Maiden Last Name" field="motherLastName" />
                             <Field {...fp} label="Mother's Given Name" field="motherGivenName" />
                             <Field {...fp} label="Mother's Maiden Middle Name" field="motherMiddleName" />
                             <Field {...fp} label="Mother's Occupation" field="motherOccupation" />
                             <Field {...fp} label="Mother's Status" field="motherStatus" type="select" options={['Alive', 'Deceased', 'Unknown', 'Prefer not to say']} />
-                            <Field {...fp} label="Mother's Contact" field="motherContact" />
+                            <Field {...fp} label="Mother's Contact Number" field="motherContact" />
                             <Field {...fp} label="Mother's Address" field="motherAddress" colSpan={2} />
                             <Field {...fp} label="Father's Last Name" field="fatherLastName" />
                             <Field {...fp} label="Father's Given Name" field="fatherGivenName" />
                             <Field {...fp} label="Father's Middle Name" field="fatherMiddleName" />
                             <Field {...fp} label="Father's Occupation" field="fatherOccupation" />
                             <Field {...fp} label="Father's Status" field="fatherStatus" type="select" options={['Alive', 'Deceased', 'Unknown', 'Prefer not to say']} />
-                            <Field {...fp} label="Father's Contact" field="fatherContact" />
+                            <Field {...fp} label="Father's Contact Number" field="fatherContact" />
                             <Field {...fp} label="Father's Address" field="fatherAddress" colSpan={2} />
-                            <Field {...fp} label="Parents' No. of Children" field="parentsNumChildren" />
-                            <Field {...fp} label="Birth Order" field="birthOrder" type="select" options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Only child', 'Legally adopted', 'Simulated', 'Foster child', 'Other']} />
+                            <Field {...fp} label="Number of Children Your Parents Have" field="parentsNumChildren" />
+                            <Field {...fp} label="Your Birth Order in the Family" field="birthOrder" type="select" options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Only child', 'Legally adopted', 'Simulated', 'Foster child', 'Other']} />
                             {activePersonalInfo.birthOrder === 'Other' && <Field {...fp} label="Birth Order Other" field="birthOrderOther" />}
                         </Section>
 
                         <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="ℹ️" gradient="from-indigo-400 to-violet-500" title="Socio-Economic Background">
-                            <Field {...fp} label="Financial Supporter" field="supporter" colSpan={2} />
-                            <Field {...fp} label="Supporter Contact" field="supporterContact" colSpan={2} />
-                            <Field {...fp} label="Working Student" field="isWorkingStudent" type="boolean" />
+                            <Field {...fp} label="Person/Agency Who Supports Your Studies Financially Other Than Yourself" field="supporter" colSpan={2} />
+                            <Field {...fp} label="Contact Information of the Person/Agency Who Supports Your Studies Financially Other Than Yourself" field="supporterContact" colSpan={2} />
+                            <Field {...fp} label="Are You a Working Student" field="isWorkingStudent" type="boolean" />
                             <Field {...fp} label="Type of Work" field="workingStudentType" type="select" options={['House help', 'Call Center Agent/BPO employee', 'Fast food/Restaurant', 'Online employee/Freelancer', 'Self-employed', 'N/A', 'Other']} />
-                            <Field {...fp} label="Employer Name" field="employerName" />
-                            <Field {...fp} label="Employer Address" field="employerAddress" />
-                            <Field {...fp} label="PWD" field="isPwd" type="boolean" />
-                            <Field {...fp} label="PWD #" field="pwdNumber" />
-                            <Field {...fp} label="PWD Type" field="pwdType" type="select" options={['0', 'Visual impairment', 'Hearing impairment', 'Physical/Orthopedic disability', 'Chronic illness', 'Psychosocial disability', 'Communication disability', 'Other']} />
+                            <Field {...fp} label="Name of Employer" field="employerName" />
+                            <Field {...fp} label="Address of Employer" field="employerAddress" />
+                            <Field {...fp} label="Are You a Person With Disability (PWD)" field="isPwd" type="boolean" />
+                            <Field {...fp} label="PWD Number" field="pwdNumber" />
+                            <Field {...fp} label="Type of Disability" field="pwdType" type="select" options={['0', 'Visual impairment', 'Hearing impairment', 'Physical/Orthopedic disability', 'Chronic illness', 'Psychosocial disability', 'Communication disability', 'Other']} />
                             <Field {...fp} label="Cause of Disability" field="disabilityCause" />
                             <Field {...fp} label="PWD Document" field="pwdDocumentUrl" type="document" />
-                            <Field {...fp} label="Indigenous Member" field="isIndigenous" type="boolean" />
+                            <Field {...fp} label="Are You a Member of Any Indigenous Group & Cultural Communities" field="isIndigenous" type="boolean" />
                             <Field {...fp} label="Indigenous Group" field="indigenousGroup" type="select" options={['N/A', 'Bukidnon', 'Tabihanon Group', 'ATA', 'IFUGAO', 'Kalahing Kulot', 'Lumad', 'Other']} />
                             <Field {...fp} label="IP Document" field="ipDocumentUrl" type="document" />
-                            <Field {...fp} label="4Ps Member" field="isFourPsMember" type="boolean" />
+                            <Field {...fp} label="Are You a Member of 4Ps" field="isFourPsMember" type="boolean" />
                             <Field {...fp} label="4Ps Document" field="fourPsDocumentUrl" type="document" />
-                            <Field {...fp} label="Rebel Returnee" field="isRebelReturnee" type="boolean" />
-                            <Field {...fp} label="Child of Solo Parent" field="isChildOfSoloParent" type="boolean" />
-                            <Field {...fp} label="Solo Parent" field="isSoloParent" type="boolean" />
+                            <Field {...fp} label="Are You a Rebel Returnee" field="isRebelReturnee" type="boolean" />
+                            <Field {...fp} label="Are You a Son/Daughter of a Solo Parent" field="isChildOfSoloParent" type="boolean" />
+                            <Field {...fp} label="Are You a Solo Parent Yourself" field="isSoloParent" type="boolean" />
                             <Field {...fp} label="Solo Parent Document" field="soloParentDocumentUrl" type="document" />
-                            <Field {...fp} label="Orphan" field="isOrphan" type="boolean" />
-                            <Field {...fp} label="Orphan Cause" field="orphanCause" type="select" options={['N/A', 'Death', 'Abandonment', 'Other']} />
-                            <Field {...fp} label="Homeless Citizen" field="isHomelessCitizen" type="boolean" />
-                            <Field {...fp} label="Senior Citizen" field="isSeniorCitizen" type="boolean" />
+                            <Field {...fp} label="Are You an Orphan" field="isOrphan" type="boolean" />
+                            <Field {...fp} label="Cause of Being an Orphan" field="orphanCause" type="select" options={['N/A', 'Death', 'Abandonment', 'Other']} />
+                            <Field {...fp} label="Are You a Homeless Citizen" field="isHomelessCitizen" type="boolean" />
+                            <Field {...fp} label="Are You a Senior Citizen" field="isSeniorCitizen" type="boolean" />
                             <Field {...fp} label="Senior Citizen Document" field="seniorCitizenDocumentUrl" type="document" />
                             <Field {...fp} label="Work Experiences" field="workExperiences" type="textarea" colSpan={2} />
                         </Section>
 
                         <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="🛡️" gradient="from-slate-500 to-slate-700" title="Guardian">
-                            <Field {...fp} label="Full Name" field="guardianName" colSpan={2} />
-                            <Field {...fp} label="Address" field="guardianAddress" colSpan={2} />
-                            <Field {...fp} label="Contact Number" field="guardianContact" />
-                            <Field {...fp} label="Relation" field="guardianRelation" type="select" options={['Relative', 'Not relative', 'Landlord', 'Landlady', 'Other']} />
+                            <Field {...fp} label="Guardian Full Name" field="guardianName" colSpan={2} />
+                            <Field {...fp} label="Guardian Address" field="guardianAddress" colSpan={2} />
+                            <Field {...fp} label="Guardian Contact Number" field="guardianContact" />
+                            <Field {...fp} label="Relation to the Guardian" field="guardianRelation" type="select" options={['Relative', 'Not relative', 'Landlord', 'Landlady', 'Other']} />
                         </Section>
 
                         <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="🚨" gradient="from-rose-400 to-red-500" title="Person to Contact (In Case of Emergency)">
-                            <Field {...fp} label="Full Name" field="emergencyName" colSpan={2} />
-                            <Field {...fp} label="Address" field="emergencyAddress" colSpan={2} />
-                            <Field {...fp} label="Relationship" field="emergencyRelationship" />
-                            <Field {...fp} label="Contact Number" field="emergencyNumber" />
+                            <Field {...fp} label="Emergency Contact Full Name" field="emergencyName" colSpan={2} />
+                            <Field {...fp} label="Emergency Contact Address" field="emergencyAddress" colSpan={2} />
+                            <Field {...fp} label="Emergency Contact Relationship" field="emergencyRelationship" />
+                            <Field {...fp} label="Emergency Contact Number" field="emergencyNumber" />
                         </Section>
 
                         <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Assessment />} gradient="from-cyan-400 to-blue-500" title="Educational Background">
-                            <Field {...fp} label="Elementary: Name of School" field="elemSchool" colSpan={2} />
-                            <Field {...fp} label="Inclusive Years Attended" field="elemYearGraduated" colSpan={2} />
-                            <Field {...fp} label="Junior High School: Name of School" field="juniorHighSchool" colSpan={2} />
-                            <Field {...fp} label="Inclusive Years Attended" field="juniorHighYearGraduated" colSpan={2} />
-                            <Field {...fp} label="Senior High School: Name of School" field="seniorHighSchool" colSpan={2} />
-                            <Field {...fp} label="Inclusive Years Attended" field="seniorHighYearGraduated" colSpan={2} />
-                            <Field {...fp} label="If Transferee, College: Name of School" field="collegeSchool" colSpan={2} />
-                            <Field {...fp} label="Inclusive Years Attended" field="collegeYearGraduated" colSpan={2} />
+                            <Field {...fp} label="Elementary School" field="elemSchool" colSpan={2} />
+                            <Field {...fp} label="Elementary Inclusive Years Attended" field="elemYearGraduated" colSpan={2} />
+                            <Field {...fp} label="Junior High School" field="juniorHighSchool" colSpan={2} />
+                            <Field {...fp} label="Junior High Inclusive Years Attended" field="juniorHighYearGraduated" colSpan={2} />
+                            <Field {...fp} label="Senior High School" field="seniorHighSchool" colSpan={2} />
+                            <Field {...fp} label="Senior High Inclusive Years Attended" field="seniorHighYearGraduated" colSpan={2} />
+                            <Field {...fp} label="Transferee College" field="collegeSchool" colSpan={2} />
+                            <Field {...fp} label="Transferee College Inclusive Years Attended" field="collegeYearGraduated" colSpan={2} />
                             <Field {...fp} label="Honor/Award Received" field="honorsAwards" type="textarea" colSpan={2} />
                             <Field {...fp} label="TESDA NC II Acquired - Date Acquired - Validity" field="tesdaNc2Acquired" type="textarea" colSpan={2} />
                             <Field {...fp} label="Eligibility Acquired - Date Acquired" field="eligibilityAcquired" type="textarea" colSpan={2} />
@@ -372,19 +361,19 @@ function ProfileViewContent(p: any) {
                                 <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-pink-400 to-rose-500 text-white rounded-lg text-xs">🎭</span> Extra-Curricular</h4>
                                 <div className="space-y-4">
                                     <Field {...fp} label="Name of Voluntary Activities" field="extracurricularActivities" type="textarea" />
-                                    <Field {...fp} label="Public Service Position Holder" field="holdsPublicServicePosition" type="select" options={['Yes', 'No']} />
+                                    <Field {...fp} label="Do You Hold a Local/National Position in Public Service" field="holdsPublicServicePosition" type="select" options={['Yes', 'No']} />
                                     <Field {...fp} label="Position in Public Service" field="publicServicePosition" />
-                                    <Field {...fp} label="Organizations" field="organizationsMemberships" type="textarea" />
-                                    <Field {...fp} label="Sports" field="sportsSkills" type="textarea" />
+                                    <Field {...fp} label="Organizations You Are a Member Of" field="organizationsMemberships" type="textarea" />
+                                    <Field {...fp} label="Sports You Are Good At" field="sportsSkills" type="textarea" />
                                     <Field {...fp} label="Other Talent/s" field="otherTalents" type="textarea" />
                                 </div>
                             </div>
                             <div className={profileCardClass} style={deferredCardStyle}>
                                 <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-yellow-400 to-amber-500 text-white rounded-lg text-xs">🎓</span> Scholarships</h4>
                                 <div className="space-y-4">
-                                    <Field {...fp} label="Scholarship Availed & Sponsor" field="scholarshipsAvailed" type="textarea" />
-                                    <Field {...fp} label="Criminally Charged Before Any Court" field="hasBeenCriminallyCharged" type="select" options={['Yes', 'No']} />
-                                    <Field {...fp} label="Convicted of Any Crime" field="hasBeenConvictedOfCrime" type="select" options={['Yes', 'No']} />
+                                    <Field {...fp} label="Name of Scholarship Availed & Sponsor" field="scholarshipsAvailed" type="textarea" />
+                                    <Field {...fp} label="Have You Been Criminally Charged Before Any Court" field="hasBeenCriminallyCharged" type="select" options={['Yes', 'No']} />
+                                    <Field {...fp} label="Have You Been Convicted of Any Crime" field="hasBeenConvictedOfCrime" type="select" options={['Yes', 'No']} />
                                 </div>
                             </div>
                         </div>

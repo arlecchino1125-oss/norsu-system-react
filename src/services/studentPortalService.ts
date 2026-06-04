@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
+import { validateTextInput } from '../utils/inputSecurity';
 import type { PageResult } from '../types/pagination';
 import type { PageParams, SortParams } from '../types/query';
 
@@ -275,8 +276,24 @@ export const getGeneralFeedbackHistory = async (studentId: string) => {
 };
 
 export const createGeneralFeedback = async (payload: Record<string, unknown>) => {
+    const regionCheck = validateTextInput(payload.region, 'shortText', { label: 'Region' });
+    const serviceCheck = validateTextInput(payload.service_availed, 'mediumText', { label: 'Service availed' });
+    const suggestionsCheck = validateTextInput(payload.suggestions, 'notes', { multiline: true, label: 'Suggestions' });
+    const emailCheck = validateTextInput(payload.email, 'email', { label: 'Email' });
+    const invalidText = [regionCheck, serviceCheck, suggestionsCheck, emailCheck].find((check) => !check.valid);
+
+    if (invalidText?.error) {
+        throw new Error(invalidText.error);
+    }
+
     const { error } = await supabase
         .from('general_feedback')
-        .insert(payload);
+        .insert({
+            ...payload,
+            region: regionCheck.value || null,
+            service_availed: serviceCheck.value || null,
+            suggestions: suggestionsCheck.value || null,
+            email: emailCheck.value || null,
+        });
     if (error) throw error;
 };

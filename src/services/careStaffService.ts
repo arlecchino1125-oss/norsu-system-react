@@ -143,6 +143,33 @@ export const STUDENT_LIST_COLUMNS = [
     'archive_note'
 ].join(', ');
 
+export const STUDENT_TABLE_COLUMNS = [
+    'id',
+    'created_at',
+    'student_id',
+    'first_name',
+    'last_name',
+    'middle_name',
+    'suffix',
+    'course',
+    'year_level',
+    'section',
+    'department',
+    'status',
+    'email',
+    'profile_completed',
+    'course_year_update_required',
+    'course_year_window_start',
+    'course_year_window_end',
+    'course_year_confirmed_at',
+    'course_year_archive',
+    'is_archived',
+    'archived_at',
+    'archived_reason',
+    'archived_by',
+    'archive_note'
+].join(', ');
+
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     let next = query.eq('is_archived', false);
     if (!filters) return next;
@@ -188,7 +215,7 @@ export const getStudentsPage = async (
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('students')
-        .select(STUDENT_LIST_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
+        .select(STUDENT_TABLE_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
 
     query = applyStudentFilters(query, filters);
     query = applySort(query, sort || { column: 'created_at', ascending: false });
