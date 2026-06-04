@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from '../components/ui/DatePicker';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { getStudentActivationPolicy } from '../lib/studentActivationPolicy';
-import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { rememberPendingProfileCompletion } from '../lib/studentProfileCompletionPrompt';
 import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
 
@@ -15,6 +14,11 @@ type StudentLoginMethod = 'studentId' | 'email';
 type ForgotPasswordOtpInfo = {
     message?: string;
     expiresInMinutes?: number;
+};
+
+type ActivatedStudentCredentials = {
+    username: string;
+    password: string;
 };
 
 export default function StudentLogin() {
@@ -43,7 +47,7 @@ export default function StudentLogin() {
     const [loading, setLoading] = useState<boolean>(false);
     const [toast, setToast] = useState<any>(null);
     const [courses, setCourses] = useState<any[]>([]);
-    const [generatedCredentials, setGeneratedCredentials] = useState<any>(null);
+    const [activatedCredentials, setActivatedCredentials] = useState<ActivatedStudentCredentials | null>(null);
     const [studentActivationPolicy, setStudentActivationPolicy] = useState({
         requireEnrollmentKey: true,
         updatedAt: null as string | null,
@@ -66,7 +70,9 @@ export default function StudentLogin() {
         street: '', city: '', province: '', zipCode: '',
         mobile: '', email: '',
         dob: '', age: '',
-        sex: ''
+        sex: '',
+        password: '',
+        confirmPassword: ''
     });
 
     const TOTAL_STEPS = 3;
@@ -192,8 +198,8 @@ export default function StudentLogin() {
         };
     };
 
-    const handleGeneratedCredentialsLogin = async () => {
-        if (!generatedCredentials?.username || !generatedCredentials?.password) {
+    const handleActivatedCredentialsLogin = async () => {
+        if (!activatedCredentials?.username || !activatedCredentials?.password) {
             return;
         }
 
@@ -201,12 +207,12 @@ export default function StudentLogin() {
 
         try {
             const autoLoginResult = await attemptAutoLoginAfterActivation(
-                generatedCredentials.username,
-                generatedCredentials.password
+                activatedCredentials.username,
+                activatedCredentials.password
             );
 
             if (autoLoginResult.success) {
-                setGeneratedCredentials(null);
+                setActivatedCredentials(null);
                 setShowActivateModal(false);
                 showToast('Login Successful', 'success');
                 setTimeout(() => navigate('/student'), 700);
@@ -215,12 +221,12 @@ export default function StudentLogin() {
 
             setShowActivateModal(false);
             setLoginMethod('studentId');
-            setLoginId(generatedCredentials.username);
-            setLoginPassword(generatedCredentials.password);
+            setLoginId(activatedCredentials.username);
+            setLoginPassword(activatedCredentials.password);
             showToast(
                 autoLoginResult.error
                     ? `Automatic sign-in failed. ${autoLoginResult.error}`
-                    : 'Automatic sign-in failed. Use the account details you saved to sign in below.',
+                    : 'Automatic sign-in failed. Use your Student ID and chosen password to sign in below.',
                 'error'
             );
         } finally {
@@ -348,8 +354,30 @@ export default function StudentLogin() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const getValidActivationPassword = () => {
+        const password = String(formData.password || '');
+        const confirmPassword = String(formData.confirmPassword || '');
+
+        if (password.length < 8) {
+            showToast('Password must be at least 8 characters.', 'error');
+            return null;
+        }
+
+        if (password !== confirmPassword) {
+            showToast('Passwords do not match.', 'error');
+            return null;
+        }
+
+        return password;
+    };
+
     // Handle Activation
     const handleActivation = async () => {
+        const chosenPassword = getValidActivationPassword();
+        if (!chosenPassword) {
+            return;
+        }
+
         setLoading(true);
         try {
             // Minimal activation profile — remaining fields are collected post-login
@@ -375,6 +403,7 @@ export default function StudentLogin() {
                     studentId: formData.studentId,
                     course: formData.course,
                     allowEnrollmentCreate,
+                    password: chosenPassword,
                     profile: activationProfile
                 },
                 fallbackMessage: 'Account activation failed.'
@@ -383,22 +412,13 @@ export default function StudentLogin() {
             const data = await runStudentActivation(!studentActivationPolicy.requireEnrollmentKey);
 
             const username = data.studentId || formData.studentId;
-            const password = data.password;
+            const password = chosenPassword;
 
             rememberPendingProfileCompletion(username, activationProfile);
             setLoginId(username);
             setLoginPassword(password);
-
-            void sendTransactionalEmailNotification({
-                    type: 'STUDENT_ACTIVATION',
-                    email: formData.email,
-                    name: `${formData.firstName} ${formData.lastName}`,
-                    studentId: username,
-                    password: password,
-                    loginUrl: `${window.location.origin}/student/login`
-                }, 'Failed to send activation email.');
-            setGeneratedCredentials({ username, password, viewed: false });
-            showToast('Account activated. Review and save your account details before signing in.', 'success');
+            setActivatedCredentials({ username, password });
+            showToast('Account activated. Sign in with the password you created.', 'success');
 
         } catch (error: any) {
             showToast(getSafeStudentActivationErrorMessage(error), 'error');
@@ -623,7 +643,7 @@ export default function StudentLogin() {
                                             type="button"
                                             whileHover={{ y: -2 }}
                                             whileTap={{ scale: 0.98 }}
-                                            onClick={() => { setShowActivateModal(true); setGeneratedCredentials(null); setActivationStep(1); }}
+                                            onClick={() => { setShowActivateModal(true); setActivatedCredentials(null); setActivationStep(1); }}
                                             className="w-full bg-indigo-900/30 hover:bg-indigo-800/40 text-sky-400 py-3.5 rounded-xl font-semibold border border-indigo-500/30 transition-colors flex items-center justify-center gap-2"
                                         >
                                             <UserPlus size={18} /> Activate Account
@@ -833,7 +853,7 @@ export default function StudentLogin() {
                                 </div>
 
                                 {/* Progress Bar for Wizard */}
-                                {!generatedCredentials && (
+                                {!activatedCredentials && (
                                     <div className="w-full">
                                         <div className="flex justify-between text-xs font-bold text-slate-400 mb-2 px-1">
                                             {STEP_LABELS.map((label, i) => (
@@ -854,72 +874,55 @@ export default function StudentLogin() {
 
                             {/* Modal Body */}
                             <div className="flex-grow overflow-y-auto p-6 md:p-10 custom-scrollbar bg-white">
-                                {generatedCredentials ? (
+                                {activatedCredentials ? (
                                     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
                                         <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                             <CheckCircle className="w-12 h-12 text-emerald-600" />
                                         </div>
                                         <h3 className="text-3xl font-black text-slate-800 mb-2">Activation Successful!</h3>
-                                        <p className="text-slate-500 mb-6 max-w-sm mx-auto font-medium">Your student portal account is ready. Review the account details first, save a backup screenshot, and keep the password private before signing in.</p>
+                                        <p className="text-slate-500 mb-6 max-w-sm mx-auto font-medium">Your student portal account is ready. Use your Student ID and the password you created during activation.</p>
 
                                         <div className="max-w-sm mx-auto rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 mb-6 text-left shadow-sm">
                                             <p className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-1">Reminder</p>
-                                            <p className="text-sm text-amber-900 leading-relaxed">Take a screenshot or save these account details in a secure place. Do not share your password with anyone.</p>
+                                            <p className="text-sm text-amber-900 leading-relaxed">Take a screenshot if you want a record of your Student ID. Your password is not displayed here.</p>
                                         </div>
 
-                                        {generatedCredentials.viewed ? (
-                                            <div className="max-w-sm mx-auto bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 mb-6 shadow-inner">
-                                                <div className="space-y-4">
-                                                    <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm text-left relative overflow-hidden">
-                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
-                                                        <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-1">Student ID</p>
-                                                        <p className="font-mono font-bold text-xl text-slate-800 tracking-wider pl-1">{generatedCredentials.username}</p>
-                                                    </div>
-                                                    <div className="bg-white p-4 rounded-xl border border-sky-100 shadow-sm text-left relative overflow-hidden">
-                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
-                                                        <p className="text-xs text-sky-500 font-bold uppercase tracking-wider mb-1">Temporary Password</p>
-                                                        <p className="font-mono font-bold text-xl text-slate-800 tracking-wider pl-1">{generatedCredentials.password}</p>
-                                                    </div>
+                                        <div className="max-w-sm mx-auto bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 mb-6 shadow-inner">
+                                            <div className="space-y-4">
+                                                <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm text-left relative overflow-hidden">
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
+                                                    <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-1">Student ID</p>
+                                                    <p className="font-mono font-bold text-xl text-slate-800 tracking-wider pl-1">{activatedCredentials.username}</p>
+                                                </div>
+                                                <div className="bg-white p-4 rounded-xl border border-sky-100 shadow-sm text-left relative overflow-hidden">
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500"></div>
+                                                    <p className="text-xs text-sky-500 font-bold uppercase tracking-wider mb-1">Password</p>
+                                                    <p className="text-sm font-semibold leading-relaxed text-slate-600">Not shown. Use the password you typed in the final step.</p>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="max-w-sm mx-auto rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6 mb-6 text-center">
-                                                <p className="text-sm text-slate-600 leading-relaxed">Tap <span className="font-bold text-slate-800">View Account</span> to reveal your student ID and temporary password.</p>
-                                            </div>
-                                        )}
+                                        </div>
 
                                         <div className="max-w-sm mx-auto flex flex-col gap-3">
-                                            {!generatedCredentials.viewed ? (
-                                                <button
-                                                    onClick={() => setGeneratedCredentials((prev: any) => prev ? { ...prev, viewed: true } : prev)}
-                                                    className="bg-indigo-600 text-white px-10 py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 hover:-translate-y-1 w-full"
-                                                >
-                                                    View Account
-                                                </button>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        disabled={loading || authLoading}
-                                                        onClick={handleGeneratedCredentialsLogin}
-                                                        className="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:-translate-y-1 w-full disabled:opacity-70"
-                                                    >
-                                                        {loading || authLoading ? 'Logging In...' : 'Log In to Student Portal'}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setShowActivateModal(false);
-                                                            setLoginMethod('studentId');
-                                                            setLoginId(generatedCredentials.username);
-                                                            setLoginPassword(generatedCredentials.password);
-                                                        }}
-                                                        className="bg-white text-slate-700 px-10 py-3 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-all w-full"
-                                                    >
-                                                        Return to Login Form
-                                                    </button>
-                                                </>
-                                            )}
+                                            <button
+                                                type="button"
+                                                disabled={loading || authLoading}
+                                                onClick={handleActivatedCredentialsLogin}
+                                                className="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:-translate-y-1 w-full disabled:opacity-70"
+                                            >
+                                                {loading || authLoading ? 'Logging In...' : 'Log In to Student Portal'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowActivateModal(false);
+                                                    setLoginMethod('studentId');
+                                                    setLoginId(activatedCredentials.username);
+                                                    setLoginPassword(activatedCredentials.password);
+                                                }}
+                                                className="bg-white text-slate-700 px-10 py-3 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-all w-full"
+                                            >
+                                                Return to Login Form
+                                            </button>
                                         </div>
                                     </motion.div>
                                 ) : (
@@ -984,7 +987,7 @@ export default function StudentLogin() {
 
 
 
-                                            {/* STEP 9: FINISH */}
+                                            {/* STEP 3: FINISH */}
                                             {activationStep === 3 && (
                                                 <motion.div key="step3" initial="initial" animate="in" exit="out" variants={pageVariants} className="space-y-6">
                                                     <div className="mb-4 text-center">
@@ -999,6 +1002,38 @@ export default function StudentLogin() {
                                                             After activation, sign in with your student portal account to complete the remaining profile information.
                                                         </p>
                                                     </div>
+                                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left">
+                                                        <h4 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Create Your Password</h4>
+                                                        <p className="mt-2 text-sm text-slate-600">This password will be used for your Student Portal login. It will not be emailed or displayed after activation.</p>
+                                                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs font-bold uppercase text-slate-500">Password *</label>
+                                                                <input
+                                                                    required
+                                                                    type="password"
+                                                                    name="password"
+                                                                    autoComplete="new-password"
+                                                                    value={formData.password}
+                                                                    onChange={handleChange}
+                                                                    placeholder="At least 8 characters"
+                                                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs font-bold uppercase text-slate-500">Confirm Password *</label>
+                                                                <input
+                                                                    required
+                                                                    type="password"
+                                                                    name="confirmPassword"
+                                                                    autoComplete="new-password"
+                                                                    value={formData.confirmPassword}
+                                                                    onChange={handleChange}
+                                                                    placeholder="Re-enter password"
+                                                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </motion.div>
                                             )}
 
@@ -1008,7 +1043,7 @@ export default function StudentLogin() {
                             </div>
 
                             {/* Modal Footer (Wizard Controls) */}
-                            {!generatedCredentials && (
+                            {!activatedCredentials && (
                                 <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-between items-center rounded-b-[2rem]">
                                     {activationStep > 1 ? (
                                         <button
