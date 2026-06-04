@@ -115,6 +115,9 @@ export default function PublicLandingV2() {
                 >
                     <div className="space-y-5 sm:space-y-7 md:space-y-8">
                         <div className="animate-fade-in-up space-y-3 sm:space-y-5" style={getAnimationDelayStyle(80)}>
+                            <p className="text-[3.25rem] font-black leading-none tracking-normal text-blue-700 dark:text-sky-300 sm:text-7xl md:text-[6.5rem]">
+                                C.A.R.E
+                            </p>
                             <h1 className="max-w-2xl text-[2rem] font-black leading-[1.08] tracking-normal text-slate-900 dark:text-white sm:text-4xl sm:leading-tight md:text-6xl">
                                 Student support, made simpler.
                             </h1>
