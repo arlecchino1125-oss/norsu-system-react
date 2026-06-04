@@ -248,7 +248,7 @@ const DeptCounselingQueuePage = ({
 
             {/* Counseling View Modal - Read-only Self-Referral Form */}
             {showCounselingViewModal && selectedCounselingReq && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
                         <div className="p-8">
                             <div className="flex justify-between items-start mb-4">
@@ -322,7 +322,7 @@ const DeptCounselingQueuePage = ({
 
             {/* Schedule Modal */}
             {showScheduleModal && selectedCounselingReq && (
-                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[60] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Approve & Schedule Session</h3>
@@ -344,7 +344,7 @@ const DeptCounselingQueuePage = ({
 
             {/* Reject Modal */}
             {showRejectModal && selectedCounselingReq && (
-                <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-[60] flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Reject Request</h3>

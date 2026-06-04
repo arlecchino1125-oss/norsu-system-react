@@ -1,4 +1,5 @@
 import { loadJsPdf, loadJsPdfAutoTable, loadXlsx } from '../lib/exportVendors';
+import { buildCsv, escapeSpreadsheetRows } from './inputSecurity';
 
 export const savePdf = (doc: any, fileName: string) => {
     doc.save(fileName);
@@ -116,16 +117,14 @@ export const exportPDF = async (studentName: string, requests: any[]) => {
 
 export const exportToExcel = async (headers: string[], rows: any[][], fileName: string) => {
     const XLSX = await loadXlsx();
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const worksheet = XLSX.utils.aoa_to_sheet(escapeSpreadsheetRows([headers, ...rows]));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
 
 export const exportToCsv = async (headers: string[], rows: any[][], fileName: string) => {
-    const csv = [headers, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-        .join('\n');
+    const csv = buildCsv([headers, ...rows]);
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);

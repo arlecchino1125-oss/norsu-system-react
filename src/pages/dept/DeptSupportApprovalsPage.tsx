@@ -9,6 +9,7 @@ import {
     parseCareNotesPayload
 } from '../../utils/storageAssets';
 import { SUPPORT_STATUS, isDeptSupportCompleted } from '../../utils/workflow';
+import { getTextInputLimitProps, validateTextInput } from '../../utils/inputSecurity';
 
 const DeptSupportApprovalsPage = ({
     data,
@@ -41,6 +42,7 @@ const DeptSupportApprovalsPage = ({
     const [rejectNotes, setRejectNotes] = useState('');
     const [showMessageModal, setShowMessageModal] = useState(false);
     const [messageData, setMessageData] = useState({ student_id: '', student_name: '', message: '' });
+    const [messageNotice, setMessageNotice] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
     const [showLetterModal, setShowLetterModal] = useState(false);
 
     const openViewModal = async (req: any) => {
@@ -194,18 +196,26 @@ const DeptSupportApprovalsPage = ({
     ];
 
     const handleSendMessage = async () => {
-        if (!messageData.message.trim()) return;
+        const messageCheck = validateTextInput(messageData.message, 'notes', {
+            required: true,
+            multiline: true,
+            label: 'Message'
+        });
+        if (!messageCheck.valid) {
+            setMessageNotice({ type: 'error', message: messageCheck.error || 'Message is invalid.' });
+            return;
+        }
         try {
             await supabase.from('notifications').insert([{
                 student_id: messageData.student_id,
-                message: `Message from ${data.profile.department}: ${messageData.message}`
+                message: `Message from ${data.profile.department}: ${messageCheck.value}`
             }]);
             setShowMessageModal(false);
             setMessageData({ student_id: '', student_name: '', message: '' });
-            // Cannot use showToastMessage easily without plumbing it down, so rely on UI feedback.
-            // (Assuming standard alert is fine or silent success is okay since modal closes)
-            alert("Message sent successfully.");
-        } catch (err: any) { alert(err.message); }
+            setMessageNotice({ type: 'success', message: 'Message sent successfully.' });
+        } catch (err: any) {
+            setMessageNotice({ type: 'error', message: err.message || 'Failed to send message.' });
+        }
     };
 
     return (
@@ -214,6 +224,11 @@ const DeptSupportApprovalsPage = ({
                 <h1 className="text-2xl font-bold text-gray-900">Additional Support</h1>
                 <p className="text-gray-500 text-sm mt-1">Review additional support cases forwarded to {data.profile.department}</p>
             </header>
+            {messageNotice && !showMessageModal && (
+                <div className={`rounded-xl border px-4 py-3 text-sm font-semibold ${messageNotice.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                    {messageNotice.message}
+                </div>
+            )}
 
             {/* Tabs */}
             <div className="flex gap-2">
@@ -345,7 +360,7 @@ const DeptSupportApprovalsPage = ({
                                             </span>
                                         </div>
                                     </div>
-                                    <button onClick={() => { setMessageData({ student_id: req.student_id, student_name: req.student_name, message: '' }); setShowMessageModal(true); }} className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition flex items-center gap-2">
+                                    <button onClick={() => { setMessageNotice(null); setMessageData({ student_id: req.student_id, student_name: req.student_name, message: '' }); setShowMessageModal(true); }} className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition flex items-center gap-2">
                                         <MessageSquare size={14} /> Contact Student
                                     </button>
                                 </div>
@@ -617,7 +632,12 @@ const DeptSupportApprovalsPage = ({
                         </div>
                         <p className="text-xs text-gray-500 mb-4">Sending a message to <strong>{messageData.student_name}</strong>. They will receive this in their portal notifications.</p>
                         <div className="space-y-4">
-                            <textarea value={messageData.message} onChange={(e) => setMessageData({ ...messageData, message: e.target.value })} rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Write your message here..." required />
+                            {messageNotice && (
+                                <div className={`rounded-lg border px-3 py-2 text-xs font-semibold ${messageNotice.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                                    {messageNotice.message}
+                                </div>
+                            )}
+                            <textarea value={messageData.message} {...getTextInputLimitProps('notes')} onChange={(e) => { setMessageNotice(null); setMessageData({ ...messageData, message: e.target.value }); }} rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Write your message here..." required />
                             <button onClick={handleSendMessage} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2"><Send size={16} className="mr-2" /> Send Message</button>
                         </div>
                     </div>

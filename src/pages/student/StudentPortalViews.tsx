@@ -291,7 +291,7 @@ export function renderRemainingViews(p: any) {
 
                     {/* Counseling Requests Modal */}
                     {showCounselingRequestsModal && createPortal(
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-end z-50 student-mobile-modal-overlay" onClick={() => setShowCounselingRequestsModal(false)}>
+                        <div className="fixed inset-0 bg-transparent flex justify-end z-50 student-mobile-modal-overlay" onClick={() => setShowCounselingRequestsModal(false)}>
                             <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-fade-in-up student-mobile-modal-drawer-panel" onClick={e => e.stopPropagation()}>
                                 <div className="px-6 py-5 bg-gradient-to-r from-purple-600 to-indigo-700 text-white flex-shrink-0">
                                     <div className="flex justify-between items-center">
@@ -321,7 +321,7 @@ export function renderRemainingViews(p: any) {
                         , document.body)}
                     {/* Request Details Modal */}
                     {selectedRequest && createPortal(
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
+                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4 student-mobile-modal-overlay">
                             <div className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-2xl p-5 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up student-mobile-modal-panel student-mobile-modal-scroll-panel">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                                     <div>

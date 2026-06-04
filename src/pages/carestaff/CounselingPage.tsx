@@ -1,4 +1,4 @@
-ï»¿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
 import { createDeferredChannelCleanup } from '../../lib/realtime';
@@ -378,7 +378,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-900">{req.student_name}</h3>
-                                                <p className="text-xs text-gray-500">{req.request_type} â€¢ Resolved: {formatDate(req.updated_at || req.created_at)}</p>
+                                                <p className="text-xs text-gray-500">{req.request_type} • Resolved: {formatDate(req.updated_at || req.created_at)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -407,7 +407,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-gray-900">{req.student_name}</h3>
-                                            <p className="text-xs text-gray-500">{req.request_type} â€¢ {formatDate(req.created_at)}{getCounselingScheduledDate(req) ? ` â€¢ Scheduled: ${formatDate(getCounselingScheduledDate(req) as string)}` : ''}</p>
+                                            <p className="text-xs text-gray-500">{req.request_type} • {formatDate(req.created_at)}{getCounselingScheduledDate(req) ? ` • Scheduled: ${formatDate(getCounselingScheduledDate(req) as string)}` : ''}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -435,9 +435,9 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                 )}
             </div>
 
-            {/* Read-only Form Modal â€” Referral or Student Form */}
+            {/* Read-only Form Modal — Referral or Student Form */}
             {showCounselingFormModal && viewFormReq && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up">
                         <div className="p-8">
                             {/* Show Referral Form view */}
@@ -451,7 +451,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(viewFormReq.status)}`}>{getCounselingStatusLabel(viewFormReq.status)}</span>
-                                            <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="text-gray-400 hover:text-gray-600 text-xl">âœ•</button>
+                                            <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="text-gray-400 hover:text-gray-600 text-xl">?</button>
                                         </div>
                                     </div>
                                     {/* Student info */}
@@ -519,7 +519,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(viewFormReq.status)}`}>{getCounselingStatusLabel(viewFormReq.status)}</span>
-                                            <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="text-gray-400 hover:text-gray-600 text-xl">âœ•</button>
+                                            <button onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="text-gray-400 hover:text-gray-600 text-xl">?</button>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -570,7 +570,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
 
             {/* Schedule Counseling Modal */}
             {showScheduleModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
                         <div className="p-6 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg">Schedule Session</h3>
@@ -592,7 +592,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
 
             {/* Complete Counseling Session Modal */}
             {showCompleteModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
                         <h3 className="font-bold text-lg mb-4 text-gray-900">Complete Counseling Session</h3>
                         <form onSubmit={handleCompleteSession} className="space-y-4">

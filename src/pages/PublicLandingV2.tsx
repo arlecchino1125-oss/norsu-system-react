@@ -235,7 +235,7 @@ export default function PublicLandingV2() {
 
             {isGuideOpen && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-3 backdrop-blur-sm sm:p-4"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-transparent p-3 sm:p-4"
                     onClick={() => setIsGuideOpen(false)}
                 >
                     <div

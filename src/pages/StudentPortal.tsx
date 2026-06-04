@@ -33,6 +33,7 @@ import {
     getPendingProfileCompletionProfile,
     shouldForceProfileCompletionPrompt
 } from '../lib/studentProfileCompletionPrompt';
+import { validateTextInput } from '../utils/inputSecurity';
 
 const supabaseClient = supabase;
 const ProfileCompletionModal = lazy(() => import('./student/forms/ProfileCompletionModal'));
@@ -2903,6 +2904,16 @@ export default function StudentPortal() {
         const scores = [ratingForm.q1, ratingForm.q2, ratingForm.q3, ratingForm.q4, ratingForm.q5, ratingForm.q6, ratingForm.q7];
         if (scores.some(s => s === 0)) { showToast("Please rate all evaluation criteria", 'error'); return; }
         if (ratedEvents.includes(ratingForm.eventId)) { showToast("You have already rated this event.", 'error'); setShowRatingModal(false); return; }
+        const commentCheck = validateTextInput(ratingForm.comment, 'notes', { multiline: true, label: 'Event comment' });
+        const bestCheck = validateTextInput(ratingForm.open_best, 'notes', { multiline: true, label: 'What you liked best' });
+        const suggestionsCheck = validateTextInput(ratingForm.open_suggestions, 'notes', { multiline: true, label: 'Suggestions' });
+        const openCommentsCheck = validateTextInput(ratingForm.open_comments, 'notes', { multiline: true, label: 'Other comments' });
+        const invalidText = [commentCheck, bestCheck, suggestionsCheck, openCommentsCheck].find((check) => !check.valid);
+
+        if (invalidText?.error) {
+            showToast(invalidText.error, 'error');
+            return;
+        }
 
         const avgRating = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
         setIsSubmittingEventRating(true);
@@ -2912,7 +2923,7 @@ export default function StudentPortal() {
                 student_id: personalInfo.studentId,
                 student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
                 rating: avgRating,
-                feedback: ratingForm.comment,
+                feedback: commentCheck.value,
                 submitted_at: new Date().toISOString(),
                 sex: personalInfo.sex || '',
                 college: `${personalInfo.department || ''} - ${personalInfo.course || ''} (${personalInfo.year || ''})`,
@@ -2924,9 +2935,9 @@ export default function StudentPortal() {
                 q5_score: ratingForm.q5,
                 q6_score: ratingForm.q6,
                 q7_score: ratingForm.q7,
-                open_best: ratingForm.open_best,
-                open_suggestions: ratingForm.open_suggestions,
-                open_comments: ratingForm.open_comments
+                open_best: bestCheck.value,
+                open_suggestions: suggestionsCheck.value,
+                open_comments: openCommentsCheck.value
             }]);
             if (error) throw error;
             setRatedEvents([...ratedEvents, ratingForm.eventId]);
@@ -3831,7 +3842,7 @@ export default function StudentPortal() {
             )}
 
             {/* Sidebar Overlay */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/40 z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+            {isSidebarOpen && <div className="fixed inset-0 bg-transparent z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
             <aside className={`fixed inset-y-0 left-0 z-30 w-[17rem] max-w-[calc(100vw-1rem)] bg-gradient-student-sidebar transform transition-all duration-500 ease-out sm:w-72 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>

@@ -1,12 +1,14 @@
 ﻿import React from 'react';
 import { supabase } from '../../../lib/supabase';
 import { createGeneralFeedback, getGeneralFeedbackHistory } from '../../../services/studentPortalService';
+import { getTextInputLimitProps, validateTextInput } from '../../../utils/inputSecurity';
 export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedbackPrefill }: { Icons: any; personalInfo: any; feedbackPrefill?: any; setFeedbackPrefill?: any }) {
     const [submitting, setSubmitting] = React.useState(false);
     const [submitted, setSubmitted] = React.useState(false);
     const [myFeedbacks, setMyFeedbacks] = React.useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = React.useState(true);
     const [viewingFeedback, setViewingFeedback] = React.useState<any>(null);
+    const [formNotice, setFormNotice] = React.useState<{ type: 'error' | 'success'; message: string } | null>(null);
     const profileSex = personalInfo?.sex || '';
     const profileAge = personalInfo?.age || '';
     const profileEmail = personalInfo?.email || '';
@@ -18,7 +20,10 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
         suggestions: '', email: ''
     });
 
-    const updateForm = (field: string, value: any) => setForm((prev: any) => ({ ...prev, [field]: value }));
+    const updateForm = (field: string, value: any) => {
+        setFormNotice(null);
+        setForm((prev: any) => ({ ...prev, [field]: value }));
+    };
 
     React.useEffect(() => {
         if (feedbackPrefill?.source === 'counseling') {
@@ -43,13 +48,26 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
     const handleSubmit = async () => {
         // Validate required
         if (!form.client_type || !form.cc1) {
-            alert('Please fill in at least Client Type and CC1.');
+            setFormNotice({ type: 'error', message: 'Please fill in at least Client Type and CC1.' });
             return;
         }
         const sqdKeys = ['sqd0', 'sqd1', 'sqd2', 'sqd3', 'sqd4', 'sqd5', 'sqd6', 'sqd7', 'sqd8'];
         const allSqdFilled = sqdKeys.every(k => form[k] !== '');
         if (!allSqdFilled) {
-            alert('Please answer all SQD questions (0-8).');
+            setFormNotice({ type: 'error', message: 'Please answer all SQD questions (0-8).' });
+            return;
+        }
+        const suggestionsCheck = validateTextInput(form.suggestions, 'notes', {
+            multiline: true,
+            label: 'Suggestions'
+        });
+        if (!suggestionsCheck.valid) {
+            setFormNotice({ type: 'error', message: suggestionsCheck.error || 'Suggestions are invalid.' });
+            return;
+        }
+        const emailCheck = validateTextInput(form.email, 'email', { label: 'Email address' });
+        if (form.email && !emailCheck.valid) {
+            setFormNotice({ type: 'error', message: emailCheck.error || 'Email address is invalid.' });
             return;
         }
         setSubmitting(true);
@@ -68,8 +86,8 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                 sqd0: parseInt(form.sqd0), sqd1: parseInt(form.sqd1), sqd2: parseInt(form.sqd2),
                 sqd3: parseInt(form.sqd3), sqd4: parseInt(form.sqd4), sqd5: parseInt(form.sqd5),
                 sqd6: parseInt(form.sqd6), sqd7: parseInt(form.sqd7), sqd8: parseInt(form.sqd8),
-                suggestions: form.suggestions || null,
-                email: form.email || null,
+                suggestions: suggestionsCheck.value || null,
+                email: emailCheck.value || null,
             };
             await createGeneralFeedback(payload);
 
@@ -81,7 +99,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                 const linkedRating = sqdScores.length > 0
                     ? Math.round(sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length)
                     : null;
-                const linkedComment = `[CSM] ${form.suggestions?.trim() || 'Submitted via CSM feedback form.'}`;
+                const linkedComment = `[CSM] ${suggestionsCheck.value || 'Submitted via CSM feedback form.'}`;
 
                 await supabase
                     .from('counseling_requests')
@@ -94,7 +112,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             setForm({ client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '', cc1: '', cc2: '', cc3: '', sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '', suggestions: '', email: '' });
             if (setFeedbackPrefill) setFeedbackPrefill(null);
         } catch (err: any) {
-            alert('Error submitting feedback: ' + err.message);
+            setFormNotice({ type: 'error', message: `Error submitting feedback: ${err.message}` });
         } finally {
             setSubmitting(false);
         }
@@ -147,6 +165,11 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                 </div>
                 <div className="px-5 py-4 sm:px-8 sm:py-5">
                     <p className="text-xs text-gray-600 leading-relaxed">Your feedback on your <span className="font-bold">recently concluded transaction</span> will help this office provide a better service. Personal information shared will be kept confidential and you always have the option not to answer this form.</p>
+                    {formNotice && (
+                        <div className={`mt-3 rounded-lg border px-3 py-2 text-[11px] font-semibold ${formNotice.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                            {formNotice.message}
+                        </div>
+                    )}
                     {feedbackPrefill?.source === 'counseling' && (
                         <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
                             <p className="text-[11px] text-blue-700">
@@ -186,16 +209,16 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Age</label>
-                            <input type="number" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" />
+                            <input type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Region</label>
-                            <input type="text" value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region of residence" />
+                            <input type="text" {...getTextInputLimitProps('mediumText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region of residence" />
                         </div>
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Service Availed</label>
-                        <input type="text" value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="e.g. Counseling, Scholarship, Assessment, etc." />
+                        <input type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="e.g. Counseling, Scholarship, Assessment, etc." />
                     </div>
                 </div>
             </div>
@@ -304,12 +327,12 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
                 <div className="space-y-4">
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Suggestions on how we can further improve our services (optional)</label>
-                        <textarea value={form.suggestions} onChange={e => updateForm('suggestions', e.target.value)} rows={3} className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition resize-none" placeholder="Your suggestions..." />
+                        <textarea value={form.suggestions} {...getTextInputLimitProps('notes')} onChange={e => updateForm('suggestions', e.target.value)} rows={3} className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition resize-none" placeholder="Your suggestions..." />
                     </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Email address (optional)</label>
                         <div className="flex flex-col gap-2 sm:flex-row">
-                            <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="your.email@example.com" />
+                            <input type="email" {...getTextInputLimitProps('email')} value={form.email} onChange={e => updateForm('email', e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="your.email@example.com" />
                             {profileEmail && !form.email && (
                                 <button type="button" onClick={() => updateForm('email', profileEmail)} className="px-4 py-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100 transition-all whitespace-nowrap flex items-center justify-center gap-1.5 sm:justify-start">
                                     <span>📧</span> Fill from profile

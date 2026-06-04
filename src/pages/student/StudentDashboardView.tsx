@@ -4,6 +4,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { isAttendanceActivityType } from '../../utils/eventAudience';
+import { getTextInputLimitProps, validateTextInput } from '../../utils/inputSecurity';
 
 const SQD_LABELS = [
     { key: 'sqd0', text: 'SQD0. I am satisfied with the service that I availed.' },
@@ -46,6 +47,14 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
         if (!form.client_type || !form.cc1) { showToast('Please fill in at least Client Type and CC1.', 'error'); return; }
         const sqdKeys = ['sqd0', 'sqd1', 'sqd2', 'sqd3', 'sqd4', 'sqd5', 'sqd6', 'sqd7', 'sqd8'];
         if (!sqdKeys.every(k => form[k] !== '')) { showToast('Please answer all SQD questions (0-8).', 'error'); return; }
+        const regionCheck = validateTextInput(form.region, 'shortText', { label: 'Region' });
+        const serviceCheck = validateTextInput(form.service_availed, 'mediumText', { label: 'Service availed' });
+        const suggestionsCheck = validateTextInput(form.suggestions, 'notes', { multiline: true, label: 'Suggestions' });
+        const invalidText = [regionCheck, serviceCheck, suggestionsCheck].find((check) => !check.valid);
+        if (invalidText?.error) {
+            showToast(invalidText.error, 'error');
+            return;
+        }
         setSubmitting(true);
         try {
             const payload = {
@@ -54,13 +63,13 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                 client_type: form.client_type,
                 sex: form.sex || null,
                 age: form.age ? parseInt(form.age) : null,
-                region: form.region || null,
-                service_availed: form.service_availed || null,
+                region: regionCheck.value || null,
+                service_availed: serviceCheck.value || null,
                 cc1: parseInt(form.cc1), cc2: form.cc2 ? parseInt(form.cc2) : null, cc3: form.cc3 ? parseInt(form.cc3) : null,
                 sqd0: parseInt(form.sqd0), sqd1: parseInt(form.sqd1), sqd2: parseInt(form.sqd2),
                 sqd3: parseInt(form.sqd3), sqd4: parseInt(form.sqd4), sqd5: parseInt(form.sqd5),
                 sqd6: parseInt(form.sqd6), sqd7: parseInt(form.sqd7), sqd8: parseInt(form.sqd8),
-                suggestions: form.suggestions || null,
+                suggestions: suggestionsCheck.value || null,
             };
             const { error } = await supabase.from('general_feedback').insert(payload);
             if (error) throw error;
@@ -127,9 +136,9 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                             </div>
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Sex</label><div className="flex gap-2">{['Male', 'Female'].map(s => (<button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all ${form.sex === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white border-gray-200 text-gray-600'}`}>{s}</button>))}</div></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Age</label><input type="number" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Region</label><input type="text" value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Service Availed</label><input type="text" value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition bg-blue-50 font-bold text-blue-700" /></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Age</label><input type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" /></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Region</label><input type="text" {...getTextInputLimitProps('shortText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region" /></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Service Availed</label><input type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition bg-blue-50 font-bold text-blue-700" /></div>
                             </div>
                         </div>
                     </div>
@@ -218,7 +227,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                     {/* Suggestions */}
                     <div>
                         <h4 className="font-bold text-sm text-gray-900 mb-3 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">4</span> Additional Comments</h4>
-                        <textarea value={form.suggestions} onChange={e => updateForm('suggestions', e.target.value)} rows={3} className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition resize-none" placeholder="Suggestions on how we can further improve our services (optional)" />
+                        <textarea value={form.suggestions} {...getTextInputLimitProps('notes')} onChange={e => updateForm('suggestions', e.target.value)} rows={3} className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition resize-none" placeholder="Suggestions on how we can further improve our services (optional)" />
                     </div>
                 </div>
 

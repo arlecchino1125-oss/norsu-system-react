@@ -17,7 +17,7 @@ vi.mock('../lib/supabase', () => ({
     }
 }));
 
-import { getStudentsPage, STUDENT_LIST_COLUMNS } from './careStaffService';
+import { getStudentsPage, STUDENT_LIST_COLUMNS, STUDENT_TABLE_COLUMNS } from './careStaffService';
 
 const resetQueryMock = () => {
     queryMock.select.mockReturnValue(queryMock);
@@ -41,7 +41,7 @@ describe('careStaffService.getStudentsPage', () => {
         );
 
         expect(queryMock.select).toHaveBeenCalledWith(
-            STUDENT_LIST_COLUMNS,
+            STUDENT_TABLE_COLUMNS,
             { count: 'exact' }
         );
         expect(queryMock.or).toHaveBeenCalled();
@@ -58,5 +58,14 @@ describe('careStaffService.getStudentsPage', () => {
         expect(STUDENT_LIST_COLUMNS).toContain('gender_identity');
         expect(STUDENT_LIST_COLUMNS).toContain('emergency_contact');
         expect(STUDENT_LIST_COLUMNS).not.toContain('password');
+    });
+
+    it('keeps the paginated table select intentionally small', () => {
+        expect(STUDENT_TABLE_COLUMNS).toContain('student_id');
+        expect(STUDENT_TABLE_COLUMNS).toContain('course_year_archive');
+        expect(STUDENT_TABLE_COLUMNS).toContain('archived_reason');
+        expect(STUDENT_TABLE_COLUMNS).not.toContain('pwd_document_url');
+        expect(STUDENT_TABLE_COLUMNS).not.toContain('children_names_birthdates');
+        expect(STUDENT_TABLE_COLUMNS).not.toContain('special_trainings_attended');
     });
 });

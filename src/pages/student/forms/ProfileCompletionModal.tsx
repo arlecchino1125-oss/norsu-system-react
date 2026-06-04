@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../lib/invokeEdgeFunction';
 import { joinNameParts } from '../../../utils/nameUtils';
 import { getStoredAssetPath, openStoredAsset } from '../../../utils/storageAssets';
+import { TEXT_INPUT_RULES } from '../../../utils/inputSecurity';
 
 type ProfileCompletionModalProps = {
     isOpen: boolean;
@@ -59,6 +60,131 @@ const BIRTH_ORDER_OPTIONS = [
     { value: 'Foster child', label: 'Foster child' },
     { value: 'Other', label: 'Other' }
 ];
+
+type ProfileTextFieldRule = {
+    label: string;
+    maxLength: number;
+    multiline?: boolean;
+};
+
+const shortProfileRule = (label: string): ProfileTextFieldRule => ({ label, maxLength: 80 });
+const mediumProfileRule = (label: string): ProfileTextFieldRule => ({ label, maxLength: 160 });
+const addressProfileRule = (label: string): ProfileTextFieldRule => ({ label, maxLength: 200 });
+const phoneProfileRule = (label: string): ProfileTextFieldRule => ({ label, maxLength: TEXT_INPUT_RULES.phone.maxLength });
+const urlProfileRule = (label: string): ProfileTextFieldRule => ({ label, maxLength: TEXT_INPUT_RULES.url.maxLength });
+const longProfileRule = (label: string): ProfileTextFieldRule => ({ label, maxLength: 1000, multiline: true });
+
+const PROFILE_TEXT_FIELD_LIMITS: Record<string, ProfileTextFieldRule> = {
+    suffix: { label: 'Extension Name', maxLength: 20 },
+    middleName: shortProfileRule('Middle Name'),
+    street: { label: 'Permanent Address - Street/Sitio & Barangay', maxLength: 160 },
+    city: shortProfileRule('Permanent Address - Town/City Municipality'),
+    province: shortProfileRule('Permanent Address - Province'),
+    zipCode: { label: 'Permanent Address - Zip Code', maxLength: 20 },
+    region: shortProfileRule('Permanent Address - Region'),
+    mobile: phoneProfileRule('Contact Number'),
+    nationality: shortProfileRule('Citizenship'),
+    facebookUrl: urlProfileRule('Facebook Account Link'),
+    placeOfBirth: { label: 'Place of Birth', maxLength: 120 },
+    religion: shortProfileRule('Religion'),
+    yearLevelApplying: { label: 'Year Level', maxLength: 32 },
+    department: { label: 'College', maxLength: 120 },
+    course: { label: 'Program', maxLength: 120 },
+    civilStatus: { label: 'Civil Status', maxLength: 80 },
+    spouseName: { label: 'Name of Spouse', maxLength: 120 },
+    spouseOccupation: { label: "Spouse's Occupation", maxLength: 120 },
+    spouseEmployerName: mediumProfileRule("Spouse's Employer/Business Name"),
+    spouseEmployerAddress: addressProfileRule("Spouse's Employer/Business Address"),
+    spouseContact: phoneProfileRule("Spouse's Contact Number"),
+    numChildren: { label: 'Number of Children', maxLength: 40 },
+    childrenNamesBirthdates: longProfileRule('Name of Children - Date of Birth'),
+    currentlyPregnant: { label: 'Currently Pregnant', maxLength: 20 },
+    motherLastName: shortProfileRule("Mother's Maiden Last Name"),
+    motherGivenName: shortProfileRule("Mother's Given Name"),
+    motherMiddleName: shortProfileRule("Mother's Maiden Middle Name"),
+    motherOccupation: { label: "Mother's Occupation", maxLength: 120 },
+    motherStatus: { label: "Mother's Status", maxLength: 40 },
+    motherContact: phoneProfileRule("Mother's Contact Number"),
+    motherAddress: addressProfileRule("Mother's Address"),
+    fatherLastName: shortProfileRule("Father's Last Name"),
+    fatherGivenName: shortProfileRule("Father's Given Name"),
+    fatherMiddleName: shortProfileRule("Father's Middle Name"),
+    fatherOccupation: { label: "Father's Occupation", maxLength: 120 },
+    fatherStatus: { label: "Father's Status", maxLength: 40 },
+    fatherContact: phoneProfileRule("Father's Contact Number"),
+    fatherAddress: addressProfileRule("Father's Address"),
+    parentsNumChildren: { label: 'Number of Children Your Parents Have', maxLength: 40 },
+    birthOrder: { label: 'Your Birth Order in the Family', maxLength: 80 },
+    birthOrderOther: shortProfileRule('Specify Birth Order'),
+    supporter: { label: 'Person/Agency Supporting Studies', maxLength: 120 },
+    supporterContact: phoneProfileRule('Supporter Contact Information'),
+    isWorkingStudent: { label: 'Working Student Status', maxLength: 20 },
+    workingStudentType: { label: 'Type of Work', maxLength: 120 },
+    employerName: mediumProfileRule('Name of Employer'),
+    employerAddress: addressProfileRule('Address of Employer'),
+    workExperiences: longProfileRule('Work Experiences'),
+    isPwd: { label: 'PWD Status', maxLength: 20 },
+    pwdNumber: { label: 'PWD Number', maxLength: 40 },
+    pwdType: { label: 'Type of Disability', maxLength: 120 },
+    disabilityCause: mediumProfileRule('Cause of Disability'),
+    isIndigenous: { label: 'Indigenous Group Status', maxLength: 20 },
+    indigenousGroup: { label: 'Indigenous Group', maxLength: 120 },
+    isFourPsMember: { label: '4Ps Membership', maxLength: 20 },
+    isRebelReturnee: { label: 'Rebel Returnee Status', maxLength: 20 },
+    isChildOfSoloParent: { label: 'Child of Solo Parent Status', maxLength: 20 },
+    isSoloParent: { label: 'Solo Parent Status', maxLength: 20 },
+    isOrphan: { label: 'Orphan Status', maxLength: 20 },
+    orphanCause: shortProfileRule('Cause of Being an Orphan'),
+    isHomelessCitizen: { label: 'Homeless Citizen Status', maxLength: 20 },
+    isSeniorCitizen: { label: 'Senior Citizen Status', maxLength: 20 },
+    guardianName: { label: 'Guardian Full Name', maxLength: 120 },
+    guardianAddress: addressProfileRule('Guardian Address'),
+    guardianContact: phoneProfileRule('Guardian Contact Number'),
+    guardianRelation: shortProfileRule('Relation to the Guardian'),
+    emergencyName: { label: 'Emergency Contact Full Name', maxLength: 120 },
+    emergencyAddress: addressProfileRule('Emergency Contact Address'),
+    emergencyRelationship: shortProfileRule('Emergency Contact Relationship'),
+    emergencyNumber: phoneProfileRule('Emergency Contact Number'),
+    elemSchool: mediumProfileRule('Elementary School'),
+    elemYearGraduated: shortProfileRule('Elementary Inclusive Years Attended'),
+    juniorHighSchool: mediumProfileRule('Junior High School'),
+    juniorHighYearGraduated: shortProfileRule('Junior High Inclusive Years Attended'),
+    seniorHighSchool: mediumProfileRule('Senior High School'),
+    seniorHighYearGraduated: shortProfileRule('Senior High Inclusive Years Attended'),
+    collegeSchool: mediumProfileRule('Transferee College'),
+    collegeYearGraduated: shortProfileRule('Transferee College Inclusive Years Attended'),
+    honorsAwards: longProfileRule('Honor/Award Received'),
+    tesdaNc2Acquired: longProfileRule('TESDA NC II Acquired - Date Acquired - Validity'),
+    eligibilityAcquired: longProfileRule('Eligibility Acquired - Date Acquired'),
+    specialTrainingsAttended: longProfileRule('Special Trainings Attended'),
+    extracurricularActivities: longProfileRule('Name of Voluntary Activities'),
+    holdsPublicServicePosition: { label: 'Public Service Position Status', maxLength: 20 },
+    publicServicePosition: mediumProfileRule('Position in Public Service'),
+    organizationsMemberships: longProfileRule('Organizations You Are a Member Of'),
+    sportsSkills: longProfileRule('Sports You Are Good At'),
+    otherTalents: longProfileRule('Other Talents'),
+    scholarshipsAvailed: longProfileRule('Name of Scholarship Availed and Sponsor'),
+    hasBeenCriminallyCharged: { label: 'Criminal Charge Status', maxLength: 20 },
+    hasBeenConvictedOfCrime: { label: 'Crime Conviction Status', maxLength: 20 }
+};
+
+const cleanLiveProfileText = (value: string, multiline = false) => {
+    const normalized = value.replace(/\r\n/g, '\n');
+    return normalized
+        .replace(multiline ? /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g : /[\u0000-\u001F\u007F]/g, '')
+        .replace(/[<>]/g, '');
+};
+
+const humanizeProfileFieldName = (name: string) =>
+    name.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase()).trim();
+
+const getProfileTextFieldRule = (name: string, isTextarea: boolean): ProfileTextFieldRule =>
+    PROFILE_TEXT_FIELD_LIMITS[name] || {
+        label: humanizeProfileFieldName(name),
+        maxLength: isTextarea ? TEXT_INPUT_RULES.notes.maxLength : TEXT_INPUT_RULES.mediumText.maxLength,
+        multiline: isTextarea
+    };
+
 const PROFILE_DOCUMENT_UPLOADS = [
     { fileField: 'pwdDocumentFile', urlField: 'pwdDocumentUrl', slug: 'pwd', label: 'PWD ID / DSWD Certification' },
     { fileField: 'ipDocumentFile', urlField: 'ipDocumentUrl', slug: 'ip', label: 'IP ID / Chieftain Certification' },
@@ -192,16 +318,29 @@ export default function ProfileCompletionModal({
 
     const handleProfileFormChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = event.target;
+        const isTextarea = event.target instanceof HTMLTextAreaElement;
+        const fieldRule = getProfileTextFieldRule(name, isTextarea);
+        const nextFieldValue = cleanLiveProfileText(value, fieldRule.multiline || isTextarea);
+
+        if (nextFieldValue !== value) {
+            showToast('Unsafe control or angle-bracket characters were removed.', 'error');
+        }
+
+        if (nextFieldValue.length > fieldRule.maxLength) {
+            showToast(`${fieldRule.label} must be ${fieldRule.maxLength} characters or fewer.`, 'error');
+            return;
+        }
+
         setFormData((prev: any) => {
-            const next = { ...prev, [name]: value };
+            const next = { ...prev, [name]: nextFieldValue };
             if (name === 'department') {
                 const selectedCourseDepartment = courseDepartmentMap[prev.course] || '';
-                if (!value || (selectedCourseDepartment && selectedCourseDepartment !== value)) {
+                if (!nextFieldValue || (selectedCourseDepartment && selectedCourseDepartment !== nextFieldValue)) {
                     next.course = '';
                 }
             }
-            if (name === 'course' && courseDepartmentMap[value]) {
-                next.department = courseDepartmentMap[value];
+            if (name === 'course' && courseDepartmentMap[nextFieldValue]) {
+                next.department = courseDepartmentMap[nextFieldValue];
             }
             return next;
         });
@@ -268,9 +407,10 @@ export default function ProfileCompletionModal({
             ['nationality', formData.nationality, 'Citizenship is required.'],
             ['facebookUrl', formData.facebookUrl, 'Facebook account link is required.'],
             ['placeOfBirth', formData.placeOfBirth, 'Place of birth is required.'],
+            ['religion', formData.religion, 'Religion is required.'],
             ['yearLevelApplying', formData.yearLevelApplying, 'Year level is required.'],
             ['department', formData.department, 'College is required.'],
-            ['course', formData.course, 'Complete program is required.'],
+            ['course', formData.course, 'Program is required.'],
             ['civilStatus', formData.civilStatus, 'Civil status is required.']
         ];
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
@@ -562,7 +702,6 @@ export default function ProfileCompletionModal({
                 email: normalizedEmail,
                 facebook_url: formData.facebookUrl,
                 religion: formData.religion,
-                school_last_attended: formData.schoolLastAttended,
                 year_level: formData.yearLevelApplying,
                 department: formData.department,
                 course: formData.course,
@@ -620,9 +759,6 @@ export default function ProfileCompletionModal({
                 father_status: formData.fatherStatus,
                 father_contact: formData.fatherContact,
                 father_address: formData.fatherAddress,
-                parent_address: formData.parentAddress || [formData.motherAddress, formData.fatherAddress].filter(Boolean).join(' / '),
-                num_brothers: formData.numBrothers,
-                num_sisters: formData.numSisters,
                 parents_num_children: formData.parentsNumChildren,
                 birth_order: formData.birthOrder,
                 birth_order_other: formData.birthOrder === 'Other' ? formData.birthOrderOther : null,
@@ -754,7 +890,7 @@ export default function ProfileCompletionModal({
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[10002] overflow-y-auto bg-transparent p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
+        <div className="fixed inset-0 z-[10002] overflow-visible bg-transparent p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
             <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
                 <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel">
                     <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
@@ -792,15 +928,16 @@ export default function ProfileCompletionModal({
                                             )}
                                         </div>
                                         <div className="min-w-0 flex-1 space-y-2">
-                                            <label className={profileCompletionLabelClass}>Photo / Portrait *</label>
+                                            <label className={profileCompletionLabelClass}>Photo/Portrait *</label>
                                             <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-indigo-700" />
                                             <p className="text-xs text-slate-400">Upload a clear ID-style image under 1 MB.</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div className={profileCompletionGridTwoClass}>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Student's I.D. No. *</label><input name="studentId" value={formData.studentId || personalInfo?.studentId || ''} readOnly className={profileCompletionReadOnlyClass} /></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Registered Name</label><input value={[formData.lastName, formData.firstName].filter(Boolean).join(', ')} readOnly className={profileCompletionReadOnlyClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Student ID No. *</label><input name="studentId" value={formData.studentId || personalInfo?.studentId || ''} readOnly className={profileCompletionReadOnlyClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Last Name *</label><input name="lastName" value={formData.lastName} readOnly className={profileCompletionReadOnlyClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Given Name *</label><input name="firstName" value={formData.firstName} readOnly className={profileCompletionReadOnlyClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Extension Name *</label><input name="suffix" value={formData.suffix} onChange={handleProfileFormChange} placeholder="0 if none" className={profileCompletionInputClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Middle Name *</label><input name="middleName" value={formData.middleName} onChange={handleProfileFormChange} placeholder="0 if no middle name" className={profileCompletionInputClass} /></div>
                                 </div>
@@ -827,13 +964,14 @@ export default function ProfileCompletionModal({
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>FB Account Link *</label><input name="facebookUrl" value={formData.facebookUrl} onChange={handleProfileFormChange} placeholder="https://www.facebook.com/yourname" className={profileCompletionInputClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Place of Birth *</label><input name="placeOfBirth" value={formData.placeOfBirth} onChange={handleProfileFormChange} placeholder="City/Municipality, Province" className={profileCompletionInputClass} /></div>
                                 </div>
+                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Religion *</label><input name="religion" value={formData.religion} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                 <div className={profileCompletionGridTwoClass}>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Level *</label><select name="yearLevelApplying" value={formData.yearLevelApplying} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YEAR_LEVEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Civil Status *</label><select name="civilStatus" value={formData.civilStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Single">Single</option><option value="Cohabitation (Live-In)">Cohabitation (Live-In)</option><option value="Was Previously Married But Separated">Was Previously Married But Separated</option><option value="Married">Married</option><option value="Widow/er">Widow/er</option></select></div>
                                 </div>
                                 <div className={profileCompletionGridTwoClass}>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>College *</label><select name="department" value={formData.department} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{visibleCollegeOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Complete Program *</label><select name="course" value={formData.course} onChange={handleProfileFormChange} disabled={!selectedCollege} className={`${profileCompletionInputClass} disabled:cursor-not-allowed disabled:text-slate-400`}><option value="">{selectedCollege ? 'Select' : 'Select college first'}</option>{visibleProgramOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Program *</label><select name="course" value={formData.course} onChange={handleProfileFormChange} disabled={!selectedCollege} className={`${profileCompletionInputClass} disabled:cursor-not-allowed disabled:text-slate-400`}><option value="">{selectedCollege ? 'Select' : 'Select college first'}</option>{visibleProgramOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                 </div>
                             </div>
                         )}

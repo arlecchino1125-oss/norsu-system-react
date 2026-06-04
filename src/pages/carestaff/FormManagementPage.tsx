@@ -240,7 +240,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
 
             {/* Form Editor Modal */}
             {showEditor && editingForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-lg text-gray-900">{editingForm.id ? 'Edit Form' : 'Create Form'}</h3>
@@ -280,7 +280,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
 
             {/* Preview Modal */}
             {showPreview && previewForm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-lg text-gray-900">Preview: {previewForm.title}</h3>
@@ -319,7 +319,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
 
             {/* Delete Confirmation Modal */}
             {deleteConfirm && canArchiveRecords && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center flex-shrink-0"><Trash2 size={24} /></div>
@@ -348,7 +348,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
             )}
 
             {showInactiveModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                             <div>

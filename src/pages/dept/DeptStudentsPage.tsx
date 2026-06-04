@@ -16,6 +16,7 @@ import {
     Users,
     X
 } from 'lucide-react';
+import { buildCsv } from '../../utils/inputSecurity';
 
 const DEPT_STUDENT_NOTES_STORAGE_KEY = 'dept-student-notes-v1';
 const DEPT_STUDENT_FLAGS_STORAGE_KEY = 'dept-student-flags-v1';
@@ -39,21 +40,13 @@ const persistStoredJson = (key: string, value: unknown) => {
     window.localStorage.setItem(key, JSON.stringify(value));
 };
 
-const escapeCsvValue = (value: unknown) => {
-    const text = String(value ?? '');
-    if (/[",\n]/.test(text)) {
-        return `"${text.replace(/"/g, '""')}"`;
-    }
-    return text;
-};
-
 const downloadCsv = (filename: string, headers: string[], rows: Array<Record<string, unknown>>) => {
     if (typeof window === 'undefined') return;
 
-    const csvBody = [
-        headers.join(','),
-        ...rows.map((row) => headers.map((header) => escapeCsvValue(row[header])).join(','))
-    ].join('\n');
+    const csvBody = buildCsv([
+        headers,
+        ...rows.map((row) => headers.map((header) => row[header]))
+    ]);
 
     const blob = new Blob([csvBody], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
