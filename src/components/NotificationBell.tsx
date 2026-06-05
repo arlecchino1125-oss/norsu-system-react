@@ -15,6 +15,7 @@ interface NotificationBellProps {
     notifications: NotificationItem[];
     accentColor?: 'blue' | 'purple' | 'emerald';
     expandProfileUpdates?: boolean;
+    className?: string;
 }
 
 const COLOR_MAP = {
@@ -123,7 +124,7 @@ const parseProfileUpdateNotification = (n: NotificationItem) => {
     };
 };
 
-const NotificationBell = ({ notifications, accentColor = 'blue', expandProfileUpdates = false }: NotificationBellProps) => {
+const NotificationBell = ({ notifications, accentColor = 'blue', expandProfileUpdates = false, className = '' }: NotificationBellProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
     const panelRef = useRef<HTMLDivElement>(null);
@@ -159,11 +160,11 @@ const NotificationBell = ({ notifications, accentColor = 'blue', expandProfileUp
     };
 
     return (
-        <div className="relative">
+        <div className={`relative ${className}`}>
             <button
                 ref={buttonRef}
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 ${colors.hover} hover:shadow-md transition-all relative border border-gray-100`}
+                className={`notification-bell-button w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 ${colors.hover} hover:shadow-md transition-all relative border border-gray-100`}
             >
                 <Bell size={20} />
                 {count > 0 && (
@@ -176,7 +177,7 @@ const NotificationBell = ({ notifications, accentColor = 'blue', expandProfileUp
             {isOpen && (
                 <div
                     ref={panelRef}
-                    className={`absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fade-in-up ring-1 ${colors.ring}`}
+                    className={`notification-bell-panel absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fade-in-up ring-1 ${colors.ring}`}
                     style={{ maxHeight: '70vh' }}
                 >
                     {/* Header */}
