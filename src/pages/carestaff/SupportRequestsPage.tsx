@@ -43,8 +43,7 @@ const SUPPORT_REQUEST_COLUMNS = [
     'care_notes',
     'care_documents_url',
     'dept_notes',
-    'resolution_notes',
-    'course_year'
+    'resolution_notes'
 ].join(', ');
 const SUPPORT_STUDENT_COLUMNS = [
     'student_id',
