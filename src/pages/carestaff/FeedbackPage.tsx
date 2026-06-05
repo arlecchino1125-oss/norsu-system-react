@@ -21,7 +21,6 @@ const EVENT_FEEDBACK_COLUMNS = [
     'date_of_activity',
     'rating',
     'feedback',
-    'comments',
     'q1_score',
     'q2_score',
     'q3_score',
@@ -33,7 +32,6 @@ const EVENT_FEEDBACK_COLUMNS = [
     'open_suggestions',
     'open_comments',
     'submitted_at',
-    'created_at',
     'events(title)'
 ].join(', ');
 const EVENT_FEEDBACK_FILTERED_COLUMNS = EVENT_FEEDBACK_COLUMNS.replace('events(title)', 'events!inner(title)');

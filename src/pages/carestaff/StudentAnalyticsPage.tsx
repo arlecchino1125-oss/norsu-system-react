@@ -15,8 +15,8 @@ interface StudentAnalyticsPageProps {
 
 const FORM_COLUMNS = 'id, title, description, is_active, created_at';
 const DEPARTMENT_COLUMNS = 'id, name';
-const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, options, order_index, is_required';
-const SUBMISSION_COLUMNS = 'id, form_id, student_id, submitted_at, created_at';
+const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, scale_min, scale_max, order_index, created_at';
+const SUBMISSION_COLUMNS = 'id, form_id, student_id, submitted_at';
 const ANSWER_COLUMNS = 'id, submission_id, question_id, answer_text, answer_value';
 
 const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
