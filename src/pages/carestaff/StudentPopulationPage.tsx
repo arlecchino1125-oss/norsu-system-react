@@ -294,7 +294,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
     const { data: departmentRows } = useSupabaseData({
         table: 'departments',
-        select: 'id, name, is_archived',
+        select: 'id, name',
         order: { column: 'name', ascending: true },
         subscribe: true
     });
