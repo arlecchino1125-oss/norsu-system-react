@@ -25,8 +25,7 @@ const EVENT_COLUMNS = [
     'capacity',
     'registration_deadline',
     'is_archived',
-    'archived_at',
-    'archived_reason'
+    'archived_at'
 ].join(', ');
 
 /**
