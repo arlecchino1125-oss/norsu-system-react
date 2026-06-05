@@ -273,7 +273,7 @@ const StudentDashboardView = ({
     showToast,
 }: any) => (
     <>
-        <div className="space-y-6 page-transition sm:space-y-8">
+        <div className="student-dashboard-root space-y-6 page-transition sm:space-y-8">
             {/* Hero Banner (Optimized) */}
             <StudentHero firstName={personalInfo.firstName} />
             {showProfileCompletionBanner && (
@@ -296,19 +296,19 @@ const StudentDashboardView = ({
                     </div>
                 </div>
             )}
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-8">
-                <div className="lg:col-span-2 space-y-5 sm:space-y-6">
+            <div className="student-dashboard-grid grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-8">
+                <div className="student-dashboard-main-column lg:col-span-2 space-y-5 sm:space-y-6">
                     <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '100ms' }}>
-                        <h3 className="font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-blue-500 to-sky-400 text-white rounded-xl shadow-lg shadow-blue-500/20">🔔</span> Latest Announcements</h3>
+                        <h3 className="student-dashboard-card-heading font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-blue-500 to-sky-400 text-white rounded-xl shadow-lg shadow-blue-500/20">🔔</span> Latest Announcements</h3>
                         {(() => {
                             const announcements = eventsList.filter((e: any) => e.type === 'Announcement').slice(0, 3);
                             if (announcements.length === 0) {
                                 return <p className="text-sm text-gray-400 p-4 text-center">No recent announcements.</p>;
                             }
                             return announcements.map((ann: any) => (
-                                <div key={ann.id} className="mb-3 flex flex-col gap-2 rounded-xl border border-purple-100 bg-purple-50/50 p-4 last:mb-0 sm:flex-row sm:items-start sm:justify-between">
+                                <div key={ann.id} className="student-dashboard-list-card mb-3 flex flex-col gap-2 rounded-xl border border-purple-100 bg-purple-50/50 p-4 last:mb-0 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0">
-                                        <h4 className="font-bold text-purple-900 text-sm">{ann.title}</h4>
+                                        <h4 className="break-words font-bold text-purple-900 text-sm">{ann.title}</h4>
                                         <p className="text-xs text-purple-700/70 mt-1 line-clamp-2">{ann.description}</p>
                                     </div>
                                     <span className="text-[10px] font-bold text-purple-400/60 shrink-0 whitespace-nowrap sm:ml-4">
@@ -319,20 +319,20 @@ const StudentDashboardView = ({
                         })()}
                     </div>
                     <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '200ms' }}>
-                        <h3 className="font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-xl shadow-lg shadow-violet-500/20">🏢</span> Office Logbook</h3>
+                        <h3 className="student-dashboard-card-heading font-bold flex items-center gap-2 mb-4"><span className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-xl shadow-lg shadow-violet-500/20">🏢</span> Office Logbook</h3>
                         {activeVisit ? (<div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center"><p className="text-sm font-bold text-emerald-800 mb-1">You are currently at the office</p><p className="text-xs text-emerald-600 mb-3">Reason: {activeVisit.reason}</p><button disabled={isCompletingOfficeVisit} onClick={handleOfficeTimeOut} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs hover:from-red-400 hover:to-rose-500 shadow-lg shadow-red-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isCompletingOfficeVisit ? 'Timing Out...' : 'Time Out'}</button></div>) : <button onClick={handleOfficeTimeIn} className="w-full bg-gradient-to-r from-blue-500 to-sky-400 text-white py-3 rounded-xl font-bold text-sm hover:from-blue-400 hover:to-sky-300 shadow-lg shadow-blue-500/20 btn-press transition-all">Time In for Office Visit</button>}
                     </div>
-                    {notifications.length > 0 && (<div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-orange-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '300ms' }}><h3 className="font-bold flex items-center gap-2 mb-4 text-orange-600"><span className="p-2 bg-gradient-to-br from-orange-400 to-amber-500 text-white rounded-xl shadow-lg shadow-orange-500/20">📢</span> Notifications</h3><div className="space-y-2">{notifications.map((n: any) => <div key={n.id} className="text-xs p-3 bg-orange-50 border border-orange-100 rounded-xl text-gray-700">{n.message}</div>)}</div></div>)}
+                    {notifications.length > 0 && (<div className="student-surface-card bg-white/80 backdrop-blur-sm rounded-2xl border border-orange-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '300ms' }}><h3 className="student-dashboard-card-heading font-bold flex items-center gap-2 mb-4 text-orange-600"><span className="p-2 bg-gradient-to-br from-orange-400 to-amber-500 text-white rounded-xl shadow-lg shadow-orange-500/20">📢</span> Notifications</h3><div className="space-y-2">{notifications.map((n: any) => <div key={n.id} className="student-dashboard-list-card text-xs p-3 bg-orange-50 border border-orange-100 rounded-xl text-gray-700">{n.message}</div>)}</div></div>)}
                 </div>
-                <div className="space-y-5 sm:space-y-6">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '200ms' }}><h3 className="font-bold mb-4 flex items-center gap-2"><span className="p-2 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-xl shadow-lg shadow-emerald-500/20">⚡</span> Quick Access</h3><div className="space-y-3">{[{ id: 'assessment', label: 'Needs Assessment', color: 'blue' }, { id: 'scholarship', label: 'Scholarship', color: 'green' }, { id: 'counseling', label: 'Counseling', color: 'purple' }].map((item: any) => { const colors = (colorMap as any)[item.color]; return (<button key={item.label} onClick={() => setActiveView(item.id)} className="w-full text-left p-3 rounded-xl border border-purple-100/30 hover:border-blue-200 transition-all group flex items-center gap-3 hover:bg-purple-50/50"><div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${colors.bg} ${colors.text} ${colors.hoverBg} group-hover:text-white transition-colors shadow-sm`}>&gt;</div><div className="text-xs font-bold">{item.label}</div></button>); })}</div></div>
-                    <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 rounded-2xl p-4 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden animate-fade-in-up sm:p-6" style={{ animationDelay: '350ms' }}><div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl"></div><h4 className="font-bold text-sm mb-2 relative z-10">💡 Campus Tip</h4><p className="text-xs text-purple-200/60 leading-relaxed font-light relative z-10">"Always remember to time-in and time-out of events to ensure your attendance is credited."</p></div>
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '400ms' }}>
-                        <h3 className="font-bold mb-4 flex items-center gap-2"><span className="p-2 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-xl shadow-lg shadow-indigo-500/20">📅</span> Events for You</h3>
+                <div className="student-dashboard-side-column space-y-5 sm:space-y-6">
+                    <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '200ms' }}><h3 className="student-dashboard-card-heading font-bold mb-4 flex items-center gap-2"><span className="p-2 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-xl shadow-lg shadow-emerald-500/20">⚡</span> Quick Access</h3><div className="space-y-3">{[{ id: 'assessment', label: 'Needs Assessment', color: 'blue' }, { id: 'scholarship', label: 'Scholarship', color: 'green' }, { id: 'counseling', label: 'Counseling', color: 'purple' }].map((item: any) => { const colors = (colorMap as any)[item.color]; return (<button key={item.label} onClick={() => setActiveView(item.id)} className="student-dashboard-quick-link w-full text-left p-3 rounded-xl border border-purple-100/30 hover:border-blue-200 transition-all group flex items-center gap-3 hover:bg-purple-50/50"><div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${colors.bg} ${colors.text} ${colors.hoverBg} group-hover:text-white transition-colors shadow-sm`}>&gt;</div><div className="text-xs font-bold">{item.label}</div></button>); })}</div></div>
+                    <div className="student-highlight-card bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 rounded-2xl p-4 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden animate-fade-in-up sm:p-6" style={{ animationDelay: '350ms' }}><div className="student-highlight-decoration absolute -top-8 -right-8 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl"></div><h4 className="font-bold text-sm mb-2 relative z-10">💡 Campus Tip</h4><p className="text-xs text-purple-200/60 leading-relaxed font-light relative z-10">"Always remember to time-in and time-out of events to ensure your attendance is credited."</p></div>
+                    <div className="student-surface-card bg-white/90 backdrop-blur-sm rounded-2xl border border-blue-100/50 p-4 shadow-sm card-hover animate-fade-in-up sm:p-6" style={{ animationDelay: '400ms' }}>
+                        <h3 className="student-dashboard-card-heading font-bold mb-4 flex items-center gap-2"><span className="p-2 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-xl shadow-lg shadow-indigo-500/20">📅</span> Events for You</h3>
                         {(() => {
                             const nextActivity = (eventsList || []).find((item: any) => isAttendanceActivityType(item.type));
                             return nextActivity ? (
-                                <div className="border border-purple-100/50 rounded-2xl p-4 bg-gradient-to-br from-white to-purple-50/50 sm:p-5">
+                                <div className="student-dashboard-event-preview border border-purple-100/50 rounded-2xl p-4 bg-gradient-to-br from-white to-purple-50/50 sm:p-5">
                                     <span className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase">{nextActivity.location || nextActivity.type || 'Campus Event'}</span>
                                     <h4 className="font-bold mt-3">{nextActivity.title}</h4>
                                     <p className="text-[11px] text-gray-500 mt-1">{nextActivity.event_time}</p>

@@ -610,9 +610,9 @@ const StudentHero = ({ firstName }: any) => {
     const { time: formattedTime, period } = formatTimeParts(time);
 
     return (
-        <div className={`bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-6 sm:p-8 text-white flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between shadow-2xl shadow-blue-500/20 relative overflow-hidden ${isCompactHeroLayout ? '' : 'animate-fade-in-up'}`}>
-            <div className={`absolute top-0 right-0 w-72 h-72 bg-sky-400/20 rounded-full -mr-20 -mt-20 blur-3xl ${isCompactHeroLayout ? '' : 'animate-float'}`}></div>
-            <div className={`absolute bottom-0 left-0 w-48 h-48 bg-blue-400/15 rounded-full -ml-10 -mb-10 blur-3xl ${isCompactHeroLayout ? '' : 'animate-blob'}`}></div>
+        <div className={`student-dashboard-hero bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 rounded-3xl p-6 sm:p-8 text-white flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between shadow-2xl shadow-blue-500/20 relative overflow-hidden ${isCompactHeroLayout ? '' : 'animate-fade-in-up'}`}>
+            <div className={`student-hero-decoration absolute top-0 right-0 w-72 h-72 bg-sky-400/20 rounded-full -mr-20 -mt-20 blur-3xl ${isCompactHeroLayout ? '' : 'animate-float'}`}></div>
+            <div className={`student-hero-decoration absolute bottom-0 left-0 w-48 h-48 bg-blue-400/15 rounded-full -ml-10 -mb-10 blur-3xl ${isCompactHeroLayout ? '' : 'animate-blob'}`}></div>
             <div className="relative z-10 max-w-full">
                 <h2 className="text-2xl font-extrabold leading-tight sm:text-3xl sm:leading-tight">
                     Welcome back, <span className="bg-gradient-to-r from-sky-200 to-white bg-clip-text text-transparent">{firstName}</span>!
@@ -3258,7 +3258,7 @@ export default function StudentPortal() {
     const handleProfileCompletion = (..._args: any[]) => undefined;
 
     return (
-        <div className={`flex h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-gray-800 font-sans overflow-hidden relative ${profileCompletionGateActive ? 'pointer-events-none select-none' : ''}`}>
+        <div className={`student-portal-shell flex h-[100dvh] min-h-[100dvh] bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-gray-800 font-sans overflow-hidden relative ${profileCompletionGateActive ? 'pointer-events-none select-none' : ''}`}>
 
             {/* Onboarding Tour Overlay */}
             {showTour && !profileCompletionGateActive && !profileCompletionReminderVisible && createPortal(
@@ -3842,10 +3842,10 @@ export default function StudentPortal() {
             )}
 
             {/* Sidebar Overlay */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-transparent z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+            {isSidebarOpen && <div className="student-sidebar-overlay fixed inset-0 bg-transparent z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-30 w-[17rem] max-w-[calc(100vw-1rem)] bg-gradient-student-sidebar transform transition-all duration-500 ease-out sm:w-72 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>
+            <aside className={`student-portal-sidebar fixed inset-y-0 left-0 z-30 w-[17rem] max-w-[calc(100vw-1rem)] bg-gradient-student-sidebar transform transition-all duration-500 ease-out sm:w-72 flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-blue-900/30' : '-translate-x-full'}`}>
                 {/* Logo Area */}
                 <div className="p-4 flex items-center justify-between border-b border-white/10 sm:p-6">
                     <NorsuBrand title="Student Portal" subtitle="NORSU-G CARE student services" accent="blue" size="sm" className="min-w-0" />
@@ -3873,23 +3873,23 @@ export default function StudentPortal() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden">
+            <main className="student-portal-main flex-1 flex flex-col h-full overflow-hidden">
                 {/* Premium Header */}
-                <header className={`h-14 relative flex items-center justify-between px-4 z-10 sm:h-16 sm:px-6 lg:px-10 ${isCompactPortalLayout ? 'bg-white border-b border-blue-100/70' : 'glass gradient-border-blue'}`}>
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-                        <div>
+                <header className={`student-portal-header h-14 relative flex items-center justify-between px-4 z-10 sm:h-16 sm:px-6 lg:px-10 ${isCompactPortalLayout ? 'bg-white border-b border-blue-100/70' : 'glass gradient-border-blue'}`}>
+                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                        <button onClick={() => setIsSidebarOpen(true)} className="student-portal-menu-button shrink-0 p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+                        <div className="student-portal-title min-w-0">
                             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-sky-500/70 sm:text-[10px] sm:tracking-[0.18em]">NORSU-G CARE</p>
-                            <h2 className="text-lg font-bold gradient-text-blue sm:text-xl">{STUDENT_VIEW_LABELS[activeView] || activeView}</h2>
+                            <h2 className="truncate text-lg font-bold gradient-text-blue sm:text-xl">{STUDENT_VIEW_LABELS[activeView] || activeView}</h2>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="student-portal-header-actions flex shrink-0 items-center gap-2 sm:gap-3">
                         <img src="/carecenter.png" alt="NORSU-G CARE" className="hidden h-10 w-10 rounded-full border border-blue-100 bg-white object-cover shadow-sm md:block" />
                         <button
                             type="button"
                             onClick={handleRefreshCurrentView}
                             disabled={isRefreshingView}
-                            className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-2.5 py-2 text-xs font-semibold text-blue-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:text-sm"
+                            className="student-portal-header-action inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-2.5 py-2 text-xs font-semibold text-blue-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:text-sm"
                         >
                             <svg
                                 className={`h-4 w-4 ${isRefreshingView ? 'animate-spin' : ''}`}
@@ -3901,12 +3901,14 @@ export default function StudentPortal() {
                             </svg>
                             <span className="hidden sm:inline">{isRefreshingView ? 'Refreshing...' : 'Refresh View'}</span>
                         </button>
-                        <NotificationBell notifications={notifications} accentColor="blue" />
+                        <div className="student-portal-notification">
+                            <NotificationBell notifications={notifications} accentColor="blue" />
+                        </div>
                     </div>
                 </header>
 
                 <div
-                    className={`flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' || isCompactPortalLayout ? '' : 'page-transition'}`}
+                    className={`student-portal-scroll flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' || isCompactPortalLayout ? '' : 'page-transition'}`}
                     style={activeView === 'profile' ? { transform: 'none' } : undefined}
                 >
 
@@ -4008,7 +4010,7 @@ export default function StudentPortal() {
                 {/* FAB TRIGGER FOR COMMAND HUB */}
                 <button
                     onClick={() => setShowCommandHub(true)}
-                    className={`fixed bottom-4 right-4 z-40 h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-110 transition-all duration-300 flex items-center justify-center group sm:bottom-6 sm:right-6 sm:h-14 sm:w-14 ${showCommandHub ? 'hidden' : (isCompactPortalLayout ? '' : 'animate-float')}`}
+                    className={`student-command-fab fixed bottom-4 right-4 z-40 h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-xl shadow-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-110 transition-all duration-300 flex items-center justify-center group sm:bottom-6 sm:right-6 sm:h-14 sm:w-14 ${showCommandHub ? 'hidden' : (isCompactPortalLayout ? '' : 'animate-float')}`}
                 >
                     <svg className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
