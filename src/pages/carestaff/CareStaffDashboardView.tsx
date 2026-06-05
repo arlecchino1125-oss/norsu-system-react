@@ -105,13 +105,13 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { count: supportForCareCount },
                     { count: profileUpdateCount }
                 ] = await Promise.all([
-                    supabase.from('students').select('*', { count: 'exact', head: true }).eq('is_archived', false),
-                    supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
-                    supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
-                    supabase.from('events').select('*', { count: 'exact', head: true }).eq('is_archived', false),
-                    supabase.from('counseling_requests').select('*', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
-                    supabase.from('support_requests').select('*', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
-                    supabase.from('notifications').select('*', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%')
+                    supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+                    supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
+                    supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
+                    supabase.from('events').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+                    supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
+                    supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
+                    supabase.from('notifications').select('id', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%')
                 ]);
 
                 if (!isMounted) return;
