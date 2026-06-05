@@ -26,6 +26,33 @@ interface EventsPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
+const EVENT_ATTENDANCE_COLUMNS = 'id, event_id, student_id, student_name, email, department, course, year_level, section, time_in, time_out, status';
+const EVENT_REGISTRATION_COLUMNS = 'id, event_id, student_id, student_name, email, department, course, year_level, section, status, registered_at, cancelled_at, updated_at';
+const EVENT_FEEDBACK_COLUMNS = [
+    'id',
+    'event_id',
+    'student_id',
+    'student_name',
+    'sex',
+    'college',
+    'date_of_activity',
+    'rating',
+    'feedback',
+    'comments',
+    'q1_score',
+    'q2_score',
+    'q3_score',
+    'q4_score',
+    'q5_score',
+    'q6_score',
+    'q7_score',
+    'open_best',
+    'open_suggestions',
+    'open_comments',
+    'submitted_at',
+    'created_at'
+].join(', ');
+
 const createEmptyEvent = (): Partial<SystemEvent> => ({
     title: '',
     description: '',
@@ -314,7 +341,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
         setSelectedEventTitle(item.title);
         setSelectedAttendanceEvent(item);
         try {
-            const { data, error } = await supabase.from('event_attendance').select('*').eq('event_id', item.id).order('time_in', { ascending: false });
+            const { data, error } = await supabase.from('event_attendance').select(EVENT_ATTENDANCE_COLUMNS).eq('event_id', item.id).order('time_in', { ascending: false });
             if (error) throw error;
 
             // Enrich with year_level, section, course, department from students table
@@ -372,12 +399,12 @@ const EventsPage = ({ functions }: EventsPageProps) => {
             ] = await Promise.all([
                 supabase
                     .from('event_registrations')
-                    .select('*')
+                    .select(EVENT_REGISTRATION_COLUMNS)
                     .eq('event_id', item.id)
                     .order('registered_at', { ascending: false }),
                 supabase
                     .from('event_attendance')
-                    .select('*')
+                    .select(EVENT_ATTENDANCE_COLUMNS)
                     .eq('event_id', item.id)
             ]);
 
@@ -407,7 +434,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
     const handleViewFeedback = async (item: SystemEvent) => {
         setSelectedEventTitle(item.title);
         try {
-            const { data, error } = await supabase.from('event_feedback').select('*').eq('event_id', item.id).order('submitted_at', { ascending: false });
+            const { data, error } = await supabase.from('event_feedback').select(EVENT_FEEDBACK_COLUMNS).eq('event_id', item.id).order('submitted_at', { ascending: false });
             if (error) throw error;
             setFeedbackList(data || []);
             setShowFeedbackModal(true);

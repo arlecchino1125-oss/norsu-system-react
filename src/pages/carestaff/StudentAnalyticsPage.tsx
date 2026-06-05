@@ -13,6 +13,12 @@ interface StudentAnalyticsPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
+const FORM_COLUMNS = 'id, title, description, status, created_at, updated_at';
+const DEPARTMENT_COLUMNS = 'id, name, is_archived';
+const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, options, order_index, is_required';
+const SUBMISSION_COLUMNS = 'id, form_id, student_id, submitted_at, created_at';
+const ANSWER_COLUMNS = 'id, submission_id, question_id, answer_text, answer_value';
+
 const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
     const [forms, setForms] = useState<any[]>([]);
     const [selectedFormId, setSelectedFormId] = useState<any>(null);
@@ -26,7 +32,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
     const [filteredData, setFilteredData] = useState<any>({ submissions: [], answers: [] });
 
     const refreshForms = async () => {
-        const { data } = await supabase.from('forms').select('*').order('created_at', { ascending: false });
+        const { data } = await supabase.from('forms').select(FORM_COLUMNS).order('created_at', { ascending: false });
         if (data) {
             setForms(data);
             setSelectedFormId((current: any) => {
@@ -45,7 +51,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
     const refreshDepartments = async () => {
         const { data } = await supabase
             .from('departments')
-            .select('*')
+            .select(DEPARTMENT_COLUMNS)
             .order('name');
         if (data) setAllDepartments(data.filter((department: any) => !department?.is_archived));
     };
@@ -67,7 +73,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
 
     useEffect(() => {
         const loadForms = async () => {
-            const { data } = await supabase.from('forms').select('*').order('created_at', { ascending: false });
+            const { data } = await supabase.from('forms').select(FORM_COLUMNS).order('created_at', { ascending: false });
             if (data && data.length > 0) {
                 setForms(data);
                 setSelectedFormId(data[0].id);
@@ -104,7 +110,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
     }, [selectedFormId]);
 
     const fetchQuestions = async () => {
-        const { data } = await supabase.from('questions').select('*').eq('form_id', selectedFormId).order('order_index');
+        const { data } = await supabase.from('questions').select(QUESTION_COLUMNS).eq('form_id', selectedFormId).order('order_index');
         setQuestions(data || []);
     };
 
@@ -160,7 +166,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
             // 1. Fetch Submissions
             const { data: subs, error: subError } = await supabase
                 .from('submissions')
-                .select('*')
+                .select(SUBMISSION_COLUMNS)
                 .eq('form_id', selectedFormId);
 
             if (subError) throw subError;
@@ -186,7 +192,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
             if (subIds.length > 0) {
                 const { data: ans, error: ansError } = await supabase
                     .from('answers')
-                    .select('*')
+                    .select(ANSWER_COLUMNS)
                     .in('submission_id', subIds);
 
                 if (ansError) throw ansError;
@@ -221,7 +227,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
 
                 const { data: prevSubs } = await supabase
                     .from('submissions')
-                    .select('*')
+                    .select(SUBMISSION_COLUMNS)
                     .eq('form_id', selectedFormId)
                     .gte('submitted_at', prevStart.toISOString())
                     .lte('submitted_at', prevEnd.toISOString());

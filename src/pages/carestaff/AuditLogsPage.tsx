@@ -5,6 +5,8 @@ import { formatAuditDetails, isTrackedStaffAuditRole } from '../../lib/staffAudi
 import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 
+const AUDIT_LOG_COLUMNS = 'id, created_at, user_name, actor_role, action, details';
+
 const AuditLogsPage = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -13,7 +15,7 @@ const AuditLogsPage = () => {
         const fetchLogs = async () => {
             const { data } = await supabase
                 .from('audit_logs')
-                .select('*')
+                .select(AUDIT_LOG_COLUMNS)
                 .in('actor_role', ['Care Staff', 'Department Head'])
                 .order('created_at', { ascending: false })
                 .limit(100);

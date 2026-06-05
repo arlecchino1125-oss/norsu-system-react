@@ -2,6 +2,33 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { SystemEvent } from '../types/models';
 
+const EVENT_COLUMNS = [
+    'id',
+    'created_at',
+    'title',
+    'description',
+    'event_date',
+    'event_time',
+    'end_time',
+    'location',
+    'latitude',
+    'longitude',
+    'type',
+    'participation_mode',
+    'audience_type',
+    'audience_departments',
+    'audience_courses',
+    'audience_year_levels',
+    'audience_sections',
+    'attendance_required',
+    'allow_walk_ins',
+    'capacity',
+    'registration_deadline',
+    'is_archived',
+    'archived_at',
+    'archived_reason'
+].join(', ');
+
 /**
  * Returns true if the event's date (and optional end_time) have passed.
  * An event is "expired" when:
@@ -47,12 +74,12 @@ export function useEventsData() {
         try {
             const { data: evs, error: fetchError } = await supabase
                 .from('events')
-                .select('*')
+                .select(EVENT_COLUMNS)
                 .order('created_at', { ascending: false });
 
             if (fetchError) throw fetchError;
 
-            const eventsData = evs || [];
+            const eventsData = (evs || []) as any[];
             if (eventsData.length > 0) {
                 const eventIds = eventsData
                     .map((event) => event.id)

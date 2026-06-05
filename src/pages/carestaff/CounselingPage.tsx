@@ -13,25 +13,52 @@ import {
 } from 'lucide-react';
 import type { CareStaffDashboardFunctions } from './types';
 import {
+    COUNSELING_AWAITING_DEPT_STATUSES,
+    COUNSELING_CALENDAR_STATUSES,
     COUNSELING_STATUS,
     getCounselingScheduledDate,
     isCareStaffCounselingSchedulable,
     isCounselingAwaitingDept
 } from '../../utils/workflow';
+import PaginationControls from '../../components/PaginationControls';
 
 interface CounselingPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToastMessage' | 'handleViewProfile'>;
 }
 
+const COUNSELING_REQUESTS_PAGE_SIZE = 12;
+const COUNSELING_REQUEST_COLUMNS = [
+    'id',
+    'created_at',
+    'updated_at',
+    'student_id',
+    'student_name',
+    'request_type',
+    'description',
+    'status',
+    'department',
+    'course_year',
+    'contact_number',
+    'scheduled_date',
+    'schedule_date',
+    'resolution_notes',
+    'confidential_notes',
+    'feedback',
+    'reason_for_referral',
+    'personal_actions_taken',
+    'date_duration_of_concern',
+    'referred_by',
+    'referrer_contact_number',
+    'relationship_with_student',
+    'actions_made',
+    'date_duration_of_observations',
+    'referrer_signature'
+].join(', ');
+
 const CounselingPage = ({ functions }: CounselingPageProps) => {
     const { handleViewProfile, showToastMessage } = functions;
     const sortCounselingByCreatedAt = (rows: any[]) =>
         [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
-    const upsertCounselingRequest = (rows: any[], nextRow: any) => {
-        const normalized = rows.filter((row: any) => row.id !== nextRow.id);
-        return sortCounselingByCreatedAt([nextRow, ...normalized]);
-    };
 
     const getCounselingStatusTone = (status: string) => {
         if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
@@ -52,6 +79,10 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
 
     // Data State
     const [counselingReqs, setCounselingReqs] = useState<any[]>([]);
+    const [counselingTotal, setCounselingTotal] = useState(0);
+    const [counselingCounts, setCounselingCounts] = useState<Record<string, number>>({});
+    const [currentPage, setCurrentPage] = useState(1);
+    const [refreshTick, setRefreshTick] = useState(0);
     const [loading, setLoading] = useState<boolean>(true);
     const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.REFERRED);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
@@ -87,13 +118,66 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
         });
     };
 
+    const applyCounselingTabFilter = (query: any, tab = counselingTab) => {
+        if (tab === COUNSELING_STATUS.SUBMITTED) {
+            return query.in('status', [...COUNSELING_AWAITING_DEPT_STATUSES]);
+        }
+
+        if (tab === 'Calendar') {
+            return query.in('status', [...COUNSELING_CALENDAR_STATUSES]);
+        }
+
+        return query.eq('status', tab);
+    };
+
+    const fetchCounselingCounts = async () => {
+        const countForTab = async (tab: string) => {
+            let query: any = supabase
+                .from('counseling_requests')
+                .select('id', { count: 'exact', head: true });
+            query = applyCounselingTabFilter(query, tab);
+            const { count, error } = await query;
+            if (error) throw error;
+            return count || 0;
+        };
+
+        const [awaitingDept, referred, staffScheduled, deptScheduled, completed, rejected] = await Promise.all([
+            countForTab(COUNSELING_STATUS.SUBMITTED),
+            countForTab(COUNSELING_STATUS.REFERRED),
+            countForTab(COUNSELING_STATUS.STAFF_SCHEDULED),
+            countForTab(COUNSELING_STATUS.SCHEDULED),
+            countForTab(COUNSELING_STATUS.COMPLETED),
+            countForTab(COUNSELING_STATUS.REJECTED)
+        ]);
+
+        setCounselingCounts({
+            awaitingDept,
+            [COUNSELING_STATUS.REFERRED]: referred,
+            [COUNSELING_STATUS.STAFF_SCHEDULED]: staffScheduled,
+            [COUNSELING_STATUS.SCHEDULED]: deptScheduled,
+            [COUNSELING_STATUS.COMPLETED]: completed,
+            [COUNSELING_STATUS.REJECTED]: rejected,
+            Calendar: staffScheduled + deptScheduled
+        });
+    };
+
     // Fetch counseling requests
     const fetchCounseling = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase.from('counseling_requests').select('*').order('created_at', { ascending: false });
+            const from = (currentPage - 1) * COUNSELING_REQUESTS_PAGE_SIZE;
+            const to = from + COUNSELING_REQUESTS_PAGE_SIZE - 1;
+            let query: any = supabase
+                .from('counseling_requests')
+                .select(COUNSELING_REQUEST_COLUMNS, { count: 'exact' });
+            query = applyCounselingTabFilter(query);
+            const { data, error, count } = await query
+                .order('created_at', { ascending: false })
+                .range(from, to);
             if (error) throw error;
             setCounselingReqs(sortCounselingByCreatedAt(data || []));
+            setCounselingTotal(count || 0);
+            await fetchCounselingCounts();
         } catch (error: any) {
             console.error('Error fetching counseling requests:', error);
             showToastMessage('Failed to load counseling requests', 'error');
@@ -104,18 +188,17 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
 
     useEffect(() => {
         fetchCounseling();
+    }, [counselingTab, currentPage, refreshTick]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [counselingTab]);
+
+    useEffect(() => {
         return createDeferredChannelCleanup(
             () => supabase.channel('care_counseling_isolated')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'counseling_requests' }, (payload: any) => {
-                    if (payload.eventType === 'DELETE') {
-                        setCounselingReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
-                        return;
-                    }
-
-                    if (payload.new) {
-                        setCounselingReqs((prev) => upsertCounselingRequest(prev, payload.new));
-                    }
+                    setRefreshTick((tick) => tick + 1);
                 })
                 .subscribe(),
             (channel) => supabase.removeChannel(channel)
@@ -308,6 +391,19 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
         showToastMessage('Referral form downloaded', 'success');
     };
 
+    const totalRequestCount = (counselingCounts.awaitingDept || 0)
+        + (counselingCounts[COUNSELING_STATUS.REFERRED] || 0)
+        + (counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0)
+        + (counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0)
+        + (counselingCounts[COUNSELING_STATUS.COMPLETED] || 0)
+        + (counselingCounts[COUNSELING_STATUS.REJECTED] || 0);
+
+    const visibleCounselingReqs = counselingReqs.filter(r =>
+        counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingDept(r.status)
+            : counselingTab === 'Calendar' ? true
+                : r.status === counselingTab
+    );
+
     return (
         <>
             <div>
@@ -329,11 +425,11 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                 {/* Stats Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
                     {[
-                        { label: 'Total Requests', value: counselingReqs.length, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-                        { label: 'Awaiting Dept', value: counselingReqs.filter(r => isCounselingAwaitingDept(r.status)).length, icon: <Clock size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-                        { label: 'Referred', value: counselingReqs.filter(r => r.status === COUNSELING_STATUS.REFERRED).length, icon: <Send size={20} />, color: 'text-purple-500', bg: 'bg-purple-50' },
-                        { label: 'Scheduled', value: counselingReqs.filter(r => r.status === COUNSELING_STATUS.SCHEDULED || r.status === COUNSELING_STATUS.STAFF_SCHEDULED).length, icon: <Calendar size={20} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-                        { label: 'Completed', value: counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).length, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
+                        { label: 'Total Requests', value: totalRequestCount, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
+                        { label: 'Awaiting Dept', value: counselingCounts.awaitingDept || 0, icon: <Clock size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+                        { label: 'Referred', value: counselingCounts[COUNSELING_STATUS.REFERRED] || 0, icon: <Send size={20} />, color: 'text-purple-500', bg: 'bg-purple-50' },
+                        { label: 'Scheduled', value: counselingCounts.Calendar || 0, icon: <Calendar size={20} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                        { label: 'Completed', value: counselingCounts[COUNSELING_STATUS.COMPLETED] || 0, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
                     ].map((stat, idx) => (
                         <div key={idx} className="card-hover bg-white/80 backdrop-blur-sm rounded-xl p-5 border border-gray-100/80 shadow-sm animate-fade-in-up" style={{ animationDelay: `${idx * 80}ms` }}>
                             <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-3 ${stat.color} shadow-sm`}>{stat.icon}</div>
@@ -346,12 +442,12 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                 {/* Tab Bar */}
                 <div className="flex flex-wrap items-center gap-2 mb-8">
                     {[
-                        { id: COUNSELING_STATUS.REFERRED, label: `Forwarded (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.REFERRED).length})` },
-                        { id: COUNSELING_STATUS.STAFF_SCHEDULED, label: `Staff Scheduled (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.STAFF_SCHEDULED).length})` },
-                        { id: COUNSELING_STATUS.SUBMITTED, label: `Awaiting Dept (${counselingReqs.filter(r => isCounselingAwaitingDept(r.status)).length})` },
-                        { id: COUNSELING_STATUS.SCHEDULED, label: `Dept Scheduled (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.SCHEDULED).length})` },
-                        { id: COUNSELING_STATUS.COMPLETED, label: `Completed (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).length})` },
-                        { id: COUNSELING_STATUS.REJECTED, label: `Rejected (${counselingReqs.filter(r => r.status === COUNSELING_STATUS.REJECTED).length})` },
+                        { id: COUNSELING_STATUS.REFERRED, label: `Forwarded (${counselingCounts[COUNSELING_STATUS.REFERRED] || 0})` },
+                        { id: COUNSELING_STATUS.STAFF_SCHEDULED, label: `Staff Scheduled (${counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0})` },
+                        { id: COUNSELING_STATUS.SUBMITTED, label: `Awaiting Dept (${counselingCounts.awaitingDept || 0})` },
+                        { id: COUNSELING_STATUS.SCHEDULED, label: `Dept Scheduled (${counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0})` },
+                        { id: COUNSELING_STATUS.COMPLETED, label: `Completed (${counselingCounts[COUNSELING_STATUS.COMPLETED] || 0})` },
+                        { id: COUNSELING_STATUS.REJECTED, label: `Rejected (${counselingCounts[COUNSELING_STATUS.REJECTED] || 0})` },
                         { id: 'Calendar', label: 'Calendar View' },
                     ].map(tab => (
                         <button key={tab.id} onClick={() => setCounselingTab(tab.id)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${counselingTab === tab.id ? 'bg-white text-purple-700 shadow-md shadow-purple-100 border border-purple-200' : 'bg-gray-100 text-gray-600 hover:text-purple-600 hover:bg-white/80 border border-transparent'}`}>
@@ -366,10 +462,10 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                     <div className="text-center py-8 text-gray-500">Loading requests...</div>
                 ) : counselingTab === COUNSELING_STATUS.COMPLETED ? (
                     <div className="space-y-4 animate-fade-in">
-                        {counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).length === 0 ? (
+                        {visibleCounselingReqs.length === 0 ? (
                             <div className="text-center py-8 text-gray-400">No completed requests found.</div>
                         ) : (
-                            counselingReqs.filter(r => r.status === COUNSELING_STATUS.COMPLETED).map(req => (
+                            visibleCounselingReqs.map(req => (
                                 <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-4">
@@ -378,7 +474,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-900">{req.student_name}</h3>
-                                                <p className="text-xs text-gray-500">{req.request_type} • Resolved: {formatDate(req.updated_at || req.created_at)}</p>
+                                                <p className="text-xs text-gray-500">{req.request_type} â€¢ Resolved: {formatDate(req.updated_at || req.created_at)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -394,11 +490,11 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                             ))
                         )}
                     </div>
-                ) : counselingReqs.filter(r => counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingDept(r.status) : r.status === counselingTab).length === 0 ? (
+                ) : visibleCounselingReqs.length === 0 ? (
                     <div className="text-center py-8 text-gray-400">No requests in this category.</div>
                 ) : (
                     <div className="space-y-4">
-                        {counselingReqs.filter(r => counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingDept(r.status) : r.status === counselingTab).map(req => (
+                        {visibleCounselingReqs.map(req => (
                             <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
@@ -407,7 +503,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-gray-900">{req.student_name}</h3>
-                                            <p className="text-xs text-gray-500">{req.request_type} • {formatDate(req.created_at)}{getCounselingScheduledDate(req) ? ` • Scheduled: ${formatDate(getCounselingScheduledDate(req) as string)}` : ''}</p>
+                                            <p className="text-xs text-gray-500">{req.request_type} â€¢ {formatDate(req.created_at)}{getCounselingScheduledDate(req) ? ` â€¢ Scheduled: ${formatDate(getCounselingScheduledDate(req) as string)}` : ''}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -433,9 +529,18 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                         ))}
                     </div>
                 )}
+                <div className="mt-6 rounded-xl border border-gray-100 shadow-sm">
+                    <PaginationControls
+                        page={currentPage}
+                        pageSize={COUNSELING_REQUESTS_PAGE_SIZE}
+                        total={counselingTotal}
+                        isLoading={loading || isRefreshingData}
+                        onPageChange={setCurrentPage}
+                    />
+                </div>
             </div>
 
-            {/* Read-only Form Modal — Referral or Student Form */}
+            {/* Read-only Form Modal â€” Referral or Student Form */}
             {showCounselingFormModal && viewFormReq && (
                 <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50 animate-fade-in-up">

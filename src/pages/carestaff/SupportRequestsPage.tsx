@@ -17,9 +17,11 @@ import {
 } from '../../utils/storageAssets';
 import type { CareStaffDashboardFunctions } from './types';
 import {
+    CARE_STAFF_SUPPORT_DEPT_UPDATE_STATUSES,
     SUPPORT_STATUS,
     isCareStaffSupportDeptUpdate
 } from '../../utils/workflow';
+import PaginationControls from '../../components/PaginationControls';
 
 interface SupportRequestsPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
@@ -27,6 +29,44 @@ interface SupportRequestsPageProps {
 
 const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
 const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
+const SUPPORT_REQUESTS_PAGE_SIZE = 12;
+const SUPPORT_REQUEST_COLUMNS = [
+    'id',
+    'created_at',
+    'student_id',
+    'student_name',
+    'department',
+    'support_type',
+    'description',
+    'documents_url',
+    'status',
+    'care_notes',
+    'care_documents_url',
+    'dept_notes',
+    'resolution_notes',
+    'course_year'
+].join(', ');
+const SUPPORT_STUDENT_COLUMNS = [
+    'student_id',
+    'first_name',
+    'last_name',
+    'middle_name',
+    'suffix',
+    'dob',
+    'mobile',
+    'email',
+    'address',
+    'street',
+    'city',
+    'province',
+    'zip_code',
+    'region',
+    'course',
+    'year_level',
+    'priority_course',
+    'alt_course_1',
+    'alt_course_2'
+].join(', ');
 
 const isSupportedDocumentFile = (file: File) =>
     file.type.startsWith('image/') || file.type === 'application/pdf';
@@ -36,13 +76,13 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     const sortSupportByCreatedAt = (rows: any[]) =>
         [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-    const upsertSupportRequest = (rows: any[], nextRow: any) => {
-        const normalized = rows.filter((row: any) => row.id !== nextRow.id);
-        return sortSupportByCreatedAt([nextRow, ...normalized]);
-    };
-
     // Data State
     const [supportReqs, setSupportReqs] = useState<any[]>([]);
+    const [supportTotal, setSupportTotal] = useState(0);
+    const [supportCounts, setSupportCounts] = useState<Record<string, number>>({});
+    const [currentPage, setCurrentPage] = useState(1);
+    const [supportLoading, setSupportLoading] = useState(true);
+    const [refreshTick, setRefreshTick] = useState(0);
     const [supportTab, setSupportTab] = useState<string>(SUPPORT_STATUS.SUBMITTED);
     const [supportCategory, setSupportCategory] = useState<string>('All');
     const [isRefreshingData, setIsRefreshingData] = useState(false);
@@ -83,11 +123,11 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
     };
 
     const supportTabs = [
-        { id: SUPPORT_STATUS.SUBMITTED, label: 'Submitted', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.SUBMITTED).length },
-        { id: SUPPORT_STATUS.FORWARDED_TO_DEPT, label: 'Forwarded to Dept', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.FORWARDED_TO_DEPT).length },
-        { id: SUPPORT_STATUS.VISIT_SCHEDULED, label: 'Visit Scheduled', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.VISIT_SCHEDULED).length },
-        { id: 'dept_updates', label: 'Dept Updates', count: supportReqs.filter(r => isCareStaffSupportDeptUpdate(r.status)).length },
-        { id: SUPPORT_STATUS.COMPLETED, label: 'Completed', count: supportReqs.filter(r => r.status === SUPPORT_STATUS.COMPLETED).length }
+        { id: SUPPORT_STATUS.SUBMITTED, label: 'Submitted', count: supportCounts[SUPPORT_STATUS.SUBMITTED] || 0 },
+        { id: SUPPORT_STATUS.FORWARDED_TO_DEPT, label: 'Forwarded to Dept', count: supportCounts[SUPPORT_STATUS.FORWARDED_TO_DEPT] || 0 },
+        { id: SUPPORT_STATUS.VISIT_SCHEDULED, label: 'Visit Scheduled', count: supportCounts[SUPPORT_STATUS.VISIT_SCHEDULED] || 0 },
+        { id: 'dept_updates', label: 'Dept Updates', count: supportCounts.dept_updates || 0 },
+        { id: SUPPORT_STATUS.COMPLETED, label: 'Completed', count: supportCounts[SUPPORT_STATUS.COMPLETED] || 0 }
     ];
 
     const matchesSupportTab = (req: any) => {
@@ -99,29 +139,86 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         .filter(matchesSupportTab)
         .filter(req => supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)));
 
+    const applySupportTabFilter = (query: any, tab = supportTab) => {
+        if (tab === 'dept_updates') {
+            return query.in('status', [...CARE_STAFF_SUPPORT_DEPT_UPDATE_STATUSES]);
+        }
+
+        return query.eq('status', tab);
+    };
+
+    const applySupportCategoryFilter = (query: any) => {
+        if (supportCategory === 'All') return query;
+        return query.ilike('support_type', `%${supportCategory}%`);
+    };
+
+    const fetchSupportCounts = async () => {
+        const countForTab = async (tab: string) => {
+            let query: any = supabase
+                .from('support_requests')
+                .select('id', { count: 'exact', head: true });
+            query = applySupportTabFilter(query, tab);
+            const { count, error } = await query;
+            if (error) throw error;
+            return count || 0;
+        };
+
+        const [submitted, forwarded, visitScheduled, deptUpdates, completed] = await Promise.all([
+            countForTab(SUPPORT_STATUS.SUBMITTED),
+            countForTab(SUPPORT_STATUS.FORWARDED_TO_DEPT),
+            countForTab(SUPPORT_STATUS.VISIT_SCHEDULED),
+            countForTab('dept_updates'),
+            countForTab(SUPPORT_STATUS.COMPLETED)
+        ]);
+
+        setSupportCounts({
+            [SUPPORT_STATUS.SUBMITTED]: submitted,
+            [SUPPORT_STATUS.FORWARDED_TO_DEPT]: forwarded,
+            [SUPPORT_STATUS.VISIT_SCHEDULED]: visitScheduled,
+            dept_updates: deptUpdates,
+            [SUPPORT_STATUS.COMPLETED]: completed
+        });
+    };
+
     // Fetch data
     const fetchSupport = async () => {
         try {
-            const { data, error } = await supabase.from('support_requests').select('*').order('created_at', { ascending: false });
+            setSupportLoading(true);
+            const from = (currentPage - 1) * SUPPORT_REQUESTS_PAGE_SIZE;
+            const to = from + SUPPORT_REQUESTS_PAGE_SIZE - 1;
+            let query: any = supabase
+                .from('support_requests')
+                .select(SUPPORT_REQUEST_COLUMNS, { count: 'exact' });
+            query = applySupportTabFilter(query);
+            query = applySupportCategoryFilter(query);
+            const { data, error, count } = await query
+                .order('created_at', { ascending: false })
+                .range(from, to);
             if (error) throw error;
             setSupportReqs(sortSupportByCreatedAt(data || []));
+            setSupportTotal(count || 0);
+            await fetchSupportCounts();
         } catch (error: any) {
             console.error('Error fetching support requests:', error);
             showToast?.('Failed to load support requests', 'error');
+        } finally {
+            setSupportLoading(false);
         }
     };
 
     useEffect(() => {
         fetchSupport();
+    }, [supportTab, supportCategory, currentPage, refreshTick]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [supportTab, supportCategory]);
+
+    useEffect(() => {
         return createDeferredChannelCleanup(
             () => supabase.channel('care_support_isolated')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'support_requests' }, (payload: any) => {
-                    if (payload.eventType === 'DELETE') {
-                        setSupportReqs((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
-                    } else if (payload.new) {
-                        setSupportReqs((prev) => upsertSupportRequest(prev, payload.new));
-                    }
+                    setRefreshTick((tick) => tick + 1);
 
                     if (payload.eventType === 'INSERT') {
                         showToast?.(`New Support Request Received`, 'info');
@@ -150,7 +247,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         setSupportForm({ care_notes: req.care_notes || '', resolution_notes: req.resolution_notes || '' });
         setSelectedStudent(null);
         if (req.student_id) {
-            const { data } = await supabase.from('students').select('*').eq('student_id', req.student_id).maybeSingle();
+            const { data } = await supabase.from('students').select(SUPPORT_STUDENT_COLUMNS).eq('student_id', req.student_id).maybeSingle();
             setSelectedStudent(data);
         }
         setLetterFile(null);
@@ -537,11 +634,11 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                 {/* Stats Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
                     {[
-                        { label: 'Submitted', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.SUBMITTED).length, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-                        { label: 'Forwarded to Dept', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.FORWARDED_TO_DEPT).length, icon: <Send size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-                        { label: 'Visit Scheduled', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.VISIT_SCHEDULED).length, icon: <AlertTriangle size={20} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-                        { label: 'Dept Updates', value: supportReqs.filter(r => isCareStaffSupportDeptUpdate(r.status)).length, icon: <ClipboardList size={20} />, color: 'text-orange-500', bg: 'bg-orange-50' },
-                        { label: 'Completed', value: supportReqs.filter(r => r.status === SUPPORT_STATUS.COMPLETED).length, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
+                        { label: 'Submitted', value: supportCounts[SUPPORT_STATUS.SUBMITTED] || 0, icon: <FileText size={20} />, color: 'text-blue-500', bg: 'bg-blue-50' },
+                        { label: 'Forwarded to Dept', value: supportCounts[SUPPORT_STATUS.FORWARDED_TO_DEPT] || 0, icon: <Send size={20} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+                        { label: 'Visit Scheduled', value: supportCounts[SUPPORT_STATUS.VISIT_SCHEDULED] || 0, icon: <AlertTriangle size={20} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                        { label: 'Dept Updates', value: supportCounts.dept_updates || 0, icon: <ClipboardList size={20} />, color: 'text-orange-500', bg: 'bg-orange-50' },
+                        { label: 'Completed', value: supportCounts[SUPPORT_STATUS.COMPLETED] || 0, icon: <CheckCircle size={20} />, color: 'text-green-500', bg: 'bg-green-50' },
                     ].map((stat, idx) => (
                         <div key={idx} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                             <div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center mb-3 ${stat.color}`}>{stat.icon}</div>
@@ -568,8 +665,11 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                     </select>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {visibleSupportReqs.map(req => (
+                {supportLoading ? (
+                    <p className="text-center text-gray-500 py-8">Loading requests...</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {visibleSupportReqs.map(req => (
                             <div key={req.id} className="card-hover bg-white/80 backdrop-blur-sm p-6 rounded-xl border border-gray-100/80 shadow-sm flex flex-col justify-between relative overflow-hidden group">
                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 <div>
@@ -590,8 +690,18 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+                {!supportLoading && visibleSupportReqs.length === 0 && <p className="text-center text-gray-500 py-8">No requests found in this stage.</p>}
+                <div className="mt-6 rounded-xl border border-gray-100 shadow-sm">
+                    <PaginationControls
+                        page={currentPage}
+                        pageSize={SUPPORT_REQUESTS_PAGE_SIZE}
+                        total={supportTotal}
+                        isLoading={supportLoading || isRefreshingData}
+                        onPageChange={setCurrentPage}
+                    />
                 </div>
-                {visibleSupportReqs.length === 0 && <p className="text-center text-gray-500 py-8">No requests found in this stage.</p>}
             </div>
 
             {/* Support Modal - Enhanced Side Panel */}
