@@ -11,7 +11,7 @@ interface FormManagementPageProps {
 }
 
 const FORM_COLUMNS = 'id, title, description, is_active, created_at';
-const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, options, order_index, is_required';
+const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, scale_min, scale_max, order_index, created_at';
 
 const FormManagementPage = ({ functions }: FormManagementPageProps) => {
     const { canPerformAction } = usePermissions();

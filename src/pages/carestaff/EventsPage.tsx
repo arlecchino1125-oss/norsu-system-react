@@ -26,7 +26,7 @@ interface EventsPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
-const EVENT_ATTENDANCE_COLUMNS = 'id, event_id, student_id, student_name, email, department, course, year_level, section, time_in, time_out, status';
+const EVENT_ATTENDANCE_COLUMNS = 'id, event_id, student_id, student_name, checked_in_at, time_in, time_out, proof_url, latitude, longitude, department';
 const EVENT_REGISTRATION_COLUMNS = 'id, event_id, student_id, student_name, email, department, course, year_level, section, status, registered_at, cancelled_at, updated_at';
 const EVENT_FEEDBACK_COLUMNS = [
     'id',
@@ -38,7 +38,6 @@ const EVENT_FEEDBACK_COLUMNS = [
     'date_of_activity',
     'rating',
     'feedback',
-    'comments',
     'q1_score',
     'q2_score',
     'q3_score',
@@ -49,8 +48,7 @@ const EVENT_FEEDBACK_COLUMNS = [
     'open_best',
     'open_suggestions',
     'open_comments',
-    'submitted_at',
-    'created_at'
+    'submitted_at'
 ].join(', ');
 
 const createEmptyEvent = (): Partial<SystemEvent> => ({

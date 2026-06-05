@@ -76,7 +76,7 @@ export default function AdminDashboard() {
     });
     const { data: applicationsData, refetch: refetchApplications } = useSupabaseData({
         table: 'applications',
-        select: 'id, student_id, first_name, last_name, status',
+        select: 'id, first_name, last_name, status',
         subscribe: true
     });
     const departments = departmentsData.map(d => d.name);
@@ -273,7 +273,7 @@ export default function AdminDashboard() {
             || normalized.includes('does not exist');
 
         if (mentionsArchiveColumn && looksLikeMissingColumn) {
-            return 'Archive fields are not installed in Supabase yet. Apply supabase/migrations/20260527_add_admin_archive_fields.sql, then try again.';
+            return 'Archive fields are not installed in Supabase yet. Apply supabase/migrations/20260605_add_admin_archive_fields.sql, then try again.';
         }
 
         return message || fallback;
