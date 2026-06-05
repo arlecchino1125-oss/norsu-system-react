@@ -10,7 +10,7 @@ interface FormManagementPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
-const FORM_COLUMNS = 'id, title, description, is_active, created_at, updated_at';
+const FORM_COLUMNS = 'id, title, description, is_active, created_at';
 const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, options, order_index, is_required';
 
 const FormManagementPage = ({ functions }: FormManagementPageProps) => {

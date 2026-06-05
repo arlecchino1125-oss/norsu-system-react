@@ -13,8 +13,8 @@ interface StudentAnalyticsPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
-const FORM_COLUMNS = 'id, title, description, status, created_at, updated_at';
-const DEPARTMENT_COLUMNS = 'id, name, is_archived';
+const FORM_COLUMNS = 'id, title, description, is_active, created_at';
+const DEPARTMENT_COLUMNS = 'id, name';
 const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, options, order_index, is_required';
 const SUBMISSION_COLUMNS = 'id, form_id, student_id, submitted_at, created_at';
 const ANSWER_COLUMNS = 'id, submission_id, question_id, answer_text, answer_value';
@@ -42,7 +42,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
             if (!selectedFormId && data[0]) {
                 setDateFilter({
                     start: data[0].created_at ? data[0].created_at.split('T')[0] : '',
-                    end: data[0].status === 'Closed' ? (data[0].updated_at ? data[0].updated_at.split('T')[0] : '') : ''
+                    end: ''
                 });
             }
         }
@@ -53,7 +53,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
             .from('departments')
             .select(DEPARTMENT_COLUMNS)
             .order('name');
-        if (data) setAllDepartments(data.filter((department: any) => !department?.is_archived));
+        if (data) setAllDepartments(data);
     };
 
     // Smart Date Logic & Filters
@@ -80,7 +80,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
                 // Smart Date Default for first form
                 setDateFilter({
                     start: data[0].created_at ? data[0].created_at.split('T')[0] : '',
-                    end: data[0].status === 'Closed' ? (data[0].updated_at ? data[0].updated_at.split('T')[0] : '') : ''
+                    end: ''
                 });
             } else {
                 setLoading(false);
@@ -97,7 +97,7 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
         if (form) {
             setDateFilter({
                 start: form.created_at ? form.created_at.split('T')[0] : '',
-                end: form.status === 'Closed' ? (form.updated_at ? form.updated_at.split('T')[0] : '') : ''
+                end: ''
             });
         }
     };
