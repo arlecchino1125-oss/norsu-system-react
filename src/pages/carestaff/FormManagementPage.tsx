@@ -10,6 +10,9 @@ interface FormManagementPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
+const FORM_COLUMNS = 'id, title, description, is_active, created_at, updated_at';
+const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, options, order_index, is_required';
+
 const FormManagementPage = ({ functions }: FormManagementPageProps) => {
     const { canPerformAction } = usePermissions();
     const canArchiveRecords = canPerformAction('archive_records');
@@ -23,12 +26,12 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
         const [{ data: activeData }, { data: inactiveData }] = await Promise.all([
             supabase
                 .from('forms')
-                .select('*')
+                .select(FORM_COLUMNS)
                 .eq('is_active', true)
                 .order('created_at', { ascending: false }),
             supabase
                 .from('forms')
-                .select('*')
+                .select(FORM_COLUMNS)
                 .eq('is_active', false)
                 .order('created_at', { ascending: false })
         ]);
@@ -62,7 +65,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
     const handlePreview = async (form) => {
         const { data: questions } = await supabase
             .from('questions')
-            .select('*')
+            .select(QUESTION_COLUMNS)
             .eq('form_id', form.id)
             .order('order_index', { ascending: true });
 
@@ -74,7 +77,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
         setEditingForm({ ...form });
         const { data: questions } = await supabase
             .from('questions')
-            .select('*')
+            .select(QUESTION_COLUMNS)
             .eq('form_id', form.id)
             .order('order_index', { ascending: true });
 
@@ -101,7 +104,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
             const { data: savedForm, error: formError } = await supabase
                 .from('forms')
                 .upsert([formPayload])
-                .select()
+                .select(FORM_COLUMNS)
                 .single();
 
             if (formError) throw formError;

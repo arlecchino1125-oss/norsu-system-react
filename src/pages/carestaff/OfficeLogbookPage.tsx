@@ -7,10 +7,15 @@ import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDateTime, generateExportFilename } from '../../utils/formatters';
 import type { CareStaffDashboardFunctions } from './types';
+import PaginationControls from '../../components/PaginationControls';
 
 interface OfficeLogbookPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
+
+const OFFICE_VISITS_PAGE_SIZE = 25;
+const OFFICE_VISIT_COLUMNS = 'id, student_id, student_name, reason, time_in, time_out, status';
+const OFFICE_VISIT_REASON_COLUMNS = 'id, reason, is_active, created_at';
 
 const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
     const { canPerformAction } = usePermissions();
@@ -19,6 +24,8 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
         [...rows].sort((a: any, b: any) => new Date(b.time_in || 0).getTime() - new Date(a.time_in || 0).getTime());
 
     const [visits, setVisits] = useState<any[]>([]);
+    const [visitsTotal, setVisitsTotal] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
     const [reasons, setReasons] = useState<any[]>([]);
     const [inactiveReasons, setInactiveReasons] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -28,32 +35,46 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
 
     const fetchReasons = async () => {
         const [{ data: activeReasons }, { data: archivedReasons }] = await Promise.all([
-            supabase.from('office_visit_reasons').select('*').eq('is_active', true).order('reason'),
-            supabase.from('office_visit_reasons').select('*').eq('is_active', false).order('reason')
+            supabase.from('office_visit_reasons').select(OFFICE_VISIT_REASON_COLUMNS).eq('is_active', true).order('reason'),
+            supabase.from('office_visit_reasons').select(OFFICE_VISIT_REASON_COLUMNS).eq('is_active', false).order('reason')
         ]);
         if (activeReasons) setReasons(activeReasons);
         if (archivedReasons) setInactiveReasons(archivedReasons);
     };
 
+    const fetchVisits = async (page = currentPage) => {
+        const from = (page - 1) * OFFICE_VISITS_PAGE_SIZE;
+        const to = from + OFFICE_VISITS_PAGE_SIZE - 1;
+        const { data, count, error } = await supabase
+            .from('office_visits')
+            .select(OFFICE_VISIT_COLUMNS, { count: 'exact' })
+            .order('time_in', { ascending: false })
+            .range(from, to);
+        if (error) throw error;
+        setVisits(sortVisitsByTimeIn(data || []));
+        setVisitsTotal(count || 0);
+    };
+
     useEffect(() => {
-        const fetchVisits = async () => {
-            const { data } = await supabase.from('office_visits').select('*').order('time_in', { ascending: false });
-            if (data) setVisits(sortVisitsByTimeIn(data));
-            setLoading(false);
-        };
-        fetchVisits();
+        fetchVisits()
+            .catch((error: any) => functions.showToast(error.message || 'Failed to load office visits.', 'error'))
+            .finally(() => setLoading(false));
+        fetchReasons();
+    }, [currentPage]);
+
+    useEffect(() => {
         fetchReasons();
 
         return createDeferredChannelCleanup(
             () => supabase.channel('visits_realtime')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'office_visits' }, (payload: any) => {
                     if (payload.eventType === 'DELETE') {
-                        setVisits((prev) => prev.filter((row: any) => row.id !== payload.old?.id));
+                        fetchVisits().catch((error: any) => functions.showToast(error.message || 'Failed to refresh office visits.', 'error'));
                         return;
                     }
 
                     if (payload.new) {
-                        setVisits((prev) => sortVisitsByTimeIn([payload.new, ...prev.filter((row: any) => row.id !== payload.new.id)]));
+                        fetchVisits().catch((error: any) => functions.showToast(error.message || 'Failed to refresh office visits.', 'error'));
                     }
                 })
                 .subscribe(),
@@ -64,12 +85,11 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
     const handleRefreshData = async () => {
         setIsRefreshingData(true);
         try {
-            const [{ data: visitsData }, { data: reasonsData }, { data: inactiveReasonsData }] = await Promise.all([
-                supabase.from('office_visits').select('*').order('time_in', { ascending: false }),
-                supabase.from('office_visit_reasons').select('*').eq('is_active', true).order('reason'),
-                supabase.from('office_visit_reasons').select('*').eq('is_active', false).order('reason')
+            const [{ data: reasonsData }, { data: inactiveReasonsData }] = await Promise.all([
+                supabase.from('office_visit_reasons').select(OFFICE_VISIT_REASON_COLUMNS).eq('is_active', true).order('reason'),
+                supabase.from('office_visit_reasons').select(OFFICE_VISIT_REASON_COLUMNS).eq('is_active', false).order('reason')
             ]);
-            if (visitsData) setVisits(sortVisitsByTimeIn(visitsData));
+            await fetchVisits(currentPage);
             if (reasonsData) setReasons(reasonsData);
             if (inactiveReasonsData) setInactiveReasons(inactiveReasonsData);
             functions.showToast('Office logbook refreshed.');
@@ -147,6 +167,13 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
                                 ))}
                     </tbody>
                 </table>
+                <PaginationControls
+                    page={currentPage}
+                    pageSize={OFFICE_VISITS_PAGE_SIZE}
+                    total={visitsTotal}
+                    isLoading={loading || isRefreshingData}
+                    onPageChange={setCurrentPage}
+                />
             </div>
 
             {/* Manage Reasons Modal */}

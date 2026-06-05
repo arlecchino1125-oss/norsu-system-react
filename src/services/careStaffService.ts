@@ -278,7 +278,7 @@ export const getCoursesWithDepartments = async () => {
 export const getDepartments = async () => {
     const { data, error } = await supabase
         .from('departments')
-        .select('*')
+        .select('id, name, is_archived')
         .order('name', { ascending: true });
     if (error) throw error;
     return (data || []).filter((department: any) => !department?.is_archived);

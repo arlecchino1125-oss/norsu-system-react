@@ -4,16 +4,73 @@ import { supabase } from '../../lib/supabase';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
 import type { CareStaffDashboardFunctions } from './types';
+import PaginationControls from '../../components/PaginationControls';
 
 interface FeedbackPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
+const FEEDBACK_PAGE_SIZE = 12;
+const EVENT_FEEDBACK_COLUMNS = [
+    'id',
+    'event_id',
+    'student_id',
+    'student_name',
+    'sex',
+    'college',
+    'date_of_activity',
+    'rating',
+    'feedback',
+    'comments',
+    'q1_score',
+    'q2_score',
+    'q3_score',
+    'q4_score',
+    'q5_score',
+    'q6_score',
+    'q7_score',
+    'open_best',
+    'open_suggestions',
+    'open_comments',
+    'submitted_at',
+    'created_at',
+    'events(title)'
+].join(', ');
+const EVENT_FEEDBACK_FILTERED_COLUMNS = EVENT_FEEDBACK_COLUMNS.replace('events(title)', 'events!inner(title)');
+const GENERAL_FEEDBACK_COLUMNS = [
+    'id',
+    'student_id',
+    'student_name',
+    'client_type',
+    'sex',
+    'age',
+    'region',
+    'service_availed',
+    'cc1',
+    'cc2',
+    'cc3',
+    'sqd0',
+    'sqd1',
+    'sqd2',
+    'sqd3',
+    'sqd4',
+    'sqd5',
+    'sqd6',
+    'sqd7',
+    'sqd8',
+    'suggestions',
+    'email',
+    'created_at'
+].join(', ');
+
 const FeedbackPage = ({ functions }: FeedbackPageProps) => {
     const [currentView, setCurrentView] = useState('General');
     const [eventFilter, setEventFilter] = useState('All Events');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [feedbackTotal, setFeedbackTotal] = useState(0);
     const [items, setItems] = useState<any[]>([]);
     const [rawEventData, setRawEventData] = useState<any[]>([]);
+    const [eventNames, setEventNames] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ avg: 0, total: 0, distribution: [0, 0, 0, 0, 0] });
     const [viewingEval, setViewingEval] = useState(null);
@@ -99,15 +156,24 @@ const FeedbackPage = ({ functions }: FeedbackPageProps) => {
         setLoading(true);
         try {
             let rawData = [];
+            const from = (currentPage - 1) * FEEDBACK_PAGE_SIZE;
+            const to = from + FEEDBACK_PAGE_SIZE - 1;
             if (currentView === 'Events') {
-                const { data, error } = await supabase
+                let query: any = supabase
                     .from('event_feedback')
-                    .select('*, events(title)')
-                    .order('submitted_at', { ascending: false });
+                    .select(eventFilter === 'All Events' ? EVENT_FEEDBACK_COLUMNS : EVENT_FEEDBACK_FILTERED_COLUMNS, { count: 'exact' });
+                if (eventFilter !== 'All Events') {
+                    query = query.eq('events.title', eventFilter);
+                }
+                const { data, error, count } = await query
+                    .order('submitted_at', { ascending: false })
+                    .range(from, to);
                 if (error) throw error;
-                setRawEventData(data || []);
+                const eventRows = (data || []) as any[];
+                setRawEventData(eventRows);
                 setRawGeneralData([]);
-                rawData = (data || []).map(d => ({
+                setFeedbackTotal(count || 0);
+                rawData = eventRows.map(d => ({
                     id: d.id,
                     student: d.student_name,
                     rating: getEventRating(d),
@@ -116,19 +182,19 @@ const FeedbackPage = ({ functions }: FeedbackPageProps) => {
                     context: getEventName(d),
                     hasEvaluation: !!(d.q1_score || d.q2_score)
                 }));
-                if (eventFilter !== 'All Events') {
-                    rawData = rawData.filter(item => item.context === eventFilter);
-                }
             } else {
                 // General CSM feedback
-                const { data, error } = await supabase
+                const { data, error, count } = await supabase
                     .from('general_feedback')
-                    .select('*')
-                    .order('created_at', { ascending: false });
+                    .select(GENERAL_FEEDBACK_COLUMNS, { count: 'exact' })
+                    .order('created_at', { ascending: false })
+                    .range(from, to);
                 if (error) throw error;
-                setRawGeneralData(data || []);
+                const generalRows = (data || []) as any[];
+                setRawGeneralData(generalRows);
                 setRawEventData([]);
-                rawData = (data || []).map(d => {
+                setFeedbackTotal(count || 0);
+                rawData = generalRows.map(d => {
                     const sqdScores = [d.sqd0, d.sqd1, d.sqd2, d.sqd3, d.sqd4, d.sqd5, d.sqd6, d.sqd7, d.sqd8].filter(v => v != null && v > 0);
                     const avg = sqdScores.length > 0 ? Math.round(sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length) : 0;
                     return {
@@ -155,14 +221,30 @@ const FeedbackPage = ({ functions }: FeedbackPageProps) => {
 
     useEffect(() => {
         fetchData();
+    }, [currentView, eventFilter, currentPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
     }, [currentView, eventFilter]);
+
+    useEffect(() => {
+        const fetchEventNames = async () => {
+            const { data } = await supabase
+                .from('events')
+                .select('title')
+                .order('title', { ascending: true });
+            setEventNames([...(new Set((data || []).map((row: any) => row.title).filter(Boolean)))]);
+        };
+
+        fetchEventNames();
+    }, []);
 
     const handleViewEvaluation = (itemId) => {
         const raw = rawEventData.find(d => d.id === itemId);
         if (raw) setViewingEval(raw);
     };
 
-    const eventOptions = ['All Events', ...Array.from(new Set((rawEventData || []).map(getEventName)))];
+    const eventOptions = ['All Events', ...eventNames];
     const filteredEventRows = (rawEventData || []).filter(d => eventFilter === 'All Events' || getEventName(d) === eventFilter);
 
     const eventCriteriaStats = criteriaLabels.map((label, idx) => {
@@ -371,6 +453,15 @@ const FeedbackPage = ({ functions }: FeedbackPageProps) => {
                     {items.length === 0 && <div className="col-span-full text-center py-12 text-gray-400">No feedback found for this category.</div>}
                 </div>
             )}
+            <div className="rounded-xl border border-gray-100 shadow-sm">
+                <PaginationControls
+                    page={currentPage}
+                    pageSize={FEEDBACK_PAGE_SIZE}
+                    total={feedbackTotal}
+                    isLoading={loading}
+                    onPageChange={setCurrentPage}
+                />
+            </div>
 
             {/* View Evaluation Form Modal */}
             {viewingEval && (
