@@ -30,7 +30,6 @@ const COUNSELING_REQUESTS_PAGE_SIZE = 12;
 const COUNSELING_REQUEST_COLUMNS = [
     'id',
     'created_at',
-    'updated_at',
     'student_id',
     'student_name',
     'request_type',
@@ -40,7 +39,6 @@ const COUNSELING_REQUEST_COLUMNS = [
     'course_year',
     'contact_number',
     'scheduled_date',
-    'schedule_date',
     'resolution_notes',
     'confidential_notes',
     'feedback',
@@ -474,7 +472,7 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-900">{req.student_name}</h3>
-                                                <p className="text-xs text-gray-500">{req.request_type} • Resolved: {formatDate(req.updated_at || req.created_at)}</p>
+                                                <p className="text-xs text-gray-500">{req.request_type} • Resolved: {formatDate(req.created_at)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
