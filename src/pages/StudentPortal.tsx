@@ -872,7 +872,7 @@ export default function StudentPortal() {
         ? profileCompletionStatusOverride
         : (session?.profile_completed === true || profileFieldsComplete === true
             ? true
-            : (session?.profile_completed === false || profileFieldsComplete === false ? false : null));
+            : (profileFieldsComplete === false ? false : null));
     const profileCompletionReminderRequired = Boolean(
         session?.userType === 'student' && (
             forceProfileCompletionPrompt
@@ -887,7 +887,12 @@ export default function StudentPortal() {
         && !profileCompletionGateActive
         && !hideProfileCompletionReminder;
 
+    const portalMountTimeRef = useRef(Date.now());
+
     const openProfileCompletionModal = () => {
+        // Prevent mobile ghost-clicks from the login screen triggering the modal
+        if (Date.now() - portalMountTimeRef.current < 800) return;
+
         setShowProfileCompletion(true);
         setHideProfileCompletionReminder(false);
     };
