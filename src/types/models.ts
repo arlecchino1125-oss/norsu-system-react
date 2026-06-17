@@ -23,6 +23,7 @@ export interface Student {
     province?: string;
     zip_code?: string;
     region?: string;
+    region_other?: string;
     mobile?: string;
     email?: string;
     facebook_url?: string;
@@ -42,9 +43,6 @@ export interface Student {
     father_status?: string;
     father_contact?: string;
     father_address?: string;
-    parent_address?: string;
-    num_brothers?: string;
-    num_sisters?: string;
     parents_num_children?: string;
     birth_order?: string;
     birth_order_other?: string;
@@ -60,15 +58,18 @@ export interface Student {
     supporter_contact?: string;
     is_working_student?: boolean;
     working_student_type?: string;
+    working_student_type_other?: string;
     employer_name?: string;
     employer_address?: string;
     is_pwd?: boolean;
     pwd_number?: string;
     pwd_type?: string;
+    pwd_type_other?: string;
     disability_cause?: string;
     pwd_document_url?: string;
     is_indigenous?: boolean;
     indigenous_group?: string;
+    indigenous_group_other?: string;
     ip_document_url?: string;
     is_four_ps_member?: boolean;
     four_ps_document_url?: string;
@@ -78,6 +79,7 @@ export interface Student {
     solo_parent_document_url?: string;
     is_orphan?: boolean;
     orphan_cause?: string;
+    orphan_cause_other?: string;
     is_homeless_citizen?: boolean;
     is_senior_citizen?: boolean;
     senior_citizen_document_url?: string;
@@ -106,9 +108,12 @@ export interface Student {
     other_talents?: string;
     scholarships_availed?: string;
     has_been_criminally_charged?: boolean;
+    criminal_charge_details?: string;
     has_been_convicted_of_crime?: boolean;
+    crime_conviction_details?: string;
     course?: string;
     year_level?: string;
+    year_level_other?: string;
     section?: string;
     department?: string;
     status?: 'Active' | 'Inactive' | 'Graduated' | 'Transferred';

@@ -42,7 +42,7 @@ const WORK_TYPE_OPTIONS = ['House help', 'Call Center Agent/BPO employee', 'Fast
 const PWD_TYPE_OPTIONS = ['0', 'Visual impairment', 'Hearing impairment', 'Physical/Orthopedic disability', 'Chronic illness', 'Psychosocial disability', 'Communication disability', 'Other'];
 const INDIGENOUS_GROUP_OPTIONS = ['N/A', 'Bukidnon', 'Tabihanon Group', 'ATA', 'IFUGAO', 'Kalahing Kulot', 'Lumad', 'Other'];
 const ORPHAN_CAUSE_OPTIONS = ['N/A', 'Death', 'Abandonment', 'Other'];
-const GUARDIAN_RELATION_OPTIONS = ['Relative', 'Not relative', 'Landlord', 'Landlady', 'Other'];
+const GUARDIAN_RELATION_OPTIONS = ['Family', 'Relative', 'Not relative', 'Landlord', 'Landlady', 'Other'];
 const BIRTH_ORDER_OPTIONS = [
     { value: '1', label: '1 (1st child/eldest)' },
     { value: '2', label: '2' },
@@ -82,12 +82,14 @@ const PROFILE_TEXT_FIELD_LIMITS: Record<string, ProfileTextFieldRule> = {
     province: shortProfileRule('Permanent Address - Province'),
     zipCode: { label: 'Permanent Address - Zip Code', maxLength: 20 },
     region: shortProfileRule('Permanent Address - Region'),
+    regionOther: shortProfileRule('Specify Region'),
     mobile: phoneProfileRule('Contact Number'),
     nationality: shortProfileRule('Citizenship'),
     facebookUrl: urlProfileRule('Facebook Account Link'),
     placeOfBirth: { label: 'Place of Birth', maxLength: 120 },
     religion: shortProfileRule('Religion'),
     yearLevelApplying: { label: 'Year Level', maxLength: 32 },
+    yearLevelOther: shortProfileRule('Specify Year Level'),
     department: { label: 'College', maxLength: 120 },
     course: { label: 'Program', maxLength: 120 },
     civilStatus: { label: 'Civil Status', maxLength: 80 },
@@ -120,21 +122,25 @@ const PROFILE_TEXT_FIELD_LIMITS: Record<string, ProfileTextFieldRule> = {
     supporterContact: phoneProfileRule('Supporter Contact Information'),
     isWorkingStudent: { label: 'Working Student Status', maxLength: 20 },
     workingStudentType: { label: 'Type of Work', maxLength: 120 },
+    workingStudentTypeOther: shortProfileRule('Specify Type of Work'),
     employerName: mediumProfileRule('Name of Employer'),
     employerAddress: addressProfileRule('Address of Employer'),
     workExperiences: longProfileRule('Work Experiences'),
     isPwd: { label: 'PWD Status', maxLength: 20 },
     pwdNumber: { label: 'PWD Number', maxLength: 40 },
     pwdType: { label: 'Type of Disability', maxLength: 120 },
+    pwdTypeOther: shortProfileRule('Specify Type of Disability'),
     disabilityCause: mediumProfileRule('Cause of Disability'),
     isIndigenous: { label: 'Indigenous Group Status', maxLength: 20 },
     indigenousGroup: { label: 'Indigenous Group', maxLength: 120 },
+    indigenousGroupOther: shortProfileRule('Specify Indigenous Group'),
     isFourPsMember: { label: '4Ps Membership', maxLength: 20 },
     isRebelReturnee: { label: 'Rebel Returnee Status', maxLength: 20 },
     isChildOfSoloParent: { label: 'Child of Solo Parent Status', maxLength: 20 },
     isSoloParent: { label: 'Solo Parent Status', maxLength: 20 },
     isOrphan: { label: 'Orphan Status', maxLength: 20 },
     orphanCause: shortProfileRule('Cause of Being an Orphan'),
+    orphanCauseOther: shortProfileRule('Specify Cause of Being an Orphan'),
     isHomelessCitizen: { label: 'Homeless Citizen Status', maxLength: 20 },
     isSeniorCitizen: { label: 'Senior Citizen Status', maxLength: 20 },
     guardianName: { label: 'Guardian Full Name', maxLength: 120 },
@@ -165,7 +171,9 @@ const PROFILE_TEXT_FIELD_LIMITS: Record<string, ProfileTextFieldRule> = {
     otherTalents: longProfileRule('Other Talents'),
     scholarshipsAvailed: longProfileRule('Name of Scholarship Availed and Sponsor'),
     hasBeenCriminallyCharged: { label: 'Criminal Charge Status', maxLength: 20 },
-    hasBeenConvictedOfCrime: { label: 'Crime Conviction Status', maxLength: 20 }
+    criminalChargeDetails: longProfileRule('If Yes, Indicate (Criminal Charge Details)'),
+    hasBeenConvictedOfCrime: { label: 'Crime Conviction Status', maxLength: 20 },
+    crimeConvictionDetails: longProfileRule('If Yes, Indicate (Crime Conviction Details)')
 };
 
 const cleanLiveProfileText = (value: string, multiline = false) => {
@@ -698,26 +706,31 @@ export default function ProfileCompletionModal({
                 province: formData.province,
                 zip_code: formData.zipCode,
                 region: formData.region,
+                region_other: formData.region === 'Other' ? formData.regionOther : null,
                 mobile: formData.mobile,
                 email: normalizedEmail,
                 facebook_url: formData.facebookUrl,
                 religion: formData.religion,
                 year_level: formData.yearLevelApplying,
+                year_level_other: formData.yearLevelApplying === 'Other' ? formData.yearLevelOther : null,
                 department: formData.department,
                 course: formData.course,
                 supporter: formData.supporter,
                 supporter_contact: formData.supporterContact,
                 is_working_student: formData.isWorkingStudent === 'Yes',
                 working_student_type: formData.workingStudentType,
+                working_student_type_other: formData.workingStudentType === 'Other' ? formData.workingStudentTypeOther : null,
                 employer_name: formData.employerName,
                 employer_address: formData.employerAddress,
                 is_pwd: formData.isPwd === 'Yes',
                 pwd_number: formData.pwdNumber,
                 pwd_type: formData.pwdType,
+                pwd_type_other: formData.pwdType === 'Other' ? formData.pwdTypeOther : null,
                 disability_cause: formData.disabilityCause,
                 pwd_document_url: profileDocumentUrls.pwdDocumentUrl,
                 is_indigenous: formData.isIndigenous === 'Yes',
                 indigenous_group: formData.indigenousGroup,
+                indigenous_group_other: formData.indigenousGroup === 'Other' ? formData.indigenousGroupOther : null,
                 ip_document_url: profileDocumentUrls.ipDocumentUrl,
                 is_four_ps_member: formData.isFourPsMember === 'Yes',
                 four_ps_document_url: profileDocumentUrls.fourPsDocumentUrl,
@@ -727,6 +740,7 @@ export default function ProfileCompletionModal({
                 solo_parent_document_url: profileDocumentUrls.soloParentDocumentUrl,
                 is_orphan: formData.isOrphan === 'Yes',
                 orphan_cause: formData.orphanCause,
+                orphan_cause_other: formData.orphanCause === 'Other' ? formData.orphanCauseOther : null,
                 is_homeless_citizen: formData.isHomelessCitizen === 'Yes',
                 is_senior_citizen: formData.isSeniorCitizen === 'Yes',
                 senior_citizen_document_url: profileDocumentUrls.seniorCitizenDocumentUrl,
@@ -794,7 +808,9 @@ export default function ProfileCompletionModal({
                 other_talents: formData.otherTalents,
                 scholarships_availed: formData.scholarshipsAvailed,
                 has_been_criminally_charged: formData.hasBeenCriminallyCharged === 'Yes',
+                criminal_charge_details: formData.hasBeenCriminallyCharged === 'Yes' ? formData.criminalChargeDetails : null,
                 has_been_convicted_of_crime: formData.hasBeenConvictedOfCrime === 'Yes',
+                crime_conviction_details: formData.hasBeenConvictedOfCrime === 'Yes' ? formData.crimeConvictionDetails : null,
                 profile_completed: true
             };
 
@@ -949,6 +965,9 @@ export default function ProfileCompletionModal({
                                 </div>
                                 <div className={profileCompletionGridTwoClass}>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Region *</label><select name="region" value={formData.region} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{REGION_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                    {formData.region === 'Other' && (
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Region *</label><input name="regionOther" value={formData.regionOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    )}
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact Number *</label><input name="mobile" value={formData.mobile} onChange={handleProfileFormChange} placeholder="09123456789" className={profileCompletionInputClass} /></div>
                                 </div>
                                 <div className={profileCompletionGridThreeClass}>
@@ -967,6 +986,9 @@ export default function ProfileCompletionModal({
                                 <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Religion *</label><input name="religion" value={formData.religion} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                 <div className={profileCompletionGridTwoClass}>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Year Level *</label><select name="yearLevelApplying" value={formData.yearLevelApplying} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YEAR_LEVEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+                                    {formData.yearLevelApplying === 'Other' && (
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Year Level *</label><input name="yearLevelOther" value={formData.yearLevelOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    )}
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Civil Status *</label><select name="civilStatus" value={formData.civilStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Single">Single</option><option value="Cohabitation (Live-In)">Cohabitation (Live-In)</option><option value="Was Previously Married But Separated">Was Previously Married But Separated</option><option value="Married">Married</option><option value="Widow/er">Widow/er</option></select></div>
                                 </div>
                                 <div className={profileCompletionGridTwoClass}>
@@ -1046,6 +1068,9 @@ export default function ProfileCompletionModal({
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Are You a Working Student? *</label><select name="isWorkingStudent" value={formData.isWorkingStudent} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Type of Work *</label><select name="workingStudentType" value={formData.workingStudentType} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{WORK_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     </div>
+                                    {formData.workingStudentType === 'Other' && (
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Type of Work *</label><input name="workingStudentTypeOther" value={formData.workingStudentTypeOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    )}
                                     <div className={profileCompletionGridTwoClass}>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Employer *</label><input name="employerName" placeholder="N/A if not applicable" value={formData.employerName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address of Employer *</label><input name="employerAddress" placeholder="N/A if not applicable" value={formData.employerAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
@@ -1062,6 +1087,9 @@ export default function ProfileCompletionModal({
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Type of Disability *</label><select name="pwdType" value={formData.pwdType} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{PWD_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Cause of Disability *</label><input name="disabilityCause" placeholder="N/A if not applicable" value={formData.disabilityCause} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     </div>
+                                    {formData.pwdType === 'Other' && (
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Type of Disability *</label><input name="pwdTypeOther" value={formData.pwdTypeOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    )}
                                     {formData.isPwd === 'Yes' && renderProfileDocumentInput(PROFILE_DOCUMENT_UPLOADS[0])}
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
@@ -1070,6 +1098,9 @@ export default function ProfileCompletionModal({
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Member of Indigenous Group / Cultural Community? *</label><select name="isIndigenous" value={formData.isIndigenous} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>If Yes, Choose Below *</label><select name="indigenousGroup" value={formData.indigenousGroup} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{INDIGENOUS_GROUP_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     </div>
+                                    {formData.indigenousGroup === 'Other' && (
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Indigenous Group *</label><input name="indigenousGroupOther" value={formData.indigenousGroupOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    )}
                                     {formData.isIndigenous === 'Yes' && renderProfileDocumentInput(PROFILE_DOCUMENT_UPLOADS[1])}
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Are You a Member of 4Ps? *</label><select name="isFourPsMember" value={formData.isFourPsMember} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     {formData.isFourPsMember === 'Yes' && renderProfileDocumentInput(PROFILE_DOCUMENT_UPLOADS[2])}
@@ -1086,6 +1117,9 @@ export default function ProfileCompletionModal({
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Are You an Orphan? *</label><select name="isOrphan" value={formData.isOrphan} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>If Yes, Cause *</label><select name="orphanCause" value={formData.orphanCause} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{ORPHAN_CAUSE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     </div>
+                                    {formData.orphanCause === 'Other' && (
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Cause of Being an Orphan *</label><input name="orphanCauseOther" value={formData.orphanCauseOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    )}
                                     <div className={profileCompletionGridTwoClass}>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Are You a Homeless Citizen? *</label><select name="isHomelessCitizen" value={formData.isHomelessCitizen} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Are You a Senior Citizen? *</label><select name="isSeniorCitizen" value={formData.isSeniorCitizen} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
@@ -1162,6 +1196,12 @@ export default function ProfileCompletionModal({
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Have You Been Criminally Charged Before Any Court? *</label><select name="hasBeenCriminallyCharged" value={formData.hasBeenCriminallyCharged} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Have You Been Convicted of Any Crime? *</label><select name="hasBeenConvictedOfCrime" value={formData.hasBeenConvictedOfCrime} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                 </div>
+                                {formData.hasBeenCriminallyCharged === 'Yes' && (
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>If Yes, Indicate (Criminal Charge Details) *</label><textarea name="criminalChargeDetails" value={formData.criminalChargeDetails || ''} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                )}
+                                {formData.hasBeenConvictedOfCrime === 'Yes' && (
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>If Yes, Indicate (Crime Conviction Details) *</label><textarea name="crimeConvictionDetails" value={formData.crimeConvictionDetails || ''} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                )}
                             </div>
                         )}
                         {profileStep === 9 && (
