@@ -324,6 +324,10 @@ export default function ProfileCompletionModal({
         };
     }, [profilePhotoPreviewUrl]);
 
+    const handleAutoNA = (name: string, val: string = 'N/A') => {
+        setFormData((prev: any) => ({ ...prev, [name]: val }));
+    };
+
     const handleProfileFormChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = event.target;
         const isTextarea = event.target instanceof HTMLTextAreaElement;
@@ -954,8 +958,20 @@ export default function ProfileCompletionModal({
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Student ID No. *</label><input name="studentId" value={formData.studentId || personalInfo?.studentId || ''} readOnly className={profileCompletionReadOnlyClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Last Name *</label><input name="lastName" value={formData.lastName} readOnly className={profileCompletionReadOnlyClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Given Name *</label><input name="firstName" value={formData.firstName} readOnly className={profileCompletionReadOnlyClass} /></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Extension Name *</label><input name="suffix" value={formData.suffix} onChange={handleProfileFormChange} placeholder="0 if none" className={profileCompletionInputClass} /></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Middle Name *</label><input name="middleName" value={formData.middleName} onChange={handleProfileFormChange} placeholder="0 if no middle name" className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Extension Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('suffix', '0')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto 0</button>
+                                        </div>
+                                        <input name="suffix" value={formData.suffix} onChange={handleProfileFormChange} placeholder="0 if none" className={profileCompletionInputClass} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Middle Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('middleName', '0')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto 0</button>
+                                        </div>
+                                        <input name="middleName" value={formData.middleName} onChange={handleProfileFormChange} placeholder="0 if no middle name" className={profileCompletionInputClass} />
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Permanent Address - Street/Sitio & Barangay *</label><input name="street" value={formData.street} onChange={handleProfileFormChange} placeholder="House No., Block, Lot, Street/Sitio, Barangay" className={profileCompletionInputClass} /></div>
                                 <div className={profileCompletionGridThreeClass}>
@@ -1003,52 +1019,172 @@ export default function ProfileCompletionModal({
                                 <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
                                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Spouse and Children</p>
                                     <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Spouse *</label><input name="spouseName" placeholder="N/A if not applicable" value={formData.spouseName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Occupation *</label><input name="spouseOccupation" placeholder="N/A if not applicable" value={formData.spouseOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Contact Number *</label><input name="spouseContact" placeholder="N/A if not applicable" value={formData.spouseContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Name of Spouse *</label>
+                                            <button type="button" onClick={() => handleAutoNA('spouseName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="spouseName" placeholder="N/A if not applicable" value={formData.spouseName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Spouse's Occupation *</label>
+                                            <button type="button" onClick={() => handleAutoNA('spouseOccupation', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="spouseOccupation" placeholder="N/A if not applicable" value={formData.spouseOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Spouse's Contact Number *</label>
+                                            <button type="button" onClick={() => handleAutoNA('spouseContact', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="spouseContact" placeholder="N/A if not applicable" value={formData.spouseContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Employer/Business Name *</label><input name="spouseEmployerName" placeholder="N/A if not applicable" value={formData.spouseEmployerName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Spouse's Employer/Business Address *</label><input name="spouseEmployerAddress" placeholder="N/A if not applicable" value={formData.spouseEmployerAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Spouse's Employer/Business Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('spouseEmployerName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="spouseEmployerName" placeholder="N/A if not applicable" value={formData.spouseEmployerName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Spouse's Employer/Business Address *</label>
+                                            <button type="button" onClick={() => handleAutoNA('spouseEmployerAddress', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="spouseEmployerAddress" placeholder="N/A if not applicable" value={formData.spouseEmployerAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Number of Children *</label><input name="numChildren" placeholder="N/A if not applicable" value={formData.numChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Number of Children *</label>
+                                            <button type="button" onClick={() => handleAutoNA('numChildren', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="numChildren" placeholder="N/A if not applicable" value={formData.numChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Currently Pregnant? *</label><select name="currentlyPregnant" value={formData.currentlyPregnant} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{PREGNANCY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     </div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Children - Date of Birth *</label><textarea name="childrenNamesBirthdates" placeholder="N/A if not applicable" value={formData.childrenNamesBirthdates} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Name of Children - Date of Birth *</label>
+                                            <button type="button" onClick={() => handleAutoNA('childrenNamesBirthdates', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="childrenNamesBirthdates" placeholder="N/A if not applicable" value={formData.childrenNamesBirthdates} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
                                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Mother</p>
                                     <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Maiden Last Name *</label><input name="motherLastName" placeholder="N/A if not applicable" value={formData.motherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Given Name *</label><input name="motherGivenName" placeholder="N/A if not applicable" value={formData.motherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Maiden Middle Name *</label><input name="motherMiddleName" placeholder="N/A if not applicable" value={formData.motherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Mother's Maiden Last Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('motherLastName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="motherLastName" placeholder="N/A if not applicable" value={formData.motherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Mother's Given Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('motherGivenName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="motherGivenName" placeholder="N/A if not applicable" value={formData.motherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Mother's Maiden Middle Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('motherMiddleName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="motherMiddleName" placeholder="N/A if not applicable" value={formData.motherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                     </div>
                                     <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Occupation *</label><input name="motherOccupation" placeholder="N/A if not applicable" value={formData.motherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Status *</label><select name="motherStatus" value={formData.motherStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{FAMILY_STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Contact Number *</label><input name="motherContact" placeholder="N/A if not applicable" value={formData.motherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Mother's Occupation *</label>
+                                            <button type="button" onClick={() => handleAutoNA('motherOccupation', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="motherOccupation" placeholder="N/A if not applicable" value={formData.motherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
                                     </div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Address *</label><input name="motherAddress" placeholder="N/A if not applicable" value={formData.motherAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Mother's Status *</label><select name="motherStatus" value={formData.motherStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{FAMILY_STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Mother's Contact Number *</label>
+                                            <button type="button" onClick={() => handleAutoNA('motherContact', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="motherContact" placeholder="N/A if not applicable" value={formData.motherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Mother's Address *</label>
+                                            <button type="button" onClick={() => handleAutoNA('motherAddress', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="motherAddress" placeholder="N/A if not applicable" value={formData.motherAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
                                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Father</p>
                                     <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Last Name *</label><input name="fatherLastName" placeholder="N/A if not applicable" value={formData.fatherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Given Name *</label><input name="fatherGivenName" placeholder="N/A if not applicable" value={formData.fatherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Middle Name *</label><input name="fatherMiddleName" placeholder="N/A if not applicable" value={formData.fatherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Father's Last Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('fatherLastName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="fatherLastName" placeholder="N/A if not applicable" value={formData.fatherLastName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Father's Given Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('fatherGivenName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="fatherGivenName" placeholder="N/A if not applicable" value={formData.fatherGivenName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Father's Middle Name *</label>
+                                            <button type="button" onClick={() => handleAutoNA('fatherMiddleName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="fatherMiddleName" placeholder="N/A if not applicable" value={formData.fatherMiddleName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                     </div>
                                     <div className={profileCompletionGridThreeClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Occupation *</label><input name="fatherOccupation" placeholder="N/A if not applicable" value={formData.fatherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Status *</label><select name="fatherStatus" value={formData.fatherStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{FAMILY_STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Contact Number *</label><input name="fatherContact" placeholder="N/A if not applicable" value={formData.fatherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Father's Occupation *</label>
+                                            <button type="button" onClick={() => handleAutoNA('fatherOccupation', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="fatherOccupation" placeholder="N/A if not applicable" value={formData.fatherOccupation} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
                                     </div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Address *</label><input name="fatherAddress" placeholder="N/A if not applicable" value={formData.fatherAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Father's Status *</label><select name="fatherStatus" value={formData.fatherStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{FAMILY_STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Father's Contact Number *</label>
+                                            <button type="button" onClick={() => handleAutoNA('fatherContact', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="fatherContact" placeholder="N/A if not applicable" value={formData.fatherContact} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Father's Address *</label>
+                                            <button type="button" onClick={() => handleAutoNA('fatherAddress', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="fatherAddress" placeholder="N/A if not applicable" value={formData.fatherAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
                                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">Family Order</p>
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Number of Children Your Parents Have *</label><input name="parentsNumChildren" placeholder="N/A if not applicable" value={formData.parentsNumChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Number of Children Your Parents Have *</label>
+                                            <button type="button" onClick={() => handleAutoNA('parentsNumChildren', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="parentsNumChildren" placeholder="N/A if not applicable" value={formData.parentsNumChildren} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Your Birth Order in the Family *</label><select name="birthOrder" value={formData.birthOrder} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{BIRTH_ORDER_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
                                     </div>
                                     {formData.birthOrder === 'Other' && (
@@ -1072,20 +1208,50 @@ export default function ProfileCompletionModal({
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Type of Work *</label><input name="workingStudentTypeOther" value={formData.workingStudentTypeOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     )}
                                     <div className={profileCompletionGridTwoClass}>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Employer *</label><input name="employerName" placeholder="N/A if not applicable" value={formData.employerName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address of Employer *</label><input name="employerAddress" placeholder="N/A if not applicable" value={formData.employerAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Name of Employer *</label>
+                                            <button type="button" onClick={() => handleAutoNA('employerName', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="employerName" placeholder="N/A if not applicable" value={formData.employerName} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
                                     </div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Work Experiences *</label><textarea name="workExperiences" placeholder="N/A if not applicable" value={formData.workExperiences} onChange={handleProfileFormChange} rows={4} className={profileCompletionTextareaClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Address of Employer *</label>
+                                            <button type="button" onClick={() => handleAutoNA('employerAddress', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="employerAddress" placeholder="N/A if not applicable" value={formData.employerAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Work Experiences *</label>
+                                            <button type="button" onClick={() => handleAutoNA('workExperiences', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="workExperiences" placeholder="N/A if not applicable" value={formData.workExperiences} onChange={handleProfileFormChange} rows={4} className={profileCompletionTextareaClass} />
+                                    </div>
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
                                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400">PWD Claim</p>
                                     <div className={profileCompletionGridTwoClass}>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Are You a Person with a Disability (PWD)? *</label><select name="isPwd" value={formData.isPwd} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>PWD # *</label><input name="pwdNumber" placeholder="RR-PPMM-BB-NNNNNNN or N/A" value={formData.pwdNumber} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>PWD # *</label>
+                                            <button type="button" onClick={() => handleAutoNA('pwdNumber', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="pwdNumber" placeholder="RR-PPMM-BB-NNNNNNN or N/A" value={formData.pwdNumber} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                     </div>
                                     <div className={profileCompletionGridTwoClass}>
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Type of Disability *</label><select name="pwdType" value={formData.pwdType} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{PWD_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-                                        <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Cause of Disability *</label><input name="disabilityCause" placeholder="N/A if not applicable" value={formData.disabilityCause} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                        <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Cause of Disability *</label>
+                                            <button type="button" onClick={() => handleAutoNA('disabilityCause', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="disabilityCause" placeholder="N/A if not applicable" value={formData.disabilityCause} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                     </div>
                                     {formData.pwdType === 'Other' && (
                                         <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Specify Type of Disability *</label><input name="pwdTypeOther" value={formData.pwdTypeOther || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
@@ -1166,32 +1332,104 @@ export default function ProfileCompletionModal({
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Inclusive Years Attended *</label><input name="seniorHighYearGraduated" value={formData.seniorHighYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                 </div>
                                 <div className={profileCompletionGridTwoClass}>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>If Transferee, College: Name of School *</label><input name="collegeSchool" placeholder="N/A if not applicable" value={formData.collegeSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Inclusive Years Attended *</label><input name="collegeYearGraduated" placeholder="N/A if not applicable" value={formData.collegeYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>If Transferee, College: Name of School *</label>
+                                            <button type="button" onClick={() => handleAutoNA('collegeSchool', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="collegeSchool" placeholder="N/A if not applicable" value={formData.collegeSchool} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Inclusive Years Attended *</label>
+                                            <button type="button" onClick={() => handleAutoNA('collegeYearGraduated', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="collegeYearGraduated" placeholder="N/A if not applicable" value={formData.collegeYearGraduated} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Honor/Award Received. List from Elementary *</label><textarea name="honorsAwards" placeholder="N/A if not applicable" value={formData.honorsAwards} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>TESDA NC II Acquired - Date Acquired - Validity *</label><textarea name="tesdaNc2Acquired" placeholder="N/A if none" value={formData.tesdaNc2Acquired} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Eligibility Acquired - Date Acquired *</label><textarea name="eligibilityAcquired" placeholder="N/A if none" value={formData.eligibilityAcquired} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Special Trainings Attended *</label><textarea name="specialTrainingsAttended" placeholder="N/A if none" value={formData.specialTrainingsAttended} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Honor/Award Received. List from Elementary *</label>
+                                            <button type="button" onClick={() => handleAutoNA('honorsAwards', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="honorsAwards" placeholder="N/A if not applicable" value={formData.honorsAwards} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>TESDA NC II Acquired - Date Acquired - Validity *</label>
+                                            <button type="button" onClick={() => handleAutoNA('tesdaNc2Acquired', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="tesdaNc2Acquired" placeholder="N/A if none" value={formData.tesdaNc2Acquired} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Eligibility Acquired - Date Acquired *</label>
+                                            <button type="button" onClick={() => handleAutoNA('eligibilityAcquired', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="eligibilityAcquired" placeholder="N/A if none" value={formData.eligibilityAcquired} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Special Trainings Attended *</label>
+                                            <button type="button" onClick={() => handleAutoNA('specialTrainingsAttended', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="specialTrainingsAttended" placeholder="N/A if none" value={formData.specialTrainingsAttended} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
                             </div>
                         )}
                         {profileStep === 7 && (
                             <div className="space-y-4">
                                 <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Extra-Curricular Involvement</h3></div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Voluntary Activities *</label><textarea name="extracurricularActivities" placeholder="N/A if not applicable" value={formData.extracurricularActivities} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Name of Voluntary Activities *</label>
+                                            <button type="button" onClick={() => handleAutoNA('extracurricularActivities', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="extracurricularActivities" placeholder="N/A if not applicable" value={formData.extracurricularActivities} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
                                 <div className={profileCompletionGridTwoClass}>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Do You Hold a Local/National Position in Public Service? *</label><select name="holdsPublicServicePosition" value={formData.holdsPublicServicePosition} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Position in Public Service *</label><input name="publicServicePosition" placeholder="N/A if not applicable" value={formData.publicServicePosition} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Position in Public Service *</label>
+                                            <button type="button" onClick={() => handleAutoNA('publicServicePosition', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <input name="publicServicePosition" placeholder="N/A if not applicable" value={formData.publicServicePosition} onChange={handleProfileFormChange} className={profileCompletionInputClass} />
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Organizations You Are a Member Of *</label><textarea name="organizationsMemberships" value={formData.organizationsMemberships} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Sports You Are Good At *</label><textarea name="sportsSkills" value={formData.sportsSkills} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Other Talent/s *</label><textarea name="otherTalents" value={formData.otherTalents} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} /></div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Organizations You Are a Member Of *</label>
+                                            <button type="button" onClick={() => handleAutoNA('organizationsMemberships', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="organizationsMemberships" value={formData.organizationsMemberships} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Sports You Are Good At *</label>
+                                            <button type="button" onClick={() => handleAutoNA('sportsSkills', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="sportsSkills" value={formData.sportsSkills} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Other Talent/s *</label>
+                                            <button type="button" onClick={() => handleAutoNA('otherTalents', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="otherTalents" value={formData.otherTalents} onChange={handleProfileFormChange} rows={3} className={profileCompletionTextareaClass} />
+                                    </div>
                             </div>
                         )}
                         {profileStep === 8 && (
                             <div className="space-y-4">
                                 <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Scholarships</h3></div>
-                                <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Name of Scholarship Availed & Sponsor *</label><textarea name="scholarshipsAvailed" placeholder="N/A if not applicable" value={formData.scholarshipsAvailed} onChange={handleProfileFormChange} rows={4} className={profileCompletionTextareaClass} /></div>
+                                <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className={profileCompletionLabelClass}>Name of Scholarship Availed & Sponsor *</label>
+                                            <button type="button" onClick={() => handleAutoNA('scholarshipsAvailed', 'N/A')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto N/A</button>
+                                        </div>
+                                        <textarea name="scholarshipsAvailed" placeholder="N/A if not applicable" value={formData.scholarshipsAvailed} onChange={handleProfileFormChange} rows={4} className={profileCompletionTextareaClass} />
+                                    </div>
                                 <div className={profileCompletionGridTwoClass}>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Have You Been Criminally Charged Before Any Court? *</label><select name="hasBeenCriminallyCharged" value={formData.hasBeenCriminallyCharged} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Have You Been Convicted of Any Crime? *</label><select name="hasBeenConvictedOfCrime" value={formData.hasBeenConvictedOfCrime} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{YES_NO_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
