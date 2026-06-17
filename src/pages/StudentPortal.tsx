@@ -2098,12 +2098,16 @@ export default function StudentPortal() {
         setShowCommandHub(false);
     }, [profileCompletionGateActive]);
 
-    // Sequences the Tour to appear AFTER Profile Completion closes
+    // Sequences the Tour to appear AFTER Profile Completion closes and when Side Panel is opened
     useEffect(() => {
         if (!loading && session && !profileCompletionGateActive && !hasSeenTourState) {
-            setShowTour(true);
+            if (isSidebarOpen) {
+                setShowTour(true);
+            } else {
+                setShowTour(false);
+            }
         }
-    }, [loading, session, profileCompletionGateActive, hasSeenTourState]);
+    }, [loading, session, profileCompletionGateActive, hasSeenTourState, isSidebarOpen]);
 
     // Save Profile Changes to Supabase
     const saveProfileChanges = async (nextPersonalInfo = personalInfo) => {
