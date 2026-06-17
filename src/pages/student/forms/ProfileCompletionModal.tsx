@@ -1311,7 +1311,7 @@ export default function ProfileCompletionModal({
                                 <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Full Name *</label><input name="emergencyName" value={formData.emergencyName} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                 <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Address *</label><input name="emergencyAddress" value={formData.emergencyAddress} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                 <div className={profileCompletionGridTwoClass}>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relationship *</label><input name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Relationship *</label><select name="emergencyRelationship" value={formData.emergencyRelationship} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{GUARDIAN_RELATION_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Contact Number *</label><input name="emergencyNumber" value={formData.emergencyNumber} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                 </div>
                             </div>
