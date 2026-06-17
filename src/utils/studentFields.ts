@@ -4,7 +4,6 @@ export const buildStudentAddress = (student?: {
     province?: string | null;
     zip_code?: string | null;
     region?: string | null;
-    address?: string | null;
 } | null) => {
     const parts = [
         student?.street,
@@ -20,14 +19,13 @@ export const buildStudentAddress = (student?: {
         return parts.join(', ');
     }
 
-    return String(student?.address || '').trim();
+    return '';
 };
 
 export const getStudentEmergencyContact = (student?: {
     emergency_number?: string | null;
-    emergency_contact?: string | null;
 } | null) =>
-    String(student?.emergency_number || student?.emergency_contact || '').trim();
+    String(student?.emergency_number || '').trim();
 
 export const getStudentSex = (student?: {
     sex?: string | null;

@@ -56,7 +56,6 @@ describe('careStaffService.getStudentsPage', () => {
         expect(STUDENT_LIST_COLUMNS).toContain('address');
         expect(STUDENT_LIST_COLUMNS).toContain('sex');
         expect(STUDENT_LIST_COLUMNS).toContain('gender_identity');
-        expect(STUDENT_LIST_COLUMNS).toContain('emergency_contact');
         expect(STUDENT_LIST_COLUMNS).not.toContain('password');
     });
 
