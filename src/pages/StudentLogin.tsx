@@ -111,6 +111,13 @@ const TOTAL_STEPS = 3;
 
     const loadActivationResources = async () => {
         try {
+            if (courses.length === 0) {
+                const { data } = await supabase.from('courses').select('name').order('name');
+                if (isActive && data) {
+                    setCourses(data);
+                }
+            }
+            
             const policy = await getStudentActivationPolicy();
                 if (isActive) {
                     setStudentActivationPolicy(policy);
@@ -125,7 +132,7 @@ const TOTAL_STEPS = 3;
         return () => {
             isActive = false;
         };
-    }, [showActivateModal]);
+    }, [showActivateModal, courses.length]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -956,7 +963,7 @@ const TOTAL_STEPS = 3;
                                                             <SearchableSelect
                                                                 label="Course"
                                                                 value={formData.course}
-                                                                options={PROGRAM_OPTIONS.map(name => ({ label: name, value: name }))}
+                                                                options={courses.length > 0 ? courses.map(c => ({ label: c.name, value: c.name })) : PROGRAM_OPTIONS.map(name => ({ label: name, value: name }))}
                                                                 onChange={(val) => setFormData((prev: any) => ({ ...prev, course: val }))}
                                                                 placeholder="Select your enrolled course"
                                                                 required
