@@ -99,7 +99,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
             {/* Trigger button */}
             <button
                 type="button"
-                onClick={() => setOpen(o => !o)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(o => !o); }}
                 className={`w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-left text-sm transition-all hover:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none ${!displayValue ? 'text-slate-400' : 'text-slate-800 font-medium'
                     } ${required && !value ? 'border-red-300' : ''}`}
             >
@@ -108,17 +108,18 @@ const DatePicker: React.FC<DatePickerProps> = ({
             </button>
 
             {/* Dropdown calendar */}
-            <AnimatePresence>
-                {open && typeof document !== 'undefined' && createPortal(
-                    <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.15 }}
-                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-                            onClick={() => setOpen(false)}
-                        />
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {open && (
+                        <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
+                            />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -200,7 +201,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                 <div className="mt-3 pt-3 border-t border-slate-100">
                                     <button
                                         type="button"
-                                        onClick={() => { onChange(''); setOpen(false); }}
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(''); setOpen(false); }}
                                         className="w-full text-center text-xs text-slate-400 hover:text-red-500 font-bold transition-colors py-1"
                                     >
                                         Clear date
@@ -208,10 +209,11 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                 </div>
                             )}
                         </motion.div>
-                    </div>,
-                    document.body
-                )}
-            </AnimatePresence>
+                    </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 };
