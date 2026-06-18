@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import DatePicker from '../../../components/ui/DatePicker';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
 import { supabase } from '../../../lib/supabase';
@@ -14,6 +15,7 @@ type ProfileCompletionModalProps = {
     personalInfo: any;
     showToast: (message: string, type?: string) => void;
     onCompleted: (result: { submittedProfile: any; updatedStudent: any; }) => void | Promise<void>;
+    onClose?: () => void;
 };
 
 const PROFILE_TOTAL_STEPS = 9;
@@ -246,7 +248,8 @@ export default function ProfileCompletionModal({
     initialData,
     personalInfo,
     showToast,
-    onCompleted
+    onCompleted,
+    onClose
 }: ProfileCompletionModalProps) {
     const [profileStep, setProfileStep] = useState(1);
     const [profileSaving, setProfileSaving] = useState(false);
@@ -907,7 +910,16 @@ export default function ProfileCompletionModal({
     return createPortal(
         <div className="fixed inset-0 z-[10002] overflow-visible bg-transparent p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
             <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel">
+                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel relative">
+                    {onClose && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors z-10"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    )}
                     <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
                         <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Complete Your Profile</h2>
                         <p className="mt-1 text-sm text-slate-500">Please fill in the remaining information to complete your student profile.</p>

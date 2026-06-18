@@ -3319,6 +3319,7 @@ export default function StudentPortal() {
                         personalInfo={personalInfo}
                         showToast={showToast}
                         onCompleted={handleProfileCompletionSuccess}
+                        onClose={() => setShowProfileCompletion(false)}
                     />
                 </Suspense>
             )}
