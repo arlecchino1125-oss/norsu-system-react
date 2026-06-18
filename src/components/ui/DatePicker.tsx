@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface DatePickerProps {
@@ -106,91 +108,110 @@ const DatePicker: React.FC<DatePickerProps> = ({
             </button>
 
             {/* Dropdown calendar */}
-            {open && (
-                <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl shadow-slate-200/50 p-3 w-[300px] animate-in fade-in slide-in-from-top-1">
-                    {/* Month/Year header */}
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                        <button type="button" onClick={() => navigateMonth(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                            <ChevronLeft size={16} className="text-slate-600" />
-                        </button>
-                        <div className="flex items-center gap-1.5">
-                            <select
-                                value={viewMonth}
-                                onChange={e => setViewMonth(Number(e.target.value))}
-                                className="px-2 py-1 bg-indigo-50 text-indigo-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-indigo-100 transition-colors appearance-auto"
-                            >
-                                {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                            </select>
-                            <select
-                                value={viewYear}
-                                onChange={e => setViewYear(Number(e.target.value))}
-                                className="px-2 py-1 bg-slate-100 text-slate-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-slate-200 transition-colors appearance-auto"
-                            >
-                                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                        </div>
-                        <button type="button" onClick={() => navigateMonth(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                            <ChevronRight size={16} className="text-slate-600" />
-                        </button>
-                    </div>
-
-                    {/* Day labels */}
-                    <div className="grid grid-cols-7 mb-1">
-                        {DAY_LABELS.map(d => (
-                            <div key={d} className="text-center text-[10px] font-bold text-slate-400 uppercase py-1">{d}</div>
-                        ))}
-                    </div>
-
-                    {/* Day grid */}
-                    <div className="grid grid-cols-7">
-                        {Array.from({ length: totalSlots }, (_, i) => {
-                            const dayNum = i - firstDay + 1;
-                            const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
-
-                            if (!isCurrentMonth) {
-                                // Show prev/next month day (greyed out)
-                                const displayDay = dayNum < 1
-                                    ? prevMonthDays + dayNum
-                                    : dayNum - daysInMonth;
-                                return (
-                                    <div key={i} className="text-center py-1.5 text-xs text-slate-300 select-none">
-                                        {displayDay}
-                                    </div>
-                                );
-                            }
-
-                            return (
-                                <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => handleSelect(dayNum)}
-                                    className={`text-center py-1.5 text-sm rounded-lg transition-all ${isSelected(dayNum)
-                                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200'
-                                            : isToday(dayNum)
-                                                ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                                                : 'text-slate-700 hover:bg-slate-100 font-medium'
-                                        }`}
-                                >
-                                    {dayNum}
+            <AnimatePresence>
+                {open && typeof document !== 'undefined' && createPortal(
+                    <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                            onClick={() => setOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ duration: 0.2, type: 'spring', bounce: 0.25 }}
+                            className="relative bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 w-[320px] max-w-full"
+                        >
+                            {/* Month/Year header */}
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                                <button type="button" onClick={() => navigateMonth(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                    <ChevronLeft size={16} className="text-slate-600" />
                                 </button>
-                            );
-                        })}
-                    </div>
+                                <div className="flex items-center gap-1.5">
+                                    <select
+                                        value={viewMonth}
+                                        onChange={e => setViewMonth(Number(e.target.value))}
+                                        className="px-2 py-1 bg-indigo-50 text-indigo-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-indigo-100 transition-colors appearance-auto"
+                                    >
+                                        {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                    </select>
+                                    <select
+                                        value={viewYear}
+                                        onChange={e => setViewYear(Number(e.target.value))}
+                                        className="px-2 py-1 bg-slate-100 text-slate-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-slate-200 transition-colors appearance-auto"
+                                    >
+                                        {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </div>
+                                <button type="button" onClick={() => navigateMonth(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                    <ChevronRight size={16} className="text-slate-600" />
+                                </button>
+                            </div>
 
-                    {/* Clear button */}
-                    {value && (
-                        <div className="mt-2 pt-2 border-t border-slate-100">
-                            <button
-                                type="button"
-                                onClick={() => { onChange(''); setOpen(false); }}
-                                className="w-full text-center text-xs text-slate-400 hover:text-red-500 transition-colors py-1"
-                            >
-                                Clear date
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
+                            {/* Day labels */}
+                            <div className="grid grid-cols-7 mb-1">
+                                {DAY_LABELS.map(d => (
+                                    <div key={d} className="text-center text-[10px] font-bold text-slate-400 uppercase py-1">{d}</div>
+                                ))}
+                            </div>
+
+                            {/* Day grid */}
+                            <div className="grid grid-cols-7 gap-y-1">
+                                {Array.from({ length: totalSlots }, (_, i) => {
+                                    const dayNum = i - firstDay + 1;
+                                    const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
+
+                                    if (!isCurrentMonth) {
+                                        // Show prev/next month day (greyed out)
+                                        const displayDay = dayNum < 1
+                                            ? prevMonthDays + dayNum
+                                            : dayNum - daysInMonth;
+                                        return (
+                                            <div key={i} className="text-center py-2 text-xs text-slate-300 select-none">
+                                                {displayDay}
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => handleSelect(dayNum)}
+                                            className={`text-center py-2 text-[15px] sm:text-sm rounded-lg transition-all ${isSelected(dayNum)
+                                                    ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200'
+                                                    : isToday(dayNum)
+                                                        ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                                        : 'text-slate-700 hover:bg-slate-100 font-medium'
+                                                }`}
+                                        >
+                                            {dayNum}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Clear button */}
+                            {value && (
+                                <div className="mt-3 pt-3 border-t border-slate-100">
+                                    <button
+                                        type="button"
+                                        onClick={() => { onChange(''); setOpen(false); }}
+                                        className="w-full text-center text-xs text-slate-400 hover:text-red-500 font-bold transition-colors py-1"
+                                    >
+                                        Clear date
+                                    </button>
+                                </div>
+                            )}
+                        </motion.div>
+                    </div>,
+                    document.body
+                )}
+            </AnimatePresence>
         </div>
     );
 };

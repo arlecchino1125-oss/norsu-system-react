@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DatePicker from '../../../components/ui/DatePicker';
+import SearchableSelect from '../../../components/ui/SearchableSelect';
 import { supabase } from '../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../lib/invokeEdgeFunction';
 import { joinNameParts } from '../../../utils/nameUtils';
@@ -1008,8 +1009,27 @@ export default function ProfileCompletionModal({
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Civil Status *</label><select name="civilStatus" value={formData.civilStatus} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option><option value="Single">Single</option><option value="Cohabitation (Live-In)">Cohabitation (Live-In)</option><option value="Was Previously Married But Separated">Was Previously Married But Separated</option><option value="Married">Married</option><option value="Widow/er">Widow/er</option></select></div>
                                 </div>
                                 <div className={profileCompletionGridTwoClass}>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>College *</label><select name="department" value={formData.department} onChange={handleProfileFormChange} className={profileCompletionInputClass}><option value="">Select</option>{visibleCollegeOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Program *</label><select name="course" value={formData.course} onChange={handleProfileFormChange} disabled={!selectedCollege} className={`${profileCompletionInputClass} disabled:cursor-not-allowed disabled:text-slate-400`}><option value="">{selectedCollege ? 'Select' : 'Select college first'}</option>{visibleProgramOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                                    <div className="space-y-1.5">
+                                        <SearchableSelect
+                                            label="College"
+                                            required
+                                            value={formData.department}
+                                            onChange={(val) => handleProfileFormChange({ target: { name: 'department', value: val } } as any)}
+                                            options={visibleCollegeOptions.map(opt => ({ label: opt, value: opt }))}
+                                            placeholder="What's your college?"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <SearchableSelect
+                                            label="Program"
+                                            required
+                                            disabled={!selectedCollege}
+                                            value={formData.course}
+                                            onChange={(val) => handleProfileFormChange({ target: { name: 'course', value: val } } as any)}
+                                            options={visibleProgramOptions.map(opt => ({ label: opt, value: opt }))}
+                                            placeholder={selectedCollege ? "What's your program/course?" : "Select college first"}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
