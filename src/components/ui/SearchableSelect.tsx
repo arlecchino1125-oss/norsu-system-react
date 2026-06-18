@@ -76,7 +76,7 @@ export default function SearchableSelect({
                         : 'border-slate-200 hover:border-slate-300 hover:bg-slate-100 cursor-pointer focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none'
                 }`}
             >
-                <span className={`text-[16px] sm:text-sm truncate leading-5 ${!selectedOption ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>
+                <span className={`text-sm sm:text-[13px] line-clamp-2 leading-tight ${!selectedOption ? 'text-slate-300' : 'text-slate-700 font-bold'}`}>
                     {selectedOption ? selectedOption.label : placeholder}
                 </span>
                 <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-500' : 'text-slate-400'}`} />
@@ -135,13 +135,13 @@ export default function SearchableSelect({
                                                 <div
                                                     key={option.value}
                                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(option.value); }}
-                                                    className={`px-4 py-3 rounded-xl text-[15px] sm:text-sm cursor-pointer flex items-center justify-between transition-all ${
+                                                    className={`px-4 py-2.5 rounded-xl text-sm sm:text-[13px] leading-tight cursor-pointer flex items-center justify-between transition-all ${
                                                         value === option.value
                                                             ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200'
                                                             : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 font-medium'
                                                     }`}
                                                 >
-                                                    <span className="truncate pr-4">{option.label}</span>
+                                                    <span className="pr-4">{option.label}</span>
                                                     {value === option.value && <Check className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />}
                                                 </div>
                                             ))}
