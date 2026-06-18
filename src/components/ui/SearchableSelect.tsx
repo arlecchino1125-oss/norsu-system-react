@@ -18,6 +18,7 @@ interface SearchableSelectProps {
     searchable?: boolean;
     className?: string;
     disabled?: boolean;
+    onDisabledClick?: () => void;
 }
 
 export default function SearchableSelect({
@@ -29,7 +30,8 @@ export default function SearchableSelect({
     required = false,
     searchable = true,
     className = '',
-    disabled = false
+    disabled = false,
+    onDisabledClick
 }: SearchableSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +49,14 @@ export default function SearchableSelect({
         setSearchTerm('');
     };
 
+    const handleClick = () => {
+        if (disabled) {
+            if (onDisabledClick) onDisabledClick();
+            return;
+        }
+        setIsOpen(true);
+    };
+
     return (
         <div className={`space-y-1.5 relative ${className}`} ref={containerRef}>
             <div className="flex justify-between items-center px-1">
@@ -57,8 +67,7 @@ export default function SearchableSelect({
 
             <button
                 type="button"
-                onClick={() => !disabled && setIsOpen(true)}
-                disabled={disabled}
+                onClick={handleClick}
                 className={`w-full px-4 py-3 sm:py-2.5 bg-slate-50 border rounded-xl text-left transition-all duration-200 flex items-center justify-between ${
                     disabled 
                         ? 'border-slate-200 cursor-not-allowed opacity-70' 

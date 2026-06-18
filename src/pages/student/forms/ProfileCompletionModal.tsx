@@ -869,15 +869,9 @@ export default function ProfileCompletionModal({
 
     const selectedCollege = String(formData.department || '').trim();
     const visibleCollegeOptions = Array.from(new Set([selectedCollege, ...collegeOptions].map((value) => String(value || '').trim()).filter(Boolean)));
-    const coursesForSelectedCollege = selectedCollege
-        ? programOptions.filter((courseName) => {
-            const mappedDepartment = courseDepartmentMap[courseName];
-            return !mappedDepartment || mappedDepartment === selectedCollege;
-        })
-        : [];
     const visibleProgramOptions = Array.from(new Set([
-        ...(selectedCollege && formData.course ? [formData.course] : []),
-        ...coursesForSelectedCollege
+        ...(formData.course ? [formData.course] : []),
+        ...programOptions
     ].map((value) => String(value || '').trim()).filter(Boolean)));
     const handleOpenProfileDocument = async (value: string) => {
         try {
@@ -1013,21 +1007,22 @@ export default function ProfileCompletionModal({
                                         <SearchableSelect
                                             label="College"
                                             required
+                                            disabled={true}
+                                            onDisabledClick={() => showToast('College is automatically set based on your selected program.', 'info')}
                                             value={formData.department}
                                             onChange={(val) => handleProfileFormChange({ target: { name: 'department', value: val } } as any)}
                                             options={visibleCollegeOptions.map(opt => ({ label: opt, value: opt }))}
-                                            placeholder="What's your college?"
+                                            placeholder="Auto-filled from program"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
                                         <SearchableSelect
                                             label="Program"
                                             required
-                                            disabled={!selectedCollege}
                                             value={formData.course}
                                             onChange={(val) => handleProfileFormChange({ target: { name: 'course', value: val } } as any)}
                                             options={visibleProgramOptions.map(opt => ({ label: opt, value: opt }))}
-                                            placeholder={selectedCollege ? "What's your program/course?" : "Select college first"}
+                                            placeholder="What's your program/course?"
                                         />
                                     </div>
                                 </div>

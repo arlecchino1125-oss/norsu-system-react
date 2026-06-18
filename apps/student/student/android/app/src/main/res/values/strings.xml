@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NORSU Student Portal</string>
+    <string name="title_activity_main">NORSU Student Portal</string>
+    <string name="package_name">edu.norsu.care.student</string>
+    <string name="custom_url_scheme">edu.norsu.care.student</string>
+</resources>

@@ -1,0 +1,12 @@
+{
+  "name": "norsu-student-mobile",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cap:sync": "npx cap sync",
+    "cap:add:android": "npx cap add android",
+    "cap:add:ios": "npx cap add ios",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios"
+  }
+}
