@@ -76,7 +76,24 @@ export default function StudentLogin() {
         confirmPassword: ''
     });
 
-    const TOTAL_STEPS = 3;
+    const PROGRAM_OPTIONS = [
+    'Bachelor of Science in Agriculture - Major in Agronomy (BSA - Agronomy)',
+    'Bachelor of Science in Computer Science (BSCS)',
+    'Bachelor of Science in Business Administration - Major in Human Resource Management (BSBA - HRM)',
+    'Bachelor of Science in Hospitality Management (BSHM)',
+    'Bachelor of Science in Office Administration (BSOA)',
+    'Bachelor of Science in Criminology (BSCrim)',
+    'Bachelor of Industrial Technology - Major in Automotive Technology (BSIT - Automotive Technology)',
+    'Bachelor of Industrial Technology - Major in Computer Technology (BSIT - Computer Technology)',
+    'Bachelor of Industrial Technology - Major in Electrical Technology (BSIT - Electrical Tehnology)',
+    'Bachelor of Industrial Technology - Major in Electronics Technology (BSIT – Electronics Technology)',
+    'Bachelor of Science in Midwifery',
+    'Bachelor of Elementary Education',
+    'Bachelor of Secondary Education - Major in Mathematics (BSED - Math)',
+    'Bachelor of Secondary Education - Major in English (BSED - English)'
+];
+
+const TOTAL_STEPS = 3;
     const STEP_LABELS = ['Verify', 'Personal', 'Finish'];
     const loginFieldLabel = loginMethod === 'email' ? 'Email' : 'Student ID';
     const loginFieldHelpText = loginMethod === 'email'
@@ -92,16 +109,9 @@ export default function StudentLogin() {
 
         let isActive = true;
 
-        const loadActivationResources = async () => {
-            if (courses.length === 0) {
-                const { data } = await supabase.from('courses').select('name').order('name');
-                if (isActive && data) {
-                    setCourses(data);
-                }
-            }
-
-            try {
-                const policy = await getStudentActivationPolicy();
+    const loadActivationResources = async () => {
+        try {
+            const policy = await getStudentActivationPolicy();
                 if (isActive) {
                     setStudentActivationPolicy(policy);
                 }
@@ -115,7 +125,7 @@ export default function StudentLogin() {
         return () => {
             isActive = false;
         };
-    }, [showActivateModal, courses.length]);
+    }, [showActivateModal]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -946,7 +956,7 @@ export default function StudentLogin() {
                                                             <SearchableSelect
                                                                 label="Course"
                                                                 value={formData.course}
-                                                                options={courses.map(c => ({ label: c.name, value: c.name }))}
+                                                                options={PROGRAM_OPTIONS.map(name => ({ label: name, value: name }))}
                                                                 onChange={(val) => setFormData((prev: any) => ({ ...prev, course: val }))}
                                                                 placeholder="Select your enrolled course"
                                                                 required
