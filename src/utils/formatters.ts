@@ -48,19 +48,19 @@ export const generateExportFilename = (prefix: string, extension: string): strin
 };
 
 /**
- * Converts a potentially broken Google Drive webViewLink into a direct rendering thumbnail link.
- * This acts as a fallback "auto-healer" for images uploaded before the directLink patch.
- * Example: "https://drive.google.com/file/d/1XYZ/view" -> "https://drive.google.com/thumbnail?id=1XYZ&sz=w1000"
+ * Converts a potentially broken Google Drive webViewLink into a direct rendering link.
+ * We use lh3.googleusercontent.com/d/{id} because it bypasses all of Google Drive's 
+ * strict third-party cookie and hotlinking blocks on live domains.
  */
 export const getValidProfileImageUrl = (url: string | null | undefined): string => {
     if (!url) return '';
-    // If it's the old web view link format
-    if (url.includes('drive.google.com/file/d/')) {
-        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (match && match[1]) {
-            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
-        }
+    
+    // Extract the File ID from either /file/d/{id} or ?id={id} formats
+    const matchId = url.match(/(?:\/d\/|id=)([\w-]+)/);
+    if (matchId && matchId[1]) {
+        return `https://lh3.googleusercontent.com/d/${matchId[1]}`;
     }
+    
     // If it's already a direct link or something else, return it as-is
     return url;
 };
