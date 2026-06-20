@@ -2047,7 +2047,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     onClick={() => setShowPhotoModal(false)}
                 >
                     <div
-                        className={`bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
+                        className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
@@ -2057,7 +2057,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                             <XCircle size={20} />
                         </button>
 
-                        <div className="w-80 h-80 sm:w-96 sm:h-96 flex items-center justify-center bg-slate-100 flex-shrink-0">
+                        <div className="w-full aspect-square flex items-center justify-center bg-slate-100 flex-shrink-0">
                             {profileViewStudent.profile_picture_url ? (
                                 <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
