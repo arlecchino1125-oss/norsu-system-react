@@ -32,11 +32,15 @@ const DatePicker: React.FC<DatePickerProps> = ({
     const [viewYear, setViewYear] = useState(parsed ? parsed.getFullYear() : 2000);
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const modalRef = useRef<HTMLDivElement>(null);
 
     // Close on outside click
     useEffect(() => {
         const handler = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+            if (
+                containerRef.current && !containerRef.current.contains(e.target as Node) &&
+                (!modalRef.current || !modalRef.current.contains(e.target as Node))
+            ) {
                 setOpen(false);
             }
         };
@@ -121,6 +125,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
                             />
                         <motion.div
+                            ref={modalRef}
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
