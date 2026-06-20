@@ -34,6 +34,7 @@ import {
     shouldForceProfileCompletionPrompt
 } from '../lib/studentProfileCompletionPrompt';
 import { validateTextInput } from '../utils/inputSecurity';
+import { getProfileTextFieldRule } from '../utils/profileFieldRules';
 
 const supabaseClient = supabase;
 const ProfileCompletionModal = lazy(() => import('./student/forms/ProfileCompletionModal'));
@@ -2083,8 +2084,80 @@ export default function StudentPortal() {
     }, [loading, session, profileCompletionGateActive, hasSeenTourState, isSidebarOpen]);
 
     // Save Profile Changes to Supabase
+    const validateProfileBeforeSave = (profile: any) => {
+        if (!profile.profile_picture_url) {
+            showToast('Profile picture is required.', 'error');
+            return false;
+        }
+
+        const requiredFields = [
+            'firstName', 'lastName', 'middleName', 'suffix',
+            'dob', 'age', 'placeOfBirth', 'nationality', 'sex', 'genderIdentity', 'civilStatus',
+            'street', 'city', 'province', 'zipCode', 'region',
+            'mobile', 'facebookUrl',
+            'spouseName', 'spouseOccupation', 'spouseEmployerName', 'spouseEmployerAddress', 'spouseContact',
+            'numChildren', 'childrenNamesBirthdates', 'currentlyPregnant',
+            'motherLastName', 'motherGivenName', 'motherMiddleName', 'motherOccupation', 'motherStatus', 'motherContact', 'motherAddress',
+            'fatherLastName', 'fatherGivenName', 'fatherMiddleName', 'fatherOccupation', 'fatherStatus', 'fatherContact', 'fatherAddress',
+            'parentsNumChildren', 'birthOrder',
+            'supporter', 'supporterContact',
+            'isWorkingStudent', 'workingStudentType', 'employerName', 'employerAddress',
+            'isPwd', 'pwdNumber', 'pwdType', 'disabilityCause',
+            'isIndigenous', 'indigenousGroup',
+            'isFourPsMember', 'isRebelReturnee',
+            'isSoloParent', 'isChildOfSoloParent',
+            'isOrphan', 'orphanCause',
+            'isHomelessCitizen', 'isSeniorCitizen',
+            'workExperiences',
+            'guardianName', 'guardianAddress', 'guardianContact', 'guardianRelation',
+            'emergencyName', 'emergencyAddress', 'emergencyRelationship', 'emergencyNumber',
+            'elemSchool', 'elemYearGraduated',
+            'juniorHighSchool', 'juniorHighYearGraduated',
+            'seniorHighSchool', 'seniorHighYearGraduated',
+            'collegeSchool', 'collegeYearGraduated',
+            'honorsAwards', 'tesdaNc2Acquired', 'eligibilityAcquired', 'specialTrainingsAttended',
+            'extracurricularActivities', 'holdsPublicServicePosition', 'publicServicePosition',
+            'organizationsMemberships', 'sportsSkills', 'otherTalents',
+            'scholarshipsAvailed', 'hasBeenCriminallyCharged', 'hasBeenConvictedOfCrime'
+        ];
+
+        for (const field of requiredFields) {
+            if (!hasFilledProfileValue(profile[field])) {
+                const label = getProfileTextFieldRule(field, false).label;
+                showToast(`${label} is required.`, 'error');
+                return false;
+            }
+        }
+
+        if (profile.birthOrder === 'Other' && !hasFilledProfileValue(profile.birthOrderOther)) {
+            showToast('Specify Birth Order is required.', 'error');
+            return false;
+        }
+        if (profile.workingStudentType === 'Other' && !hasFilledProfileValue(profile.workingStudentTypeOther)) {
+            showToast('Specify Type of Work is required.', 'error');
+            return false;
+        }
+        if (profile.pwdType === 'Other' && !hasFilledProfileValue(profile.pwdTypeOther)) {
+            showToast('Specify Type of Disability is required.', 'error');
+            return false;
+        }
+        if (profile.indigenousGroup === 'Other' && !hasFilledProfileValue(profile.indigenousGroupOther)) {
+            showToast('Specify Indigenous Group is required.', 'error');
+            return false;
+        }
+        if (profile.orphanCause === 'Other' && !hasFilledProfileValue(profile.orphanCauseOther)) {
+            showToast('Specify Cause of Being an Orphan is required.', 'error');
+            return false;
+        }
+
+        return true;
+    };
+
     const saveProfileChanges = async (nextPersonalInfo = personalInfo) => {
         if (isSavingProfileChanges) return;
+        if (!validateProfileBeforeSave(nextPersonalInfo)) {
+            return;
+        }
         setIsEditing(false);
         setIsSavingProfileChanges(true);
         try {
