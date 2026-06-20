@@ -818,7 +818,7 @@ export default function ProfileCompletionModal({
                                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                                         <div className="h-24 w-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                                             {profilePhotoPreviewUrl || formData.profilePictureUrl ? (
-                                                <img src={getValidProfileImageUrl(profilePhotoPreviewUrl || formData.profilePictureUrl)} alt="Profile portrait preview" className="h-full w-full object-cover" />
+                                                <img src={getValidProfileImageUrl(profilePhotoPreviewUrl || formData.profilePictureUrl)} alt="Profile portrait preview" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                                             ) : (
                                                 <div className="flex h-full w-full items-center justify-center bg-slate-100 text-2xl font-black text-slate-300">
                                                     {formData.firstName?.[0] || 'S'}
