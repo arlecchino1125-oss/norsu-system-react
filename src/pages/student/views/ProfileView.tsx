@@ -197,6 +197,7 @@ function ProfileViewContent(p: any) {
                                 <img
                                     src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
                                     alt="Profile"
+                                    referrerPolicy="no-referrer"
                                     className="h-20 w-20 rounded-2xl border-4 border-white/20 object-cover shadow-xl shadow-blue-500/30 sm:h-24 sm:w-24"
                                 />
                             ) : (
