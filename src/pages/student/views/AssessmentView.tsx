@@ -1,22 +1,42 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
+import { useStudentFormsData } from '../../../hooks/student/useStudentFormsData';
 
 const AssessmentFormModal = lazy(() => import('../forms/AssessmentFormModal'));
 
 export default function AssessmentView({
-    loadingForm,
-    formsList,
-    completedForms,
-    openAssessmentForm,
-    showAssessmentModal,
-    activeForm,
     personalInfo,
-    setShowAssessmentModal,
-    onAssessmentSubmitted,
-    showSuccessModal,
-    setShowSuccessModal,
     showToast,
     Icons
 }: any) {
+    const [activeForm, setActiveForm] = useState<any>(null);
+    const [formsList, setFormsList] = useState<any[]>([]);
+    const [loadingForm, setLoadingForm] = useState(false);
+    const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [completedForms, setCompletedForms] = useState<Set<any>>(new Set());
+
+    const { refreshForms } = useStudentFormsData({
+        studentId: personalInfo.studentId,
+        setFormsList,
+        setCompletedForms,
+        setLoadingForm
+    });
+
+    useEffect(() => {
+        refreshForms();
+    }, [refreshForms]);
+
+    const openAssessmentForm = (form: any) => {
+        setActiveForm(form);
+        setShowAssessmentModal(true);
+    };
+
+    const onAssessmentSubmitted = useCallback(async () => {
+        setShowAssessmentModal(false);
+        setActiveForm(null);
+        await refreshForms();
+        setShowSuccessModal(true);
+    }, [refreshForms]);
     return (
         <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 page-transition">
             <div>

@@ -277,7 +277,7 @@ export const getEnrollmentKeys = async () => {
 export const getCoursesWithDepartments = async () => {
     const { data, error } = await supabase
         .from('courses')
-        .select('id, name, application_limit, status, department_id, departments(name)')
+        .select('id, name, capacity, application_limit, status, department_id, departments(name)')
         .order('name', { ascending: true });
     if (error) throw error;
     return data || [];

@@ -1,5 +1,6 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useStudentSupportData } from '../../../hooks/student/useStudentSupportData';
 import {
     getStoredAssetEntries,
     getStoredAssetLabel,
@@ -29,20 +30,31 @@ const getSupportScheduledDate = (request: any) => {
 };
 
 export default function SupportView({
-    supportRequests,
-    setShowSupportRequestsModal,
-    showSupportRequestsModal,
-    selectedSupportRequest,
-    setSelectedSupportRequest,
     formatFullDate,
     personalInfo,
-    openSupportForm,
-    showSupportModal,
-    setShowSupportModal,
-    onSupportSubmitted,
     showToast,
     Icons
 }: any) {
+    const [supportRequests, setSupportRequests] = useState<any[]>([]);
+    const [showSupportRequestsModal, setShowSupportRequestsModal] = useState(false);
+    const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
+    const [showSupportModal, setShowSupportModal] = useState(false);
+
+    const { refreshSupportRequests } = useStudentSupportData({
+        studentId: personalInfo.studentId,
+        setSupportRequests
+    });
+
+    useEffect(() => {
+        refreshSupportRequests();
+    }, [refreshSupportRequests]);
+
+    const openSupportForm = () => setShowSupportModal(true);
+
+    const onSupportSubmitted = useCallback(async () => {
+        setShowSupportModal(false);
+        await refreshSupportRequests();
+    }, [refreshSupportRequests]);
     return (
         <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6 page-transition">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between animate-fade-in-up">

@@ -1601,9 +1601,15 @@ const NATManagementPage = ({ showToast }: any) => {
                                             <>
                                                 {paginatedCourseLimits.map(c => (
                                                     <tr key={c.id}>
-                                                        <td className="p-4 font-bold">{c.name}</td>
-                                                        <td className="p-4 text-center font-mono font-bold text-blue-600">{summaryApplications.filter(a => a.priority_course === c.name).length}</td>
-                                                        <td className="p-4 text-center"><input type="number" className="border rounded w-20 text-center" defaultValue={c.application_limit || 200} onBlur={e => handleUpdateLimit(c.id, 'application_limit', e.target.value)} /></td>
+                                                        <td className="p-4">
+                                                            <div className="font-semibold text-slate-900">{c.name}</div>
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <input type="number" className="border rounded w-20 text-center" defaultValue={c.capacity || 500} onBlur={e => handleUpdateLimit(c.id, 'capacity', e.target.value)} />
+                                                        </td>
+                                                        <td className="p-4 text-center">
+                                                            <input type="number" className="border rounded w-20 text-center" defaultValue={c.application_limit || 200} onBlur={e => handleUpdateLimit(c.id, 'application_limit', e.target.value)} />
+                                                        </td>
                                                         <td className="p-4 text-center">
                                                             {canArchiveRecords ? (
                                                                 <button onClick={() => handleUpdateLimit(c.id, 'status', c.status === 'Closed' ? 'Open' : 'Closed')} className={`px-2 py-1 rounded-full text-xs font-bold ${c.status === 'Closed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{c.status || 'Open'}</button>

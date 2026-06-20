@@ -1,5 +1,7 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { supabase } from '../../../lib/supabase';
+import { useStudentCounselingData } from '../../../hooks/student/useStudentCounselingData';
 import {
     CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
     COUNSELING_STATUS,
@@ -27,23 +29,53 @@ const getCounselingStatusLabel = (status: string, forwardedLabel = 'Forwarded') 
 };
 
 export default function CounselingView({
-    counselingRequests,
-    setShowCounselingRequestsModal,
-    showCounselingRequestsModal,
-    openRequestModal,
     formatFullDate,
     Icons,
-    openCounselingForm,
-    showCounselingForm,
-    setShowCounselingForm,
     personalInfo,
-    onCounselingSubmitted,
-    selectedRequest,
-    setSelectedRequest,
     setFeedbackPrefill,
     setActiveView,
     showToast
 }: any) {
+    const [counselingRequests, setCounselingRequests] = useState<any[]>([]);
+    const [showCounselingRequestsModal, setShowCounselingRequestsModal] = useState(false);
+    const [showCounselingForm, setShowCounselingForm] = useState(false);
+    const [selectedRequest, setSelectedRequest] = useState<any>(null);
+    const [sessionFeedback, setSessionFeedback] = useState<any>({ rating: 0, comment: '' });
+
+    const { refreshCounselingRequests } = useStudentCounselingData({
+        studentId: personalInfo.studentId,
+        setCounselingRequests
+    });
+
+    useEffect(() => {
+        refreshCounselingRequests();
+    }, [refreshCounselingRequests]);
+
+    const openRequestModal = (req: any) => {
+        setSelectedRequest(req);
+        setSessionFeedback({ rating: req.rating || 0, comment: req.feedback || '' });
+    };
+
+    const openCounselingForm = () => setShowCounselingForm(true);
+
+    const onCounselingSubmitted = useCallback(async () => {
+        setShowCounselingForm(false);
+        await refreshCounselingRequests();
+    }, [refreshCounselingRequests]);
+
+    const submitSessionFeedback = async () => {
+        try {
+            const { error } = await supabase.from('counseling_requests').update({ rating: sessionFeedback.rating, feedback: sessionFeedback.comment }).eq('id', selectedRequest.id);
+            if (error) throw error;
+            const updatedReq = { ...selectedRequest, rating: sessionFeedback.rating, feedback: sessionFeedback.comment };
+            setSelectedRequest(updatedReq);
+            setCounselingRequests(prev => prev.map(r => r.id === updatedReq.id ? updatedReq : r));
+            showToast('Feedback submitted successfully', 'success');
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to submit feedback', 'error');
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6 page-transition relative">
             <div className="mb-6 animate-fade-in-up flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
