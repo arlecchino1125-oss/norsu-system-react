@@ -1,7 +1,8 @@
 import React from 'react';
 import AccountSecuritySettings from '../../../components/AccountSecuritySettings';
 import { openStoredAsset } from '../../../utils/storageAssets';
-import { getTextInputLimitProps } from '../../../utils/inputSecurity';
+import { cleanLiveProfileText, getProfileTextFieldRule } from '../../../utils/profileFieldRules';
+import { getValidProfileImageUrl } from '../../../utils/formatters';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
@@ -19,6 +20,21 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
         }
     };
 
+    const fieldRule = getProfileTextFieldRule(field, type === 'textarea');
+
+    const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        const nextFieldValue = cleanLiveProfileText(val, fieldRule.multiline || type === 'textarea');
+        if (nextFieldValue !== val) {
+            showToast?.('Unsafe control or angle-bracket characters were removed.', 'error');
+        }
+        if (nextFieldValue.length > fieldRule.maxLength) {
+            showToast?.(`${fieldRule.label} must be ${fieldRule.maxLength} characters or fewer.`, 'error');
+            return;
+        }
+        setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: nextFieldValue }));
+    };
+
     return (
         <div className={`min-w-0 ${colSpan ? `col-span-${colSpan}` : ''}`}>
             {showsEditableControl ? (
@@ -33,20 +49,20 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
                         {(options || []).map((o: any) => <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value} className="bg-white text-slate-700">{typeof o === 'string' ? o : o.label}</option>)}
                     </select>
                 ) : type === 'textarea' ? (
-                    <textarea id={fieldId} name={field} autoComplete="off" {...getTextInputLimitProps('notes')} className={`${INPUT_CLASS} min-h-[112px] resize-none sm:min-h-0`} style={{ colorScheme: 'light' }} rows={3} value={activePersonalInfo[field] || ''} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value }))} />
+                    <textarea id={fieldId} name={field} autoComplete="off" maxLength={fieldRule.maxLength} className={`${INPUT_CLASS} min-h-[112px] resize-none sm:min-h-0`} style={{ colorScheme: 'light' }} rows={3} value={activePersonalInfo[field] || ''} onChange={handleTextChange} />
                 ) : type === 'boolean' ? (
                     <select id={fieldId} name={field} autoComplete="off" className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] ? 'Yes' : 'No'} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value === 'Yes' }))}>
                         <option value="No" className="bg-white text-slate-700">No</option><option value="Yes" className="bg-white text-slate-700">Yes</option>
                     </select>
                 ) : (
-                    <input id={fieldId} name={field} autoComplete="off" spellCheck={false} {...getTextInputLimitProps('mediumText')} type={type || 'text'} className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] || ''} onChange={(e) => {
+                    <input id={fieldId} name={field} autoComplete="off" spellCheck={false} maxLength={fieldRule.maxLength} type={type || 'text'} className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] || ''} onChange={(e) => {
                         if (field === 'dob') {
                             const dob = e.target.value;
                             let age = activePersonalInfo.age;
                             if (dob) { const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); const m = t.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--; age = a >= 0 ? a : ''; }
                             setDraftPersonalInfo((prev: any) => ({ ...prev, dob, age }));
                         } else {
-                            setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value }));
+                            handleTextChange(e);
                         }
                     }} />
                 )
@@ -179,7 +195,7 @@ function ProfileViewContent(p: any) {
                         <div className="relative mx-auto mb-4 h-20 w-20 sm:h-24 sm:w-24">
                             {personalInfo.profile_picture_url ? (
                                 <img
-                                    src={personalInfo.profile_picture_url}
+                                    src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
                                     alt="Profile"
                                     className="h-20 w-20 rounded-2xl border-4 border-white/20 object-cover shadow-xl shadow-blue-500/30 sm:h-24 sm:w-24"
                                 />
