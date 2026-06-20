@@ -6,6 +6,47 @@ import { getValidProfileImageUrl } from '../../../utils/formatters';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
+const FALLBACK_PROGRAM_OPTIONS = [
+    'Bachelor of Science in Agriculture Major in Agronomy',
+    'Bachelor of Science in Computer Science',
+    'Bachelor of Science in Midwifery',
+    'Bachelor of Science in AgriBusiness',
+    'Bachelor of Science in Business Administration Major in Human Resource Management',
+    'Bachelor of Science in Hospitality Management',
+    'Bachelor of Science in Office Administration',
+    'Bachelor of Science in Criminology',
+    'Bachelor of Industrial Technology Major in Automotive Technology',
+    'Bachelor of Industrial Technology Major in Computer Technology',
+    'Bachelor of Industrial Technology Major in Electrical Technology',
+    'Bachelor of Industrial Technology Major in Electronics Technology',
+    'Bachelor of Elementary Education',
+    'Bachelor of Secondary Education Major in English',
+    'Bachelor of Secondary Education Major in Mathematics',
+    'Bachelor of Secondary Education Major in Social Studies',
+    'Bachelor of Technology and Livelihood Education Major in Home Economics'
+];
+
+const FALLBACK_DEPARTMENT_OPTIONS = [
+    'College of Agriculture and Forestry',
+    'College of Arts and Sciences',
+    'College of Business Administration',
+    'College of Criminal Justice Education',
+    'College of Education',
+    'College of Engineering and Architecture',
+    'College of Industrial Technology',
+    'College of Nursing, Pharmacy and Allied Health Sciences'
+];
+
+const YEAR_LEVEL_OPTIONS = [
+    { value: '1st Year', label: 'I' },
+    { value: '2nd Year', label: 'II' },
+    { value: '3rd Year', label: 'III' },
+    { value: '4th Year', label: 'IV' },
+    { value: '5th Year', label: 'V' },
+    { value: '6th Year', label: 'VI' },
+    { value: 'Other', label: 'Other' }
+];
+
 // Extracted to top-level so React keeps a stable component identity across re-renders.
 // When these were inline, every state change created a new component type →
 // React unmounted/remounted <select> elements → dropdowns collapsed instantly.
@@ -185,7 +226,7 @@ function ProfileViewContent(p: any) {
     };
 
     return (
-        <div className={`flex flex-col gap-4 sm:gap-6 lg:flex-row lg:gap-8 ${isEditing ? 'student-profile-edit' : (isCompactMobileLayout ? '' : 'page-transition')}`} style={isEditing ? { colorScheme: 'light' } : undefined}>
+        <div className={`flex flex-col gap-4 sm:gap-6 lg:flex-row lg:gap-8 ${isEditing ? 'student-profile-edit w-full max-w-full' : (isCompactMobileLayout ? '' : 'page-transition')}`} style={isEditing ? { colorScheme: 'light' } : undefined}>
             <div className={`w-full lg:w-80 lg:shrink-0 space-y-4 sm:space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`}>
                 <div className="bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/20 text-white text-center relative">
                     <div className={`absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl ${isCompactMobileLayout ? '' : 'animate-float'}`}></div>
@@ -261,10 +302,10 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Gender" field="genderIdentity" type="select" options={['Cis-gender', 'Transgender', 'Non-binary gender', 'Prefer not to say']} />
                             <Field {...fp} label="Civil Status" field="civilStatus" type="select" options={['Single', 'Cohabitation (Live-In)', 'Was Previously Married But Separated', 'Married', 'Widow/er']} />
                             <Field {...fp} label="Citizenship" field="nationality" />
-                            <Field {...fp} label="Year Level" field="year" readOnly />
-                            {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" readOnly />}
-                            <Field {...fp} label="College" field="department" readOnly />
-                            <Field {...fp} label="Program" field="course" readOnly colSpan={2} />
+                            <Field {...fp} label="Year Level" field="year" readOnly={personalInfo.course_year_profile_edited} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : YEAR_LEVEL_OPTIONS} />
+                            {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" readOnly={personalInfo.course_year_profile_edited} />}
+                            <Field {...fp} label="College" field="department" readOnly={personalInfo.course_year_profile_edited} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : FALLBACK_DEPARTMENT_OPTIONS} />
+                            <Field {...fp} label="Program" field="course" readOnly={personalInfo.course_year_profile_edited} colSpan={2} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : FALLBACK_PROGRAM_OPTIONS} />
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
                             <Field {...fp} label="Religion" field="religion" />
                         </Section>

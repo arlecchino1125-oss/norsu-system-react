@@ -1271,7 +1271,8 @@ export default function StudentPortal() {
             hasBeenCriminallyCharged: toYesNoChoice(updatedStudent.has_been_criminally_charged) || '',
             hasBeenConvictedOfCrime: toYesNoChoice(updatedStudent.has_been_convicted_of_crime) || '',
             courseYearWindowStart: updatedStudent.course_year_window_start || null,
-            courseYearWindowEnd: updatedStudent.course_year_window_end || null
+            courseYearWindowEnd: updatedStudent.course_year_window_end || null,
+            course_year_profile_edited: Boolean(updatedStudent.course_year_profile_edited)
         }));
         setProfileCompletionInitialData(nextProfileSnapshot);
         profileCompletionJustCompletedRef.current = true;
@@ -1613,7 +1614,8 @@ export default function StudentPortal() {
                 department: matchedDepartment,
                 status: 'Active',
                 courseYearWindowStart: courseYearGate.windowStart || prev.courseYearWindowStart || null,
-                courseYearWindowEnd: courseYearGate.windowEnd || prev.courseYearWindowEnd || null
+                courseYearWindowEnd: courseYearGate.windowEnd || prev.courseYearWindowEnd || null,
+                course_year_profile_edited: false
             }));
 
             syncStudentSession({
@@ -2158,6 +2160,17 @@ export default function StudentPortal() {
         if (!validateProfileBeforeSave(nextPersonalInfo)) {
             return;
         }
+
+        const courseOrYearChanged = nextPersonalInfo.course !== personalInfo.course || nextPersonalInfo.year !== personalInfo.year || nextPersonalInfo.department !== personalInfo.department;
+        
+        const confirmMessage = courseOrYearChanged 
+            ? "Are you sure you want to save these changes?\n\n⚠️ You are changing your Course/Department/Year Level. You will NOT be able to edit these fields again until the next academic window.\n\nMake sure all other information is correct and up to date before proceeding."
+            : "Are you sure you want to save these changes? Make sure all your information is correct and up to date before proceeding.";
+
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
         setIsEditing(false);
         setIsSavingProfileChanges(true);
         try {
@@ -2187,6 +2200,8 @@ export default function StudentPortal() {
                 zip_code: nextPersonalInfo.zipCode || null,
                 region: nextPersonalInfo.region || null,
                 mobile: nextPersonalInfo.mobile || null,
+                course: nextPersonalInfo.course || null,
+                year_level: nextPersonalInfo.year || null,
                 email: normalizedEmail,
                 civil_status: nextPersonalInfo.civilStatus || null,
                 facebook_url: nextPersonalInfo.facebookUrl || null,
