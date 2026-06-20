@@ -8,6 +8,7 @@ import { invokeEdgeFunction } from '../../../lib/invokeEdgeFunction';
 import { joinNameParts } from '../../../utils/nameUtils';
 import { getStoredAssetPath, openStoredAsset } from '../../../utils/storageAssets';
 import { TEXT_INPUT_RULES } from '../../../utils/inputSecurity';
+import { driveService } from '../../../services/driveService';
 
 type ProfileCompletionModalProps = {
     isOpen: boolean;
@@ -619,26 +620,20 @@ export default function ProfileCompletionModal({
         }
 
         const file = formData.profilePictureFile as File;
-        const extension = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const path = `${studentId}/avatar.${extension}`;
-        const { error: uploadError } = await supabase.storage
-            .from('profile-pictures')
-            .upload(path, file, { upsert: true, contentType: file.type });
+        const result = await driveService.uploadFile(file, studentId);
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to upload profile picture to Google Drive');
+        }
 
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-            .from('profile-pictures')
-            .getPublicUrl(path);
-
-        return urlData.publicUrl;
+        return result.directLink || result.webViewLink;
     };
 
     const uploadProfileCompletionDocument = async (config: typeof PROFILE_DOCUMENT_UPLOADS[number]) => {
         const existingUrl = String(formData[config.urlField] || '').trim();
         const file = formData[config.fileField] as File | null;
         if (!file) {
-            return getStoredAssetPath('support_documents', existingUrl) || existingUrl || null;
+            return existingUrl || null;
         }
 
         const studentId = String(formData.studentId || personalInfo?.studentId || '').trim();
@@ -646,15 +641,13 @@ export default function ProfileCompletionModal({
             throw new Error('Student ID is required before uploading profile documents.');
         }
 
-        const extension = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const path = `profile-documents/${studentId}/${config.slug}.${extension}`;
-        const { error: uploadError } = await supabase.storage
-            .from('support_documents')
-            .upload(path, file, { upsert: true, contentType: file.type });
+        const result = await driveService.uploadFile(file, studentId);
+        
+        if (!result.success) {
+            throw new Error(result.error || `Failed to upload ${config.label} to Google Drive`);
+        }
 
-        if (uploadError) throw uploadError;
-
-        return path;
+        return result.webViewLink;
     };
 
     const uploadProfileCompletionDocuments = async () => {

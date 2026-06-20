@@ -1378,39 +1378,18 @@ export default function StudentPortal() {
         return true;
     }, [requireStudentViewVisibility]);
 
-    const { refreshEvents } = useStudentEventsData({ setEventsList, personalInfo });
-    const { refreshForms } = useStudentFormsData({
-        studentId: personalInfo.studentId,
-        setFormsList,
-        setCompletedForms,
-        setLoadingForm
-    });
-    const { refreshCounselingRequests } = useStudentCounselingData({
-        studentId: personalInfo.studentId,
-        setCounselingRequests
-    });
-    const { refreshSupportRequests } = useStudentSupportData({
-        studentId: personalInfo.studentId,
-        setSupportRequests
-    });
     const { refreshActiveVisit, refreshVisitReasons, refreshNotifications } = useStudentProfileData({
         studentId: personalInfo.studentId,
         setActiveVisit,
         setVisitReasons,
         setNotifications
     });
-    const refreshCounselingRequestsCached = useCallback(
-        (options?: { force?: boolean }) => runDatasetRefresh('counselingRequests', refreshCounselingRequests, options),
-        [refreshCounselingRequests, runDatasetRefresh]
-    );
+    const refreshCounselingRequestsCached = useCallback(async (options?: { force?: boolean }) => {}, []);
     const refreshNotificationsCached = useCallback(
         (options?: { force?: boolean }) => runDatasetRefresh('notifications', refreshNotifications, options),
         [refreshNotifications, runDatasetRefresh]
     );
-    const refreshEventsCached = useCallback(
-        (options?: { force?: boolean }) => runDatasetRefresh('events', refreshEvents, options),
-        [refreshEvents, runDatasetRefresh]
-    );
+    const refreshEventsCached = useCallback(async (options?: { force?: boolean }) => {}, []);
     const refreshActiveVisitCached = useCallback(
         (options?: { force?: boolean }) => runDatasetRefresh('activeVisit', refreshActiveVisit, options),
         [refreshActiveVisit, runDatasetRefresh]
@@ -1419,14 +1398,8 @@ export default function StudentPortal() {
         (options?: { force?: boolean }) => runDatasetRefresh('visitReasons', refreshVisitReasons, options),
         [refreshVisitReasons, runDatasetRefresh]
     );
-    const refreshFormsCached = useCallback(
-        (options?: { force?: boolean }) => runDatasetRefresh('forms', refreshForms, options),
-        [refreshForms, runDatasetRefresh]
-    );
-    const refreshSupportRequestsCached = useCallback(
-        (options?: { force?: boolean }) => runDatasetRefresh('supportRequests', refreshSupportRequests, options),
-        [refreshSupportRequests, runDatasetRefresh]
-    );
+    const refreshFormsCached = useCallback(async (options?: { force?: boolean }) => {}, []);
+    const refreshSupportRequestsCached = useCallback(async (options?: { force?: boolean }) => {}, []);
     const handleCounselingSubmitted = useCallback(async () => {
         await refreshCounselingRequestsCached({ force: true });
     }, [refreshCounselingRequestsCached]);

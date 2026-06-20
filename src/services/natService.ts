@@ -330,7 +330,7 @@ export const getAdmissionSchedules = async () => {
 export const getCoursesForNat = async () => {
     const { data, error } = await supabase
         .from('courses')
-        .select('id, name, application_limit, status, department_id');
+        .select('id, name, capacity, application_limit, status, department_id');
     if (error) throw error;
     return data || [];
 };

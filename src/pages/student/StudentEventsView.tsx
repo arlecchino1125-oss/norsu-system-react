@@ -1,4 +1,6 @@
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useStudentEventsData } from '../../hooks/student/useStudentEventsData';
 import { getAudienceLabel, isAttendanceActivityType } from '../../utils/eventAudience';
 import { getTextInputLimitProps } from '../../utils/inputSecurity';
 
@@ -94,7 +96,6 @@ const getDisplayTime = (item: any) => {
 const getDisplayLocation = (item: any) => item?.location || 'Location to be announced';
 
 const StudentEventsView = ({
-    eventsList,
     eventFilter,
     setEventFilter,
     attendanceMap,
@@ -123,6 +124,17 @@ const StudentEventsView = ({
     toast,
     Icons
 }: any) => {
+    const [eventsList, setEventsList] = useState<any[]>([]);
+
+    const { refreshEvents } = useStudentEventsData({
+        setEventsList,
+        personalInfo
+    });
+
+    useEffect(() => {
+        refreshEvents();
+    }, [refreshEvents]);
+
     const filteredEvents = (eventsList || []).filter((item: any) => {
         if (eventFilter === 'Activities') return isAttendanceActivityType(item.type);
         if (eventFilter === 'Announcements') return item.type === 'Announcement';

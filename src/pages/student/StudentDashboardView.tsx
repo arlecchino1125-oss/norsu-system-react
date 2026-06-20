@@ -1,8 +1,8 @@
-
 // StudentDashboardView — extracted from StudentPortal.tsx (dashboard section)
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
+import { useStudentEventsData } from '../../hooks/student/useStudentEventsData';
 import { isAttendanceActivityType } from '../../utils/eventAudience';
 import { getTextInputLimitProps, validateTextInput } from '../../utils/inputSecurity';
 
@@ -254,7 +254,6 @@ const StudentDashboardView = ({
     notifications,
     colorMap,
     setActiveView,
-    eventsList,
     attendanceMap,
     StudentHero,
     showTimeInModal,
@@ -271,11 +270,23 @@ const StudentDashboardView = ({
     showProfileCompletionBanner,
     openProfileCompletionModal,
     showToast,
-}: any) => (
-    <>
-        <div className="student-dashboard-root space-y-6 page-transition sm:space-y-8">
-            {/* Hero Banner (Optimized) */}
-            <StudentHero firstName={personalInfo.firstName} />
+}: any) => {
+    const [eventsList, setEventsList] = useState<any[]>([]);
+
+    const { refreshEvents } = useStudentEventsData({
+        setEventsList,
+        personalInfo
+    });
+
+    useEffect(() => {
+        refreshEvents();
+    }, [refreshEvents]);
+
+    return (
+        <>
+            <div className="student-dashboard-root space-y-6 page-transition sm:space-y-8">
+                {/* Hero Banner (Optimized) */}
+                <StudentHero firstName={personalInfo.firstName} />
             {showProfileCompletionBanner && (
                 <div className="student-action-banner rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-amber-50 to-white p-4 shadow-sm animate-fade-in-up sm:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -377,6 +388,5 @@ const StudentDashboardView = ({
             />
         )}
     </>
-);
-
-export default StudentDashboardView;
+    );
+};export default StudentDashboardView;
