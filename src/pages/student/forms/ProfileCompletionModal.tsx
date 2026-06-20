@@ -36,7 +36,6 @@ const profileCompletionLabelClass = 'text-[11px] font-bold uppercase tracking-[0
 const profileCompletionGridTwoClass = 'grid grid-cols-1 gap-3 sm:grid-cols-2';
 const profileCompletionGridThreeClass = 'grid grid-cols-1 gap-3 sm:grid-cols-3';
 const profileCompletionReadOnlyClass = `${profileCompletionInputClass} cursor-not-allowed text-slate-500`;
-const profileCompletionReadOnlyClass = `${profileCompletionInputClass} cursor-not-allowed text-slate-500`;
 const REGION_OPTIONS = ['Region XVIII (NIR)', 'Region VII (Central Visayas)', 'Region VI (Western Visayas)', 'Other'];
 const YEAR_LEVEL_OPTIONS = [
     { value: '1st Year', label: 'I' },
@@ -72,8 +71,6 @@ const BIRTH_ORDER_OPTIONS = [
     { value: 'Foster child', label: 'Foster child' },
     { value: 'Other', label: 'Other' }
 ];
-
-const BIRTH_ORDER_OPTIONS = [
 
 const PROFILE_DOCUMENT_UPLOADS = [
     { fileField: 'pwdDocumentFile', urlField: 'pwdDocumentUrl', slug: 'pwd', label: 'PWD ID / DSWD Certification' },
