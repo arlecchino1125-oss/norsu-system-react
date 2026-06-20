@@ -112,8 +112,8 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
             ) : type === 'document' && personalInfo[field] ? (
                 <button type="button" onClick={openDocument} className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">View file</button>
             ) : (
-                <p className="text-[15px] font-semibold leading-6 text-slate-700 break-words sm:text-sm sm:leading-5 sm:truncate" title={String(personalInfo[field] || '')}>
-                    {type === 'boolean' ? (personalInfo[field] ? 'Yes' : 'No') : (personalInfo[field] || <span className="text-gray-300 italic font-normal">—</span>)}
+                <p className="text-[15px] font-semibold leading-6 text-slate-700 break-words sm:text-sm sm:leading-5 sm:truncate" title={String(activePersonalInfo[field] || '')}>
+                    {type === 'boolean' ? (activePersonalInfo[field] ? 'Yes' : 'No') : (activePersonalInfo[field] || <span className="text-gray-300 italic font-normal">—</span>)}
                 </p>
             )}
         </div>
