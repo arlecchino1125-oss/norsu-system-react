@@ -720,6 +720,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 course_year_window_start: start.toISOString(),
                 course_year_window_end: end.toISOString(),
                 course_year_confirmed_at: null,
+                course_year_profile_edited: false,
                 status: 'Inactive'
             });
             functions.showToast(`Window applied to ${updatedCount || targets.length} students.`);
@@ -750,7 +751,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 course_year_update_required: false,
                 course_year_window_start: null,
                 course_year_window_end: null,
-                course_year_confirmed_at: null
+                course_year_confirmed_at: null,
+                course_year_profile_edited: false
             });
             functions.showToast(`Window cleared for ${updatedCount || targets.length} students.`);
             refetchStudents();
