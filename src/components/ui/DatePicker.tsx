@@ -34,20 +34,6 @@ const DatePicker: React.FC<DatePickerProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const modalRef = useRef<HTMLDivElement>(null);
 
-    // Close on outside click
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (
-                containerRef.current && !containerRef.current.contains(e.target as Node) &&
-                (!modalRef.current || !modalRef.current.contains(e.target as Node))
-            ) {
-                setOpen(false);
-            }
-        };
-        if (open) document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [open]);
-
     // Sync view when value changes externally
     useEffect(() => {
         if (parsed) {
@@ -122,7 +108,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.15 }}
                                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
+                                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
                             />
                         <motion.div
                             ref={modalRef}
