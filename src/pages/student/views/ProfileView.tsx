@@ -184,17 +184,24 @@ function ProfileViewContent(p: any) {
     React.useEffect(() => {
         if (!isEditing || personalInfo.course_year_profile_edited) return;
         
-        const updateDepartment = async () => {
+        const updateDepartment = () => {
             const course = activePersonalInfo.course;
             if (!course) return;
             
-            try {
-                const matchedDept = await fetchDepartmentNameForCourse(supabase, course, activePersonalInfo.department || 'Unassigned');
-                if (matchedDept && matchedDept !== activePersonalInfo.department) {
-                    setDraftPersonalInfo((prev: any) => ({ ...prev, department: matchedDept }));
-                }
-            } catch (err) {
-                console.warn('Failed to fetch department for course', err);
+            const lower = course.toLowerCase();
+            let matchedDept = activePersonalInfo.department || 'Unassigned';
+            
+            if (lower.includes('agriculture') || lower.includes('agribusiness') || lower.includes('forestry')) matchedDept = 'CAFF (College of Agriculture, Forestry and Fisheries)';
+            else if (lower.includes('computer science') || lower.includes('arts')) matchedDept = 'CAS (College of Arts and Sciences)';
+            else if (lower.includes('business') || lower.includes('hospitality') || lower.includes('office') || lower.includes('accountancy')) matchedDept = 'CBA (College of Business Administration)';
+            else if (lower.includes('criminology')) matchedDept = 'CCJE (College of Criminal Justice Education)';
+            else if (lower.includes('elementary education') || lower.includes('secondary education') || lower.includes('livelihood education')) matchedDept = 'CED (College of Education)';
+            else if (lower.includes('engineering') || lower.includes('architecture')) matchedDept = 'CEA (College of Engineering and Architecture)';
+            else if (lower.includes('industrial technology') || lower.includes('information technology')) matchedDept = 'CIT (College of Industrial Technology)';
+            else if (lower.includes('midwifery') || lower.includes('nursing') || lower.includes('pharmacy')) matchedDept = 'CNPAHS (College of Nursing, Pharmacy and Allied Health Sciences)';
+
+            if (matchedDept !== activePersonalInfo.department) {
+                setDraftPersonalInfo((prev: any) => ({ ...prev, department: matchedDept }));
             }
         };
         updateDepartment();
