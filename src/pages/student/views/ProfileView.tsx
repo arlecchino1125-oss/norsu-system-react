@@ -3,6 +3,8 @@ import AccountSecuritySettings from '../../../components/AccountSecuritySettings
 import { openStoredAsset } from '../../../utils/storageAssets';
 import { cleanLiveProfileText, getProfileTextFieldRule } from '../../../utils/profileFieldRules';
 import { getValidProfileImageUrl } from '../../../utils/formatters';
+import { fetchDepartmentNameForCourse } from '../../../utils/courseDepartment';
+import { supabase } from '../../../lib/supabase';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
@@ -180,6 +182,25 @@ function ProfileViewContent(p: any) {
     }, [isEditing, personalInfo]);
 
     React.useEffect(() => {
+        if (!isEditing || personalInfo.course_year_profile_edited) return;
+        
+        const updateDepartment = async () => {
+            const course = activePersonalInfo.course;
+            if (!course) return;
+            
+            try {
+                const matchedDept = await fetchDepartmentNameForCourse(supabase, course, activePersonalInfo.department || 'Unassigned');
+                if (matchedDept && matchedDept !== activePersonalInfo.department) {
+                    setDraftPersonalInfo((prev: any) => ({ ...prev, department: matchedDept }));
+                }
+            } catch (err) {
+                console.warn('Failed to fetch department for course', err);
+            }
+        };
+        updateDepartment();
+    }, [activePersonalInfo.course, isEditing, personalInfo.course_year_profile_edited, setDraftPersonalInfo]);
+
+    React.useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const syncCompactLayout = () => {
@@ -304,7 +325,7 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Citizenship" field="nationality" />
                             <Field {...fp} label="Year Level" field="year" readOnly={personalInfo.course_year_profile_edited} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : YEAR_LEVEL_OPTIONS} />
                             {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" readOnly={personalInfo.course_year_profile_edited} />}
-                            <Field {...fp} label="College" field="department" readOnly={personalInfo.course_year_profile_edited} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : FALLBACK_DEPARTMENT_OPTIONS} />
+                            <Field {...fp} label="College" field="department" readOnly />
                             <Field {...fp} label="Program" field="course" readOnly={personalInfo.course_year_profile_edited} colSpan={2} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : FALLBACK_PROGRAM_OPTIONS} />
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
                             <Field {...fp} label="Religion" field="religion" />
