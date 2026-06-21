@@ -346,9 +346,9 @@ function ProfileViewContent(p: any) {
                 <div className="bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/20 text-white text-center relative">
                     <div className={`absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl ${isCompactMobileLayout ? '' : 'animate-float'}`}></div>
                     <div className="h-20 bg-white/5 relative sm:h-24 lg:hidden"></div>
-                    <div className="px-5 pb-6 -mt-10 relative z-10 sm:px-8 sm:pb-8 sm:-mt-12 lg:mt-0 lg:pt-8 lg:flex lg:flex-row lg:items-start lg:gap-8 lg:text-left">
+                    <div className="px-5 pb-5 -mt-10 relative z-10 sm:px-8 sm:pb-8 sm:-mt-12 lg:mt-0 lg:pt-8 lg:flex lg:flex-row lg:items-start lg:gap-8 lg:text-left">
                         {/* Avatar with photo support + upload button */}
-                        <div className="relative mx-auto mb-4 h-20 w-20 sm:h-24 sm:w-24 lg:mx-0 lg:mb-0 lg:h-32 lg:w-32 lg:shrink-0">
+                        <div className="relative mx-auto mb-3 h-20 w-20 sm:h-24 sm:w-24 lg:mx-0 lg:mb-0 lg:h-32 lg:w-32 lg:shrink-0">
                             {personalInfo.profile_picture_url ? (
                                 <img
                                     src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
@@ -371,40 +371,40 @@ function ProfileViewContent(p: any) {
                             </button>
                         </div>
                         
-                        <div className="flex-1">
-                            <h3 className="text-lg font-extrabold leading-tight sm:text-xl lg:text-2xl lg:mb-1">
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-extrabold leading-tight sm:text-xl lg:text-2xl lg:mb-1 truncate" title={[personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ')}>
                                 {[personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ')}
                             </h3>
                             <p className="text-[11px] font-medium text-blue-200/70 sm:text-xs lg:text-sm lg:mb-3">{personalInfo.studentId}</p>
                             
-                            <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-4 lg:mt-0 mb-6">
-                                <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>{personalInfo.year}</span>
-                                {personalInfo.section && <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>Sec {personalInfo.section}</span>}
-                                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-300 sm:py-1 sm:text-[10px]">{personalInfo.status}</span>
+                            <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-3 lg:mt-0 mb-4">
+                                <span className={`rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>{personalInfo.year}</span>
+                                {personalInfo.section && <span className={`rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>Sec {personalInfo.section}</span>}
+                                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-[11px] font-bold text-emerald-300 sm:py-1 sm:text-[10px]">{personalInfo.status}</span>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-left border-t border-blue-400/30 pt-5 mt-2 lg:grid-cols-4 lg:gap-x-8 lg:pt-4 lg:mt-0">
-                                <div>
-                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">College</p>
-                                    <p className="text-[13px] sm:text-sm font-semibold">{personalInfo.department}</p>
+                            <div className="grid grid-cols-2 gap-y-3 gap-x-3 text-left border-t border-blue-400/30 pt-4 mt-2 lg:grid-cols-4 lg:gap-x-6 lg:pt-4 lg:mt-0">
+                                <div className="col-span-2 lg:col-span-1 min-w-0">
+                                    <p className="text-[9px] text-blue-200/60 uppercase tracking-widest mb-0.5 font-bold">College</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold truncate" title={personalInfo.department}>{personalInfo.department}</p>
                                 </div>
-                                <div className="col-span-2 lg:col-span-1">
-                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">Program</p>
-                                    <p className="text-[13px] sm:text-sm font-semibold leading-tight">{personalInfo.course}</p>
+                                <div className="col-span-2 lg:col-span-1 min-w-0">
+                                    <p className="text-[9px] text-blue-200/60 uppercase tracking-widest mb-0.5 font-bold">Program</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold truncate" title={personalInfo.course}>{personalInfo.course}</p>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">Year</p>
-                                    <p className="text-[13px] sm:text-sm font-semibold">{personalInfo.year || '-'}</p>
+                                <div className="min-w-0">
+                                    <p className="text-[9px] text-blue-200/60 uppercase tracking-widest mb-0.5 font-bold">Year</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold truncate" title={personalInfo.year}>{personalInfo.year || '-'}</p>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">Section</p>
-                                    <p className="text-[13px] sm:text-sm font-semibold">{personalInfo.section || '-'}</p>
+                                <div className="min-w-0">
+                                    <p className="text-[9px] text-blue-200/60 uppercase tracking-widest mb-0.5 font-bold">Section</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold truncate" title={personalInfo.section}>{personalInfo.section || '-'}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="lg:self-end lg:ml-auto lg:mt-0 mt-5 sm:mt-6">
-                            <button onClick={() => { setProfileTab('personal'); setShowMoreProfile(true); setIsEditing(true); }} className={`w-full lg:w-auto lg:px-8 rounded-xl border border-white/20 bg-white/15 py-3 text-sm font-bold text-white transition-all hover:bg-white/25 btn-press sm:py-2.5 sm:text-xs ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'}`}>Edit Profile</button>
+                        <div className="lg:self-end lg:ml-auto lg:mt-0 mt-4 sm:mt-6">
+                            <button onClick={() => { setProfileTab('personal'); setShowMoreProfile(true); setIsEditing(true); }} className={`w-full lg:w-auto lg:px-8 rounded-xl border border-white/20 bg-white/15 py-2.5 text-sm font-bold text-white transition-all hover:bg-white/25 btn-press sm:py-2.5 sm:text-xs ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'}`}>Edit Profile</button>
                         </div>
                     </div>
                 </div>
