@@ -241,16 +241,9 @@ function ProfileViewContent(p: any) {
     };
 
     const shouldRenderFullPersonalTab = !isCompactMobileLayout || showMoreProfile || isEditing;
-    const deferredCardStyle: React.CSSProperties | undefined = isCompactMobileLayout
-        ? {
-            contentVisibility: 'auto',
-            containIntrinsicSize: '1px 420px',
-            contain: 'layout paint style'
-        }
-        : undefined;
+
     const getCardStyle = (delay?: string): React.CSSProperties | undefined => {
-        if (isCompactMobileLayout) return deferredCardStyle;
-        return delay ? { animationDelay: delay } : undefined;
+        return delay && !isCompactMobileLayout ? { animationDelay: delay } : undefined;
     };
 
     return (
@@ -317,7 +310,7 @@ function ProfileViewContent(p: any) {
                 </div>
                 {profileTab === 'personal' && (
                     <div className={`space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
-                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
+                        <Section cardClass={profileCardClass} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
                             <Field {...fp} label="Email Address" field="email" readOnly />
                             <Field {...fp} label="Student ID No." field="studentId" readOnly />
                             <Field {...fp} label="Last Name" field="lastName" />
@@ -338,7 +331,7 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Religion" field="religion" />
                         </Section>
 
-                        <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Events />} gradient="from-emerald-400 to-teal-500" title="Contact & Address">
+                        <Section cardClass={profileCardClass} icon={<Icons.Events />} gradient="from-emerald-400 to-teal-500" title="Contact & Address">
                             <Field {...fp} label="Contact Number" field="mobile" />
                             <Field {...fp} label="Facebook Account Link" field="facebookUrl" />
                             <Field {...fp} label="Permanent Address - Street/Sitio & Barangay" field="street" colSpan={2} />
@@ -360,7 +353,7 @@ function ProfileViewContent(p: any) {
                         {shouldRenderFullPersonalTab && (
                             <>
 
-                                <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="👨‍👩‍👧" gradient="from-amber-400 to-orange-500" title="Family Background">
+                                <Section cardClass={profileCardClass} icon="👨‍👩‍👧" gradient="from-amber-400 to-orange-500" title="Family Background">
                                     <Field {...fp} label="Name of Spouse" field="spouseName" />
                                     <Field {...fp} label="Spouse's Occupation" field="spouseOccupation" />
                                     <Field {...fp} label="Spouse's Employer/Business Name" field="spouseEmployerName" colSpan={2} />
@@ -388,7 +381,7 @@ function ProfileViewContent(p: any) {
                                     {activePersonalInfo.birthOrder === 'Other' && <Field {...fp} label="Birth Order Other" field="birthOrderOther" />}
                                 </Section>
 
-                                <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="ℹ️" gradient="from-indigo-400 to-violet-500" title="Socio-Economic Background">
+                                <Section cardClass={profileCardClass} icon="ℹ️" gradient="from-indigo-400 to-violet-500" title="Socio-Economic Background">
                                     <Field {...fp} label="Person/Agency Who Supports Your Studies Financially Other Than Yourself" field="supporter" colSpan={2} />
                                     <Field {...fp} label="Contact Information of the Person/Agency Who Supports Your Studies Financially Other Than Yourself" field="supporterContact" colSpan={2} />
                                     <Field {...fp} label="Are You a Working Student" field="isWorkingStudent" type="boolean" />
@@ -421,21 +414,21 @@ function ProfileViewContent(p: any) {
                                     <Field {...fp} label="Work Experiences" field="workExperiences" type="textarea" colSpan={2} />
                                 </Section>
 
-                                <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="🛡️" gradient="from-slate-500 to-slate-700" title="Guardian">
+                                <Section cardClass={profileCardClass} icon="🛡️" gradient="from-slate-500 to-slate-700" title="Guardian">
                                     <Field {...fp} label="Guardian Full Name" field="guardianName" colSpan={2} />
                                     <Field {...fp} label="Guardian Address" field="guardianAddress" colSpan={2} />
                                     <Field {...fp} label="Guardian Contact Number" field="guardianContact" />
                                     <Field {...fp} label="Relation to the Guardian" field="guardianRelation" type="select" options={['Family', 'Relative', 'Not relative', 'Landlord', 'Landlady', 'Other']} />
                                 </Section>
 
-                                <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon="🚨" gradient="from-rose-400 to-red-500" title="Person to Contact (In Case of Emergency)">
+                                <Section cardClass={profileCardClass} icon="🚨" gradient="from-rose-400 to-red-500" title="Person to Contact (In Case of Emergency)">
                                     <Field {...fp} label="Emergency Contact Full Name" field="emergencyName" colSpan={2} />
                                     <Field {...fp} label="Emergency Contact Address" field="emergencyAddress" colSpan={2} />
                                     <Field {...fp} label="Emergency Contact Relationship" field="emergencyRelationship" />
                                     <Field {...fp} label="Emergency Contact Number" field="emergencyNumber" />
                                 </Section>
 
-                                <Section cardClass={profileCardClass} cardStyle={deferredCardStyle} icon={<Icons.Assessment />} gradient="from-cyan-400 to-blue-500" title="Educational Background">
+                                <Section cardClass={profileCardClass} icon={<Icons.Assessment />} gradient="from-cyan-400 to-blue-500" title="Educational Background">
                                     <Field {...fp} label="Elementary School" field="elemSchool" colSpan={2} />
                                     <Field {...fp} label="Elementary Inclusive Years Attended" field="elemYearGraduated" colSpan={2} />
                                     <Field {...fp} label="Junior High School" field="juniorHighSchool" colSpan={2} />
@@ -451,7 +444,7 @@ function ProfileViewContent(p: any) {
                                 </Section>
 
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-                                    <div className={profileCardClass} style={deferredCardStyle}>
+                                    <div className={profileCardClass}>
                                         <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-pink-400 to-rose-500 text-white rounded-lg text-xs">🎭</span> Extra-Curricular</h4>
                                         <div className="space-y-4">
                                             <Field {...fp} label="Name of Voluntary Activities" field="extracurricularActivities" type="textarea" />
@@ -462,7 +455,7 @@ function ProfileViewContent(p: any) {
                                             <Field {...fp} label="Other Talent/s" field="otherTalents" type="textarea" />
                                         </div>
                                     </div>
-                                    <div className={profileCardClass} style={deferredCardStyle}>
+                                    <div className={profileCardClass}>
                                         <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-yellow-400 to-amber-500 text-white rounded-lg text-xs">🎓</span> Scholarships</h4>
                                         <div className="space-y-4">
                                             <Field {...fp} label="Name of Scholarship Availed & Sponsor" field="scholarshipsAvailed" type="textarea" />
