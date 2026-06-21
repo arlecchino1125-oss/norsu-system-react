@@ -5,6 +5,7 @@ import { cleanLiveProfileText, getProfileTextFieldRule } from '../../../utils/pr
 import { getValidProfileImageUrl } from '../../../utils/formatters';
 import { fetchDepartmentNameForCourse } from '../../../utils/courseDepartment';
 import { supabase } from '../../../lib/supabase';
+import { driveService } from '../../../services/driveService';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
@@ -54,12 +55,51 @@ const YEAR_LEVEL_OPTIONS = [
 // React unmounted/remounted <select> elements → dropdowns collapsed instantly.
 const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, activePersonalInfo, personalInfo, setDraftPersonalInfo, showToast }: any) => {
     const fieldId = `profile-${field}`;
-    const showsEditableControl = isEditing && !readOnly && type !== 'document';
+    const showsEditableControl = isEditing && !readOnly;
+    const [isUploading, setIsUploading] = React.useState(false);
+
     const openDocument = async () => {
         try {
             await openStoredAsset('support_documents', personalInfo[field]);
         } catch (error: any) {
             showToast?.(error.message || 'Unable to open the selected file.', 'error');
+        }
+    };
+
+    const handleDocumentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const isSupportedFile = file.type.startsWith('image/') || file.type === 'application/pdf';
+        if (!isSupportedFile) {
+            showToast?.('Please upload an image or PDF file.', 'error');
+            e.target.value = '';
+            return;
+        }
+
+        if (file.size > 1024 * 1024) {
+            showToast?.('Profile documents must be under 1 MB.', 'error');
+            e.target.value = '';
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const studentId = personalInfo?.studentId || personalInfo?.student_id;
+            if (!studentId) throw new Error("Student ID is missing.");
+            
+            const result = await driveService.uploadFile(file, studentId);
+            if (!result.success || !result.webViewLink) {
+                throw new Error(result.error || 'Failed to upload document');
+            }
+            
+            setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: result.webViewLink }));
+            showToast?.('Document uploaded successfully! Click "Save Changes" at the bottom to finalize.', 'success');
+        } catch (err: any) {
+            showToast?.(err.message, 'error');
+            e.target.value = '';
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -97,6 +137,25 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
                     <select id={fieldId} name={field} autoComplete="off" className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] ? 'Yes' : 'No'} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value === 'Yes' }))}>
                         <option value="No" className="bg-white text-slate-700">No</option><option value="Yes" className="bg-white text-slate-700">Yes</option>
                     </select>
+                ) : type === 'document' ? (
+                    <div className="space-y-2">
+                        <input
+                            id={fieldId}
+                            name={field}
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={handleDocumentChange}
+                            disabled={isUploading}
+                            className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 sm:text-[10px]">
+                            <span>Max 1 MB.</span>
+                            {isUploading && <span className="font-semibold text-indigo-500 animate-pulse">Uploading...</span>}
+                            {!isUploading && activePersonalInfo[field] && (
+                                <button type="button" onClick={() => openStoredAsset('support_documents', activePersonalInfo[field]).catch(err => showToast?.(err.message, 'error'))} className="font-bold text-indigo-600 hover:text-indigo-700">View current file</button>
+                            )}
+                        </div>
+                    </div>
                 ) : (
                     <input id={fieldId} name={field} autoComplete="off" spellCheck={false} maxLength={fieldRule.maxLength} type={type || 'text'} className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] || ''} onChange={(e) => {
                         if (field === 'dob') {
