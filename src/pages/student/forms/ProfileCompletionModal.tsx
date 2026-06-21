@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { CustomScrollHandle } from '../../../components/CustomScrollHandle';
 import DatePicker from '../../../components/ui/DatePicker';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
 import { supabase } from '../../../lib/supabase';
@@ -290,11 +289,22 @@ export default function ProfileCompletionModal({
         setFormData((prev: any) => ({ ...prev, [fileField]: file }));
     };
 
+    const handleValidationError = (field: string, message: string) => {
+        showToast(message, 'error');
+        setTimeout(() => {
+            let el = document.querySelector(`[name="${field}"]`) as HTMLElement;
+            if (!el) el = document.getElementById(`profile-${field}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.focus();
+            }
+        }, 150);
+    };
+
     const validateStepOne = () => {
         const requiredFields = [
             ['profilePicture', formData.profilePictureFile || formData.profilePictureUrl, 'Please upload a clear ID-style photo under 1 MB.'],
             ['studentId', formData.studentId || personalInfo?.studentId, "Student's I.D. No. is required."],
-            ['suffix', formData.suffix, 'Extension Name is required. Enter 0 if none.'],
             ['middleName', formData.middleName, 'Middle Name is required. Enter 0 if you legally have no middle name.'],
             ['street', formData.street, 'Permanent street/sitio and barangay address is required.'],
             ['city', formData.city, 'Permanent municipality/city is required.'],
@@ -316,19 +326,19 @@ export default function ProfileCompletionModal({
         ];
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
 
         const validColleges = new Set([...collegeOptions, ...FALLBACK_COLLEGE_OPTIONS]);
         if (!validColleges.has(formData.department)) {
-            showToast('Please select a valid College from the list.', 'error');
+            handleValidationError('department', 'Please select a valid College from the list.');
             return false;
         }
 
         const validPrograms = new Set([...programOptions, ...FALLBACK_PROGRAM_OPTIONS]);
         if (!validPrograms.has(formData.course)) {
-            showToast('Please select a valid Program from the list.', 'error');
+            handleValidationError('course', 'Please select a valid Program from the list.');
             return false;
         }
 
@@ -336,15 +346,7 @@ export default function ProfileCompletionModal({
     };
 
     const validateStepTwo = () => {
-        const requiredFields = [
-            ['spouseName', formData.spouseName, 'Name of spouse is required. Type N/A if not applicable.'],
-            ['spouseOccupation', formData.spouseOccupation, "Spouse's occupation is required. Type N/A if not applicable."],
-            ['spouseEmployerName', formData.spouseEmployerName, "Spouse's employer/business name is required. Type N/A if not applicable."],
-            ['spouseEmployerAddress', formData.spouseEmployerAddress, "Spouse's employer/business address is required. Type N/A if not applicable."],
-            ['spouseContact', formData.spouseContact, "Spouse's contact number is required. Type N/A if not applicable."],
-            ['numChildren', formData.numChildren, 'Number of children is required. Type N/A if not applicable.'],
-            ['childrenNamesBirthdates', formData.childrenNamesBirthdates, 'Name of children and date of birth is required. Type N/A if not applicable.'],
-            ['currentlyPregnant', formData.currentlyPregnant, 'Currently pregnant status is required.'],
+        const requiredFields: [string, any, string][] = [
             ['motherLastName', formData.motherLastName, "Mother's maiden last name is required. Type N/A if not applicable."],
             ['motherGivenName', formData.motherGivenName, "Mother's given name is required. Type N/A if not applicable."],
             ['motherMiddleName', formData.motherMiddleName, "Mother's maiden middle name is required. Type N/A if not applicable."],
@@ -362,45 +364,75 @@ export default function ProfileCompletionModal({
             ['parentsNumChildren', formData.parentsNumChildren, 'Number of children your parents have is required. Type N/A if not applicable.'],
             ['birthOrder', formData.birthOrder, 'Birth order is required.']
         ];
+
+        if (String(formData.spouseName || '').trim() && !['N/A', 'n/a', 'none'].includes(String(formData.spouseName || '').trim().toLowerCase())) {
+            requiredFields.push(
+                ['spouseOccupation', formData.spouseOccupation, "Spouse's occupation is required."],
+                ['spouseEmployerName', formData.spouseEmployerName, "Spouse's employer/business name is required."],
+                ['spouseEmployerAddress', formData.spouseEmployerAddress, "Spouse's employer/business address is required."],
+                ['spouseContact', formData.spouseContact, "Spouse's contact number is required."]
+            );
+        }
+
+        if (String(formData.numChildren || '').trim() && !['0', 'N/A', 'n/a', 'none'].includes(String(formData.numChildren || '').trim().toLowerCase())) {
+            requiredFields.push(
+                ['childrenNamesBirthdates', formData.childrenNamesBirthdates, 'Name of children and date of birth is required.']
+            );
+        }
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
         if (formData.birthOrder === 'Other' && !String(formData.birthOrderOther || '').trim()) {
-            showToast('Please specify your birth order for Other.', 'error');
+            handleValidationError('birthOrderOther', 'Please specify your birth order for Other.');
             return false;
         }
         return true;
     };
 
     const validateStepThree = () => {
-        const requiredFields = [
+        const requiredFields: [string, any, string][] = [
             ['supporter', formData.supporter, 'Person/agency supporting your studies is required.'],
-            ['supporterContact', formData.supporterContact, 'Supporter contact information is required.'],
-            ['isWorkingStudent', formData.isWorkingStudent, 'Working student status is required.'],
-            ['workingStudentType', formData.workingStudentType, 'Type of work is required. Choose N/A if not applicable.'],
-            ['employerName', formData.employerName, 'Name of employer is required. Type N/A if not applicable.'],
-            ['employerAddress', formData.employerAddress, 'Address of employer is required. Type N/A if not applicable.'],
-            ['isPwd', formData.isPwd, 'PWD status is required.'],
-            ['pwdNumber', formData.pwdNumber, 'PWD number is required. Type N/A if not applicable.'],
-            ['pwdType', formData.pwdType, 'PWD type is required. Choose 0 if not applicable.'],
-            ['disabilityCause', formData.disabilityCause, 'Cause of disability is required. Type N/A if not applicable.'],
-            ['isIndigenous', formData.isIndigenous, 'Indigenous group status is required.'],
-            ['indigenousGroup', formData.indigenousGroup, 'Indigenous group selection is required. Choose N/A if not applicable.'],
             ['isFourPsMember', formData.isFourPsMember, '4Ps membership status is required.'],
             ['isRebelReturnee', formData.isRebelReturnee, 'Rebel returnee status is required.'],
             ['isChildOfSoloParent', formData.isChildOfSoloParent, 'Son/daughter of solo parent status is required.'],
             ['isSoloParent', formData.isSoloParent, 'Solo parent status is required.'],
             ['isOrphan', formData.isOrphan, 'Orphan status is required.'],
-            ['orphanCause', formData.orphanCause, 'Orphan cause is required. Choose N/A if not applicable.'],
             ['isHomelessCitizen', formData.isHomelessCitizen, 'Homeless citizen status is required.'],
-            ['isSeniorCitizen', formData.isSeniorCitizen, 'Senior citizen status is required.'],
-            ['workExperiences', formData.workExperiences, 'Work experiences are required. Type N/A if not applicable.'],
+            ['isSeniorCitizen', formData.isSeniorCitizen, 'Senior citizen status is required.']
         ];
+
+        if (formData.isWorkingStudent === 'Yes') {
+            requiredFields.push(
+                ['workingStudentType', formData.workingStudentType, 'Type of work is required. Choose N/A if not applicable.'],
+                ['employerName', formData.employerName, 'Name of employer is required. Type N/A if not applicable.'],
+                ['employerAddress', formData.employerAddress, 'Address of employer is required. Type N/A if not applicable.']
+            );
+        }
+
+        if (formData.isPwd === 'Yes') {
+            requiredFields.push(
+                ['pwdNumber', formData.pwdNumber, 'PWD number is required. Type N/A if not applicable.'],
+                ['pwdType', formData.pwdType, 'PWD type is required. Choose 0 if not applicable.'],
+                ['disabilityCause', formData.disabilityCause, 'Cause of disability is required. Type N/A if not applicable.']
+            );
+        }
+
+        if (formData.isIndigenous === 'Yes') {
+            requiredFields.push(
+                ['indigenousGroup', formData.indigenousGroup, 'Indigenous group selection is required. Choose N/A if not applicable.']
+            );
+        }
+
+        if (formData.isOrphan === 'Yes') {
+            requiredFields.push(
+                ['orphanCause', formData.orphanCause, 'Orphan cause is required. Choose N/A if not applicable.']
+            );
+        }
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
 
@@ -415,7 +447,7 @@ export default function ProfileCompletionModal({
             required && !formData[fileField] && !String(formData[urlField] || '').trim()
         );
         if (missingDocument) {
-            showToast(missingDocument[3], 'error');
+            handleValidationError(missingDocument[1] as string, missingDocument[3] as string);
             return false;
         }
 
@@ -431,7 +463,7 @@ export default function ProfileCompletionModal({
         ];
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
         return true;
@@ -446,47 +478,47 @@ export default function ProfileCompletionModal({
         ];
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
         return true;
     };
 
     const validateStepSix = () => {
-        const requiredFields = [
+        const requiredFields: [string, any, string][] = [
             ['elemSchool', formData.elemSchool, 'Elementary school is required.'],
             ['elemYearGraduated', formData.elemYearGraduated, 'Elementary inclusive years attended is required.'],
             ['juniorHighSchool', formData.juniorHighSchool, 'Junior high school is required.'],
             ['juniorHighYearGraduated', formData.juniorHighYearGraduated, 'Junior high inclusive years attended is required.'],
             ['seniorHighSchool', formData.seniorHighSchool, 'Senior high school is required.'],
             ['seniorHighYearGraduated', formData.seniorHighYearGraduated, 'Senior high inclusive years attended is required.'],
-            ['collegeSchool', formData.collegeSchool, 'Transferee college school is required. Type N/A if not applicable.'],
-            ['collegeYearGraduated', formData.collegeYearGraduated, 'College inclusive years attended is required. Type N/A if not applicable.'],
-            ['honorsAwards', formData.honorsAwards, 'Honors or awards are required. Type N/A if not applicable.'],
-            ['tesdaNc2Acquired', formData.tesdaNc2Acquired, 'TESDA NC II acquired is required. Type N/A if none.'],
-            ['eligibilityAcquired', formData.eligibilityAcquired, 'Eligibility acquired is required. Type N/A if none.'],
-            ['specialTrainingsAttended', formData.specialTrainingsAttended, 'Special trainings attended are required. Type N/A if none.']
+            ['honorsAwards', formData.honorsAwards, 'Honors or awards are required. Type N/A if not applicable.']
         ];
+
+        if (String(formData.collegeSchool || '').trim() && !['N/A', 'n/a', 'none'].includes(String(formData.collegeSchool || '').trim().toLowerCase())) {
+            requiredFields.push(
+                ['collegeYearGraduated', formData.collegeYearGraduated, 'College inclusive years attended is required.']
+            );
+        }
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
         return true;
     };
 
     const validateStepSeven = () => {
-        const requiredFields = [
-            ['extracurricularActivities', formData.extracurricularActivities, 'Voluntary activities are required. Type N/A if not applicable.'],
-            ['holdsPublicServicePosition', formData.holdsPublicServicePosition, 'Public service position status is required.'],
-            ['publicServicePosition', formData.publicServicePosition, 'Position in public service is required. Type N/A if not applicable.'],
-            ['organizationsMemberships', formData.organizationsMemberships, 'Organizations are required. Type N/A if not applicable.'],
-            ['sportsSkills', formData.sportsSkills, 'Sports are required. Type N/A if not applicable.'],
-            ['otherTalents', formData.otherTalents, 'Other talents are required. Type N/A if not applicable.']
-        ];
+        const requiredFields: [string, any, string][] = [];
+
+        if (formData.holdsPublicServicePosition === 'Yes') {
+            requiredFields.push(
+                ['publicServicePosition', formData.publicServicePosition, 'Position in public service is required. Type N/A if not applicable.']
+            );
+        }
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
         return true;
@@ -500,7 +532,7 @@ export default function ProfileCompletionModal({
         ];
         const missing = requiredFields.find(([, value]) => !String(value || '').trim());
         if (missing) {
-            showToast(String(missing[2]), 'error');
+            handleValidationError(missing[0] as string, String(missing[2]));
             return false;
         }
         return true;
@@ -799,19 +831,19 @@ export default function ProfileCompletionModal({
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[10002] overflow-visible bg-transparent p-3 sm:p-4 pointer-events-auto student-mobile-modal-overlay">
-            <div className="flex min-h-full items-start justify-center sm:items-center student-mobile-modal-shell">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col student-mobile-modal-panel relative">
+        <div className="fixed inset-0 z-[10002] overflow-y-auto bg-slate-900/60 p-3 sm:p-4 pointer-events-auto backdrop-blur-sm">
+            <div className="flex min-h-full items-center justify-center py-8">
+                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl flex flex-col relative">
                     {onClose && (
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors z-10"
+                            className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors z-30"
                         >
                             <X className="w-5 h-5" />
                         </button>
                     )}
-                    <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
+                    <div className="sticky top-0 z-20 rounded-t-[2rem] border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
                         <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Complete Your Profile</h2>
                         <p className="mt-1 text-sm text-slate-500">Please fill in the remaining information to complete your student profile.</p>
                         <div className="mt-4">
@@ -830,9 +862,7 @@ export default function ProfileCompletionModal({
                         </div>
                     </div>
 
-                    <CustomScrollHandle scrollRef={scrollContainerRef} />
-
-                    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 [-webkit-overflow-scrolling:touch] overscroll-contain">
+                    <div ref={scrollContainerRef} className="flex-1 p-4 sm:p-6">
                         {profileStep === 1 && (
                             <div className="space-y-4">
                                 <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Personal Information</h3><p className="text-sm leading-relaxed text-slate-400">Review the pre-filled identity details and complete the required personal information.</p></div>
@@ -1381,7 +1411,7 @@ export default function ProfileCompletionModal({
                         )}
                     </div>
 
-                    <div className="rounded-b-[2rem] border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
+                    <div className="sticky bottom-0 z-20 rounded-b-[2rem] border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
                         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                             {profileStep > 1 ? (
                                 <button type="button" onClick={() => setProfileStep((prev) => prev - 1)} className="w-full rounded-xl px-6 py-3 font-bold text-slate-500 transition-colors hover:bg-slate-200 sm:w-auto sm:py-2.5">Back</button>
