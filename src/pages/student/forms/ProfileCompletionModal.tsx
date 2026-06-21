@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { CustomScrollHandle } from '../../../components/CustomScrollHandle';
 import DatePicker from '../../../components/ui/DatePicker';
 import SearchableSelect from '../../../components/ui/SearchableSelect';
 import { supabase } from '../../../lib/supabase';
@@ -134,6 +135,7 @@ export default function ProfileCompletionModal({
     const [programOptions, setProgramOptions] = useState<string[]>(FALLBACK_PROGRAM_OPTIONS);
     const [collegeOptions, setCollegeOptions] = useState<string[]>(FALLBACK_COLLEGE_OPTIONS);
     const [courseDepartmentMap, setCourseDepartmentMap] = useState<Record<string, string>>({});
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const wasOpenRef = useRef(false);
 
     useEffect(() => {
@@ -178,8 +180,8 @@ export default function ProfileCompletionModal({
                     if (courseName && departmentName) map[courseName] = departmentName;
                     return map;
                 }, {});
-                setProgramOptions(nextPrograms);
-                setCourseDepartmentMap(nextCourseDepartmentMap);
+                setCourseDepartmentMap(prev => ({ ...prev, ...nextCourseDepartmentMap }));
+                setProgramOptions(prev => [...new Set([...prev, ...nextPrograms, initialData?.course].filter(Boolean))]);
             } else if (coursesResult.error) {
                 console.warn('Unable to load course options for profile completion.', coursesResult.error);
             }
@@ -809,7 +811,9 @@ export default function ProfileCompletionModal({
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 [-webkit-overflow-scrolling:touch] overscroll-contain">
+                    <CustomScrollHandle scrollRef={scrollContainerRef} />
+
+                    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 [-webkit-overflow-scrolling:touch] overscroll-contain">
                         {profileStep === 1 && (
                             <div className="space-y-4">
                                 <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Personal Information</h3><p className="text-sm leading-relaxed text-slate-400">Review the pre-filled identity details and complete the required personal information.</p></div>
