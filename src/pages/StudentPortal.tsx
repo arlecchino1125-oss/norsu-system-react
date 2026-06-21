@@ -2127,29 +2127,37 @@ export default function StudentPortal() {
             if (!hasFilledProfileValue(profile[field])) {
                 const label = getProfileTextFieldRule(field, false).label;
                 showToast(`${label} is required.`, 'error');
+                setTimeout(() => {
+                    const el = document.getElementById(`profile-${field}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.focus();
+                    }
+                }, 100);
                 return false;
             }
         }
 
-        if (profile.birthOrder === 'Other' && !hasFilledProfileValue(profile.birthOrderOther)) {
-            showToast('Specify Birth Order is required.', 'error');
-            return false;
-        }
-        if (profile.workingStudentType === 'Other' && !hasFilledProfileValue(profile.workingStudentTypeOther)) {
-            showToast('Specify Type of Work is required.', 'error');
-            return false;
-        }
-        if (profile.pwdType === 'Other' && !hasFilledProfileValue(profile.pwdTypeOther)) {
-            showToast('Specify Type of Disability is required.', 'error');
-            return false;
-        }
-        if (profile.indigenousGroup === 'Other' && !hasFilledProfileValue(profile.indigenousGroupOther)) {
-            showToast('Specify Indigenous Group is required.', 'error');
-            return false;
-        }
-        if (profile.orphanCause === 'Other' && !hasFilledProfileValue(profile.orphanCauseOther)) {
-            showToast('Specify Cause of Being an Orphan is required.', 'error');
-            return false;
+        const customChecks = [
+            { condition: profile.birthOrder === 'Other' && !hasFilledProfileValue(profile.birthOrderOther), msg: 'Specify Birth Order is required.', field: 'birthOrderOther' },
+            { condition: profile.workingStudentType === 'Other' && !hasFilledProfileValue(profile.workingStudentTypeOther), msg: 'Specify Type of Work is required.', field: 'workingStudentTypeOther' },
+            { condition: profile.pwdType === 'Other' && !hasFilledProfileValue(profile.pwdTypeOther), msg: 'Specify Type of Disability is required.', field: 'pwdTypeOther' },
+            { condition: profile.indigenousGroup === 'Other' && !hasFilledProfileValue(profile.indigenousGroupOther), msg: 'Specify Indigenous Group is required.', field: 'indigenousGroupOther' },
+            { condition: profile.orphanCause === 'Other' && !hasFilledProfileValue(profile.orphanCauseOther), msg: 'Specify Cause of Being an Orphan is required.', field: 'orphanCauseOther' },
+        ];
+
+        for (const check of customChecks) {
+            if (check.condition) {
+                showToast(check.msg, 'error');
+                setTimeout(() => {
+                    const el = document.getElementById(`profile-${check.field}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.focus();
+                    }
+                }, 100);
+                return false;
+            }
         }
 
         return true;
