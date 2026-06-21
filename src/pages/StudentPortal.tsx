@@ -3337,11 +3337,19 @@ export default function StudentPortal() {
                     {/* Dialog Box */}
                     <div className="absolute transition-all duration-500 max-w-sm w-full bg-white rounded-2xl shadow-2xl p-6 pointer-events-auto"
                         style={
-                            highlightRect ? {
-                                top: highlightRect.top + highlightRect.height / 2,
-                                left: highlightRect.right + 24, // Place to the right of the highlight
-                                transform: 'translateY(-50%)',
-                            } : {
+                            highlightRect ? (
+                                isCompactPortalLayout ? {
+                                    top: highlightRect.top > (typeof window !== 'undefined' ? window.innerHeight / 2 : 400) ? 'auto' : highlightRect.bottom + 16,
+                                    bottom: highlightRect.top > (typeof window !== 'undefined' ? window.innerHeight / 2 : 400) ? (typeof window !== 'undefined' ? window.innerHeight - highlightRect.top + 16 : 16) : 'auto',
+                                    left: '16px',
+                                    width: 'calc(100vw - 32px)',
+                                    transform: 'none',
+                                } : {
+                                    top: highlightRect.top + highlightRect.height / 2,
+                                    left: highlightRect.right + 24, // Place to the right of the highlight
+                                    transform: 'translateY(-50%)',
+                                }
+                            ) : {
                                 top: '50%',
                                 left: '50%',
                                 transform: 'translate(-50%, -50%)',
@@ -3952,7 +3960,7 @@ export default function StudentPortal() {
                 </header>
 
                 <div
-                    className={`student-portal-scroll flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' || isCompactPortalLayout ? '' : 'page-transition'}`}
+                    className={`student-portal-scroll isolate flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' || isCompactPortalLayout ? '' : 'page-transition'}`}
                     style={activeView === 'profile' ? { transform: 'none' } : undefined}
                 >
 

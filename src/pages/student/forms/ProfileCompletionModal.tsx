@@ -807,7 +807,7 @@ export default function ProfileCompletionModal({
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 [-webkit-overflow-scrolling:touch] overscroll-contain">
                         {profileStep === 1 && (
                             <div className="space-y-4">
                                 <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Personal Information</h3><p className="text-sm leading-relaxed text-slate-400">Review the pre-filled identity details and complete the required personal information.</p></div>
