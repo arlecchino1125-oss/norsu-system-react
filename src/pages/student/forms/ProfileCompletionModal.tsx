@@ -885,7 +885,7 @@ export default function ProfileCompletionModal({
                                     </div>
                                 </div>
                                 <div className={profileCompletionGridTwoClass}>
-                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Student ID No. *</label><input name="studentId" value={formData.studentId || personalInfo?.studentId || ''} readOnly className={profileCompletionReadOnlyClass} /></div>
+                                    <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Student ID No. *</label><input name="studentId" value={formData.studentId || personalInfo?.studentId || ''} onChange={handleProfileFormChange} className={profileCompletionInputClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Last Name *</label><input name="lastName" value={formData.lastName} readOnly className={profileCompletionReadOnlyClass} /></div>
                                     <div className="space-y-1.5"><label className={profileCompletionLabelClass}>Given Name *</label><input name="firstName" value={formData.firstName} readOnly className={profileCompletionReadOnlyClass} /></div>
                                     <div className="space-y-1.5">

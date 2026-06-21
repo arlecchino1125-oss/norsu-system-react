@@ -408,7 +408,7 @@ function ProfileViewContent(p: any) {
                     <div className={`space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
                         <Section cardClass={profileCardClass} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
                             <Field {...fp} label="Email Address" field="email" readOnly />
-                            <Field {...fp} label="Student ID No." field="studentId" readOnly />
+                            <Field {...fp} label="Student ID No." field="studentId" />
                             <Field {...fp} label="Last Name" field="lastName" />
                             <Field {...fp} label="Given Name" field="firstName" />
                             <Field {...fp} label="Middle Name" field="middleName" />

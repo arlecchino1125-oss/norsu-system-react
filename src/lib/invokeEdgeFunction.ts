@@ -89,11 +89,25 @@ export const invokeEdgeFunction = async <T = any>(
 
     if (error) {
         const detailedMessage = await readEdgeFunctionErrorMessage(response || error?.context);
-        const nextError: Error & { status?: number | null; errorName?: string | null } = new Error(
-            String(error.message || '').includes('non-2xx')
-                ? (detailedMessage || non2xxMessage || fallbackMessage)
-                : (detailedMessage || error.message || fallbackMessage)
-        );
+        
+        let underlyingError = '';
+        if (error.context instanceof Error) {
+            underlyingError = error.context.message;
+        } else if (error.cause instanceof Error) {
+            underlyingError = error.cause.message;
+        } else if (error.message && error.message !== 'Failed to send a request to the Edge Function') {
+            underlyingError = error.message;
+        }
+
+        const baseMessage = String(error.message || '').includes('non-2xx')
+            ? (detailedMessage || non2xxMessage || fallbackMessage)
+            : (detailedMessage || error.message || fallbackMessage);
+            
+        const finalMessage = underlyingError && !baseMessage.includes(underlyingError) 
+            ? `${baseMessage} (${underlyingError})` 
+            : baseMessage;
+
+        const nextError: Error & { status?: number | null; errorName?: string | null } = new Error(finalMessage);
         nextError.status = response?.status || error?.context?.status || null;
         nextError.errorName = error?.name || null;
         throw nextError;
