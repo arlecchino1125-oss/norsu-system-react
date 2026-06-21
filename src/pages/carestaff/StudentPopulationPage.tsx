@@ -2067,7 +2067,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
                         <div className="p-6 text-center bg-white border-t border-slate-100">
                             <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-tight">
-                                {profileViewStudent.first_name} {profileViewStudent.last_name} {profileViewStudent.suffix}
+                                {[profileViewStudent.first_name, profileViewStudent.middle_name, profileViewStudent.last_name, profileViewStudent.suffix].filter(Boolean).join(' ')}
                             </h3>
                             <p className="font-mono text-base text-blue-600 font-bold mt-1.5">
                                 {profileViewStudent.student_id}

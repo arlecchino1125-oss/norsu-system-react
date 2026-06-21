@@ -286,7 +286,9 @@ function ProfileViewContent(p: any) {
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
                             </button>
                         </div>
-                        <h3 className="text-lg font-extrabold leading-tight sm:text-xl">{personalInfo.firstName} {personalInfo.lastName} {personalInfo.suffix}</h3>
+                        <h3 className="text-lg font-extrabold leading-tight sm:text-xl">
+                            {[personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ')}
+                        </h3>
                         <p className="text-[11px] font-medium text-blue-200/70 sm:text-xs">{personalInfo.studentId}</p>
                         <div className="flex flex-wrap justify-center gap-2 mt-4">
                             <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>{personalInfo.year}</span>
@@ -333,10 +335,10 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Gender" field="genderIdentity" type="select" options={['Cis-gender', 'Transgender', 'Non-binary gender', 'Prefer not to say']} />
                             <Field {...fp} label="Civil Status" field="civilStatus" type="select" options={['Single', 'Cohabitation (Live-In)', 'Was Previously Married But Separated', 'Married', 'Widow/er']} />
                             <Field {...fp} label="Citizenship" field="nationality" />
-                            <Field {...fp} label="Year Level" field="year" readOnly={personalInfo.course_year_profile_edited} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : YEAR_LEVEL_OPTIONS} />
+                            <Field {...fp} label="Year Level" field="year" readOnly={personalInfo.course_year_profile_edited} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : [...new Set([activePersonalInfo.year, ...YEAR_LEVEL_OPTIONS.map(o => o.value)].filter(Boolean))]} />
                             {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" readOnly={personalInfo.course_year_profile_edited} />}
                             <Field {...fp} label="College" field="department" readOnly />
-                            <Field {...fp} label="Program" field="course" readOnly={personalInfo.course_year_profile_edited} colSpan={2} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : FALLBACK_PROGRAM_OPTIONS} />
+                            <Field {...fp} label="Program" field="course" readOnly={personalInfo.course_year_profile_edited} colSpan={2} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : [...new Set([activePersonalInfo.course, ...FALLBACK_PROGRAM_OPTIONS].filter(Boolean))]} />
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
                             <Field {...fp} label="Religion" field="religion" />
                         </Section>

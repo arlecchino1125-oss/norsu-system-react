@@ -1,7 +1,7 @@
-
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/NotificationBell';
+import { CustomScrollHandle } from '../components/CustomScrollHandle';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { createPortal } from 'react-dom';
@@ -664,6 +664,7 @@ export default function StudentPortal() {
     const [toast, setToast] = useState<any>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showCommandHub, setShowCommandHub] = useState(false);
+    const mainScrollRef = useRef<HTMLDivElement>(null);
     const showToast = (message: string, type: string = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 4000);
@@ -2309,7 +2310,9 @@ export default function StudentPortal() {
                 other_talents: nextPersonalInfo.otherTalents || null,
                 scholarships_availed: nextPersonalInfo.scholarshipsAvailed || null,
                 has_been_criminally_charged: nextPersonalInfo.hasBeenCriminallyCharged === 'Yes' || nextPersonalInfo.hasBeenCriminallyCharged === true,
+                criminal_charge_details: nextPersonalInfo.criminalChargeDetails || null,
                 has_been_convicted_of_crime: nextPersonalInfo.hasBeenConvictedOfCrime === 'Yes' || nextPersonalInfo.hasBeenConvictedOfCrime === true,
+                crime_conviction_details: nextPersonalInfo.crimeConvictionDetails || null,
             };
 
             await invokeManagedStudentFunction({
@@ -3968,6 +3971,7 @@ export default function StudentPortal() {
                 </header>
 
                 <div
+                    ref={mainScrollRef}
                     className={`student-portal-scroll isolate flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 ${activeView === 'profile' || isCompactPortalLayout ? '' : 'page-transition'}`}
                     style={activeView === 'profile' ? { transform: 'none' } : undefined}
                 >
@@ -4067,6 +4071,8 @@ export default function StudentPortal() {
                     )}
                 </div>
 
+                <CustomScrollHandle scrollRef={mainScrollRef} />
+                
                 {/* FAB TRIGGER FOR COMMAND HUB */}
                 <button
                     onClick={() => setShowCommandHub(true)}
