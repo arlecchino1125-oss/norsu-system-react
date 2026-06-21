@@ -562,9 +562,23 @@ export function AuthProvider({ children }: any) {
 
             const studentProfile = await getStudentProfileByAuthUser(authData.user);
             if (!studentProfile) {
+                const { data: sessionCheck } = await supabase.auth.getSession();
+                const sessionPresent = !!sessionCheck?.session;
+
                 await supabase.auth.signOut().catch(() => null);
                 setLoading(false);
-                return { success: false, error: 'Student profile not found.' };
+
+                if (!sessionPresent) {
+                    return { 
+                        success: false, 
+                        error: 'Login blocked: Your browser discarded the secure session. Please check if your device DATE & TIME are completely accurate, or try disabling Private/Incognito mode.' 
+                    };
+                }
+
+                return { 
+                    success: false, 
+                    error: 'Profile fetch blocked. Please ensure your device DATE & TIME are accurate (synced to the internet). Incorrect device time blocks secure database connections.' 
+                };
             }
 
             const syncedAuthEmail = await syncLinkedAuthEmailAfterLogin(
