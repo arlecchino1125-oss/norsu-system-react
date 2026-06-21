@@ -341,23 +341,23 @@ function ProfileViewContent(p: any) {
     };
 
     return (
-        <div className={`flex flex-col gap-4 sm:gap-6 lg:flex-row lg:gap-8 ${isEditing ? 'student-profile-edit w-full max-w-full' : (isCompactMobileLayout ? '' : 'page-transition')}`} style={isEditing ? { colorScheme: 'light' } : undefined}>
-            <div className={`w-full lg:w-80 lg:shrink-0 space-y-4 sm:space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`}>
+        <div className={`flex flex-col gap-4 sm:gap-6 ${isEditing ? 'student-profile-edit w-full max-w-full' : (isCompactMobileLayout ? '' : 'page-transition')}`} style={isEditing ? { colorScheme: 'light' } : undefined}>
+            <div className={`w-full space-y-4 sm:space-y-6 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`}>
                 <div className="bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/20 text-white text-center relative">
                     <div className={`absolute top-0 right-0 w-32 h-32 bg-sky-400/20 rounded-full -mr-10 -mt-10 blur-2xl ${isCompactMobileLayout ? '' : 'animate-float'}`}></div>
-                    <div className="h-20 bg-white/5 relative sm:h-24"></div>
-                    <div className="px-5 pb-6 -mt-10 relative z-10 sm:px-8 sm:pb-8 sm:-mt-12">
+                    <div className="h-20 bg-white/5 relative sm:h-24 lg:hidden"></div>
+                    <div className="px-5 pb-6 -mt-10 relative z-10 sm:px-8 sm:pb-8 sm:-mt-12 lg:mt-0 lg:pt-8 lg:flex lg:flex-row lg:items-start lg:gap-8 lg:text-left">
                         {/* Avatar with photo support + upload button */}
-                        <div className="relative mx-auto mb-4 h-20 w-20 sm:h-24 sm:w-24">
+                        <div className="relative mx-auto mb-4 h-20 w-20 sm:h-24 sm:w-24 lg:mx-0 lg:mb-0 lg:h-32 lg:w-32 lg:shrink-0">
                             {personalInfo.profile_picture_url ? (
                                 <img
                                     src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
                                     alt="Profile"
                                     referrerPolicy="no-referrer"
-                                    className="h-20 w-20 rounded-2xl border-4 border-white/20 object-cover shadow-xl shadow-blue-500/30 sm:h-24 sm:w-24"
+                                    className="h-20 w-20 rounded-2xl border-4 border-white/20 object-cover shadow-xl shadow-blue-500/30 sm:h-24 sm:w-24 lg:h-32 lg:w-32"
                                 />
                             ) : (
-                                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white/20 bg-gradient-to-br from-blue-400 to-sky-400 text-3xl font-black text-white shadow-xl shadow-blue-500/30 sm:h-24 sm:w-24 sm:text-4xl">
+                                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white/20 bg-gradient-to-br from-blue-400 to-sky-400 text-3xl font-black text-white shadow-xl shadow-blue-500/30 sm:h-24 sm:w-24 sm:text-4xl lg:h-32 lg:w-32 lg:text-5xl">
                                     {personalInfo.firstName?.[0] || 'S'}
                                 </div>
                             )}
@@ -365,36 +365,51 @@ function ProfileViewContent(p: any) {
                             <button
                                 title="Change profile picture"
                                 onClick={openFilePicker}
-                                className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-600 shadow-lg transition-all hover:bg-blue-50 sm:h-8 sm:w-8"
+                                className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-600 shadow-lg transition-all hover:bg-blue-50 sm:h-8 sm:w-8 lg:h-10 lg:w-10 lg:-bottom-3 lg:-right-3"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 lg:w-5 lg:h-5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
                             </button>
                         </div>
-                        <h3 className="text-lg font-extrabold leading-tight sm:text-xl">
-                            {[personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ')}
-                        </h3>
-                        <p className="text-[11px] font-medium text-blue-200/70 sm:text-xs">{personalInfo.studentId}</p>
-                        <div className="flex flex-wrap justify-center gap-2 mt-4">
-                            <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>{personalInfo.year}</span>
-                            {personalInfo.section && <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>Sec {personalInfo.section}</span>}
-                            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-300 sm:py-1 sm:text-[10px]">{personalInfo.status}</span>
+                        
+                        <div className="flex-1">
+                            <h3 className="text-lg font-extrabold leading-tight sm:text-xl lg:text-2xl lg:mb-1">
+                                {[personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ')}
+                            </h3>
+                            <p className="text-[11px] font-medium text-blue-200/70 sm:text-xs lg:text-sm lg:mb-3">{personalInfo.studentId}</p>
+                            
+                            <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-4 lg:mt-0 mb-6">
+                                <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>{personalInfo.year}</span>
+                                {personalInfo.section && <span className={`rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'} sm:py-1 sm:text-[10px]`}>Sec {personalInfo.section}</span>}
+                                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-300 sm:py-1 sm:text-[10px]">{personalInfo.status}</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-4 text-left border-t border-blue-400/30 pt-5 mt-2 lg:grid-cols-4 lg:gap-x-8 lg:pt-4 lg:mt-0">
+                                <div>
+                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">College</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold">{personalInfo.department}</p>
+                                </div>
+                                <div className="col-span-2 lg:col-span-1">
+                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">Program</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold leading-tight">{personalInfo.course}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">Year</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold">{personalInfo.year || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-blue-200/60 uppercase tracking-widest mb-1 font-bold">Section</p>
+                                    <p className="text-[13px] sm:text-sm font-semibold">{personalInfo.section || '-'}</p>
+                                </div>
+                            </div>
                         </div>
-                        <button onClick={() => { setProfileTab('personal'); setShowMoreProfile(true); setIsEditing(true); }} className={`mt-5 w-full rounded-xl border border-white/20 bg-white/15 py-3 text-sm font-bold text-white transition-all hover:bg-white/25 btn-press sm:mt-6 sm:py-2.5 sm:text-xs lg:mt-8 ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'}`}>Edit Profile</button>
+
+                        <div className="lg:self-end lg:ml-auto lg:mt-0 mt-5 sm:mt-6">
+                            <button onClick={() => { setProfileTab('personal'); setShowMoreProfile(true); setIsEditing(true); }} className={`w-full lg:w-auto lg:px-8 rounded-xl border border-white/20 bg-white/15 py-3 text-sm font-bold text-white transition-all hover:bg-white/25 btn-press sm:py-2.5 sm:text-xs ${isCompactMobileLayout ? '' : 'backdrop-blur-sm'}`}>Edit Profile</button>
+                        </div>
                     </div>
                 </div>
-                <div className={profileSummaryCardClass} style={getCardStyle('100ms')}>
-                    <h4 className="text-[10px] font-bold text-purple-400/60 uppercase tracking-widest mb-4">Academic Summary</h4>
-                    <p className="text-[10px] text-gray-400">College</p>
-                    <p className="text-sm font-bold mb-4">{personalInfo.department}</p>
-                    <p className="text-[10px] text-gray-400">Program</p>
-                    <p className="text-sm font-bold mb-4">{personalInfo.course}</p>
-                    <p className="text-[10px] text-gray-400">Year Level</p>
-                    <p className="text-sm font-bold mb-4">{personalInfo.year || '-'}</p>
-                    <p className="text-[10px] text-gray-400">Section</p>
-                    <p className="text-sm font-bold">{personalInfo.section || '-'}</p>
-                </div>
             </div>
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-6 w-full">
                 <div className={`${surfacePanelClass} ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('100ms')}>
                     {profileTabs.map((tab: any) => (
                         <button key={tab.id} onClick={() => { setProfileTab(tab.id); setIsEditing(false); }} className={`flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2.5 text-[10px] font-bold leading-tight transition-all sm:min-h-0 sm:flex-row sm:gap-2 sm:text-xs ${profileTab === tab.id ? 'bg-gradient-to-r from-blue-500 to-sky-400 text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:text-gray-900 hover:bg-purple-50'}`}>
@@ -421,6 +436,7 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Citizenship" field="nationality" />
                             <Field {...fp} label="Year Level" field="year" type="select" options={[...new Set([activePersonalInfo.year, ...YEAR_LEVEL_OPTIONS.map(o => o.value)].filter(Boolean))]} />
                             {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" />}
+                            <Field {...fp} label="Section" field="section" />
                             <Field {...fp} label="College" field="department" readOnly />
                             <Field {...fp} label="Program" field="course" colSpan={2} type="select" options={[...new Set([activePersonalInfo.course, ...courseOptions].filter(Boolean))]} />
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
