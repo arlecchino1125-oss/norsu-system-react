@@ -228,6 +228,16 @@ function ProfileViewContent(p: any) {
         }
     }, [isEditing, setShowMoreProfile, showMoreProfile]);
 
+    React.useEffect(() => {
+        if (isEditing && (personalInfo.profilePictureUrl || personalInfo.profile_picture_url)) {
+            setDraftPersonalInfo((prev: any) => ({
+                ...prev,
+                profilePictureUrl: personalInfo.profilePictureUrl || personalInfo.profile_picture_url,
+                profile_picture_url: personalInfo.profile_picture_url || personalInfo.profilePictureUrl
+            }));
+        }
+    }, [personalInfo.profilePictureUrl, personalInfo.profile_picture_url, isEditing, setDraftPersonalInfo]);
+
     // Programmatic file picker — avoids useRef (hook) inside a plain render function
     const openFilePicker = () => {
         const input = document.createElement('input');

@@ -2087,7 +2087,7 @@ export default function StudentPortal() {
 
     // Save Profile Changes to Supabase
     const validateProfileBeforeSave = (profile: any) => {
-        if (!profile.profile_picture_url) {
+        if (!profile.profilePictureUrl && !profile.profile_picture_url) {
             showToast('Profile picture is required.', 'error');
             return false;
         }
@@ -2433,7 +2433,7 @@ export default function StudentPortal() {
                 fallbackName: `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim(),
                 fallbackStudentId: personalInfo.studentId
             });
-            setPersonalInfo((prev: any) => ({ ...prev, profile_picture_url: publicUrl }));
+            setPersonalInfo((prev: any) => ({ ...prev, profilePictureUrl: publicUrl, profile_picture_url: publicUrl }));
             showToast("Profile picture updated!");
         } catch (err: any) {
             showToast("Failed to upload picture: " + err.message, 'error');
