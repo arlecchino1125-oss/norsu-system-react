@@ -2093,36 +2093,52 @@ export default function StudentPortal() {
             return false;
         }
 
-        const requiredFields = [
-            'firstName', 'lastName', 'middleName', 'suffix',
+        const requiredFields: string[] = [
+            'firstName', 'lastName', 'middleName',
             'dob', 'age', 'placeOfBirth', 'nationality', 'sex', 'genderIdentity', 'civilStatus',
             'street', 'city', 'province', 'zipCode', 'region',
             'mobile', 'facebookUrl',
-            'spouseName', 'spouseOccupation', 'spouseEmployerName', 'spouseEmployerAddress', 'spouseContact',
-            'numChildren', 'childrenNamesBirthdates', 'currentlyPregnant',
             'motherLastName', 'motherGivenName', 'motherMiddleName', 'motherOccupation', 'motherStatus', 'motherContact', 'motherAddress',
             'fatherLastName', 'fatherGivenName', 'fatherMiddleName', 'fatherOccupation', 'fatherStatus', 'fatherContact', 'fatherAddress',
             'parentsNumChildren', 'birthOrder',
-            'supporter', 'supporterContact',
-            'isWorkingStudent', 'workingStudentType', 'employerName', 'employerAddress',
-            'isPwd', 'pwdNumber', 'pwdType', 'disabilityCause',
-            'isIndigenous', 'indigenousGroup',
+            'supporter',
             'isFourPsMember', 'isRebelReturnee',
             'isSoloParent', 'isChildOfSoloParent',
-            'isOrphan', 'orphanCause',
+            'isOrphan',
             'isHomelessCitizen', 'isSeniorCitizen',
-            'workExperiences',
             'guardianName', 'guardianAddress', 'guardianContact', 'guardianRelation',
             'emergencyName', 'emergencyAddress', 'emergencyRelationship', 'emergencyNumber',
             'elemSchool', 'elemYearGraduated',
             'juniorHighSchool', 'juniorHighYearGraduated',
             'seniorHighSchool', 'seniorHighYearGraduated',
-            'collegeSchool', 'collegeYearGraduated',
-            'honorsAwards', 'tesdaNc2Acquired', 'eligibilityAcquired', 'specialTrainingsAttended',
-            'extracurricularActivities', 'holdsPublicServicePosition', 'publicServicePosition',
-            'organizationsMemberships', 'sportsSkills', 'otherTalents',
+            'honorsAwards',
             'scholarshipsAvailed', 'hasBeenCriminallyCharged', 'hasBeenConvictedOfCrime'
         ];
+
+        if (String(profile.spouseName || '').trim() && !['N/A', 'n/a', 'none'].includes(String(profile.spouseName || '').trim().toLowerCase())) {
+            requiredFields.push('spouseOccupation', 'spouseEmployerName', 'spouseEmployerAddress', 'spouseContact');
+        }
+        if (String(profile.numChildren || '').trim() && !['0', 'N/A', 'n/a', 'none'].includes(String(profile.numChildren || '').trim().toLowerCase())) {
+            requiredFields.push('childrenNamesBirthdates');
+        }
+        if (profile.isWorkingStudent) {
+            requiredFields.push('workingStudentType', 'employerName', 'employerAddress');
+        }
+        if (profile.isPwd) {
+            requiredFields.push('pwdNumber', 'pwdType', 'disabilityCause');
+        }
+        if (profile.isIndigenous) {
+            requiredFields.push('indigenousGroup');
+        }
+        if (profile.isOrphan) {
+            requiredFields.push('orphanCause');
+        }
+        if (String(profile.collegeSchool || '').trim() && !['N/A', 'n/a', 'none'].includes(String(profile.collegeSchool || '').trim().toLowerCase())) {
+            requiredFields.push('collegeYearGraduated');
+        }
+        if (profile.holdsPublicServicePosition) {
+            requiredFields.push('publicServicePosition');
+        }
 
         for (const field of requiredFields) {
             if (!hasFilledProfileValue(profile[field])) {
