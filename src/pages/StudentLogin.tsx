@@ -45,8 +45,9 @@ export default function StudentLogin() {
     const [isResettingForgotPassword, setIsResettingForgotPassword] = useState<boolean>(false);
 
     // Activation Form State
-    const [loading, setLoading] = useState<boolean>(false);
-    const [toast, setToast] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState<{ msg: string, type: string } | null>(null);
+    const [activationErrorFields, setActivationErrorFields] = useState<string[]>([]);
     const [courses, setCourses] = useState<any[]>([]);
     const [activatedCredentials, setActivatedCredentials] = useState<ActivatedStudentCredentials | null>(null);
     const [studentActivationPolicy, setStudentActivationPolicy] = useState({
@@ -378,11 +379,13 @@ const TOTAL_STEPS = 3;
 
         if (password.length < 8) {
             showToast('Password must be at least 8 characters.', 'error');
+            setActivationErrorFields(['password']);
             return null;
         }
 
         if (password !== confirmPassword) {
             showToast('Passwords do not match.', 'error');
+            setActivationErrorFields(['password', 'confirmPassword']);
             return null;
         }
 
@@ -440,6 +443,7 @@ const TOTAL_STEPS = 3;
 
         } catch (error: any) {
             showToast(getSafeStudentActivationErrorMessage(error), 'error');
+            setActivationErrorFields(['password', 'confirmPassword']);
         } finally {
             setLoading(false);
         }
@@ -865,7 +869,7 @@ const TOTAL_STEPS = 3;
                                             Account Activation
                                         </h2>
                                     </div>
-                                    <button onClick={() => setShowActivateModal(false)} className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600">
+                                    <button onClick={() => { setShowActivateModal(false); setActivationErrorFields([]); }} className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600">
                                         <X size={18} />
                                     </button>
                                 </div>
@@ -1083,9 +1087,9 @@ const TOTAL_STEPS = 3;
                                                                     name="password"
                                                                     autoComplete="new-password"
                                                                     value={formData.password}
-                                                                    onChange={handleChange}
+                                                                    onChange={(e) => { handleChange(e); setActivationErrorFields((prev) => prev.filter((f) => f !== 'password')); }}
                                                                     placeholder="At least 8 characters"
-                                                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
+                                                                    className={`w-full px-4 py-3 bg-white border ${activationErrorFields.includes('password') ? 'border-rose-500 ring-2 ring-rose-500/20 text-rose-600' : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-xl outline-none transition-all text-sm`}
                                                                 />
                                                             </div>
                                                             <div className="space-y-1.5">
@@ -1096,9 +1100,9 @@ const TOTAL_STEPS = 3;
                                                                     name="confirmPassword"
                                                                     autoComplete="new-password"
                                                                     value={formData.confirmPassword}
-                                                                    onChange={handleChange}
+                                                                    onChange={(e) => { handleChange(e); setActivationErrorFields((prev) => prev.filter((f) => f !== 'confirmPassword')); }}
                                                                     placeholder="Re-enter password"
-                                                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
+                                                                    className={`w-full px-4 py-3 bg-white border ${activationErrorFields.includes('confirmPassword') ? 'border-rose-500 ring-2 ring-rose-500/20 text-rose-600' : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-xl outline-none transition-all text-sm`}
                                                                 />
                                                             </div>
                                                         </div>
@@ -1170,7 +1174,7 @@ const TOTAL_STEPS = 3;
                     >
                         <div className="text-2xl">{toast.type === 'error' ? <AlertCircle /> : <CheckCircle />}</div>
                         <div>
-                            <h4 className="font-extrabold text-sm">{toast.type === 'error' ? 'Action Failed' : 'Success'}</h4>
+                            <h4 className="font-extrabold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4>
                             <p className="text-xs font-medium opacity-90">{toast.msg}</p>
                         </div>
                     </motion.div>
