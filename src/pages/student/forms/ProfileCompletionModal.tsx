@@ -554,12 +554,14 @@ export default function ProfileCompletionModal({
             if (!normalizedEmail) {
                 throw new Error('Email is required.');
             }
-            if (!validateStepOne()) {
-                return;
-            }
-            if (!validateStepTwo() || !validateStepThree() || !validateStepFour() || !validateStepFive() || !validateStepSix() || !validateStepSeven() || !validateStepEight()) {
-                return;
-            }
+            if (!validateStepOne()) { setProfileStep(1); setProfileSaving(false); return; }
+            if (!validateStepTwo()) { setProfileStep(2); setProfileSaving(false); return; }
+            if (!validateStepThree()) { setProfileStep(3); setProfileSaving(false); return; }
+            if (!validateStepFour()) { setProfileStep(4); setProfileSaving(false); return; }
+            if (!validateStepFive()) { setProfileStep(5); setProfileSaving(false); return; }
+            if (!validateStepSix()) { setProfileStep(6); setProfileSaving(false); return; }
+            if (!validateStepSeven()) { setProfileStep(7); setProfileSaving(false); return; }
+            if (!validateStepEight()) { setProfileStep(8); setProfileSaving(false); return; }
 
             const profilePictureUrl = await uploadProfileCompletionPhoto();
             const profileDocumentUrls = await uploadProfileCompletionDocuments();

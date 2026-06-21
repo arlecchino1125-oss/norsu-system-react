@@ -79,7 +79,7 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
     };
 
     return (
-        <div className={`min-w-0 ${colSpan ? `col-span-${colSpan}` : ''}`}>
+        <div className={`min-w-0 ${colSpan ? `sm:col-span-${colSpan}` : ''}`}>
             {showsEditableControl ? (
                 <label htmlFor={fieldId} className="block text-[11px] text-gray-400 uppercase font-bold mb-1.5 sm:text-[10px] sm:mb-1">{label}</label>
             ) : (
