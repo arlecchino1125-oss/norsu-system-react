@@ -155,13 +155,52 @@ export default function ProfileCompletionModal({
         }
 
         wasOpenRef.current = true;
-        setProfileStep(1);
-        setFormData(initialData);
+        
+        const studentIdKey = String(initialData?.studentId || 'new').trim();
+        const draftKey = `profile_completion_draft_${studentIdKey}`;
+        const stepKey = `profile_completion_step_${studentIdKey}`;
+        
+        let loadedData = initialData;
+        try {
+            const savedDraft = localStorage.getItem(draftKey);
+            if (savedDraft) {
+                loadedData = { ...initialData, ...JSON.parse(savedDraft) };
+            }
+        } catch (e) {
+            console.warn('Failed to parse profile completion draft', e);
+        }
+        
+        const savedStep = localStorage.getItem(stepKey);
+        setProfileStep(savedStep ? Number(savedStep) : 1);
+        setFormData(loadedData);
         setProfilePhotoPreviewUrl((current) => {
             if (current) URL.revokeObjectURL(current);
             return '';
         });
     }, [initialData, isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const studentIdKey = String(formData?.studentId || initialData?.studentId || 'new').trim();
+        const draftKey = `profile_completion_draft_${studentIdKey}`;
+        
+        const draftToSave = { ...formData };
+        delete draftToSave.profilePictureFile;
+        delete draftToSave.pwdDocumentFile;
+        delete draftToSave.ipDocumentFile;
+        delete draftToSave.fourPsDocumentFile;
+        delete draftToSave.soloParentDocumentFile;
+        delete draftToSave.seniorCitizenDocumentFile;
+        
+        localStorage.setItem(draftKey, JSON.stringify(draftToSave));
+    }, [formData, isOpen, initialData?.studentId]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const studentIdKey = String(formData?.studentId || initialData?.studentId || 'new').trim();
+        const stepKey = `profile_completion_step_${studentIdKey}`;
+        localStorage.setItem(stepKey, String(profileStep));
+    }, [profileStep, isOpen, initialData?.studentId]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -777,6 +816,10 @@ export default function ProfileCompletionModal({
                     updatedStudent = fallbackStudent;
                 }
             }
+
+            const studentIdKey = String(formData?.studentId || initialData?.studentId || 'new').trim();
+            localStorage.removeItem(`profile_completion_draft_${studentIdKey}`);
+            localStorage.removeItem(`profile_completion_step_${studentIdKey}`);
 
             await onCompleted({
                 submittedProfile: { ...formData, profilePictureUrl, ...profileDocumentUrls },
