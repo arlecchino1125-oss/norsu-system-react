@@ -212,6 +212,7 @@ function ProfileViewContent(p: any) {
     const [isCompactMobileLayout, setIsCompactMobileLayout] = React.useState(() => (
         typeof window !== 'undefined' ? window.innerWidth < 640 : false
     ));
+    const [courseOptions, setCourseOptions] = React.useState<string[]>(FALLBACK_PROGRAM_OPTIONS);
     const profileCardClass = isEditing || isCompactMobileLayout
         ? 'bg-white rounded-xl border border-blue-100/50 p-4 shadow-sm sm:p-6'
         : 'bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100/50 p-4 shadow-sm card-hover sm:p-6';
@@ -241,30 +242,54 @@ function ProfileViewContent(p: any) {
     }, [isEditing, personalInfo]);
 
     React.useEffect(() => {
-        if (!isEditing || personalInfo.course_year_profile_edited) return;
+        let isMounted = true;
+        const fetchCourses = async () => {
+            try {
+                const { data, error } = await supabase.from('courses').select('name').order('name');
+                if (error) throw error;
+                if (isMounted && data) {
+                    setCourseOptions([...new Set([...data.map(d => d.name), ...FALLBACK_PROGRAM_OPTIONS].filter(Boolean))]);
+                }
+            } catch (err) {
+                console.error("Failed to fetch courses:", err);
+            }
+        };
+        fetchCourses();
+        return () => { isMounted = false; };
+    }, []);
+
+    React.useEffect(() => {
+        if (!isEditing) return;
         
-        const updateDepartment = () => {
+        // Only fetch a new department if the course has actually changed from the original.
+        // Otherwise, keep the original department to avoid overwriting valid DB data.
+        if (activePersonalInfo.course === personalInfo.course) {
+            if (activePersonalInfo.department !== personalInfo.department) {
+                setDraftPersonalInfo((prev: any) => ({ ...prev, department: personalInfo.department }));
+            }
+            return;
+        }
+
+        let isMounted = true;
+        
+        const updateDepartment = async () => {
             const course = activePersonalInfo.course;
             if (!course) return;
             
-            const lower = course.toLowerCase();
-            let matchedDept = activePersonalInfo.department || 'Unassigned';
-            
-            if (lower.includes('agriculture') || lower.includes('agribusiness') || lower.includes('forestry')) matchedDept = 'CAFF (College of Agriculture, Forestry and Fisheries)';
-            else if (lower.includes('computer science') || lower.includes('arts')) matchedDept = 'CAS (College of Arts and Sciences)';
-            else if (lower.includes('business') || lower.includes('hospitality') || lower.includes('office') || lower.includes('accountancy')) matchedDept = 'CBA (College of Business Administration)';
-            else if (lower.includes('criminology')) matchedDept = 'CCJE (College of Criminal Justice Education)';
-            else if (lower.includes('elementary education') || lower.includes('secondary education') || lower.includes('livelihood education')) matchedDept = 'CED (College of Education)';
-            else if (lower.includes('engineering') || lower.includes('architecture')) matchedDept = 'CEA (College of Engineering and Architecture)';
-            else if (lower.includes('industrial technology') || lower.includes('information technology')) matchedDept = 'CIT (College of Industrial Technology)';
-            else if (lower.includes('midwifery') || lower.includes('nursing') || lower.includes('pharmacy')) matchedDept = 'CNPAHS (College of Nursing, Pharmacy and Allied Health Sciences)';
-
-            if (matchedDept !== activePersonalInfo.department) {
-                setDraftPersonalInfo((prev: any) => ({ ...prev, department: matchedDept }));
+            try {
+                const matchedDept = await fetchDepartmentNameForCourse(supabase, course, activePersonalInfo.department || 'Unassigned');
+                if (isMounted && matchedDept !== activePersonalInfo.department) {
+                    setDraftPersonalInfo((prev: any) => ({ ...prev, department: matchedDept }));
+                }
+            } catch (error) {
+                console.error("Error fetching department:", error);
             }
         };
+        
         updateDepartment();
-    }, [activePersonalInfo.course, isEditing, personalInfo.course_year_profile_edited, setDraftPersonalInfo]);
+        
+        return () => { isMounted = false; };
+    }, [activePersonalInfo.course, isEditing, personalInfo.course, personalInfo.department, personalInfo.course_year_profile_edited, setDraftPersonalInfo]);
 
     React.useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -394,10 +419,10 @@ function ProfileViewContent(p: any) {
                             <Field {...fp} label="Gender" field="genderIdentity" type="select" options={['Cis-gender', 'Transgender', 'Non-binary gender', 'Prefer not to say']} />
                             <Field {...fp} label="Civil Status" field="civilStatus" type="select" options={['Single', 'Cohabitation (Live-In)', 'Was Previously Married But Separated', 'Married', 'Widow/er']} />
                             <Field {...fp} label="Citizenship" field="nationality" />
-                            <Field {...fp} label="Year Level" field="year" readOnly={personalInfo.course_year_profile_edited} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : [...new Set([activePersonalInfo.year, ...YEAR_LEVEL_OPTIONS.map(o => o.value)].filter(Boolean))]} />
-                            {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" readOnly={personalInfo.course_year_profile_edited} />}
+                            <Field {...fp} label="Year Level" field="year" type="select" options={[...new Set([activePersonalInfo.year, ...YEAR_LEVEL_OPTIONS.map(o => o.value)].filter(Boolean))]} />
+                            {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" />}
                             <Field {...fp} label="College" field="department" readOnly />
-                            <Field {...fp} label="Program" field="course" readOnly={personalInfo.course_year_profile_edited} colSpan={2} type={personalInfo.course_year_profile_edited ? 'text' : 'select'} options={personalInfo.course_year_profile_edited ? undefined : [...new Set([activePersonalInfo.course, ...FALLBACK_PROGRAM_OPTIONS].filter(Boolean))]} />
+                            <Field {...fp} label="Program" field="course" colSpan={2} type="select" options={[...new Set([activePersonalInfo.course, ...courseOptions].filter(Boolean))]} />
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
                             <Field {...fp} label="Religion" field="religion" />
                         </Section>

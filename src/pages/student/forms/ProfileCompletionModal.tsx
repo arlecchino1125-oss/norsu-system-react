@@ -81,25 +81,32 @@ const PROFILE_DOCUMENT_UPLOADS = [
     { fileField: 'seniorCitizenDocumentFile', urlField: 'seniorCitizenDocumentUrl', slug: 'senior-citizen', label: 'Senior Citizen ID / DSWD Certification' },
 ] as const;
 const FALLBACK_PROGRAM_OPTIONS = [
-    'Bachelor of Science in Agriculture Major in Agronomy',
-    'Bachelor of Science in Computer Science',
-    'Bachelor of Science in Midwifery',
-    'Bachelor of Science in AgriBusiness',
-    'Bachelor of Science in Business Administration Major in Human Resource Management',
-    'Bachelor of Science in Hospitality Management',
-    'Bachelor of Science in Office Administration',
-    'Bachelor of Science in Criminology',
-    'Bachelor of Industrial Technology Major in Automotive Technology',
-    'Bachelor of Industrial Technology Major in Computer Technology',
-    'Bachelor of Industrial Technology Major in Electrical Technology',
-    'Bachelor of Industrial Technology Major in Electronics Technology',
+    'Bachelor of Science in Agribusiness',
+    'Bachelor of Science in Midwifery (BSM)',
+    'Bachelor of Science in Agriculture - Major in Agronomy (BSA - Agronomy)',
+    'Bachelor of Science in Computer Science (BSCS)',
+    'Bachelor of Science in Business Administration - Major in Human Resource Management (BSBA - HRM)',
+    'Bachelor of Science in Hospitality Management (BSHM)',
+    'Bachelor of Science in Office Administration (BSOA)',
+    'Bachelor of Science in Criminology (BSCrim)',
+    'Bachelor of Industrial Technology - Major in Automotive Technology (BSIT - Automotive Technology)',
+    'Bachelor of Industrial Technology - Major in Computer Technology (BSIT - Computer Technology)',
+    'Bachelor of Industrial Technology - Major in Electrical Technology (BSIT - Electrical Technology)',
+    'Bachelor of Industrial Technology - Major in Electronics Technology (BSIT – Electronics Technology)',
     'Bachelor of Elementary Education',
-    'Bachelor of Secondary Education Major in English',
-    'Bachelor of Secondary Education Major in Mathematics',
-    'Bachelor of Secondary Education Major in Social Studies',
-    'Bachelor of Technology and Livelihood Education Major in Home Economics'
+    'Bachelor of Secondary Education - Major in Mathematics (BSED - Math)',
+    'Bachelor of Secondary Education - Major in English (BSED - English)',
+    'Bachelor of Secondary Education - Major in Social Studies (BSED - Social Studies)',
+    'Bachelor of Technology and Livelihood Education (BTLEd)'
 ];
-const FALLBACK_COLLEGE_OPTIONS = ['College of Agriculture', 'College of Arts and Sciences', 'College of Business Administration', 'College of Criminal Justice Education', 'College of Education', 'College of Industrial Technology', 'College of Midwifery', 'Other'];
+const FALLBACK_COLLEGE_OPTIONS = [
+    'CAFF (College of Agriculture, Forestry and Fisheries)',
+    'CIT (College of Industrial Technology)',
+    'CCJE (College of Criminal Justice Education)',
+    'CAS (College of Arts and Sciences)',
+    'CTED (College of Teacher Education)',
+    'CBA (College of Business Administration)'
+];
 
 const normalizeStudentEmail = (value: unknown) => String(value || '').trim().toLowerCase();
 const calculateAgeFromDate = (value: string) => {
@@ -312,6 +319,19 @@ export default function ProfileCompletionModal({
             showToast(String(missing[2]), 'error');
             return false;
         }
+
+        const validColleges = new Set([...collegeOptions, ...FALLBACK_COLLEGE_OPTIONS]);
+        if (!validColleges.has(formData.department)) {
+            showToast('Please select a valid College from the list.', 'error');
+            return false;
+        }
+
+        const validPrograms = new Set([...programOptions, ...FALLBACK_PROGRAM_OPTIONS]);
+        if (!validPrograms.has(formData.course)) {
+            showToast('Please select a valid Program from the list.', 'error');
+            return false;
+        }
+
         return true;
     };
 
@@ -743,9 +763,8 @@ export default function ProfileCompletionModal({
     }
 
     const selectedCollege = String(formData.department || '').trim();
-    const visibleCollegeOptions = Array.from(new Set([selectedCollege, ...collegeOptions].map((value) => String(value || '').trim()).filter(Boolean)));
+    const visibleCollegeOptions = Array.from(new Set([...collegeOptions].map((value) => String(value || '').trim()).filter(Boolean)));
     const visibleProgramOptions = Array.from(new Set([
-        ...(formData.course ? [formData.course] : []),
         ...programOptions
     ].map((value) => String(value || '').trim()).filter(Boolean)));
     const handleOpenProfileDocument = async (value: string) => {
