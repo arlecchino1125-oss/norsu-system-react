@@ -440,7 +440,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
     const handleRestoreStudent = async (student: any) => {
         if (!student?.id || !canRestoreRecords) return;
-        if (!window.confirm(`Restore ${student.first_name} ${student.last_name} to the active roster?`)) return;
+        if (!window.confirm(`Unarchive and restore ${student.first_name} ${student.last_name} to the active roster?`)) return;
 
         setRestoringStudentId(student.id);
         try {
@@ -448,7 +448,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 Number(student.id),
                 String(student.student_id || '').trim()
             );
-            if (showToast) showToast('Student restored to the active roster.');
+            if (showToast) showToast('Student unarchived and restored to the active roster.');
             refetchStudents();
             refetchArchivedStudents();
             setTableRefreshTick((current) => current + 1);
@@ -464,6 +464,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState('All');
+    const [enrollmentSearchQuery, setEnrollmentSearchQuery] = useState('');
+    const [totalEnrollmentKeysCount, setTotalEnrollmentKeysCount] = useState(0);
     const [courseFilter, setCourseFilter] = useState('All');
     const [departmentFilter, setDepartmentFilter] = useState('All');
     const [courseDeptFilter, setCourseDeptFilter] = useState('All');
@@ -517,13 +519,26 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
     const fetchEnrollmentKeys = async () => {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('enrolled_students')
-                .select('student_id, course, year_level, is_used, status, assigned_to_email, created_at')
-                .order('created_at', { ascending: false });
+                .select('student_id, course, year_level, is_used, status, assigned_to_email, created_at', { count: 'exact' });
+
+            if (enrollmentStatusFilter !== 'All') {
+                query = query.eq('status', enrollmentStatusFilter);
+            }
+
+            if (enrollmentSearchQuery.trim()) {
+                const search = `%${enrollmentSearchQuery.trim()}%`;
+                query = query.or(`student_id.ilike.${search},course.ilike.${search}`);
+            }
+
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .limit(200);
 
             if (error) throw error;
             setEnrollmentKeys(data || []);
+            setTotalEnrollmentKeysCount(count || 0);
         } catch (error) {
             console.error('Error fetching enrollment keys:', error);
             functions.showToast('Failed to fetch enrollment keys', 'error');
@@ -618,9 +633,14 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     useEffect(() => {
         if (showEnrollmentModal) {
             cleanupExpiredCourseYearWindows(false);
-            fetchEnrollmentKeys();
         }
     }, [showEnrollmentModal]);
+
+    useEffect(() => {
+        if (showEnrollmentModal) {
+            fetchEnrollmentKeys();
+        }
+    }, [showEnrollmentModal, enrollmentStatusFilter, enrollmentSearchQuery]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -1740,7 +1760,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                         disabled={restoringStudentId === student.id}
                                                         className="px-3 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-60"
                                                     >
-                                                        {restoringStudentId === student.id ? 'Restoring...' : 'Restore'}
+                                                        {restoringStudentId === student.id ? 'Unarchiving...' : 'Unarchive'}
                                                     </button>
                                                 )}
                                             </div>
@@ -1823,16 +1843,25 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                     </div>
                                     <div className="border border-slate-200 rounded-xl p-4 bg-white">
                                         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
-                                            <h4 className="font-bold text-sm text-slate-700">Existing Keys ({enrollmentKeys.length})</h4>
-                                            <div className="flex items-center gap-2">
-                                                <label className="text-xs text-slate-500 whitespace-nowrap">Filter Status:</label>
-                                                <select value={enrollmentStatusFilter} onChange={e => setEnrollmentStatusFilter(e.target.value)} className="w-32 px-2 py-1 border border-slate-300 rounded text-xs focus:outline-none focus:border-purple-600 bg-white">
-                                                    <option value="All">All</option><option value="Pending">Pending</option><option value="Activated">Activated</option><option value="Revoked">Revoked</option><option value="Archived">Archived</option>
-                                                </select>
+                                            <h4 className="font-bold text-sm text-slate-700">Existing Keys ({totalEnrollmentKeysCount})</h4>
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search Student ID or Course..."
+                                                    value={enrollmentSearchQuery}
+                                                    onChange={e => setEnrollmentSearchQuery(e.target.value)}
+                                                    className="px-3 py-1 border border-slate-300 rounded text-xs focus:outline-none focus:border-purple-600 bg-white w-full sm:w-56"
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-xs text-slate-500 whitespace-nowrap">Filter Status:</label>
+                                                    <select value={enrollmentStatusFilter} onChange={e => setEnrollmentStatusFilter(e.target.value)} className="w-full sm:w-32 px-2 py-1 border border-slate-300 rounded text-xs focus:outline-none focus:border-purple-600 bg-white">
+                                                        <option value="All">All</option><option value="Pending">Pending</option><option value="Activated">Activated</option><option value="Revoked">Revoked</option><option value="Archived">Archived</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                                            {enrollmentKeys.filter(key => enrollmentStatusFilter === 'All' || (key.status || 'Pending') === enrollmentStatusFilter).map(key => (
+                                            {enrollmentKeys.map(key => (
                                                 <div key={key.student_id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm hover:shadow-sm transition-shadow">
                                                     <div>
                                                         <span className="font-mono font-bold text-slate-800">{key.student_id}</span>

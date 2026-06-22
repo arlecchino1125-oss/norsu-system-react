@@ -9,6 +9,7 @@ export interface SelectOption {
 }
 
 interface SearchableSelectProps {
+    id?: string;
     label: string;
     value: string;
     options: SelectOption[];
@@ -22,6 +23,7 @@ interface SearchableSelectProps {
 }
 
 export default function SearchableSelect({
+    id,
     label,
     value,
     options,
@@ -68,6 +70,7 @@ export default function SearchableSelect({
             </div>
 
             <button
+                id={id}
                 type="button"
                 onClick={handleClick}
                 className={`w-full px-4 py-3 sm:py-2.5 bg-slate-50 border rounded-xl text-left transition-all duration-200 flex items-center justify-between ${
