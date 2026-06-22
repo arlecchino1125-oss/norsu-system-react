@@ -75,7 +75,6 @@ export default function RegistrarPortal() {
                     <div className="mb-8 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Registrar Office</p>
                         <p className="font-semibold text-white truncate">{session?.full_name || 'Registrar Staff'}</p>
-                        <p className="text-sm text-slate-400 truncate">{session?.email || 'System Access'}</p>
                     </div>
 
                     <nav className="space-y-1">
