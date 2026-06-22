@@ -1,7 +1,7 @@
-export type StaffRoleKey = 'admin' | 'department' | 'careStaff';
+export type StaffRoleKey = 'admin' | 'department' | 'careStaff' | 'registrar';
 
 export interface StaffLoginConfig {
-    authRole: 'Admin' | 'Department Head' | 'Care Staff';
+    authRole: 'Admin' | 'Department Head' | 'Care Staff' | 'Registrar';
     successRedirect: string;
     successMessage: string;
     redirectDelayMs?: number;
@@ -24,6 +24,12 @@ export const STAFF_LOGIN_CONFIGS: Record<StaffRoleKey, StaffLoginConfig> = {
         authRole: 'Care Staff',
         successRedirect: '/care-staff/dashboard',
         successMessage: 'Login Successful. Redirecting...',
+        redirectDelayMs: 800
+    },
+    registrar: {
+        authRole: 'Registrar',
+        successRedirect: '/registrar/dashboard',
+        successMessage: 'Registrar Access Granted. Redirecting...',
         redirectDelayMs: 800
     }
 };

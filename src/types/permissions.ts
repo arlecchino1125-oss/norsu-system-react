@@ -1,4 +1,4 @@
-export const ROLES = ['Admin', 'Care Staff', 'Department Head', 'Student', 'Public'] as const;
+export const ROLES = ['Admin', 'Care Staff', 'Department Head', 'Student', 'Public', 'Registrar'] as const;
 export const PERMISSION_TYPES = ['table', 'function', 'feature', 'action'] as const;
 export const PERMISSION_STATUSES = ['enabled', 'hidden', 'maintenance', 'coming_soon'] as const;
 
@@ -11,7 +11,8 @@ export const ROLE_DISPLAY_LABELS: Record<Role, string> = {
     'Care Staff': 'Care Staff',
     'Department Head': 'Department Head',
     Student: 'Student',
-    Public: 'Public NAT Portal'
+    Public: 'Public NAT Portal',
+    Registrar: 'Registrar'
 };
 
 export type RolePermission = {
@@ -133,6 +134,11 @@ export const FEATURE_PERMISSIONS = {
     ],
     publicPortal: [
         'nat_portal'
+    ],
+    registrar: [
+        'registrar_portal',
+        'student_population',
+        'export_center'
     ]
 } as const;
 
@@ -141,7 +147,8 @@ export const FEATURE_PERMISSION_KEYS = Array.from(
         ...FEATURE_PERMISSIONS.careStaff,
         ...FEATURE_PERMISSIONS.departmentHead,
         ...FEATURE_PERMISSIONS.student,
-        ...FEATURE_PERMISSIONS.publicPortal
+        ...FEATURE_PERMISSIONS.publicPortal,
+        ...FEATURE_PERMISSIONS.registrar
     ])
 );
 
@@ -251,6 +258,12 @@ export const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, 
         function: [],
         feature: [...FEATURE_PERMISSIONS.publicPortal],
         action: []
+    },
+    Registrar: {
+        table: ['students', 'courses', 'departments'],
+        function: [],
+        feature: [...FEATURE_PERMISSIONS.registrar],
+        action: ['export_data']
     }
 };
 
@@ -313,7 +326,8 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionType, Record<string, stri
         assessment: 'Needs assessment forms and completion history.',
         support: 'Additional support request workflow.',
         scholarship: 'Student scholarship browsing and application tracking.',
-        nat_portal: 'Public NAT application, status, and applicant login portal.'
+        nat_portal: 'Public NAT application, status, and applicant login portal.',
+        registrar_portal: 'Dedicated portal for the Registrar.'
     },
     action: {
         reset_student_data: 'Perform the CARE destructive student-data reset workflow.',
