@@ -625,23 +625,45 @@ export default function RegistrarStudentPopulationPage() {
                     </div>
                 </div>
 
-                {/* Photo Modal */}
-                {showPhotoModal && (
-                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setShowPhotoModal(false)}>
-                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col relative" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => setShowPhotoModal(false)} className="absolute top-4 right-4 w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center z-10">
-                                <XCircle size={20} />
-                            </button>
-                            <div className="w-full aspect-square bg-slate-100 flex items-center justify-center">
-                                {profileViewStudent.profile_picture_url ? (
-                                    <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                ) : (
-                                    <User size={80} className="text-slate-300" />
-                                )}
+                {/* Full Size Photo Modal */}
+                <div
+                    className={`fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                    onClick={() => setShowPhotoModal(false)}
+                >
+                    <div
+                        className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setShowPhotoModal(false)}
+                            className="absolute top-4 right-4 w-8 h-8 bg-black/40 hover:bg-black/60 text-white backdrop-blur-md rounded-full flex items-center justify-center transition-colors z-10 border border-white/20"
+                        >
+                            <XCircle size={20} />
+                        </button>
+
+                        <div className="w-full aspect-square flex items-center justify-center bg-slate-100 flex-shrink-0">
+                            {profileViewStudent.profile_picture_url ? (
+                                <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                                <User size={80} className="text-slate-300" />
+                            )}
+                        </div>
+
+                        <div className="p-6 text-center bg-white border-t border-slate-100">
+                            <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-tight">
+                                {[profileViewStudent.first_name, profileViewStudent.middle_name, profileViewStudent.last_name, profileViewStudent.suffix].filter(Boolean).join(' ')}
+                            </h3>
+                            <p className="font-mono text-base text-blue-600 font-bold mt-1.5">
+                                {profileViewStudent.student_id}
+                            </p>
+                            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 font-medium mt-1">
+                                <span>{profileViewStudent.course}</span>
+                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                <span>{profileViewStudent.year_level}</span>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
                 </>,
                 document.body
             )}
