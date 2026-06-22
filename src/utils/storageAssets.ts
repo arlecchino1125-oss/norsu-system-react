@@ -128,3 +128,94 @@ export const parseCareNotesPayload = (value: string | null | undefined) => {
         };
     }
 };
+
+export const resolveStoredAssetUrlsBulk = async (
+    bucket: string,
+    values: (string | null | undefined)[],
+    expiresInSeconds = 3600
+): Promise<Record<string, string | null>> => {
+    const resultMap: Record<string, string | null> = {};
+    if (!values || values.length === 0) return resultMap;
+
+    // Filter unique normalized non-empty values
+    const uniqueInputs = Array.from(new Set(values.map(v => String(v || '').trim()).filter(Boolean)));
+
+    const pathsToSign: string[] = [];
+    const alreadyResolved: Record<string, string> = {};
+    const pathToInputMap: Record<string, string[]> = {};
+
+    for (const normalized of uniqueInputs) {
+        const extractedPath = getStoredAssetPath(bucket, normalized);
+        if (isStoredAssetUrl(normalized) && !extractedPath) {
+            alreadyResolved[normalized] = normalized;
+            continue;
+        }
+
+        const path = extractedPath || normalized.replace(/^\/+/, '');
+        if (!pathToInputMap[path]) {
+            pathToInputMap[path] = [];
+            pathsToSign.push(path);
+        }
+        pathToInputMap[path].push(normalized);
+    }
+
+    // Request signed URLs for all pathsToSign in batches
+    const batchSize = 100;
+    const signedUrlsMap: Record<string, string> = {};
+
+    for (let i = 0; i < pathsToSign.length; i += batchSize) {
+        const batch = pathsToSign.slice(i, i + batchSize);
+        try {
+            const { data, error } = await supabase
+                .storage
+                .from(bucket)
+                .createSignedUrls(batch, expiresInSeconds);
+
+            if (!error && data) {
+                for (const item of data) {
+                    if (item.signedUrl) {
+                        signedUrlsMap[item.path] = item.signedUrl;
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Error batch signing URLs:', err);
+        }
+    }
+
+    // Map everything back to the original unique inputs
+    for (const normalized of uniqueInputs) {
+        if (alreadyResolved[normalized]) {
+            resultMap[normalized] = alreadyResolved[normalized];
+            continue;
+        }
+
+        const extractedPath = getStoredAssetPath(bucket, normalized);
+        const path = extractedPath || normalized.replace(/^\/+/, '');
+
+        const signedUrl = signedUrlsMap[path];
+        if (signedUrl) {
+            resultMap[normalized] = signedUrl;
+        } else if (isStoredAssetUrl(normalized)) {
+            resultMap[normalized] = normalized;
+        } else {
+            const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
+            resultMap[normalized] = publicData?.publicUrl || null;
+        }
+    }
+
+    // Populate resultMap for all original values
+    const finalMap: Record<string, string | null> = {};
+    for (const originalValue of values) {
+        const key = originalValue === null || originalValue === undefined ? '' : String(originalValue);
+        const normalized = key.trim();
+        if (!normalized) {
+            finalMap[key] = null;
+        } else {
+            finalMap[key] = resultMap[normalized] || null;
+        }
+    }
+
+    return finalMap;
+};
+
