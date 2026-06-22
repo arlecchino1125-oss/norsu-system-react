@@ -242,19 +242,73 @@ export const getStudentIdsByFilters = async (filters?: StudentFilters): Promise<
         .select('id');
     query = applyStudentFilters(query, filters);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map((row: any) => String(row.id)).filter(Boolean);
+    let allIds: string[] = [];
+    let start = 0;
+    const limit = 1000;
+
+    while (true) {
+        const { data, error } = await query.range(start, start + limit - 1);
+        if (error) throw error;
+
+        if (!data || data.length === 0) break;
+
+        allIds = allIds.concat(data.map((row: any) => String(row.id)).filter(Boolean));
+
+        if (data.length < limit) break;
+        start += limit;
+    }
+
+    return allIds;
 };
 
 export const getAllStudentsForExport = async () => {
-    const { data, error } = await supabase
+    const { count, error: countError } = await supabase
         .from('students')
-        .select(STUDENT_LIST_COLUMNS)
-        .eq('is_archived', false)
-        .order('last_name', { ascending: true });
-    if (error) throw error;
-    return data || [];
+        .select('*', { count: 'exact', head: true })
+        .eq('is_archived', false);
+
+    if (countError) throw countError;
+    const totalCount = count || 0;
+    if (totalCount === 0) return [];
+
+    const limit = 1000;
+    const totalPages = Math.ceil(totalCount / limit);
+    const allStudents: any[] = [];
+    const concurrencyLimit = 5;
+
+    for (let i = 0; i < totalPages; i += concurrencyLimit) {
+        const pageIndices = Array.from(
+            { length: Math.min(concurrencyLimit, totalPages - i) },
+            (_, idx) => i + idx
+        );
+
+        const promises = pageIndices.map((pageIdx) => {
+            const start = pageIdx * limit;
+            return supabase
+                .from('students')
+                .select(STUDENT_LIST_COLUMNS)
+                .eq('is_archived', false)
+                .order('last_name', { ascending: true })
+                .range(start, start + limit - 1);
+        });
+
+        const results = await Promise.all(promises);
+        for (const res of results) {
+            if (res.error) throw res.error;
+            if (res.data) {
+                allStudents.push(...res.data);
+            }
+        }
+    }
+
+    // Ensure they are correctly sorted by last name in case of any concurrent pagination overlap/ordering nuances
+    allStudents.sort((a, b) => {
+        const nameA = String(a.last_name || '').toLowerCase();
+        const nameB = String(b.last_name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+
+    return allStudents;
 };
 
 export const getStudentByStudentId = async (studentId: string) => {
@@ -268,12 +322,28 @@ export const getStudentByStudentId = async (studentId: string) => {
 };
 
 export const getEnrollmentKeys = async () => {
-    const { data, error } = await supabase
-        .from('enrolled_students')
-        .select('student_id, course, year_level, is_used, status, assigned_to_email, created_at')
-        .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    let allKeys: any[] = [];
+    let start = 0;
+    const limit = 1000;
+
+    while (true) {
+        const { data, error } = await supabase
+            .from('enrolled_students')
+            .select('student_id, course, year_level, is_used, status, assigned_to_email, created_at')
+            .order('created_at', { ascending: false })
+            .range(start, start + limit - 1);
+            
+        if (error) throw error;
+        
+        if (!data || data.length === 0) break;
+        
+        allKeys = allKeys.concat(data);
+        
+        if (data.length < limit) break;
+        start += limit;
+    }
+    
+    return allKeys;
 };
 
 export const getCoursesWithDepartments = async () => {

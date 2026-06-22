@@ -4,7 +4,7 @@ import { Users, Search, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, Chevro
 import { supabase } from '../../lib/supabase';
 import { getValidProfileImageUrl } from '../../utils/formatters';
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
-import { openStoredAsset, resolveStoredAssetUrl } from '../../utils/storageAssets';
+import { openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../utils/inputSecurity';
 import { getAllStudentsForExport, getStudentsPage, getDepartments, getCoursesWithDepartments } from '../../services/careStaffService';
 import type { StudentFilters } from '../../types/query';
@@ -233,19 +233,6 @@ export default function RegistrarStudentPopulationPage() {
                 return;
             }
 
-            const fileLinkCache = new Map<string, string>();
-            const resolveExportFileLink = async (bucket: string, value: unknown) => {
-                const rawValue = String(value || '').trim();
-                if (!rawValue) return '';
-                const cacheKey = `${bucket}:${rawValue}`;
-                if (fileLinkCache.has(cacheKey)) return fileLinkCache.get(cacheKey) || '';
-                
-                const resolvedUrl = await resolveStoredAssetUrl(bucket, rawValue, STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS);
-                const nextValue = resolvedUrl || rawValue;
-                fileLinkCache.set(cacheKey, nextValue);
-                return nextValue;
-            };
-
             const exportColumns: any[] = PROFILE_CATEGORIES.flatMap(category =>
                 category.fields.map((field: any) => ({
                     header: field.label,
@@ -255,6 +242,38 @@ export default function RegistrarStudentPopulationPage() {
                     bucket: field.type === 'profilePhoto' ? 'profile-pictures' : 'support_documents',
                 }))
             );
+
+            // Group paths by bucket to resolve them in bulk
+            const pathsByBucket: Record<string, string[]> = {};
+            for (const student of allStudents) {
+                for (const col of exportColumns) {
+                    if (col.type === 'file') {
+                        const val = col.compute ? col.compute(student) : student[col.db];
+                        const rawValue = String(val || '').trim();
+                        if (rawValue) {
+                            const bucket = col.bucket || 'support_documents';
+                            if (!pathsByBucket[bucket]) {
+                                pathsByBucket[bucket] = [];
+                            }
+                            pathsByBucket[bucket].push(rawValue);
+                        }
+                    }
+                }
+            }
+
+            // Resolve URLs in parallel per bucket
+            const resolvedUrlsMapByBucket: Record<string, Record<string, string | null>> = {};
+            const bucketNames = Object.keys(pathsByBucket);
+            const bulkPromises = bucketNames.map(async (bucket) => {
+                const uniquePaths = pathsByBucket[bucket];
+                const resolvedMap = await resolveStoredAssetUrlsBulk(
+                    bucket,
+                    uniquePaths,
+                    STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS
+                );
+                resolvedUrlsMapByBucket[bucket] = resolvedMap;
+            });
+            await Promise.all(bulkPromises);
 
             const headers = exportColumns.map(c => c.header);
             const fileColumnIndexes = exportColumns.reduce((indexes: number[], col: any, index: number) => {
@@ -270,7 +289,10 @@ export default function RegistrarStudentPopulationPage() {
                     if (col.type === 'boolean') {
                         row.push(val ? 'Yes' : 'No');
                     } else if (col.type === 'file') {
-                        row.push(escapeSpreadsheetFormula(await resolveExportFileLink(col.bucket || 'support_documents', val)));
+                        const rawValue = String(val || '').trim();
+                        const bucket = col.bucket || 'support_documents';
+                        const resolvedUrl = rawValue ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || rawValue) : '';
+                        row.push(escapeSpreadsheetFormula(resolvedUrl));
                     } else {
                         row.push(escapeSpreadsheetFormula(val ?? ''));
                     }

@@ -15,7 +15,7 @@ import { getValidProfileImageUrl } from '../../utils/formatters';
 import type { CareStaffDashboardFunctions } from './types';
 import { getAllStudentsForExport, getStudentByStudentId, getStudentsPage, STUDENT_TABLE_COLUMNS } from '../../services/careStaffService';
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
-import { openStoredAsset, resolveStoredAssetUrl } from '../../utils/storageAssets';
+import { openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../utils/inputSecurity';
 
 declare const XLSX: any;
@@ -1078,27 +1078,6 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             const allStudents = await getAllStudentsForExport();
             if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); return; }
 
-            // STRICT sdaf.txt fields — exact headers and order
-            const fileLinkCache = new Map<string, string>();
-            const resolveExportFileLink = async (bucket: string, value: unknown) => {
-                const rawValue = String(value || '').trim();
-                if (!rawValue) return '';
-
-                const cacheKey = `${bucket}:${rawValue}`;
-                if (fileLinkCache.has(cacheKey)) {
-                    return fileLinkCache.get(cacheKey) || '';
-                }
-
-                const resolvedUrl = await resolveStoredAssetUrl(
-                    bucket,
-                    rawValue,
-                    STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS
-                );
-                const nextValue = resolvedUrl || rawValue;
-                fileLinkCache.set(cacheKey, nextValue);
-                return nextValue;
-            };
-
             const exportColumns: any[] = PROFILE_CATEGORIES.flatMap(category =>
                 category.fields.map((field: any) => ({
                     header: field.label,
@@ -1108,6 +1087,38 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     bucket: field.type === 'profilePhoto' ? 'profile-pictures' : 'support_documents',
                 }))
             );
+
+            // Group paths by bucket to resolve them in bulk
+            const pathsByBucket: Record<string, string[]> = {};
+            for (const student of allStudents) {
+                for (const col of exportColumns) {
+                    if (col.type === 'file') {
+                        const val = col.compute ? col.compute(student) : student[col.db];
+                        const rawValue = String(val || '').trim();
+                        if (rawValue) {
+                            const bucket = col.bucket || 'support_documents';
+                            if (!pathsByBucket[bucket]) {
+                                pathsByBucket[bucket] = [];
+                            }
+                            pathsByBucket[bucket].push(rawValue);
+                        }
+                    }
+                }
+            }
+
+            // Resolve URLs in parallel per bucket
+            const resolvedUrlsMapByBucket: Record<string, Record<string, string | null>> = {};
+            const bucketNames = Object.keys(pathsByBucket);
+            const bulkPromises = bucketNames.map(async (bucket) => {
+                const uniquePaths = pathsByBucket[bucket];
+                const resolvedMap = await resolveStoredAssetUrlsBulk(
+                    bucket,
+                    uniquePaths,
+                    STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS
+                );
+                resolvedUrlsMapByBucket[bucket] = resolvedMap;
+            });
+            await Promise.all(bulkPromises);
 
             const headers = exportColumns.map(c => c.header);
             const fileColumnIndexes = exportColumns.reduce((indexes: number[], col: any, index: number) => {
@@ -1122,7 +1133,10 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     if (col.type === 'boolean') {
                         row.push(val ? 'Yes' : 'No');
                     } else if (col.type === 'file') {
-                        row.push(escapeSpreadsheetFormula(await resolveExportFileLink(col.bucket || 'support_documents', val)));
+                        const rawValue = String(val || '').trim();
+                        const bucket = col.bucket || 'support_documents';
+                        const resolvedUrl = rawValue ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || rawValue) : '';
+                        row.push(escapeSpreadsheetFormula(resolvedUrl));
                     } else {
                         row.push(escapeSpreadsheetFormula(val ?? ''));
                     }
