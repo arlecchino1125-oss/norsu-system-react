@@ -7,6 +7,7 @@ interface SupabaseHookOptions {
     order?: { column: string; ascending?: boolean };
     eq?: { column: string; value: any };
     subscribe?: boolean;
+    fetchAll?: boolean;
 }
 
 /**
@@ -19,7 +20,8 @@ export function useSupabaseData<T = any>({
     select = '*',
     order,
     eq,
-    subscribe = false
+    subscribe = false,
+    fetchAll = false
 }: SupabaseHookOptions) {
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -49,25 +51,49 @@ export function useSupabaseData<T = any>({
 
     const fetchData = async () => {
         setLoading(true);
-        let query = supabase.from(table).select(select);
-
-        if (eq) {
-            query = query.eq(eq.column, eq.value);
+        setError(null);
+        try {
+            if (fetchAll) {
+                let allRows: any[] = [];
+                let start = 0;
+                const limit = 1000;
+                while (true) {
+                    let query = supabase.from(table).select(select);
+                    if (eq) {
+                        query = query.eq(eq.column, eq.value);
+                    }
+                    if (order) {
+                        query = query.order(order.column, { ascending: order.ascending ?? true });
+                    }
+                    query = query.range(start, start + limit - 1);
+                    const { data: result, error: fetchError } = await query;
+                    if (fetchError) throw fetchError;
+                    if (!result || result.length === 0) break;
+                    allRows = allRows.concat(result);
+                    if (result.length < limit) break;
+                    start += limit;
+                }
+                setData(allRows as T[]);
+            } else {
+                let query = supabase.from(table).select(select);
+                if (eq) {
+                    query = query.eq(eq.column, eq.value);
+                }
+                if (order) {
+                    query = query.order(order.column, { ascending: order.ascending ?? true });
+                }
+                const { data: result, error: fetchError } = await query;
+                if (fetchError) {
+                    setError(fetchError.message);
+                } else if (result) {
+                    setData(result as T[]);
+                }
+            }
+        } catch (err: any) {
+            setError(err.message || String(err));
+        } finally {
+            setLoading(false);
         }
-
-        if (order) {
-            query = query.order(order.column, { ascending: order.ascending ?? true });
-        }
-
-        const { data: result, error: fetchError } = await query;
-
-        if (fetchError) {
-            setError(fetchError.message);
-        } else if (result) {
-            setData(result as T[]);
-        }
-
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -112,7 +138,7 @@ export function useSupabaseData<T = any>({
                 supabase.removeChannel(channel);
             };
         }
-    }, [table, select, order?.column, order?.ascending, eq?.column, eq?.value, subscribe]);
+    }, [table, select, order?.column, order?.ascending, eq?.column, eq?.value, subscribe, fetchAll]);
 
     return { data, loading, error, refetch: fetchData };
 }

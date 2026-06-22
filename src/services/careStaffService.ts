@@ -177,7 +177,22 @@ export const STUDENT_TABLE_COLUMNS = [
     'archived_at',
     'archived_reason',
     'archived_by',
-    'archive_note'
+    'archive_note',
+    'profile_picture_url',
+    'street',
+    'city',
+    'province',
+    'zip_code',
+    'region',
+    'mobile',
+    'dob',
+    'sex',
+    'gender_identity',
+    'nationality',
+    'facebook_url',
+    'place_of_birth',
+    'religion',
+    'civil_status'
 ].join(', ');
 
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {

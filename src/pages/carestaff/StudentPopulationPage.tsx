@@ -254,6 +254,35 @@ const getArchivedSnapshotForSchoolYear = (student: any, schoolYear: string) => {
     return sorted[0];
 };
 
+const isProfileIncompleteStep1 = (student: any) => {
+    if (!student) return true;
+    const requiredFields = [
+        student.profile_picture_url,
+        student.student_id,
+        student.first_name,
+        student.last_name,
+        student.middle_name,
+        student.street,
+        student.city,
+        student.province,
+        student.zip_code,
+        student.region,
+        student.mobile,
+        student.dob,
+        student.sex,
+        student.gender_identity,
+        student.nationality,
+        student.facebook_url,
+        student.place_of_birth,
+        student.religion,
+        student.year_level,
+        student.department,
+        student.course,
+        student.civil_status
+    ];
+    return requiredFields.some(val => !String(val || '').trim());
+};
+
 interface StudentPopulationPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
     pendingProfileId?: string | null;
@@ -272,7 +301,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         select: STUDENT_TABLE_COLUMNS,
         eq: { column: 'is_archived', value: false },
         order: { column: 'created_at', ascending: false },
-        subscribe: true
+        subscribe: true,
+        fetchAll: true
     });
 
     const {
@@ -284,7 +314,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         select: STUDENT_TABLE_COLUMNS,
         eq: { column: 'is_archived', value: true },
         order: { column: 'archived_at', ascending: false },
-        subscribe: true
+        subscribe: true,
+        fetchAll: true
     });
 
     const { data: allCourses, refetch: refetchCourses } = useSupabaseData({
@@ -1390,7 +1421,13 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                     );
                                                 })()}
                                             </td>
-                                            <td className="px-6 py-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{student.status}</span></td>
+                                            <td className="px-6 py-4">
+                                                {isProfileIncompleteStep1(student) ? (
+                                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">Incomplete</span>
+                                                ) : (
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{student.status}</span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 text-right">
                                                 <button onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-600 hover:text-blue-800 p-2"><Edit size={16} /></button>
                                                 {canArchiveRecords && (

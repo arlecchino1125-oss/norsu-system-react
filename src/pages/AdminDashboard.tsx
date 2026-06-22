@@ -72,7 +72,8 @@ export default function AdminDashboard() {
     const { data: studentsData, refetch: refetchStudents } = useSupabaseData({
         table: 'students',
         select: 'id, student_id, first_name, last_name, status, auth_user_id',
-        subscribe: true
+        subscribe: true,
+        fetchAll: true
     });
     const { data: applicationsData, refetch: refetchApplications } = useSupabaseData({
         table: 'applications',
