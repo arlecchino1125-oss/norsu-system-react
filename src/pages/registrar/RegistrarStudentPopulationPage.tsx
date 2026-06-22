@@ -152,6 +152,35 @@ const PROFILE_CATEGORIES = [
     },
 ].filter(category => category.fields.length > 0);
 
+const isProfileIncompleteStep1 = (student: any) => {
+    if (!student) return true;
+    const requiredFields = [
+        student.profile_picture_url,
+        student.student_id,
+        student.first_name,
+        student.last_name,
+        student.middle_name,
+        student.street,
+        student.city,
+        student.province,
+        student.zip_code,
+        student.region,
+        student.mobile,
+        student.dob,
+        student.sex,
+        student.gender_identity,
+        student.nationality,
+        student.facebook_url,
+        student.place_of_birth,
+        student.religion,
+        student.year_level,
+        student.department,
+        student.course,
+        student.civil_status
+    ];
+    return requiredFields.some(val => !String(val || '').trim());
+};
+
 const CARE_STUDENT_PAGE_SIZE = 10;
 const getCareStudentTotalPages = (totalItems: number) => Math.max(1, Math.ceil(Math.max(0, totalItems) / CARE_STUDENT_PAGE_SIZE));
 
@@ -440,7 +469,11 @@ export default function RegistrarStudentPopulationPage() {
                                             <div className="text-xs text-slate-500">{student.year_level || '-'}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{student.status}</span>
+                                            {isProfileIncompleteStep1(student) ? (
+                                                <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">Incomplete</span>
+                                            ) : (
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{student.status}</span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
