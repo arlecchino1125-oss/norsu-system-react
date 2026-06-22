@@ -189,7 +189,8 @@ export const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, 
         action: [
             'reset_student_data',
             'export_data',
-            'archive_records'
+            'archive_records',
+            'restore_records'
         ]
     },
     'Department Head': {
@@ -214,7 +215,8 @@ export const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, 
             'approve_applications',
             'schedule_interviews',
             'manage_own_department',
-            'archive_records'
+            'archive_records',
+            'restore_records'
         ]
     },
     Student: {
