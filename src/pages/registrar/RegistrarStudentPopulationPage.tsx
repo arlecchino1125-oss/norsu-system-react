@@ -381,114 +381,142 @@ export default function RegistrarStudentPopulationPage() {
     const totalPages = getCareStudentTotalPages(totalStudents);
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-end mb-4">
-                <div className="flex gap-3">
+        <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
+            {/* Left Column: Actions & Filters */}
+            <div className="w-full lg:w-80 shrink-0 space-y-6">
+                {/* Actions card */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
                     <button 
                         onClick={handleExportExcel} 
                         disabled={isExporting}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-lg text-sm font-semibold hover:bg-teal-600 transition shadow-sm disabled:opacity-50"
                     >
                         {isExporting ? <RefreshCw size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
                         Export Profiles to Excel
                     </button>
                     <button 
                         onClick={fetchStudents} 
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm"
                     >
                         <RefreshCw size={16} />
                         Refresh List
                     </button>
                 </div>
-            </div>
 
-            {/* Filters */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm flex flex-col gap-4 items-end">
-                <div className="relative w-full md:w-96">
-                    <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
-                    <input 
-                        type="text" 
-                        placeholder="Search by Name or ID..." 
-                        value={searchTerm} 
-                        onChange={(e) => setSearchTerm(e.target.value)} 
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500" 
-                    />
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-3 w-full">
-                    <select value={departmentFilter} onChange={(e) => { setDepartmentFilter(e.target.value); setCourseFilter('All'); setCurrentPage(1); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 w-full sm:w-[180px] truncate">
-                        <option value="All">All Departments</option>
-                        {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                    <select value={courseFilter} onChange={(e) => { setCourseFilter(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 w-full sm:w-[180px] truncate">
-                        <option value="All">All Courses</option>
-                        {filteredCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </select>
-                    <select value={yearFilter} onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 w-[120px]">
-                        <option value="All">All Years</option>
-                        <option value="1st Year">1st Year</option>
-                        <option value="2nd Year">2nd Year</option>
-                        <option value="3rd Year">3rd Year</option>
-                        <option value="4th Year">4th Year</option>
-                        <option value="5th Year">5th Year</option>
-                    </select>
-                    <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 w-[120px]">
-                        <option value="All">All Status</option>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                    </select>
+                {/* Filters card */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Search & Filters</h3>
+                    
+                    <div className="relative w-full">
+                        <Search size={18} className="absolute left-3 top-3 text-slate-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Search by Name or ID..." 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 bg-slate-50 focus:bg-white transition-all" 
+                        />
+                    </div>
+
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">College</label>
+                            <select value={departmentFilter} onChange={(e) => { setDepartmentFilter(e.target.value); setCourseFilter('All'); setCurrentPage(1); }} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 truncate">
+                                <option value="All">All Departments</option>
+                                {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Program</label>
+                            <select value={courseFilter} onChange={(e) => { setCourseFilter(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 truncate">
+                                <option value="All">All Courses</option>
+                                {filteredCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Year Level</label>
+                            <select value={yearFilter} onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700">
+                                <option value="All">All Years</option>
+                                <option value="1st Year">1st Year</option>
+                                <option value="2nd Year">2nd Year</option>
+                                <option value="3rd Year">3rd Year</option>
+                                <option value="4th Year">4th Year</option>
+                                <option value="5th Year">5th Year</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Status</label>
+                            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700">
+                                <option value="All">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+
                     {(searchTerm || departmentFilter !== 'All' || courseFilter !== 'All' || yearFilter !== 'All' || statusFilter !== 'All') && (
-                        <button onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setCurrentPage(1); }} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">Reset</button>
+                        <button 
+                            onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setCurrentPage(1); }} 
+                            className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium border border-red-100 mt-2"
+                        >
+                            Reset Filters
+                        </button>
                     )}
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex min-h-[28rem] flex-col">
-                <div className="flex-1 overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase text-slate-500 font-semibold">
-                            <tr>
-                                <th className="px-6 py-4">Student</th>
-                                <th className="px-6 py-4">ID</th>
-                                <th className="px-6 py-4">Course & Year</th>
-                                <th className="px-6 py-4">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr><td colSpan={4} className="h-[360px] p-12 text-center text-slate-500">Loading students...</td></tr>
-                            ) : students.length === 0 ? (
-                                <tr><td colSpan={4} className="h-[360px] p-12 text-center text-slate-500">No students found.</td></tr>
-                            ) : (
-                                students.map(student => (
-                                    <tr key={student.id} onClick={() => openProfileModal(student)} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                                        <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.last_name}, {student.first_name} {student.middle_name || ''}</span></td>
-                                        <td className="px-6 py-4 font-mono text-slate-600">{student.student_id}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-slate-800">{student.course || '-'}</div>
-                                            <div className="text-xs text-slate-500">{student.year_level || '-'}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {isProfileIncompleteStep1(student) ? (
-                                                <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">Incomplete</span>
-                                            ) : (
-                                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{student.status}</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 text-xs md:flex-row md:items-center md:justify-between">
-                    <span className="text-slate-500">
-                        {loading ? 'Loading...' : `Showing ${(currentPage - 1) * CARE_STUDENT_PAGE_SIZE + 1}-${Math.min(currentPage * CARE_STUDENT_PAGE_SIZE, totalStudents)} of ${totalStudents} students`}
-                    </span>
-                    <div className="flex items-center gap-1">
-                        <button disabled={currentPage === 1 || loading} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronLeft size={16} /></button>
-                        <span className="px-3 font-medium text-slate-700">Page {currentPage} of {totalPages}</span>
-                        <button disabled={currentPage === totalPages || loading} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronRight size={16} /></button>
+            {/* Right Column: Student Table */}
+            <div className="flex-1 min-w-0 w-full">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex min-h-[28rem] flex-col">
+                    <div className="flex-1 overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase text-slate-500 font-semibold">
+                                <tr>
+                                    <th className="px-6 py-4">Student</th>
+                                    <th className="px-6 py-4">ID</th>
+                                    <th className="px-6 py-4">Course & Year</th>
+                                    <th className="px-6 py-4">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {loading ? (
+                                    <tr><td colSpan={4} className="h-[360px] p-12 text-center text-slate-500">Loading students...</td></tr>
+                                ) : students.length === 0 ? (
+                                    <tr><td colSpan={4} className="h-[360px] p-12 text-center text-slate-500">No students found.</td></tr>
+                                ) : (
+                                    students.map(student => (
+                                        <tr key={student.id} onClick={() => openProfileModal(student)} className="hover:bg-slate-50 cursor-pointer transition-colors">
+                                            <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.last_name}, {student.first_name} {student.middle_name || ''}</span></td>
+                                            <td className="px-6 py-4 font-mono text-slate-600">{student.student_id}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-medium text-slate-800">{student.course || '-'}</div>
+                                                <div className="text-xs text-slate-500">{student.year_level || '-'}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {isProfileIncompleteStep1(student) ? (
+                                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">Incomplete</span>
+                                                ) : (
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{student.status}</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 text-xs md:flex-row md:items-center md:justify-between">
+                        <span className="text-slate-500">
+                            {loading ? 'Loading...' : `Showing ${(currentPage - 1) * CARE_STUDENT_PAGE_SIZE + 1}-${Math.min(currentPage * CARE_STUDENT_PAGE_SIZE, totalStudents)} of ${totalStudents} students`}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button disabled={currentPage === 1 || loading} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronLeft size={16} /></button>
+                            <span className="px-3 font-medium text-slate-700">Page {currentPage} of {totalPages}</span>
+                            <button disabled={currentPage === totalPages || loading} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronRight size={16} /></button>
+                        </div>
                     </div>
                 </div>
             </div>
