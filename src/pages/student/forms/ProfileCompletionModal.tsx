@@ -203,6 +203,12 @@ export default function ProfileCompletionModal({
     }, [profileStep, isOpen, initialData?.studentId]);
 
     useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = 0;
+        }
+    }, [profileStep]);
+
+    useEffect(() => {
         if (!isOpen) return;
 
         let isMounted = true;
@@ -874,9 +880,8 @@ export default function ProfileCompletionModal({
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[10002] overflow-y-auto bg-slate-900/60 p-3 sm:p-4 pointer-events-auto backdrop-blur-sm">
-            <div className="flex min-h-full items-center justify-center py-8">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl flex flex-col relative">
+        <div className="fixed inset-0 z-[10002] bg-slate-900/60 p-3 sm:p-4 pointer-events-auto backdrop-blur-sm flex items-center justify-center">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col relative">
                     {onClose && (
                         <button
                             type="button"
@@ -886,7 +891,7 @@ export default function ProfileCompletionModal({
                             <X className="w-5 h-5" />
                         </button>
                     )}
-                    <div className="sticky top-0 z-20 rounded-t-[2rem] border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
+                    <div className="rounded-t-[2rem] border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-sky-50 p-4 text-center sm:p-6">
                         <h2 className="text-xl font-black text-slate-800 sm:text-2xl">Complete Your Profile</h2>
                         <p className="mt-1 text-sm text-slate-500">Please fill in the remaining information to complete your student profile.</p>
                         <div className="mt-4">
@@ -905,7 +910,7 @@ export default function ProfileCompletionModal({
                         </div>
                     </div>
 
-                    <div ref={scrollContainerRef} className="flex-1 p-4 sm:p-6">
+                    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6">
                         {profileStep === 1 && (
                             <div className="space-y-4">
                                 <div className="mb-2"><h3 className="text-lg font-bold text-slate-800">Personal Information</h3><p className="text-sm leading-relaxed text-slate-400">Review the pre-filled identity details and complete the required personal information.</p></div>
@@ -1454,7 +1459,7 @@ export default function ProfileCompletionModal({
                         )}
                     </div>
 
-                    <div className="sticky bottom-0 z-20 rounded-b-[2rem] border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
+                    <div className="rounded-b-[2rem] border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
                         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                             {profileStep > 1 ? (
                                 <button type="button" onClick={() => setProfileStep((prev) => prev - 1)} className="w-full rounded-xl px-6 py-3 font-bold text-slate-500 transition-colors hover:bg-slate-200 sm:w-auto sm:py-2.5">Back</button>
@@ -1469,8 +1474,7 @@ export default function ProfileCompletionModal({
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>,
+            </div>,
         document.body
     );
 }
