@@ -452,7 +452,7 @@ export default function RegistrarStudentPopulationPage() {
                             <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700">
                                 <option value="All">All Status</option>
                                 <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
+                                <option value="Incomplete">Incomplete</option>
                             </select>
                         </div>
                     </div>
