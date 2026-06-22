@@ -382,8 +382,8 @@ export default function RegistrarStudentPopulationPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                <div className="flex gap-3 w-full md:w-auto">
+            <div className="flex justify-end mb-4">
+                <div className="flex gap-3">
                     <button 
                         onClick={handleExportExcel} 
                         disabled={isExporting}
@@ -403,8 +403,8 @@ export default function RegistrarStudentPopulationPage() {
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm flex flex-col gap-4">
-                <div className="relative w-full">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm flex flex-col gap-4 items-end">
+                <div className="relative w-full md:w-96">
                     <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
                     <input 
                         type="text" 
@@ -414,7 +414,7 @@ export default function RegistrarStudentPopulationPage() {
                         className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500" 
                     />
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center justify-end gap-3 w-full">
                     <select value={departmentFilter} onChange={(e) => { setDepartmentFilter(e.target.value); setCourseFilter('All'); setCurrentPage(1); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 w-full sm:w-[180px] truncate">
                         <option value="All">All Departments</option>
                         {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
