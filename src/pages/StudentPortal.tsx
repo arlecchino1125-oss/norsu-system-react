@@ -2098,21 +2098,7 @@ export default function StudentPortal() {
             'dob', 'age', 'placeOfBirth', 'nationality', 'sex', 'genderIdentity', 'civilStatus',
             'street', 'city', 'province', 'zipCode', 'region',
             'mobile', 'facebookUrl',
-            'motherLastName', 'motherGivenName', 'motherMiddleName', 'motherOccupation', 'motherStatus', 'motherContact', 'motherAddress',
-            'fatherLastName', 'fatherGivenName', 'fatherMiddleName', 'fatherOccupation', 'fatherStatus', 'fatherContact', 'fatherAddress',
-            'parentsNumChildren', 'birthOrder',
-            'supporter',
-            'isFourPsMember', 'isRebelReturnee',
-            'isSoloParent', 'isChildOfSoloParent',
-            'isOrphan',
-            'isHomelessCitizen', 'isSeniorCitizen',
-            'guardianName', 'guardianAddress', 'guardianContact', 'guardianRelation',
-            'emergencyName', 'emergencyAddress', 'emergencyRelationship', 'emergencyNumber',
-            'elemSchool', 'elemYearGraduated',
-            'juniorHighSchool', 'juniorHighYearGraduated',
-            'seniorHighSchool', 'seniorHighYearGraduated',
-            'honorsAwards',
-            'scholarshipsAvailed', 'hasBeenCriminallyCharged', 'hasBeenConvictedOfCrime'
+            'emergencyName', 'emergencyAddress', 'emergencyRelationship', 'emergencyNumber'
         ];
 
         if (String(profile.spouseName || '').trim() && !['N/A', 'n/a', 'none'].includes(String(profile.spouseName || '').trim().toLowerCase())) {
