@@ -667,6 +667,7 @@ export default function AdminDashboard() {
     const adminAccountCount = accounts.filter((account: any) => String(account.role || '').trim() === 'Admin').length;
     const departmentHeadCount = accounts.filter((account: any) => String(account.role || '').trim() === 'Department Head').length;
     const careStaffCount = accounts.filter((account: any) => String(account.role || '').trim() === 'Care Staff').length;
+    const registrarCount = accounts.filter((account: any) => String(account.role || '').trim() === 'Registrar').length;
     const totalCourseCount = coursesData.length;
     const heroStats = [
         { label: 'Staff Accounts', value: accounts.length, hint: `${linkedStaffAccountCount} linked to auth` },
@@ -678,6 +679,7 @@ export default function AdminDashboard() {
         { label: 'Admins', value: adminAccountCount },
         { label: 'Department Heads', value: departmentHeadCount },
         { label: 'CARE Staff', value: careStaffCount },
+        { label: 'Registrars', value: registrarCount },
         { label: 'Unlinked', value: unlinkedStaffAccountCount }
     ];
     const activeStudentCount = studentsData.filter((student: any) => String(student.status || '').trim() === 'Active').length;
@@ -695,6 +697,7 @@ export default function AdminDashboard() {
     const getStaffRoleBadgeClass = (role: string | null | undefined) => {
         if (role === 'Admin') return 'bg-rose-50 text-rose-700 ring-rose-200';
         if (role === 'Care Staff') return 'bg-sky-50 text-sky-700 ring-sky-200';
+        if (role === 'Registrar') return 'bg-teal-50 text-teal-700 ring-teal-200';
         return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
     };
     const renderExpandablePanel = ({
@@ -963,6 +966,7 @@ export default function AdminDashboard() {
                                                 <select className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                                                     <option value="Department Head">Department Head (Dean)</option>
                                                     <option value="Care Staff">CARE Staff</option>
+                                                    <option value="Registrar">Registrar</option>
                                                     <option value="Admin">Admin</option>
                                                 </select>
                                             </div>

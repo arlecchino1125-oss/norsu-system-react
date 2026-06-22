@@ -17,6 +17,8 @@ const CareStaffDashboard = lazy(() => import('./pages/CareStaffDashboard'));
 const NATPortal = lazy(() => import('./pages/NATPortal'));
 const StudentPortal = lazy(() => import('./pages/StudentPortal'));
 const StudentLogin = lazy(() => import('./pages/StudentLogin'));
+const RegistrarLogin = lazy(() => import('./pages/registrar/RegistrarLogin'));
+const RegistrarPortal = lazy(() => import('./pages/registrar/RegistrarPortal'));
 
 const RouteLoadingFallback = () => (
   <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6">
@@ -91,6 +93,20 @@ function App() {
               <ProtectedRoute allowedRoles={['Care Staff']}>
                 <LazyRoute>
                   <CareStaffDashboard />
+                </LazyRoute>
+              </ProtectedRoute>
+            } />
+
+            {/* Registrar Routes */}
+            <Route path="/registrar/login" element={
+              <LazyRoute>
+                <RegistrarLogin />
+              </LazyRoute>
+            } />
+            <Route path="/registrar/dashboard" element={
+              <ProtectedRoute allowedRoles={['Registrar']}>
+                <LazyRoute>
+                  <RegistrarPortal />
                 </LazyRoute>
               </ProtectedRoute>
             } />

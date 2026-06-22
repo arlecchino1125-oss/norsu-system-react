@@ -647,7 +647,7 @@ export function AuthProvider({ children }: any) {
                         if (restoredStaff) {
                             return;
                         }
-                    } else if (cachedUserType === 'staff' || cachedUserType === 'admin' || cachedUserType === 'department head' || cachedUserType === 'care staff') {
+                    } else if (cachedUserType === 'staff' || cachedUserType === 'admin' || cachedUserType === 'department head' || cachedUserType === 'care staff' || cachedUserType === 'registrar') {
                         const restoredStaff = await restoreStaffSessionFromAuth(authUser);
                         if (restoredStaff) {
                             return;
