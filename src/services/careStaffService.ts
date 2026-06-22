@@ -210,7 +210,74 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     }
 
     if (filters.status && filters.status !== 'All') {
-        next = next.eq('status', filters.status);
+        if (filters.status === 'Incomplete') {
+            const fields = [
+                'profile_picture_url',
+                'student_id',
+                'first_name',
+                'last_name',
+                'middle_name',
+                'street',
+                'city',
+                'province',
+                'zip_code',
+                'region',
+                'mobile',
+                'dob',
+                'sex',
+                'gender_identity',
+                'nationality',
+                'facebook_url',
+                'place_of_birth',
+                'religion',
+                'year_level',
+                'department',
+                'course',
+                'civil_status'
+            ];
+            const orConditions = fields.flatMap(f => {
+                if (f === 'dob') {
+                    return [`${f}.is.null`];
+                }
+                return [`${f}.is.null`, `${f}.eq.`];
+            });
+            next = next.or(orConditions.join(','));
+        } else if (filters.status === 'Active') {
+            next = next.eq('status', 'Active');
+            const fields = [
+                'profile_picture_url',
+                'student_id',
+                'first_name',
+                'last_name',
+                'middle_name',
+                'street',
+                'city',
+                'province',
+                'zip_code',
+                'region',
+                'mobile',
+                'dob',
+                'sex',
+                'gender_identity',
+                'nationality',
+                'facebook_url',
+                'place_of_birth',
+                'religion',
+                'year_level',
+                'department',
+                'course',
+                'civil_status'
+            ];
+            fields.forEach(f => {
+                if (f === 'dob') {
+                    next = next.not(f, 'is', null);
+                } else {
+                    next = next.not(f, 'is', null).neq(f, '');
+                }
+            });
+        } else {
+            next = next.eq('status', filters.status);
+        }
     }
 
     if (filters.department && filters.department !== 'All') {
