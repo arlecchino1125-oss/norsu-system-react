@@ -767,7 +767,7 @@ const TOTAL_STEPS = 3;
                             initial={{ scale: 0.95, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.95, y: 20, opacity: 0 }}
-                            className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl shadow-indigo-900/50 flex flex-col overflow-hidden relative"
+                            className="bg-white w-full max-w-lg max-h-[90vh] rounded-[2rem] shadow-2xl shadow-indigo-900/50 flex flex-col overflow-hidden relative"
                         >
                             <div className="border-b border-slate-100 bg-slate-50/70 p-6">
                                 <div className="flex items-start justify-between gap-4">
@@ -792,7 +792,7 @@ const TOTAL_STEPS = 3;
                                 </div>
                             </div>
 
-                            <div className="space-y-5 p-6 md:p-8">
+                            <div className="space-y-5 p-6 md:p-8 overflow-y-auto">
                                 <div className="grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
                                     <button
                                         type="button"
@@ -1278,7 +1278,7 @@ const TOTAL_STEPS = 3;
                                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
                                         <AlertCircle className="w-8 h-8 text-emerald-600" />
                                     </div>
-                                    <h3 className="text-xl font-black text-slate-800">Important Note</h3>
+                                    <h3 className="text-xl font-black text-slate-800">Please Read</h3>
                                     <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-5 text-left shadow-inner">
                                         <p className="text-sm font-semibold leading-relaxed text-emerald-900">
                                             After account creation, sign in with your student portal account to complete the remaining profile information.
@@ -1318,9 +1318,10 @@ const TOTAL_STEPS = 3;
                                     <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-2">
                                         <AlertCircle className="w-8 h-8 text-rose-600" />
                                     </div>
-                                    <h3 className="text-xl font-black text-slate-800">Account Creation Failed</h3>
-                                    <div className="rounded-2xl border border-rose-100 bg-rose-50 p-5 text-left shadow-inner max-h-48 overflow-y-auto">
-                                        <p className="text-sm font-semibold leading-relaxed text-rose-900">
+                                    <h3 className="text-xl font-black text-slate-800">Please Read</h3>
+                                    <div className="rounded-2xl border-2 border-rose-200 bg-rose-50/80 p-5 text-left shadow-inner max-h-48 overflow-y-auto flex gap-3 items-start">
+                                        <div className="mt-1.5 w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 flex-shrink-0" />
+                                        <p className="text-[15px] font-bold leading-relaxed text-rose-900 tracking-tight">
                                             {confirmModalError}
                                         </p>
                                     </div>
