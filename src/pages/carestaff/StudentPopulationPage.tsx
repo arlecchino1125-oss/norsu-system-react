@@ -2206,66 +2206,68 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     </div>
                 </div>
 
-                {showIdSwapModal && (
-                    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200/80">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                                    <RefreshCw className="h-5 w-5 text-blue-600" />
-                                    Rename or Swap Student ID
-                                </h3>
-                                <button type="button" onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }} className="text-slate-400 hover:text-slate-600">
-                                    <XCircle size={22} />
+                </>,
+                document.body
+            )}
+
+            {showIdSwapModal && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200/80">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <RefreshCw className="h-5 w-5 text-blue-600" />
+                                Rename or Swap Student ID
+                            </h3>
+                            <button type="button" onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }} className="text-slate-400 hover:text-slate-600">
+                                <XCircle size={22} />
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-500 mb-4">
+                            This will safely update or swap student IDs. If the Target ID is occupied, their IDs will be swapped. All referencing tables and auth metadata will cascade and update.
+                        </p>
+                        <form onSubmit={handleSwapIds} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={sourceId}
+                                    onChange={(e) => setSourceId(e.target.value)}
+                                    placeholder="e.g. 420133463"
+                                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={targetId}
+                                    onChange={(e) => setTargetId(e.target.value)}
+                                    placeholder="e.g. 420133462"
+                                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    disabled={isSwappingIds}
+                                    onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }}
+                                    className="flex-1 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSwappingIds}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-md disabled:opacity-60"
+                                >
+                                    {isSwappingIds ? 'Updating...' : 'Update / Swap'}
                                 </button>
                             </div>
-                            <p className="text-xs text-slate-500 mb-4">
-                                This will safely update or swap student IDs. If the Target ID is occupied, their IDs will be swapped. All referencing tables and auth metadata will cascade and update.
-                            </p>
-                            <form onSubmit={handleSwapIds} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        value={sourceId}
-                                        onChange={(e) => setSourceId(e.target.value)}
-                                        placeholder="e.g. 420133463"
-                                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        value={targetId}
-                                        onChange={(e) => setTargetId(e.target.value)}
-                                        placeholder="e.g. 420133462"
-                                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
-                                    />
-                                </div>
-                                <div className="flex gap-3 pt-2">
-                                    <button
-                                        type="button"
-                                        disabled={isSwappingIds}
-                                        onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }}
-                                        className="flex-1 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isSwappingIds}
-                                        className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-md disabled:opacity-60"
-                                    >
-                                        {isSwappingIds ? 'Updating...' : 'Update / Swap'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                        </form>
                     </div>
-                )}
-                </>,
+                </div>,
                 document.body
             )}
         </div>
