@@ -46,6 +46,10 @@ export default function AdminDashboard() {
     const [auditPage, setAuditPage] = useState(1);
     const [staffAccountsPage, setStaffAccountsPage] = useState(1);
     const [activePanelModal, setActivePanelModal] = useState<AdminPanelKey | null>(null);
+    const [showIdSwapModal, setShowIdSwapModal] = useState<boolean>(false);
+    const [sourceId, setSourceId] = useState<string>('');
+    const [targetId, setTargetId] = useState<string>('');
+    const [isSwappingIds, setIsSwappingIds] = useState<boolean>(false);
 
     // Use custom hook for real-time data fetching
     const { data: accountRows, refetch: refetchAccounts } = useSupabaseData({
@@ -296,6 +300,38 @@ export default function AdminDashboard() {
             non2xxMessage: 'Your admin session could not be verified. Please sign in again.',
             fallbackMessage: 'Failed to manage student accounts.'
         });
+    };
+
+    const handleSwapIds = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const src = sourceId.trim();
+        const dest = targetId.trim();
+        if (!src || !dest) {
+            showToast('Both Source and Target Student IDs are required.', 'error');
+            return;
+        }
+        if (src === dest) {
+            showToast('Source and Target Student IDs must be different.', 'error');
+            return;
+        }
+
+        setIsSwappingIds(true);
+        try {
+            const result = await invokeManagedStudentFunction({
+                mode: 'swap-student-ids',
+                sourceStudentId: src,
+                targetStudentId: dest
+            });
+            showToast(result?.message || 'Student IDs updated successfully.');
+            setShowIdSwapModal(false);
+            setSourceId('');
+            setTargetId('');
+            void handleRefreshData();
+        } catch (error: any) {
+            showToast(error?.message || 'Failed to update student IDs.', 'error');
+        } finally {
+            setIsSwappingIds(false);
+        }
     };
 
     const handleCreate = async (e: any) => {
@@ -1140,6 +1176,15 @@ export default function AdminDashboard() {
                                             </span>
                                         </div>
                                     </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowIdSwapModal(true)}
+                                        className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                        <span>Rename / Swap Student IDs</span>
+                                    </button>
                                 </div>
                             )
                         })}
@@ -1405,6 +1450,66 @@ export default function AdminDashboard() {
                                     <button disabled={loading} onClick={handleReset} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-lg shadow-red-200 disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Resetting...' : 'Confirm Reset'}</button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {showIdSwapModal && (
+                    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-slide-in-up border border-slate-200/80">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                    <RefreshCw className="h-5 w-5 text-teal-600" />
+                                    Rename or Swap Student ID
+                                </h3>
+                                <button type="button" onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }} className="text-slate-400 hover:text-slate-600">
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-4">
+                                This will safely update or swap student IDs. If the Target ID is occupied, their IDs will be swapped. All referencing tables and auth metadata will cascade and update.
+                            </p>
+                            <form onSubmit={handleSwapIds} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        value={sourceId}
+                                        onChange={(e) => setSourceId(e.target.value)}
+                                        placeholder="e.g. 420133463"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        value={targetId}
+                                        onChange={(e) => setTargetId(e.target.value)}
+                                        placeholder="e.g. 420133462"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                                    />
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        disabled={isSwappingIds}
+                                        onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }}
+                                        className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 text-sm font-semibold rounded-xl hover:bg-slate-50 disabled:opacity-60"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSwappingIds}
+                                        className="flex-1 px-4 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 shadow-lg disabled:opacity-60"
+                                    >
+                                        {isSwappingIds ? 'Updating...' : 'Update / Swap'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )}

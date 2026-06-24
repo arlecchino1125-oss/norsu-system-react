@@ -6,6 +6,7 @@ import {
     Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, RefreshCw, User, Settings
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { invokeEdgeFunction } from '../../lib/invokeEdgeFunction';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { managedArchiveService } from '../../services/managedArchiveService';
@@ -489,6 +490,10 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const [isApplyingBulkWindow, setIsApplyingBulkWindow] = useState(false);
     const [isSyncingBulkKeys, setIsSyncingBulkKeys] = useState(false);
     const [settingsTab, setSettingsTab] = useState<'keys' | 'limits' | 'global'>('keys');
+    const [showIdSwapModal, setShowIdSwapModal] = useState<boolean>(false);
+    const [sourceId, setSourceId] = useState<string>('');
+    const [targetId, setTargetId] = useState<string>('');
+    const [isSwappingIds, setIsSwappingIds] = useState<boolean>(false);
     // Profile view modal state
     const [profileViewStudent, setProfileViewStudent] = useState<any>(null);
     const [profileCategoryIndex, setProfileCategoryIndex] = useState(0);
@@ -1223,6 +1228,43 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         }
     };
 
+    const handleSwapIds = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const src = sourceId.trim();
+        const dest = targetId.trim();
+        if (!src || !dest) {
+            functions.showToast('Both Source and Target Student IDs are required.', 'error');
+            return;
+        }
+        if (src === dest) {
+            functions.showToast('Source and Target Student IDs must be different.', 'error');
+            return;
+        }
+
+        setIsSwappingIds(true);
+        try {
+            const result = await invokeEdgeFunction('manage-student-accounts', {
+                body: {
+                    mode: 'swap-student-ids',
+                    sourceStudentId: src,
+                    targetStudentId: dest
+                },
+                requireAuth: true,
+                non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+                fallbackMessage: 'Failed to update student IDs.'
+            });
+            functions.showToast(result?.message || 'Student IDs updated successfully.', 'success');
+            setShowIdSwapModal(false);
+            setSourceId('');
+            setTargetId('');
+            void handleRefreshData();
+        } catch (error: any) {
+            functions.showToast(error?.message || 'Failed to update student IDs.', 'error');
+        } finally {
+            setIsSwappingIds(false);
+        }
+    };
+
     const handleSort = (key: string) => {
         let direction = 'asc';
         if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -1285,6 +1327,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                             Archived Students ({archivedStudentsList.length})
                         </Button>
                     )}
+                    <Button variant="secondary" onClick={() => setShowIdSwapModal(true)} leftIcon={<RefreshCw size={16} />}>
+                        Rename/Swap IDs
+                    </Button>
                     <Button variant="primary" onClick={() => setShowEnrollmentModal(true)} leftIcon={<Settings size={16} />}>
                         System Settings
                     </Button>
@@ -2160,6 +2205,66 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                         </div>
                     </div>
                 </div>
+
+                {showIdSwapModal && (
+                    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[80] p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200/80">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                    <RefreshCw className="h-5 w-5 text-blue-600" />
+                                    Rename or Swap Student ID
+                                </h3>
+                                <button type="button" onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }} className="text-slate-400 hover:text-slate-600">
+                                    <XCircle size={22} />
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-4">
+                                This will safely update or swap student IDs. If the Target ID is occupied, their IDs will be swapped. All referencing tables and auth metadata will cascade and update.
+                            </p>
+                            <form onSubmit={handleSwapIds} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        value={sourceId}
+                                        onChange={(e) => setSourceId(e.target.value)}
+                                        placeholder="e.g. 420133463"
+                                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        value={targetId}
+                                        onChange={(e) => setTargetId(e.target.value)}
+                                        placeholder="e.g. 420133462"
+                                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
+                                    />
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        disabled={isSwappingIds}
+                                        onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); }}
+                                        className="flex-1 px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSwappingIds}
+                                        className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-md disabled:opacity-60"
+                                    >
+                                        {isSwappingIds ? 'Updating...' : 'Update / Swap'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
                 </>,
                 document.body
             )}
