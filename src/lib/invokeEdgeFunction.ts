@@ -95,7 +95,11 @@ export const invokeEdgeFunction = async <T = any>(
             underlyingError = error.context.message;
         } else if (error.cause instanceof Error) {
             underlyingError = error.cause.message;
-        } else if (error.message && error.message !== 'Failed to send a request to the Edge Function') {
+        } else if (
+            error.message && 
+            error.message !== 'Failed to send a request to the Edge Function' && 
+            !error.message.includes('non-2xx')
+        ) {
             underlyingError = error.message;
         }
 
