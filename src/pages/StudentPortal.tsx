@@ -2199,6 +2199,7 @@ export default function StudentPortal() {
             await syncStudentAuthEmailIfNeeded(normalizedEmail);
 
             const updatePayload = {
+                student_id: nextPersonalInfo.studentId || null,
                 first_name: nextPersonalInfo.firstName || null,
                 last_name: nextPersonalInfo.lastName || null,
                 middle_name: nextPersonalInfo.middleName || null,
