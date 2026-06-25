@@ -48,6 +48,8 @@ export default function StudentLogin() {
     const [forgotPasswordOtp, setForgotPasswordOtp] = useState<string>('');
     const [forgotPasswordNewPassword, setForgotPasswordNewPassword] = useState<string>('');
     const [forgotPasswordConfirmPassword, setForgotPasswordConfirmPassword] = useState<string>('');
+    const [showForgotPasswordNewPassword, setShowForgotPasswordNewPassword] = useState<boolean>(false);
+    const [showForgotPasswordConfirmPassword, setShowForgotPasswordConfirmPassword] = useState<boolean>(false);
     const [forgotPasswordOtpInfo, setForgotPasswordOtpInfo] = useState<ForgotPasswordOtpInfo | null>(null);
     const [isRequestingForgotPasswordOtp, setIsRequestingForgotPasswordOtp] = useState<boolean>(false);
     const [isResettingForgotPassword, setIsResettingForgotPassword] = useState<boolean>(false);
@@ -279,7 +281,7 @@ const TOTAL_STEPS = 3;
     const handleRequestForgotPasswordOtp = async () => {
         const trimmedIdentifier = String(forgotPasswordIdentifier || '').trim();
         if (!trimmedIdentifier) {
-            showToast(`Enter your ${forgotPasswordFieldLabel.toLowerCase()} first.`, 'error');
+            showToast(`Please enter your ${forgotPasswordFieldLabel.toLowerCase()} first so we can find your account.`, 'error');
             return;
         }
 
@@ -304,7 +306,7 @@ const TOTAL_STEPS = 3;
                 'success'
             );
         } catch (error: any) {
-            showToast(error?.message || 'Failed to send the password reset code.', 'error');
+            showToast(error?.message || 'We could not send the reset code at this time. Please try again later.', 'error');
         } finally {
             setIsRequestingForgotPasswordOtp(false);
         }
@@ -315,22 +317,22 @@ const TOTAL_STEPS = 3;
         const trimmedOtp = String(forgotPasswordOtp || '').trim();
 
         if (!trimmedIdentifier) {
-            showToast(`Enter your ${forgotPasswordFieldLabel.toLowerCase()} first.`, 'error');
+            showToast(`Please enter your ${forgotPasswordFieldLabel.toLowerCase()} so we can verify your account.`, 'error');
             return;
         }
 
         if (!trimmedOtp) {
-            showToast('Enter the OTP sent to your email.', 'error');
+            showToast('Please enter the verification code that we sent to your email.', 'error');
             return;
         }
 
         if (forgotPasswordNewPassword.length < 8) {
-            showToast('Password must be at least 8 characters.', 'error');
+            showToast('For your security, please choose a password that is at least 8 characters long.', 'error');
             return;
         }
 
         if (forgotPasswordNewPassword !== forgotPasswordConfirmPassword) {
-            showToast('Passwords do not match.', 'error');
+            showToast('The passwords you entered do not match. Please check and try again.', 'error');
             return;
         }
 
@@ -354,7 +356,7 @@ const TOTAL_STEPS = 3;
             resetForgotPasswordForm();
             showToast('Password updated. Sign in with your new password.', 'success');
         } catch (error: any) {
-            showToast(error?.message || 'Failed to reset your password.', 'error');
+            showToast(error?.message || 'We were unable to reset your password. Please try again.', 'error');
         } finally {
             setIsResettingForgotPassword(false);
         }
@@ -364,16 +366,16 @@ const TOTAL_STEPS = 3;
     const handleNextStep = () => {
         if (activationStep === 1) {
             if (!formData.studentId || !formData.course) {
-                showToast('Please fill in required enrollment fields.', 'error');
+                showToast('Please fill in the required enrollment fields to continue.', 'error');
                 return;
             }
             if (!/^\d{9}$/.test(formData.studentId.trim())) {
-                showToast('Student ID must be exactly 9 digits (e.g. 202312345).', 'error');
+                showToast('Please ensure your Student ID is exactly 9 digits long (for example: 202312345).', 'error');
                 return;
             }
         } else if (activationStep === 2) {
-            if (!formData.firstName || !formData.lastName || !formData.dob || !formData.sex || !formData.mobile || !formData.email) {
-                showToast('Please complete required personal information.', 'error');
+            if (!formData.firstName || !formData.lastName || !formData.gender || !formData.dateOfBirth) {
+                showToast('Please provide the required personal information to proceed.', 'error');
                 return;
             }
         }
@@ -386,13 +388,13 @@ const TOTAL_STEPS = 3;
         const confirmPassword = String(formData.confirmPassword || '');
 
         if (password.length < 8) {
-            showToast('Password must be at least 8 characters.', 'error');
+            showToast('For your security, please create a password with at least 8 characters.', 'error');
             setActivationErrorFields(['password']);
             return null;
         }
 
         if (password !== confirmPassword) {
-            showToast('Passwords do not match.', 'error');
+            showToast('The passwords you entered do not match. Please check and try again.', 'error');
             setActivationErrorFields(['password', 'confirmPassword']);
             return null;
         }
@@ -877,23 +879,41 @@ const TOTAL_STEPS = 3;
                                             </div>
                                             <div>
                                                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">New Password</label>
-                                                <input
-                                                    type="password"
-                                                    value={forgotPasswordNewPassword}
-                                                    onChange={(event) => setForgotPasswordNewPassword(event.target.value)}
-                                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
-                                                    placeholder="At least 8 characters"
-                                                />
+                                                <div className="relative">
+                                                    <input
+                                                        type={showForgotPasswordNewPassword ? 'text' : 'password'}
+                                                        value={forgotPasswordNewPassword}
+                                                        onChange={(event) => setForgotPasswordNewPassword(event.target.value)}
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                                                        placeholder="At least 8 characters"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowForgotPasswordNewPassword(!showForgotPasswordNewPassword)}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors focus:outline-none"
+                                                    >
+                                                        {showForgotPasswordNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div>
                                                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Confirm Password</label>
-                                                <input
-                                                    type="password"
-                                                    value={forgotPasswordConfirmPassword}
-                                                    onChange={(event) => setForgotPasswordConfirmPassword(event.target.value)}
-                                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
-                                                    placeholder="Re-enter your new password"
-                                                />
+                                                <div className="relative">
+                                                    <input
+                                                        type={showForgotPasswordConfirmPassword ? 'text' : 'password'}
+                                                        value={forgotPasswordConfirmPassword}
+                                                        onChange={(event) => setForgotPasswordConfirmPassword(event.target.value)}
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 text-sm text-slate-700 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                                                        placeholder="Re-enter your new password"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowForgotPasswordConfirmPassword(!showForgotPasswordConfirmPassword)}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors focus:outline-none"
+                                                    >
+                                                        {showForgotPasswordConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
