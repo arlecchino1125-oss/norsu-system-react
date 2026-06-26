@@ -374,7 +374,7 @@ const TOTAL_STEPS = 3;
                 return;
             }
         } else if (activationStep === 2) {
-            if (!formData.firstName || !formData.lastName || !formData.gender || !formData.dateOfBirth) {
+            if (!formData.firstName || !formData.lastName || !formData.sex || !formData.dob || !formData.mobile || !formData.email) {
                 showToast('Please provide the required personal information to proceed.', 'error');
                 return;
             }
