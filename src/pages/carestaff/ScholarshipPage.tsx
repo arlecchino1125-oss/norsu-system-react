@@ -97,7 +97,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                 is_active: true
             }]);
             if (error) throw error;
-            if (showToast) showToast("Scholarship added successfully!");
+            if (showToast) showToast("Scholarship added.");
             setShowScholarshipModal(false);
             setScholarshipForm({ title: '', description: '', requirements: '', deadline: '' });
             fetchScholarships();
@@ -151,8 +151,8 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
             const rows = await fetchApplicantsByScholarship(scholarship.id);
             setApplicantsList(rows);
         } catch (err: any) {
-            setApplicantsError(err.message || 'Failed to fetch applicants.');
-            if (showToast) showToast("Failed to fetch applicants: " + err.message, "error");
+            setApplicantsError(err.message || "Couldn't load applicants..");
+            if (showToast) showToast("Couldn't load applicants. ", "error");
         } finally {
             setApplicantsLoading(false);
         }
@@ -293,7 +293,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
             const rows = await fetchApplicantsByScholarship(scholarship.id);
             exportApplicantRows(rows, scholarship.title || 'Scholarship');
         } catch (err: any) {
-            if (showToast) showToast("Failed to export applicants: " + err.message, "error");
+            if (showToast) showToast("Couldn't export applicants. ", "error");
         } finally {
             setLoading(false);
         }

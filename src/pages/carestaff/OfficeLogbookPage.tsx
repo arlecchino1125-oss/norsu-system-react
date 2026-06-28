@@ -104,10 +104,10 @@ const OfficeLogbookPage = ({ functions }: OfficeLogbookPageProps) => {
         try {
             const { error } = await supabase.from('office_visit_reasons').insert([{ reason: newReason.trim(), is_active: true }]);
             if (error) throw error;
-            functions.showToast("Reason added successfully!");
+            functions.showToast("Reason added.");
             setNewReason('');
             fetchReasons();
-        } catch (err) { functions.showToast("Error: " + err.message, 'error'); }
+        } catch (err) { functions.showToast('Something went wrong.', 'error'); }
     };
 
     const handleDeleteReason = async (id) => {

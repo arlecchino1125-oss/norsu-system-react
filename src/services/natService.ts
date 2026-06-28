@@ -114,7 +114,7 @@ const sliceNatRowsForPage = (rows: any[], pageParams?: PageParams) => {
 };
 
 export const isMissingNatAttendanceColumnsError = (error: any) => {
-    const message = String(error?.message || '').toLowerCase();
+    const message = String('').toLowerCase();
     return message.includes('applications.time_in')
         || message.includes('applications.time_out')
         || message.includes('column time_in')

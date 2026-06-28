@@ -598,7 +598,7 @@ export const getDepartmentApplicationsPage = async (
         return result;
     } catch (error: any) {
         const isMissingRpc = String(error?.code || '').trim() === 'PGRST202'
-            || String(error?.message || '').includes('Could not find the function public.get_department_applications_page');
+            || String('').includes('Could not find the function public.get_department_applications_page');
 
         if (isMissingRpc) {
             departmentAdmissionsRpcAvailability = false;

@@ -43,7 +43,7 @@ export default function AssessmentFormModal({
             if (!isActive) return;
 
             if (error) {
-                showToast(`Failed to load questions: ${error.message}`, 'error');
+                showToast(`Failed to load questions.`, 'error');
                 onClose();
                 return;
             }
@@ -108,14 +108,14 @@ export default function AssessmentFormModal({
             onClose();
             setResponses({});
         } catch (error: any) {
-            if (error?.code === '23505' || String(error?.message || '').toLowerCase().includes('duplicate')) {
+            if (error?.code === '23505' || String('').toLowerCase().includes('duplicate')) {
                 await onSubmitted(form.id, false);
                 onClose();
                 showToast('You have already completed this assessment.', 'error');
                 return;
             }
 
-            showToast(`Error submitting assessment: ${error.message}`, 'error');
+            showToast(`Error submitting assessment.`, 'error');
         } finally {
             setIsSubmitting(false);
         }

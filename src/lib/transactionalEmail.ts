@@ -48,7 +48,7 @@ export const sendTransactionalEmailNotification = async (
     } catch (error: any) {
         return {
             emailSent: false,
-            emailError: error?.message || fallbackMessage
+            emailError: fallbackMessage
         };
     }
 };

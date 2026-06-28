@@ -33,8 +33,9 @@ import {
     getPendingProfileCompletionProfile,
     shouldForceProfileCompletionPrompt
 } from '../lib/studentProfileCompletionPrompt';
-import { validateTextInput } from '../utils/inputSecurity';
+import { validateTextInput, isValidEmailDomain } from '../utils/inputSecurity';
 import { getProfileTextFieldRule } from '../utils/profileFieldRules';
+import { getSafeErrorMessage } from '../utils/errorMasking';
 
 const supabaseClient = supabase;
 const ProfileCompletionModal = lazy(() => import('./student/forms/ProfileCompletionModal'));
@@ -666,7 +667,8 @@ export default function StudentPortal() {
     const [showCommandHub, setShowCommandHub] = useState(false);
     const mainScrollRef = useRef<HTMLDivElement>(null);
     const showToast = (message: string, type: string = 'success') => {
-        setToast({ message, type });
+        const safeMessage = type === 'error' ? getSafeErrorMessage(message) : message;
+        setToast({ message: safeMessage, type });
         setTimeout(() => setToast(null), 4000);
     };
 
@@ -1287,7 +1289,7 @@ export default function StudentPortal() {
             department: matchedDepartment,
             profile_completed: true
         });
-        showToast('Profile completed successfully!');
+        showToast('Your profile is ready.');
     }, [
         getStoredParentParts,
         personalInfo.department,
@@ -1447,7 +1449,7 @@ export default function StudentPortal() {
         if (scholarshipId && isApplyingScholarshipId === scholarshipId) return;
         // Verify profile completeness
         if (!personalInfo.mobile || !personalInfo.email) {
-            showToast("Please update your contact info (Mobile & Email) in Profile first.", "error"); return;
+            showToast("Update your mobile and email in your profile first.", "error"); return;
         }
 
         if (scholarshipId) {
@@ -1462,7 +1464,7 @@ export default function StudentPortal() {
 
             const { error } = await supabaseClient.from('scholarship_applications').insert([payload]);
             if (error) throw error;
-            showToast("Application submitted successfully!");
+            showToast("Your application has been submitted.");
             setMyApplications([...myApplications, { scholarship_id: scholarship.id, status: 'Pending' }]);
             setShowScholarshipModal(false);
         } catch (err: any) {
@@ -1479,7 +1481,7 @@ export default function StudentPortal() {
             client: supabaseClient,
             body,
             requireAuth: true,
-            non2xxMessage: 'Your student session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your student session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to update your student profile.'
         });
     }, []);
@@ -1637,9 +1639,9 @@ export default function StudentPortal() {
                 visible: false,
                 expired: false
             }));
-            showToast('Course and year confirmed successfully.');
+            showToast('Course and year confirmed.');
         } catch (error: any) {
-            showToast('Failed to confirm course/year: ' + error.message, 'error');
+            showToast("Couldn't save course and year. ", 'error');
         } finally {
             setIsSubmittingCourseYearGate(false);
         }
@@ -2189,6 +2191,9 @@ export default function StudentPortal() {
             if (!normalizedEmail) {
                 throw new Error('Email is required.');
             }
+            if (!isValidEmailDomain(normalizedEmail)) {
+                throw new Error('Invalid email provider. Please use a recognized email domain (e.g., gmail.com, yahoo.com).');
+            }
 
             const { data: beforeProfile } = await supabaseClient
                 .from('students')
@@ -2330,9 +2335,9 @@ export default function StudentPortal() {
                 fallbackStudentId: nextPersonalInfo.studentId
             });
             await refreshStudentProfile();
-            showToast("Profile updated successfully!");
+            showToast("Profile updated.");
         } catch (err: any) {
-            showToast("Error saving profile: " + err.message, 'error');
+            showToast("Couldn't save profile. ", 'error');
         } finally {
             setIsSavingProfileChanges(false);
         }
@@ -2361,6 +2366,9 @@ export default function StudentPortal() {
         const normalizedEmail = normalizeStudentEmail(nextEmailValue);
         if (!normalizedEmail) {
             throw new Error('Email is required.');
+        }
+        if (!isValidEmailDomain(normalizedEmail)) {
+            throw new Error('Invalid email provider. Please use a recognized email domain (e.g., gmail.com, yahoo.com).');
         }
 
         const { data: beforeProfile } = await supabaseClient
@@ -2442,7 +2450,7 @@ export default function StudentPortal() {
             setPersonalInfo((prev: any) => ({ ...prev, profilePictureUrl: publicUrl, profile_picture_url: publicUrl }));
             showToast("Profile picture updated!");
         } catch (err: any) {
-            showToast("Failed to upload picture: " + err.message, 'error');
+            showToast("Couldn't upload picture. ", 'error');
         }
     };
 
@@ -2588,7 +2596,7 @@ export default function StudentPortal() {
             await refreshCurrentView({ force: true });
             showToast('View refreshed.');
         } catch (error: any) {
-            showToast(error?.message || 'Failed to refresh this view.', 'error');
+            showToast("Couldn't refresh view.", 'error');
         } finally {
             setIsRefreshingView(false);
         }
@@ -2679,7 +2687,7 @@ export default function StudentPortal() {
                 refreshEventsCached({ force: true })
             ]);
         } catch (err: any) {
-            showToast(err?.message || 'Failed to register for this event.', 'error');
+            showToast("Couldn't register for event.", 'error');
         } finally {
             setRegisteringEventId(null);
         }
@@ -2710,7 +2718,7 @@ export default function StudentPortal() {
                 refreshEventsCached({ force: true })
             ]);
         } catch (err: any) {
-            showToast(err?.message || 'Failed to cancel registration.', 'error');
+            showToast("Couldn't cancel registration.", 'error');
         } finally {
             setCancellingRegistrationEventId(null);
         }
@@ -2762,13 +2770,13 @@ export default function StudentPortal() {
             const registration = registrationMap[String(event.id)];
             const registrationStatus = String(registration?.status || '');
             if (!['Registered', 'Attended'].includes(registrationStatus)) {
-                showToast("Please register for this event before timing in.", 'error');
+                showToast("Register for the event before timing in.", 'error');
                 return;
             }
         }
-        if (!proofFile) { showToast("Please upload a proof photo to Time In.", 'error'); return; }
+        if (!proofFile) { showToast("Upload a photo to time in.", 'error'); return; }
 
-        if (!navigator.geolocation) { showToast("Geolocation is not supported by your browser.", 'error'); return; }
+        if (!navigator.geolocation) { showToast("Your browser doesn't support location services. by your browser.", 'error'); return; }
         setIsTimingIn(true);
 
         const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
@@ -2851,7 +2859,7 @@ export default function StudentPortal() {
 
                 setAttendanceMap((prev: any) => ({ ...prev, [event.id]: { event_id: event.id, time_in: now, time_out: null } }));
                 setProofFile(null);
-                showToast("Time In Successful! Location Verified.");
+                showToast("Time in successful.");
             } catch (err: any) {
                 if (err.code === '23505') {
                     showToast("You have already timed in for this event.", 'error');
@@ -2865,7 +2873,7 @@ export default function StudentPortal() {
                     if (data) setAttendanceMap((prev: any) => ({ ...prev, [event.id]: data }));
                 } else {
                     console.error("Time In Error:", err);
-                    showToast("Error: " + (err.message || "Unknown error"), 'error');
+                    showToast('Something went wrong.', 'error');
                 }
             } finally {
                 setIsTimingIn(false);
@@ -2887,7 +2895,7 @@ export default function StudentPortal() {
             showToast("This event is not available for your student group.", 'error');
             return;
         }
-        if (!navigator.geolocation) { showToast("Geolocation is not supported.", 'error'); return; }
+        if (!navigator.geolocation) { showToast("Your browser doesn't support location services.", 'error'); return; }
         if (eventId) {
             setTimingOutEventId(eventId);
         }
@@ -2932,17 +2940,17 @@ export default function StudentPortal() {
                     return;
                 }
                 setAttendanceMap((prev: any) => ({ ...prev, [event.id]: data[0] }));
-                showToast("Time Out Successful!");
+                showToast("Time out successful.");
                 await fetchHistoryCached({ force: true });
             } catch (err: any) {
                 console.error("Time Out Error:", err);
-                showToast("Error: " + err.message, 'error');
+                showToast('Something went wrong.', 'error');
             } finally {
                 if (eventId) setTimingOutEventId(null);
             }
         }, (error: any) => {
             if (eventId) setTimingOutEventId(null);
-            showToast("Location check failed. Please enable location services.", 'error');
+            showToast("Location check failed. Enable location services.", 'error');
         }, options);
     };
 
@@ -2959,7 +2967,7 @@ export default function StudentPortal() {
     const submitRating = async () => {
         if (isSubmittingEventRating) return;
         const scores = [ratingForm.q1, ratingForm.q2, ratingForm.q3, ratingForm.q4, ratingForm.q5, ratingForm.q6, ratingForm.q7];
-        if (scores.some(s => s === 0)) { showToast("Please rate all evaluation criteria", 'error'); return; }
+        if (scores.some(s => s === 0)) { showToast("Rate all criteria.", 'error'); return; }
         if (ratedEvents.includes(ratingForm.eventId)) { showToast("You have already rated this event.", 'error'); setShowRatingModal(false); return; }
         const commentCheck = validateTextInput(ratingForm.comment, 'notes', { multiline: true, label: 'Event comment' });
         const bestCheck = validateTextInput(ratingForm.open_best, 'notes', { multiline: true, label: 'What you liked best' });
@@ -2998,8 +3006,8 @@ export default function StudentPortal() {
             }]);
             if (error) throw error;
             setRatedEvents([...ratedEvents, ratingForm.eventId]);
-            showToast("Evaluation submitted successfully!"); setShowRatingModal(false);
-        } catch (err: any) { showToast("Error: " + err.message, 'error'); }
+            showToast("Evaluation submitted."); setShowRatingModal(false);
+        } catch (err: any) { showToast('Something went wrong.', 'error'); }
         finally { setIsSubmittingEventRating(false); }
     };
 
@@ -3106,7 +3114,7 @@ export default function StudentPortal() {
             const updatedReq = { ...selectedRequest, rating: sessionFeedback.rating, feedback: sessionFeedback.comment };
             setCounselingRequests(prev => prev.map(r => r.id === selectedRequest.id ? updatedReq : r));
             setSelectedRequest(updatedReq);
-        } catch (err: any) { showToast("Error: " + err.message, 'error'); }
+        } catch (err: any) { showToast('Something went wrong.', 'error'); }
     };
 
     const handleOfficeTimeIn = async () => { setShowTimeInModal(true); };

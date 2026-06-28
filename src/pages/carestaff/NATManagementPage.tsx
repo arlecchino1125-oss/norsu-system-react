@@ -364,7 +364,7 @@ const NATManagementPage = ({ showToast }: any) => {
             const details = await getApplicationDetailsById(applicationId);
             setSelectedApp(details as any);
         } catch (error: any) {
-            showToast(error?.message || 'Failed to load applicant details.', 'error');
+            showToast('Failed to load applicant details.', 'error');
         } finally {
             setIsLoadingSelectedApp(false);
         }
@@ -374,7 +374,7 @@ const NATManagementPage = ({ showToast }: any) => {
         const id = application?.id;
         console.log(`[DEBUG] Attempting to update status for ID: ${id} to ${newStatus}`);
         if (!id) {
-            showToast("Error: Invalid Application ID", 'error');
+            showToast("Invalid application.", 'error');
             return;
         }
 
@@ -387,7 +387,7 @@ const NATManagementPage = ({ showToast }: any) => {
 
             if (error) {
                 console.error("[DEBUG] Supabase Error:", error);
-                showToast(`Error: ${error.message}`, 'error');
+                showToast(`Error.`, 'error');
                 return;
             }
 
@@ -412,7 +412,7 @@ const NATManagementPage = ({ showToast }: any) => {
             setShowModal(false);
         } catch (err) {
             console.error("[DEBUG] Unexpected Error:", err);
-            showToast(`Unexpected error: ${err.message}`, 'error');
+            showToast(`Something went wrong. Please try again..`, 'error');
         }
     };
 
@@ -424,7 +424,7 @@ const NATManagementPage = ({ showToast }: any) => {
             await fetchData();
             setShowModal(false);
         } catch (error: any) {
-            showToast(error?.message || 'Failed to archive application.', 'error');
+            showToast('Failed to archive application.', 'error');
         }
     };
 
@@ -488,7 +488,7 @@ const NATManagementPage = ({ showToast }: any) => {
                     return;
                 }
 
-                showToast('Schedule updated successfully!', 'success');
+                showToast('Schedule updated.', 'success');
                 closeScheduleModal();
                 fetchData();
                 return;
@@ -516,7 +516,7 @@ const NATManagementPage = ({ showToast }: any) => {
                 return;
             }
 
-            showToast('Schedule added successfully!', 'success');
+            showToast('Schedule added.', 'success');
             closeScheduleModal();
             fetchData();
         } finally {
@@ -582,7 +582,7 @@ const NATManagementPage = ({ showToast }: any) => {
             showToast(`Schedule ${sch.is_active ? 'closed' : 'reopened'}.`, 'success');
             await fetchData();
         } catch (error: any) {
-            showToast(error?.message || 'Failed to update schedule.', 'error');
+            showToast('Failed to update schedule.', 'error');
         }
     };
 
@@ -614,7 +614,7 @@ const NATManagementPage = ({ showToast }: any) => {
             await fetchData();
         } catch (err: any) {
             console.error("Close sequence failed:", err);
-            showToast(`Error closing course: ${err.message}`, 'error');
+            showToast(`Couldn't close course..`, 'error');
         } finally {
             setLoading(false);
         }
@@ -637,7 +637,7 @@ const NATManagementPage = ({ showToast }: any) => {
             showToast('NAT requirement added.', 'success');
             await fetchData();
         } catch (error: any) {
-            showToast(error?.message || 'Failed to add NAT requirement.', 'error');
+            showToast('Failed to add NAT requirement.', 'error');
         } finally {
             setIsSavingRequirement(false);
         }
@@ -654,7 +654,7 @@ const NATManagementPage = ({ showToast }: any) => {
             showToast('NAT requirement deactivated.', 'success');
             await fetchData();
         } catch (error: any) {
-            showToast(error?.message || 'Failed to deactivate NAT requirement.', 'error');
+            showToast('Failed to deactivate NAT requirement.', 'error');
         } finally {
             setPendingRequirementDeleteId(null);
         }
@@ -714,7 +714,7 @@ const NATManagementPage = ({ showToast }: any) => {
         try {
             await managedArchiveService.setNatScheduleActive(Number(sch.id), !sch.is_active);
         } catch (error: any) {
-            showToast(error?.message || 'Failed to update schedule.', 'error');
+            showToast('Failed to update schedule.', 'error');
             return;
         }
 
@@ -780,7 +780,7 @@ const NATManagementPage = ({ showToast }: any) => {
     };
 
     const handleExportCSV = () => {
-        if (filteredApplications.length === 0) { showToast("No applications to export.", 'info'); return; }
+        if (filteredApplications.length === 0) { showToast("There are no applications to export.", 'info'); return; }
         const headers = ["Reference ID", "First Name", "Last Name", "Email", "Mobile", "Course Preference", "Status", "Test Date"];
         const rows = filteredApplications.map(app => [
             app.reference_id,
@@ -992,7 +992,7 @@ const NATManagementPage = ({ showToast }: any) => {
                 if (error) throw error;
             }
 
-            showToast(`${applicationIds.length} applicant${applicationIds.length !== 1 ? 's were' : ' was'} marked as ${PASS_STATUS}.`, 'success');
+            showToast(`${applicationIds.length} applicants marked as ${PASS_STATUS}.`, 'success');
             closeBulkPassModal();
             fetchData();
         } catch (error: any) {

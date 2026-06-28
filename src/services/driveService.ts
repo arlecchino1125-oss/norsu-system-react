@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { getFriendlyErrorMessage } from '../lib/invokeEdgeFunction';
 
 export interface DriveUploadResponse {
     success: boolean;
@@ -18,7 +19,10 @@ export const driveService = {
     uploadFile: async (file: File, studentId?: string): Promise<DriveUploadResponse> => {
         try {
             const formData = new FormData();
-            formData.append('file', file);
+            // ponytail: Reading the file into memory as a Blob prevents net::ERR_UPLOAD_FILE_CHANGED in Chrome/Chromium.
+            const fileData = await file.arrayBuffer();
+            const blob = new Blob([fileData], { type: file.type });
+            formData.append('file', blob, file.name);
             if (studentId) {
                 formData.append('studentId', studentId);
             }
@@ -29,11 +33,14 @@ export const driveService = {
 
             if (error) {
                 console.error('Edge Function Error:', error);
-                return { success: false, error: error.message };
+                const friendlyMessage = getFriendlyErrorMessage(error.message);
+                return { success: false, error: friendlyMessage };
             }
 
             if (!data.success) {
-                return { success: false, error: data.error || 'Upload failed' };
+                const rawError = data.error || 'Upload failed';
+                const friendlyMessage = getFriendlyErrorMessage(rawError);
+                return { success: false, error: friendlyMessage };
             }
 
             return {
@@ -44,7 +51,9 @@ export const driveService = {
             };
         } catch (err: any) {
             console.error('Upload exception:', err);
-            return { success: false, error: err.message || 'An unexpected error occurred during upload' };
+            const rawError = err.message || 'An unexpected error occurred during upload';
+            const friendlyMessage = getFriendlyErrorMessage(rawError);
+            return { success: false, error: friendlyMessage };
         }
     }
 };

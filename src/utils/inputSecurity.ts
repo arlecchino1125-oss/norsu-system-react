@@ -32,6 +32,29 @@ export const TEXT_INPUT_RULES: Record<TextRuleKey, TextInputRule> = {
 const SPREADSHEET_FORMULA_PATTERN = /^[\s]*[=+\-@]/;
 const CONTROL_CHARS_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
+export const isValidEmailDomain = (email: string): boolean => {
+    if (!email) return false;
+    const parts = String(email).split('@');
+    if (parts.length !== 2) return false;
+    const domain = parts[1].toLowerCase().trim();
+    
+    const allowedDomains = [
+        'gmail.com',
+        'yahoo.com',
+        'yahoo.com.ph',
+        'outlook.com',
+        'hotmail.com',
+        'icloud.com',
+        'proton.me',
+        'protonmail.com',
+    ];
+    
+    if (allowedDomains.includes(domain)) return true;
+    if (domain.endsWith('.edu.ph') || domain.endsWith('.edu')) return true;
+    
+    return false;
+};
+
 export const normalizePlainTextInput = (value: unknown, multiline = false) => {
     const normalized = String(value ?? '').replace(/\r\n/g, '\n');
     const withoutControls = normalized.replace(
@@ -64,6 +87,12 @@ export const validateTextInput = (
 
     if (text && rule.pattern && !rule.pattern.test(text)) {
         return { valid: false, value: text, error: `${label} has an invalid format.` };
+    }
+
+    if (text && ruleKey === 'email') {
+        if (!isValidEmailDomain(text)) {
+            return { valid: false, value: text, error: `Invalid email provider. Please use a recognized email domain (e.g., gmail.com, yahoo.com).` };
+        }
     }
 
     return { valid: true, value: text, error: null };

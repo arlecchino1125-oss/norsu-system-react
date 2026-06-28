@@ -17,6 +17,52 @@ type InvokeEdgeFunctionOptions = {
     non2xxMessage?: string;
 };
 
+export const getFriendlyErrorMessage = (errorMsg: string): string => {
+    const msg = String(errorMsg || '').trim();
+    if (!msg) {
+        return "We encountered an unexpected issue. Please try again.";
+    }
+
+    const lower = msg.toLowerCase();
+
+    // 1. Network / Connection errors
+    if (
+        lower.includes('failed to send a request to the edge function') ||
+        lower.includes('failed to fetch') ||
+        lower.includes('typeerror: failed to fetch') ||
+        lower.includes('networkerror') ||
+        lower.includes('network error')
+    ) {
+        return "We're having a little trouble connecting to our servers. Please check your internet connection and try again.";
+    }
+
+    // 2. Auth / Token / Grant errors
+    if (
+        lower.includes('invalid_grant') || 
+        lower.includes('invalid grant') || 
+        lower.includes('refresh token') ||
+        lower.includes('invalid_token') ||
+        lower.includes('invalid token')
+    ) {
+        return "We couldn't verify your access. Please try signing out and signing back in to refresh your connection.";
+    }
+
+    // 3. Database / Constraint errors
+    if (lower.includes('unique constraint') || lower.includes('already exists')) {
+        return "This information has already been submitted or registered. Please review your entries.";
+    }
+    if (lower.includes('foreign key') || lower.includes('violates')) {
+        return "Some of the referenced information could not be verified. Please double-check your entries.";
+    }
+
+    // 4. Server / HTTP errors (generic non-2xx / 500)
+    if (lower.includes('internal server error') || lower.includes('500') || lower.includes('non-2xx')) {
+        return "We encountered a temporary server issue. Please give it a moment and try again.";
+    }
+
+    return msg;
+};
+
 export const readEdgeFunctionErrorMessage = async (responseLike: any) => {
     if (!responseLike) return '';
 
@@ -107,9 +153,12 @@ export const invokeEdgeFunction = async <T = any>(
             ? (detailedMessage || non2xxMessage || fallbackMessage)
             : (detailedMessage || error.message || fallbackMessage);
             
-        const finalMessage = underlyingError && !baseMessage.includes(underlyingError) 
-            ? `${baseMessage} (${underlyingError})` 
-            : baseMessage;
+        const friendlyBaseMessage = getFriendlyErrorMessage(baseMessage);
+        const isGenericOrNetwork = friendlyBaseMessage !== baseMessage;
+        
+        const finalMessage = underlyingError && !friendlyBaseMessage.includes(underlyingError) && !isGenericOrNetwork
+            ? `${friendlyBaseMessage} (${underlyingError})` 
+            : friendlyBaseMessage;
 
         const nextError: Error & { status?: number | null; errorName?: string | null } = new Error(finalMessage);
         nextError.status = response?.status || error?.context?.status || null;
@@ -118,9 +167,10 @@ export const invokeEdgeFunction = async <T = any>(
     }
 
     if (data && typeof data === 'object' && 'success' in data && data.success === false) {
-        const nextError: Error & { status?: number | null } = new Error(
-            String((data as any)?.error || fallbackMessage)
-        );
+        const rawErrorMsg = String((data as any)?.error || fallbackMessage);
+        const finalMessage = getFriendlyErrorMessage(rawErrorMsg);
+        
+        const nextError: Error & { status?: number | null } = new Error(finalMessage);
         nextError.status = response?.status || null;
         throw nextError;
     }

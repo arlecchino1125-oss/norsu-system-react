@@ -392,7 +392,7 @@ const StaffExportCenterPage = ({
 
             notify(`${payload.title} exported successfully.`, 'success');
         } catch (error: any) {
-            const message = error?.message || 'Failed to export records.';
+            const message = 'Failed to export records.';
             setPageError(message);
             notify(message, 'error');
         } finally {
@@ -423,7 +423,7 @@ const StaffExportCenterPage = ({
             );
             notify('Printable master list opened.', 'success');
         } catch (error: any) {
-            const message = error?.message || 'Failed to open printable master list.';
+            const message = 'Failed to open printable master list.';
             setPageError(message);
             notify(message, 'error');
         } finally {

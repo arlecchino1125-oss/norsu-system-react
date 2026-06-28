@@ -10,6 +10,8 @@ import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import { getStudentActivationPolicy } from '../lib/studentActivationPolicy';
 import { rememberPendingProfileCompletion } from '../lib/studentProfileCompletionPrompt';
 import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
+import { isValidEmailDomain } from '../utils/inputSecurity';
+import { getSafeErrorMessage } from '../utils/errorMasking';
 
 type StudentLoginMethod = 'studentId' | 'email';
 type ForgotPasswordOtpInfo = {
@@ -161,7 +163,8 @@ const TOTAL_STEPS = 3;
     }, []);
 
     const showToast = (msg: string, type: string = 'success') => {
-        setToast({ msg, type });
+        const safeMessage = type === 'error' ? getSafeErrorMessage(msg) : msg;
+        setToast({ msg: safeMessage, type });
         setTimeout(() => setToast(null), 5000);
     };
 
@@ -285,6 +288,13 @@ const TOTAL_STEPS = 3;
             return;
         }
 
+        if (forgotPasswordMethod === 'email') {
+            if (!isValidEmailDomain(trimmedIdentifier)) {
+                showToast(`Invalid email provider. Please use a recognized email domain (e.g., gmail.com).`, 'error');
+                return;
+            }
+        }
+
         setIsRequestingForgotPasswordOtp(true);
         try {
             const result = await invokeEdgeFunction('manage-student-accounts', {
@@ -306,7 +316,7 @@ const TOTAL_STEPS = 3;
                 'success'
             );
         } catch (error: any) {
-            showToast(error?.message || 'We could not send the reset code at this time. Please try again later.', 'error');
+            showToast('We could not send the reset code at this time. Please try again later.', 'error');
         } finally {
             setIsRequestingForgotPasswordOtp(false);
         }
@@ -356,7 +366,7 @@ const TOTAL_STEPS = 3;
             resetForgotPasswordForm();
             showToast('Password updated. Sign in with your new password.', 'success');
         } catch (error: any) {
-            showToast(error?.message || 'We were unable to reset your password. Please try again.', 'error');
+            showToast('We were unable to reset your password. Please try again.', 'error');
         } finally {
             setIsResettingForgotPassword(false);
         }
@@ -366,16 +376,24 @@ const TOTAL_STEPS = 3;
     const handleNextStep = () => {
         if (activationStep === 1) {
             if (!formData.studentId || !formData.course) {
-                showToast('Please fill in the required enrollment fields to continue.', 'error');
+                showToast('Fill in the required enrollment fields.', 'error');
                 return;
             }
             if (!/^\d{9}$/.test(formData.studentId.trim())) {
-                showToast('Please ensure your Student ID is exactly 9 digits long (for example: 202312345).', 'error');
+                showToast('Enter a 9-digit Student ID.', 'error');
                 return;
             }
         } else if (activationStep === 2) {
             if (!formData.firstName || !formData.lastName || !formData.sex || !formData.dob || !formData.mobile || !formData.email) {
-                showToast('Please provide the required personal information to proceed.', 'error');
+                showToast('Provide your personal information.', 'error');
+                return;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+                showToast('Enter a valid email address.', 'error');
+                return;
+            }
+            if (!isValidEmailDomain(formData.email)) {
+                showToast('Invalid email provider. Please use a recognized email domain (e.g., gmail.com, yahoo.com).', 'error');
                 return;
             }
         }
@@ -511,7 +529,7 @@ const TOTAL_STEPS = 3;
             setConfirmModalError(errMsg);
             setConfirmModalStatus('error');
 
-            const normalizedError = String(error?.message || error || '').toLowerCase();
+            const normalizedError = String(error || '').toLowerCase();
             if (normalizedError.includes('email') || normalizedError.includes('auth account') || normalizedError.includes('already exists') || normalizedError.includes('already been registered')) {
                 setActivationErrorFields(['email']);
             } else if (normalizedError.includes('course') || normalizedError.includes('enrolled in')) {

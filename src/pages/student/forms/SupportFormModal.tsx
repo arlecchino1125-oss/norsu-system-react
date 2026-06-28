@@ -80,7 +80,7 @@ export default function SupportFormModal({
 
     const handleSubmit = async () => {
         if (form.categories.length === 0 && !form.otherCategory) {
-            showToast('Please select at least one category.', 'error');
+            showToast('Select at least one category.', 'error');
             return;
         }
 
@@ -132,7 +132,7 @@ export default function SupportFormModal({
             onClose();
             setForm(createInitialSupportForm());
         } catch (error: any) {
-            showToast(`Error: ${error.message}`, 'error');
+            showToast(`Error.`, 'error');
         } finally {
             setIsSubmitting(false);
         }

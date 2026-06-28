@@ -125,8 +125,8 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
             ]);
             functions.showToast('Analytics data refreshed.', 'success');
         } catch (error) {
-            console.error('Error refreshing analytics:', error);
-            functions.showToast('Error refreshing analytics', 'error');
+            console.error("Couldn't refresh analytics.", error);
+            functions.showToast("Couldn't refresh analytics.", 'error');
         } finally {
             setIsRefreshingData(false);
         }
@@ -202,8 +202,8 @@ const StudentAnalyticsPage = ({ functions }: StudentAnalyticsPageProps) => {
             setAnalyticsData({ submissions: enrichedSubs, answers });
 
         } catch (error) {
-            console.error("Error fetching analytics:", error);
-            functions.showToast("Error fetching analytics", 'error');
+            console.error("Couldn't load analytics.", error);
+            functions.showToast("Couldn't load analytics.", 'error');
         } finally {
             setLoading(false);
         }

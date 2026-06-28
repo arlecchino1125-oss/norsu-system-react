@@ -128,10 +128,10 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
                 if (qError) throw qError;
             }
 
-            functions.showToast("Form saved successfully!");
+            functions.showToast("Form saved.");
             setShowEditor(false);
             fetchForms();
-        } catch (err) { functions.showToast("Error: " + err.message, 'error'); }
+        } catch (err) { functions.showToast('Something went wrong.', 'error'); }
     };
 
     const handleQuestionChange = (idx, val) => {
@@ -153,7 +153,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
             const newQs = editingQuestions.filter((_, i) => i !== idx);
             setEditingQuestions(newQs);
         } catch (err: any) {
-            functions.showToast('Error deleting question: ' + err.message, 'error');
+            functions.showToast('Error deleting question: ', 'error');
         }
     };
 
@@ -197,7 +197,7 @@ const FormManagementPage = ({ functions }: FormManagementPageProps) => {
             setDeleteConfirm(null);
             await fetchForms();
         } catch (err) {
-            functions.showToast('Error deactivating form: ' + err.message, 'error');
+            functions.showToast('Error deactivating form: ', 'error');
         } finally {
             setIsDeleting(false);
         }

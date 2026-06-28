@@ -477,7 +477,7 @@ const CareStaffDashboard = () => {
             const policy = await fetchStudentActivationPolicy();
             setStudentActivationPolicy(policy);
         } catch (error: any) {
-            showToastMessage(error?.message || 'Failed to load the student activation policy.', 'error');
+            showToastMessage('Failed to load the student activation policy.', 'error');
         } finally {
             setIsLoadingStudentActivationPolicy(false);
         }
@@ -511,7 +511,7 @@ const CareStaffDashboard = () => {
                     : undefined
             },
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to send the security OTP.'
         });
     }, []);
@@ -529,7 +529,7 @@ const CareStaffDashboard = () => {
                 otp: String(otp || '').trim()
             },
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to update your staff login email.'
         });
 
@@ -562,7 +562,7 @@ const CareStaffDashboard = () => {
                 otp: String(otp || '').trim()
             },
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to update your staff password.'
         });
         void recordStaffAuditAction(session, {
@@ -591,7 +591,7 @@ const CareStaffDashboard = () => {
                 }
             },
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to update your staff profile.'
         });
 
@@ -617,7 +617,7 @@ const CareStaffDashboard = () => {
                 mode: 'preview-care-student-reset'
             },
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to load the student reset impact.'
         });
     }, []);
@@ -628,7 +628,7 @@ const CareStaffDashboard = () => {
                 mode: 'request-care-reset-otp'
             },
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to send the student reset OTP.'
         });
     }, []);
@@ -646,7 +646,7 @@ const CareStaffDashboard = () => {
                 confirmationText: String(payload.confirmationText || '').trim()
             },
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to reset student data.'
         });
 
@@ -677,7 +677,7 @@ const CareStaffDashboard = () => {
                 console.error('Failed to record activation policy audit log:', error);
             });
         } catch (error: any) {
-            showToastMessage(error?.message || 'Failed to update the student activation policy.', 'error');
+            showToastMessage('Failed to update the student activation policy.', 'error');
         } finally {
             setIsSavingStudentActivationPolicy(false);
         }
