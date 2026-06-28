@@ -31,7 +31,7 @@ const DeptSettingsPage = ({
             await updateStaffProfileName(profileName);
             showToast?.('Profile name updated successfully.');
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to update your profile name.', 'error');
+            showToast?.('Failed to update your profile name.', 'error');
         } finally {
             setIsSavingProfileName(false);
         }

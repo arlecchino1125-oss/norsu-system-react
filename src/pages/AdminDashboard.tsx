@@ -9,6 +9,7 @@ import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { Archive, AlertTriangle, AlertCircle, CheckCircle, Plus, RefreshCw, Shield, LogOut, UserPlus, Building2, Users, Activity, Search, KeyRound, Maximize2, X, User } from 'lucide-react';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { getValidProfileImageUrl } from '../utils/formatters';
+import { getSafeErrorMessage } from '../utils/errorMasking';
 
 const STAFF_ACCOUNT_SELECT = '*';
 const ADMIN_PANEL_ORDER = ['alerts', 'staffAccounts', 'studentOverview', 'governance', 'audit', 'colleges'] as const;
@@ -205,7 +206,8 @@ export default function AdminDashboard() {
     };
 
     const showToast = React.useCallback((msg: string, type: string = 'success') => {
-        setToast({ msg, type });
+        const safeMessage = type === 'error' ? getSafeErrorMessage(msg) : msg;
+        setToast({ msg: safeMessage, type });
         window.setTimeout(() => setToast(null), 3000);
     }, []);
 
@@ -249,7 +251,7 @@ export default function AdminDashboard() {
             setAuditTotalCount(count || 0);
         } catch (error: any) {
             console.error('Failed to load staff audit logs:', error);
-            showToast(error?.message || 'Failed to load staff audit logs.', 'error');
+            showToast('Failed to load staff audit logs.', 'error');
             setAuditLogs([]);
             setAuditTotalCount(0);
         } finally {
@@ -345,7 +347,7 @@ export default function AdminDashboard() {
     };
 
     const getArchiveSchemaErrorMessage = (error: any, fallback: string) => {
-        const message = String(error?.message || error || '');
+        const message = String(error || '');
         const normalized = message.toLowerCase();
         const mentionsArchiveColumn = normalized.includes('is_archived')
             || normalized.includes('archived_at')
@@ -355,7 +357,7 @@ export default function AdminDashboard() {
             || normalized.includes('does not exist');
 
         if (mentionsArchiveColumn && looksLikeMissingColumn) {
-            return 'Archive fields are not installed in Supabase yet. Apply supabase/migrations/20260605_add_admin_archive_fields.sql, then try again.';
+            return "This feature isn't available yet.";
         }
 
         return message || fallback;
@@ -365,7 +367,7 @@ export default function AdminDashboard() {
         return invokeEdgeFunction('manage-staff-accounts', {
             body,
             requireAuth: true,
-            non2xxMessage: 'Your admin session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your admin session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to manage staff account.'
         });
     };
@@ -374,7 +376,7 @@ export default function AdminDashboard() {
         return invokeEdgeFunction('manage-student-accounts', {
             body,
             requireAuth: true,
-            non2xxMessage: 'Your admin session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your admin session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to manage student accounts.'
         });
     };
@@ -407,7 +409,7 @@ export default function AdminDashboard() {
             setTargetStudent(null);
             void handleRefreshData();
         } catch (error: any) {
-            showToast(error?.message || 'Failed to update student IDs.', 'error');
+            showToast('Failed to update student IDs.', 'error');
         } finally {
             setIsSwappingIds(false);
         }
@@ -425,7 +427,7 @@ export default function AdminDashboard() {
             const result = await invokeEdgeFunction('provision-staff-account', {
                 body: payload,
                 requireAuth: true,
-                non2xxMessage: 'Your admin session could not be verified. Please sign in again.',
+                non2xxMessage: 'Your admin session could not be verified. Sign in again.',
                 fallbackMessage: 'Failed to provision staff account.'
             });
 
@@ -438,14 +440,14 @@ export default function AdminDashboard() {
             setForm({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
             refetchAccounts();
         } catch (error: any) {
-            if (!isFunctionUnavailableError(error?.message || '', error?.status, error?.errorName)) {
+            if (!isFunctionUnavailableError('', error?.status, error?.errorName)) {
                 showToast(error.message || 'Failed to create account.', 'error');
                 setIsCreatingAccount(false);
                 return;
             }
 
             showToast(
-                'Account creation blocked: deploy the latest provision-staff-account function. New staff accounts must be created as linked Supabase Auth accounts.',
+                "We couldn't create the account. This feature isn't available yet.",
                 'error'
             );
         } finally {
@@ -510,8 +512,8 @@ export default function AdminDashboard() {
                 try {
                     await invokeManagedStaffFunction({ mode: 'ping' });
                 } catch (error: any) {
-                    if (isFunctionUnavailableError(error?.message || '', error?.status, error?.errorName)) {
-                        showToast('Reset blocked: deploy manage-staff-accounts before resetting while linked staff accounts exist.', 'error');
+                    if (isFunctionUnavailableError('', error?.status, error?.errorName)) {
+                        showToast("Couldn't reset the system. This feature isn't available yet.", 'error');
                         return;
                     }
 
@@ -524,8 +526,8 @@ export default function AdminDashboard() {
                 try {
                     await invokeManagedStudentFunction({ mode: 'ping' });
                 } catch (error: any) {
-                    if (isFunctionUnavailableError(error?.message || '', error?.status, error?.errorName)) {
-                        showToast('Reset blocked: deploy manage-student-accounts before resetting while linked students exist.', 'error');
+                    if (isFunctionUnavailableError('', error?.status, error?.errorName)) {
+                        showToast("Couldn't reset the system. This feature isn't available yet.", 'error');
                         return;
                     }
 
@@ -579,12 +581,12 @@ export default function AdminDashboard() {
             try {
                 await invokeManagedStudentFunction({ mode: 'delete-all-students' });
             } catch (error: any) {
-                if (!isFunctionUnavailableError(error?.message || '', error?.status, error?.errorName)) {
+                if (!isFunctionUnavailableError('', error?.status, error?.errorName)) {
                     throw error;
                 }
 
                 if ((linkedStudentCount || 0) > 0) {
-                    throw new Error('Reset blocked: deploy manage-student-accounts before resetting linked students.');
+                    throw new Error("Reset blocked: This feature isn't available yet linked students.");
                 }
 
                 await supabase.from('students').delete().not('id', 'is', null);
@@ -597,7 +599,7 @@ export default function AdminDashboard() {
                     preserveStaffAccountId: session.id
                 });
             } catch (error: any) {
-                if (!isFunctionUnavailableError(error?.message || '', error?.status, error?.errorName)) {
+                if (!isFunctionUnavailableError('', error?.status, error?.errorName)) {
                     throw error;
                 }
 
@@ -609,10 +611,10 @@ export default function AdminDashboard() {
                 if (staffError) throw staffError;
             }
 
-            showToast("Full system reset complete — all data, files, and accounts have been wiped.");
+            showToast("System reset. All data wiped.");
             refetchAccounts();
         } catch (err: any) {
-            showToast("Error resetting: " + err.message, 'error');
+            showToast("Couldn't reset system. ", 'error');
         } finally {
             setLoading(false);
         }
@@ -663,7 +665,7 @@ export default function AdminDashboard() {
             setNewDeptName('');
             refetchDepartments();
         } catch (error: any) {
-            showToast(getArchiveSchemaErrorMessage(error, 'Failed to save college.'), 'error');
+            showToast(getArchiveSchemaErrorMessage(error, "Couldn't save college."), 'error');
         } finally {
             setIsAddingDepartment(false);
         }
@@ -694,7 +696,7 @@ export default function AdminDashboard() {
             showToast(`College "${dept.name}" archived.`);
             await refetchDepartments();
         } catch (error: any) {
-            showToast(getArchiveSchemaErrorMessage(error, 'Failed to archive college.'), 'error');
+            showToast(getArchiveSchemaErrorMessage(error, "Couldn't archive college."), 'error');
         } finally {
             setArchivingDepartmentId(null);
         }
@@ -713,7 +715,7 @@ export default function AdminDashboard() {
             ]);
             showToast('Admin data refreshed.');
         } catch (error: any) {
-            showToast(error?.message || 'Failed to refresh admin data.', 'error');
+            showToast("Couldn't refresh admin data.", 'error');
         } finally {
             setIsRefreshingData(false);
         }
@@ -748,7 +750,7 @@ export default function AdminDashboard() {
                 result?.warning ? 'error' : 'success'
             );
         } catch (error: any) {
-            showToast(error?.message || 'Failed to save the account email.', 'error');
+            showToast("Couldn't save email.", 'error');
         } finally {
             setSavingAccountEmailId(null);
         }

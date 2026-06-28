@@ -99,7 +99,7 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
         return invokeEdgeFunction('manage-care-services', {
             body,
             requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to manage CARE services.'
         });
     };

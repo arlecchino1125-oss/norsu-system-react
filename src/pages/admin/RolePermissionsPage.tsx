@@ -32,6 +32,7 @@ import {
     type Role,
     type RolePermission
 } from '../../types/permissions';
+import { getSafeErrorMessage } from '../../utils/errorMasking';
 
 type ToastState = {
     type: 'success' | 'error';
@@ -77,7 +78,8 @@ export default function RolePermissionsPage() {
         : TAB_CONFIG;
 
     const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-        setToast({ message, type });
+        const safeMessage = type === 'error' ? getSafeErrorMessage(message) : message;
+        setToast({ message: safeMessage, type });
     }, []);
 
     useEffect(() => {
@@ -234,7 +236,7 @@ export default function RolePermissionsPage() {
         successMessage: string
     ) => {
         if (isAdminView) {
-            showToast('Admin permissions stay locked to wildcard access.', 'error');
+            showToast('Admin access cannot be changed.', 'error');
             return false;
         }
 
@@ -256,7 +258,7 @@ export default function RolePermissionsPage() {
 
         if (!success) {
             await loadPermissions(true);
-            showToast(`Unable to update ${humanizePermissionKey(permissionKey)}.`, 'error');
+            showToast(`Couldn't update ${humanizePermissionKey(permissionKey)}.`, 'error');
             return false;
         }
 
@@ -340,7 +342,7 @@ export default function RolePermissionsPage() {
     const handleResetToDefaults = useCallback(async () => {
         if (isAdminView) {
             setIsResetModalOpen(false);
-            showToast('Admin permissions stay locked to wildcard access.', 'error');
+            showToast('Admin access cannot be changed.', 'error');
             return;
         }
 
@@ -350,12 +352,12 @@ export default function RolePermissionsPage() {
         setIsResetModalOpen(false);
 
         if (!success) {
-            showToast(`Unable to reset ${selectedRoleLabel} permissions right now.`, 'error');
+            showToast(`Couldn't reset ${selectedRoleLabel} permissions.`, 'error');
             return;
         }
 
         await loadPermissions(true);
-        showToast(`${selectedRoleLabel} permissions were reset to their defaults.`);
+        showToast(`${selectedRoleLabel} permissions have been reset.`);
     }, [isAdminView, loadPermissions, selectedRole, selectedRoleLabel, showToast]);
 
     const togglePermissionExpansion = useCallback((lookupKey: string) => {

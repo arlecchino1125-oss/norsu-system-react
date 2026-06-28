@@ -112,7 +112,7 @@ export function FeedbackView({ Icons, personalInfo, feedbackPrefill, setFeedback
             setForm({ client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '', cc1: '', cc2: '', cc3: '', sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '', suggestions: '', email: '' });
             if (setFeedbackPrefill) setFeedbackPrefill(null);
         } catch (err: any) {
-            setFormNotice({ type: 'error', message: `Error submitting feedback: ${err.message}` });
+            setFormNotice({ type: 'error', message: `Couldn't submit feedback..` });
         } finally {
             setSubmitting(false);
         }

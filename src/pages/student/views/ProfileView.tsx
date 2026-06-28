@@ -72,7 +72,7 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
 
         const isSupportedFile = file.type.startsWith('image/') || file.type === 'application/pdf';
         if (!isSupportedFile) {
-            showToast?.('Please upload an image or PDF file.', 'error');
+            showToast?.('Upload an image or PDF.', 'error');
             e.target.value = '';
             return;
         }

@@ -100,7 +100,7 @@ const StudentDataDangerZoneCard = ({
             setImpact(nextImpact);
             setConfirmationPhrase(nextPhrase);
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to load student reset impact.', 'error');
+            showToast?.('Failed to load student reset impact.', 'error');
         } finally {
             setIsLoadingImpact(false);
         }
@@ -130,7 +130,7 @@ const StudentDataDangerZoneCard = ({
             setOtp('');
             showToast?.('Reset OTP sent to your CARE Staff email.');
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to send the student reset OTP.', 'error');
+            showToast?.('Failed to send the student reset OTP.', 'error');
         } finally {
             setIsRequestingOtp(false);
         }
@@ -172,7 +172,7 @@ const StudentDataDangerZoneCard = ({
             await loadResetImpact();
             onResetComplete?.();
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to reset student data.', 'error');
+            showToast?.('Failed to reset student data.', 'error');
         } finally {
             setIsConfirmingReset(false);
         }

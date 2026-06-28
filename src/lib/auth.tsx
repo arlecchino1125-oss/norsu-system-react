@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { buildEdgeFunctionHeaders } from './functionHeaders';
 import { sanitizeStudentSession } from './studentAuth';
 import { sanitizeStaffSession } from './staffAuth';
-import { readEdgeFunctionErrorMessage } from './invokeEdgeFunction';
+import { readEdgeFunctionErrorMessage, getFriendlyErrorMessage } from './invokeEdgeFunction';
 import {
     recoverLocalSupabaseSession
 } from './supabaseSessionRecovery';
@@ -196,7 +196,7 @@ const matchesAuthUser = (value: any, authUser: any) => {
 };
 
 const isInvalidAuthCredentialsError = (error: any) => {
-    const message = String(error?.message || error || '').toLowerCase();
+    const message = String(error || '').toLowerCase();
     return message.includes('invalid login credentials')
         || message.includes('email not confirmed')
         || message.includes('invalid credentials');
@@ -234,15 +234,17 @@ const resolveAuthLoginAccount = async (
 
     if (error) {
         const detailedMessage = await readEdgeFunctionErrorMessage(response || error?.context);
-        const nextError: Error & { status?: number | null } = new Error(
-            detailedMessage || error.message || 'Unable to resolve the login account.'
-        );
+        const baseMessage = detailedMessage || error.message || 'Unable to resolve the login account.';
+        const friendlyMessage = getFriendlyErrorMessage(baseMessage);
+        const nextError: Error & { status?: number | null } = new Error(friendlyMessage);
         nextError.status = response?.status || error?.context?.status || null;
         throw nextError;
     }
 
     if (!data?.success) {
-        throw new Error(data?.error || 'Unable to resolve the login account.');
+        const rawErrorMsg = data?.error || 'Unable to resolve the login account.';
+        const friendlyMessage = getFriendlyErrorMessage(rawErrorMsg);
+        throw new Error(friendlyMessage);
     }
 
     return data.account || null;

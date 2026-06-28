@@ -78,7 +78,7 @@ export default function CounselingFormModal({
             onClose();
             setForm(createInitialCounselingForm());
         } catch (error: any) {
-            showToast(`Error: ${error.message}`, 'error');
+            showToast(`Error.`, 'error');
         } finally {
             setIsSubmitting(false);
         }

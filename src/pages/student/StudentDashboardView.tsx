@@ -75,7 +75,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
             if (error) throw error;
             setSubmitted(true);
         } catch (err: any) {
-            showToast('Error submitting feedback: ' + err.message, 'error');
+            showToast("Couldn't submit feedback. ", 'error');
         } finally {
             setSubmitting(false);
         }

@@ -274,11 +274,11 @@ const EventsPage = ({ functions }: EventsPageProps) => {
             if (editingEventId) {
                 const { error } = await supabase.from('events').update(payload).eq('id', editingEventId);
                 if (error) throw error;
-                if (showToast) showToast('Item updated successfully!');
+                if (showToast) showToast('Changes saved.');
             } else {
                 const { error } = await supabase.from('events').insert([payload]);
                 if (error) throw error;
-                if (showToast) showToast('Item created successfully!');
+                if (showToast) showToast('Changes saved.');
             }
             setShowEventModal(false);
             setEditingEventId(null);
@@ -453,7 +453,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
 
     const getCurrentLocation = () => {
         if (!navigator.geolocation) {
-            if (showToast) showToast("Geolocation is not supported.", 'error');
+            if (showToast) showToast("Your browser doesn't support location services.", 'error');
             return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -462,7 +462,7 @@ const EventsPage = ({ functions }: EventsPageProps) => {
                 if (showToast) showToast("Location retrieved!");
             },
             (err) => {
-                if (showToast) showToast("Unable to retrieve location: " + err.message, 'error');
+                if (showToast) showToast("Unable to retrieve location: ", 'error');
             }
         );
     };

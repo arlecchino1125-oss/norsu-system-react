@@ -72,7 +72,7 @@ export default function CounselingView({
             setCounselingRequests(prev => prev.map(r => r.id === updatedReq.id ? updatedReq : r));
             showToast('Feedback submitted successfully', 'success');
         } catch (error: any) {
-            showToast(error?.message || 'Failed to submit feedback', 'error');
+            showToast('Failed to submit feedback', 'error');
         }
     };
 

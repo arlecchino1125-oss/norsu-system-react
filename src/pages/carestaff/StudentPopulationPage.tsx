@@ -409,11 +409,11 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 console.warn('Failed to sync enrollment record after student edit.', enrollmentSyncError);
             }
 
-            if (showToast) showToast("Student updated successfully!");
+            if (showToast) showToast("Student updated.");
             setShowEditModal(false);
             refetchStudents();
         } catch (error: any) {
-            if (showToast) showToast("Error updating student: " + error.message, 'error');
+            if (showToast) showToast("Error updating student: ", 'error');
         }
     };
 
@@ -435,7 +435,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 fetchEnrollmentKeys();
             }
         } catch (error: any) {
-            if (showToast) showToast("Error archiving student: " + error.message, 'error');
+            if (showToast) showToast("Error archiving student: ", 'error');
         }
     };
 
@@ -457,7 +457,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 fetchEnrollmentKeys();
             }
         } catch (error: any) {
-            if (showToast) showToast('Error restoring student: ' + error.message, 'error');
+            if (showToast) showToast("Couldn't restore student. ", 'error');
         } finally {
             setRestoringStudentId(null);
         }
@@ -622,7 +622,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             setTotalEnrollmentKeysCount(count || 0);
         } catch (error) {
             console.error('Error fetching enrollment keys:', error);
-            functions.showToast('Failed to fetch enrollment keys', 'error');
+            functions.showToast("Couldn't load enrollment keys.", 'error');
         }
     };
 
@@ -659,7 +659,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     const cleanedCount = Number(data || 0);
                     if (cleanedCount > 0) {
                         if (!silent) {
-                            functions.showToast(`Expired school-year windows closed for ${cleanedCount} students. Course/year fields were archived and reset.`, 'info');
+                            functions.showToast(`School-year windows were updated for ${cleanedCount} students.`, 'info');
                         }
                         refetchStudents();
                     }
@@ -694,7 +694,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         } catch (error: any) {
             console.error('Error cleaning expired course/year windows:', error);
             if (!silent) {
-                functions.showToast('Failed to process expired course/year windows: ' + error.message, 'error');
+                functions.showToast("Couldn't update windows. ", 'error');
             }
         }
     };
@@ -756,7 +756,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 setTableStudents(result.rows);
                 setTableStudentsTotal(result.total);
             } catch (error: any) {
-                if (showToast) showToast('Error loading students list: ' + error.message, 'error');
+                if (showToast) showToast("Couldn't load the students list. ", 'error');
             } finally {
                 setTableLoading(false);
             }
@@ -798,7 +798,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             e.target.reset();
             fetchEnrollmentKeys();
         } catch (error) {
-            functions.showToast("Error: " + error.message, 'error');
+            functions.showToast('Something went wrong.', 'error');
         }
     };
 
@@ -855,10 +855,10 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 course_year_profile_edited: false,
                 status: 'Inactive'
             });
-            functions.showToast(`Window applied to ${updatedCount || targets.length} students.`);
+            functions.showToast(`Update applied to ${updatedCount || targets.length} students.`);
             refetchStudents();
         } catch (error: any) {
-            functions.showToast('Error applying window: ' + error.message, 'error');
+            functions.showToast("Couldn't apply window. ", 'error');
         } finally {
             setIsApplyingBulkWindow(false);
         }
@@ -889,7 +889,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             functions.showToast(`Window cleared for ${updatedCount || targets.length} students.`);
             refetchStudents();
         } catch (error: any) {
-            functions.showToast('Error clearing window: ' + error.message, 'error');
+            functions.showToast("Couldn't clear window. ", 'error');
         } finally {
             setIsApplyingBulkWindow(false);
         }
@@ -943,10 +943,10 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 if (error) throw error;
             }
 
-            functions.showToast(`Enrollment keys synced for ${rows.length} students.`);
+            functions.showToast(`Enrollment keys updated for ${rows.length} students.`);
             fetchEnrollmentKeys();
         } catch (error: any) {
-            functions.showToast('Error syncing enrollment keys: ' + error.message, 'error');
+            functions.showToast("Couldn't update enrollment keys. ", 'error');
         } finally {
             setIsSyncingBulkKeys(false);
         }
@@ -958,15 +958,15 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         const limit = parseInt(String(courseForm.application_limit), 10);
 
         if (!courseForm.department_id) {
-            functions.showToast('Please select a department.', 'error');
+            functions.showToast('Select a department.', 'error');
             return;
         }
         if (!courseForm.name.trim()) {
-            functions.showToast('Please enter a course name.', 'error');
+            functions.showToast('Enter a course name.', 'error');
             return;
         }
         if (!Number.isFinite(limit) || limit < 0) {
-            functions.showToast('Please provide a valid applicant limit.', 'error');
+            functions.showToast('Enter a valid applicant limit.', 'error');
             return;
         }
 
@@ -980,11 +980,11 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             });
 
             if (error) throw error;
-            functions.showToast('Course added successfully!');
+            functions.showToast('Course added.');
             setCourseForm({ name: '', capacity: 500, application_limit: 200, department_id: '' });
             refetchCourses();
         } catch (error: any) {
-            functions.showToast('Error adding course: ' + error.message, 'error');
+            functions.showToast("Couldn't add course. ", 'error');
         }
     };
 
@@ -1005,7 +1005,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             functions.showToast(`${field === 'capacity' ? 'Capacity' : 'Applicant'} limit updated!`);
             refetchCourses();
         } catch (error: any) {
-            functions.showToast('Error updating limit: ' + error.message, 'error');
+            functions.showToast("Couldn't update limit. ", 'error');
         }
     };
 
@@ -1051,7 +1051,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 functions.showToast(`Successfully added ${updates.length} new enrollment keys!`);
                 fetchEnrollmentKeys();
                 e.target.value = '';
-            } catch (error) { functions.showToast("Upload failed: " + error.message, 'error'); e.target.value = ''; }
+            } catch (error) { functions.showToast("Upload failed: ", 'error'); e.target.value = ''; }
         };
 
         if (isExcel) {
@@ -1076,7 +1076,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
                     await processRows(rows);
                 } catch (err) {
-                    functions.showToast("Failed to read Excel file: " + err.message, 'error');
+                    functions.showToast("Failed to read Excel file: ", 'error');
                     e.target.value = '';
                 }
             };
@@ -1205,7 +1205,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
     const handleExportExcel = async () => {
         if (typeof XLSX === 'undefined') { functions.showToast('Excel library not loaded. Please refresh the page.', 'error'); return; }
-        functions.showToast('Preparing Excel export...', 'info');
+        functions.showToast('Preparing your Excel file...', 'info');
         try {
             const allStudents = await getAllStudentsForExport();
             if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); return; }
@@ -1300,7 +1300,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             functions.showToast(`Exported ${allStudents.length} students to Excel!`, 'success');
         } catch (err: any) {
             console.error('Export error:', err);
-            functions.showToast('Export failed: ' + err.message, 'error');
+            functions.showToast('Export failed: ', 'error');
         }
     };
 
@@ -1326,7 +1326,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     targetStudentId: dest
                 },
                 requireAuth: true,
-                non2xxMessage: 'Your CARE Staff session could not be verified. Please sign in again.',
+                non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
                 fallbackMessage: 'Failed to update student IDs.'
             });
             functions.showToast(result?.message || 'Student IDs updated successfully.', 'success');
@@ -1337,7 +1337,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             setTargetStudent(null);
             void handleRefreshData();
         } catch (error: any) {
-            functions.showToast(error?.message || 'Failed to update student IDs.', 'error');
+            functions.showToast('Failed to update student IDs.', 'error');
         } finally {
             setIsSwappingIds(false);
         }

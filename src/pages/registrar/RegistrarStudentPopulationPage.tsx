@@ -349,7 +349,7 @@ export default function RegistrarStudentPopulationPage() {
             XLSX.writeFile(wb, `Registrar_Student_Profiles_${new Date().toISOString().split('T')[0]}.xlsx`);
         } catch (err: any) {
             console.error('Export error:', err);
-            alert('Export failed: ' + err.message);
+            alert('Export failed: ');
         } finally {
             setIsExporting(false);
         }

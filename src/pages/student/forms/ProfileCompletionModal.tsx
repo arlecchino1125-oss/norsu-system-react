@@ -320,7 +320,7 @@ export default function ProfileCompletionModal({
 
         const isSupportedFile = file.type.startsWith('image/') || file.type === 'application/pdf';
         if (!isSupportedFile) {
-            showToast('Please upload an image or PDF file.', 'error');
+            showToast('Upload an image or PDF.', 'error');
             event.target.value = '';
             return;
         }
@@ -802,7 +802,7 @@ export default function ProfileCompletionModal({
                     payload
                 },
                 requireAuth: true,
-                non2xxMessage: 'Your student session could not be verified. Please sign in again.',
+                non2xxMessage: 'Your student session could not be verified. Sign in again.',
                 fallbackMessage: 'Failed to update your student profile.'
             });
 
@@ -833,7 +833,7 @@ export default function ProfileCompletionModal({
             });
         } catch (error: any) {
             console.error('Profile completion error:', error);
-            showToast(error.message || 'Error saving profile', 'error');
+            showToast(error.message || "Couldn't save profile.", 'error');
         } finally {
             setProfileSaving(false);
         }

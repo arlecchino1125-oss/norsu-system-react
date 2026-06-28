@@ -133,7 +133,7 @@ export default function DeptDashboard() {
         return invokeEdgeFunction('manage-department-admissions', {
             body,
             requireAuth: true,
-            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your department session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to manage department admissions.'
         });
     }, []);
@@ -146,7 +146,7 @@ export default function DeptDashboard() {
         return invokeEdgeFunction('manage-department-services', {
             body,
             requireAuth: true,
-            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your department session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to manage department services.'
         });
     }, []);
@@ -175,7 +175,7 @@ export default function DeptDashboard() {
                     : undefined
             },
             requireAuth: true,
-            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your department session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to send the security OTP.'
         });
     }, []);
@@ -193,7 +193,7 @@ export default function DeptDashboard() {
                 otp: String(otp || '').trim()
             },
             requireAuth: true,
-            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your department session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to update your department login email.'
         });
 
@@ -233,7 +233,7 @@ export default function DeptDashboard() {
                 otp: String(otp || '').trim()
             },
             requireAuth: true,
-            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your department session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to update your department password.'
         });
         void recordStaffAuditAction(session, {
@@ -262,7 +262,7 @@ export default function DeptDashboard() {
                 }
             },
             requireAuth: true,
-            non2xxMessage: 'Your department session could not be verified. Please sign in again.',
+            non2xxMessage: 'Your department session could not be verified. Sign in again.',
             fallbackMessage: 'Failed to update your department profile.'
         });
 
@@ -418,7 +418,7 @@ export default function DeptDashboard() {
             const rows = await getDepartmentInterviewQueue(departmentName, interviewQueueDate);
             setInterviewQueueRows(rows);
         } catch (error: any) {
-            setInterviewQueueError(error?.message || 'Failed to load interview queue.');
+            setInterviewQueueError('Failed to load interview queue.');
         } finally {
             setIsInterviewQueueLoading(false);
         }
@@ -797,7 +797,7 @@ export default function DeptDashboard() {
                 onConfirm
             });
         } catch (error: any) {
-            showToastMessage(error?.message || 'Failed to load email preview.', 'error');
+            showToastMessage('Failed to load email preview.', 'error');
         } finally {
             setIsLoadingEmailPreview(false);
         }
@@ -1078,7 +1078,7 @@ export default function DeptDashboard() {
                 onConfirm: executeApplicantSchedule
             });
         } catch (error: any) {
-            showToastMessage(error?.message || 'Failed to open email preview.', 'error');
+            showToastMessage('Failed to open email preview.', 'error');
         }
     };
 
@@ -1166,7 +1166,7 @@ export default function DeptDashboard() {
                 }
             });
         } catch (err: any) {
-            showToastMessage(err?.message || 'Failed to bulk approve applicants.', 'error');
+            showToastMessage('Failed to bulk approve applicants.', 'error');
         } finally {
             setIsProcessingBulkApplicantAction(false);
         }
@@ -1281,7 +1281,7 @@ export default function DeptDashboard() {
                 }
             });
         } catch (err: any) {
-            showToastMessage(err?.message || 'Failed to bulk forward applicants.', 'error');
+            showToastMessage('Failed to bulk forward applicants.', 'error');
         } finally {
             setIsProcessingBulkApplicantAction(false);
         }
@@ -1367,7 +1367,7 @@ export default function DeptDashboard() {
                 }
             });
         } catch (err: any) {
-            showToastMessage(err?.message || 'Failed to bulk mark applicants unsuccessful.', 'error');
+            showToastMessage('Failed to bulk mark applicants unsuccessful.', 'error');
         } finally {
             setIsProcessingBulkApplicantAction(false);
         }
@@ -1460,7 +1460,7 @@ export default function DeptDashboard() {
 
             showToastMessage('Applicant marked absent.', 'success');
         } catch (err: any) {
-            showToastMessage(err?.message || 'Failed to mark applicant absent.', 'error');
+            showToastMessage('Failed to mark applicant absent.', 'error');
         } finally {
             setPendingApplicantActionId(null);
         }
@@ -1619,7 +1619,7 @@ export default function DeptDashboard() {
             setShowProfileModal(false);
             showToastMessage('Profile updated.');
         } catch (err: any) {
-            showToastMessage("Error updating profile: " + err.message, 'error');
+            showToastMessage("Error updating profile: ", 'error');
         } finally {
             setIsUpdatingProfile(false);
         }
@@ -1638,7 +1638,7 @@ export default function DeptDashboard() {
             await refreshInterviewQueue();
             showToastMessage('Department data refreshed.', 'success');
         } catch (error: any) {
-            showToastMessage(error?.message || 'Failed to refresh department data.', 'error');
+            showToastMessage('Failed to refresh department data.', 'error');
         } finally {
             setIsRefreshingData(false);
         }
@@ -1704,7 +1704,7 @@ export default function DeptDashboard() {
             setReferralForm({ student: '', type: '', notes: '', referrer_contact_number: '', relationship_with_student: '', reason_for_referral: '', actions_made: '', date_duration_of_observations: '' });
             if (sigCanvasRef.current) sigCanvasRef.current.clear();
         } catch (err: any) {
-            showToastMessage("Error: " + err.message, 'error');
+            showToastMessage('Something went wrong.', 'error');
         } finally {
             setIsSubmittingReferral(false);
         }

@@ -67,7 +67,7 @@ export default function AccountSecuritySettings({
             setEmailOtp('');
             showToast?.('Verification code sent to your new email address.');
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to send the email verification code.', 'error');
+            showToast?.('Failed to send the email verification code.', 'error');
         } finally {
             setIsSendingEmailOtp(false);
         }
@@ -92,9 +92,9 @@ export default function AccountSecuritySettings({
             await confirmEmailChange(normalizedEmail, normalizedOtp);
             setEmailOtp('');
             setEmailOtpInfo(null);
-            showToast?.('Email updated successfully!');
+            showToast?.('Email updated.');
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to update your email.', 'error');
+            showToast?.('Failed to update your email.', 'error');
         } finally {
             setIsConfirmingEmail(false);
         }
@@ -108,7 +108,7 @@ export default function AccountSecuritySettings({
             setPasswordOtp('');
             showToast?.('Verification code sent to your current email.');
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to send the password OTP.', 'error');
+            showToast?.('Failed to send the password OTP.', 'error');
         } finally {
             setIsSendingPasswordOtp(false);
         }
@@ -138,9 +138,9 @@ export default function AccountSecuritySettings({
             setPasswordOtpInfo(null);
             setNewPassword('');
             setConfirmPassword('');
-            showToast?.('Password updated successfully!');
+            showToast?.('Password updated.');
         } catch (error: any) {
-            showToast?.(error?.message || 'Failed to update your password.', 'error');
+            showToast?.('Failed to update your password.', 'error');
         } finally {
             setIsConfirmingPassword(false);
         }

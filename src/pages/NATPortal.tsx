@@ -14,6 +14,7 @@ import usePublicTheme from '../hooks/usePublicTheme';
 import { usePermissionsForRole } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 import ApplicationWizard from './public/nat/components/ApplicationWizard';
+import { getSafeErrorMessage } from '../utils/errorMasking';
 
 // --- ASSETS & CONSTANTS ---
 const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
@@ -254,7 +255,7 @@ const validateNatFormData = ({
         if (!normalizeText(formData.email)) {
             errors.email = 'Email address is required.';
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeText(formData.email))) {
-            errors.email = 'Please enter a valid email address.';
+            errors.email = 'Enter a valid email address.';
         }
     }
 
@@ -584,7 +585,8 @@ const NATPortal = () => {
     const [toast, setToast] = useState<any>(null);
 
     const showToast = (msg: string, type: string = 'success') => {
-        setToast({ msg, type });
+        const safeMessage = type === 'error' ? getSafeErrorMessage(msg) : msg;
+        setToast({ msg: safeMessage, type });
         setTimeout(() => setToast(null), 3000);
     };
 
@@ -848,7 +850,7 @@ const NATPortal = () => {
                         && nextApplication?.status
                         && prev.status !== nextApplication.status
                     ) {
-                        showToast(`Application Status Updated: ${nextApplication.status}`, 'info');
+                        showToast(`Application marked as ${nextApplication.status}.`, 'info');
                     }
 
                     return prev ? { ...prev, ...nextApplication } : nextApplication;
@@ -1044,7 +1046,7 @@ const NATPortal = () => {
             if (error.code === '23505' || error.message?.includes('duplicate')) {
                 showToast('Submission Failed: This email address is already registered.', 'error');
             } else {
-                showToast('Error: ' + error.message, 'error');
+                showToast('Something went wrong.', 'error');
             }
         } finally {
             setLoading(false);
@@ -1076,7 +1078,7 @@ const NATPortal = () => {
             setCurrentUser(data.application);
             setCurrentScreen('dashboard');
         } catch (err: any) {
-            showToast("Login error: " + err.message, 'error');
+            showToast("Login error: ", 'error');
         } finally {
             setLoading(false);
         }
@@ -1085,7 +1087,7 @@ const NATPortal = () => {
     const executeTimeIn = async () => {
         if (loading) return;
         if (!credentials?.username || !credentials?.password) {
-            showToast('Your NAT session has expired. Please sign in again.', 'error');
+            showToast('Your NAT session has expired. Sign in again.', 'error');
             return;
         }
 
@@ -1105,7 +1107,7 @@ const NATPortal = () => {
             setCurrentUser({ ...currentUser, ...application, status: application.status || 'Ongoing' });
             setShowTimeInConfirm(false);
         } catch (error: any) {
-            showToast("Error recording Time In: " + error.message, 'error');
+            showToast("Error recording Time In: ", 'error');
         } finally {
             setLoading(false);
         }
@@ -1114,7 +1116,7 @@ const NATPortal = () => {
     const executeTimeOut = async () => {
         if (loading) return;
         if (!credentials?.username || !credentials?.password) {
-            showToast('Your NAT session has expired. Please sign in again.', 'error');
+            showToast('Your NAT session has expired. Sign in again.', 'error');
             return;
         }
 
@@ -1134,7 +1136,7 @@ const NATPortal = () => {
             setCurrentUser({ ...currentUser, ...application, status: application.status || 'Test Taken' });
             setShowTimeOutConfirm(false);
         } catch (error: any) {
-            showToast("Error: " + error.message, 'error');
+            showToast('Something went wrong.', 'error');
         } finally {
             setLoading(false);
         }
@@ -1163,7 +1165,7 @@ const NATPortal = () => {
             try {
                 data = await activateNatAccount(false);
             } catch (error: any) {
-                const missingEnrollment = String(error?.message || '').includes('Student ID not found in the enrollment list.');
+                const missingEnrollment = String('').includes('Student ID not found in the enrollment list.');
                 const canContinue = missingEnrollment && currentUser?.status === 'Approved for Enrollment';
 
                 if (!canContinue) {
@@ -1215,7 +1217,7 @@ const NATPortal = () => {
                 viewed: false
             });
         } catch (error: any) {
-            showToast(`Activation Failed: ${getSafeStudentActivationErrorMessage(error)}`, 'error');
+            showToast(`We couldn't activate your account. Please try again.`, 'error');
         } finally {
             setLoading(false);
         }
