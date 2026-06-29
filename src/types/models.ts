@@ -196,6 +196,8 @@ export interface Scholarship {
     deadline?: string;
     created_at?: string;
     is_active?: boolean;
+    application_method?: string;
+    application_url?: string;
 }
 
 export interface Course {

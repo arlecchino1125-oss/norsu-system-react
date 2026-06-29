@@ -100,20 +100,85 @@ export default function ScholarshipView({
                         </div>
 
                         <div style={{ padding: '16px 18px', borderTop: '1px solid #f1f5f9', background: '#fff', flexShrink: 0 }}>
-                            {myApplications.some((app: any) => app.scholarship_id === selectedScholarship.id) ? (
-                                <button disabled style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '14px', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                    <Icons.CheckCircle /> Application Submitted
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => { handleApplyScholarship(selectedScholarship); }}
-                                    disabled={new Date(selectedScholarship.deadline) < new Date() || isApplyingScholarshipId === String(selectedScholarship.id)}
-                                    className="btn-press"
-                                    style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: new Date(selectedScholarship.deadline) < new Date() || isApplyingScholarshipId === String(selectedScholarship.id) ? '#cbd5e1' : 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: new Date(selectedScholarship.deadline) < new Date() || isApplyingScholarshipId === String(selectedScholarship.id) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: new Date(selectedScholarship.deadline) < new Date() || isApplyingScholarshipId === String(selectedScholarship.id) ? 'none' : '0 4px 14px rgba(37,99,235,0.3)', transition: 'all 0.25s ease' }}
-                                >
-                                    {new Date(selectedScholarship.deadline) < new Date() ? 'Deadline Passed' : (isApplyingScholarshipId === String(selectedScholarship.id) ? 'Applying...' : 'Apply Now')}
-                                </button>
-                            )}
+                            {(() => {
+                                const method = selectedScholarship.application_method || 'portal';
+                                const isExpired = new Date(selectedScholarship.deadline) < new Date();
+                                const isApplied = myApplications.some((app: any) => app.scholarship_id === selectedScholarship.id);
+
+                                if (method === 'external_link') {
+                                    const hasUrl = !!String(selectedScholarship.application_url || '').trim();
+                                    return (
+                                        <button
+                                            onClick={() => {
+                                                if (hasUrl) {
+                                                    window.open(selectedScholarship.application_url, '_blank', 'noopener,noreferrer');
+                                                }
+                                            }}
+                                            disabled={!hasUrl}
+                                            className="btn-press"
+                                            style={{
+                                                width: '100%',
+                                                padding: '14px',
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                background: hasUrl ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#cbd5e1',
+                                                color: '#fff',
+                                                fontWeight: 700,
+                                                fontSize: '14px',
+                                                cursor: hasUrl ? 'pointer' : 'not-allowed',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px',
+                                                boxShadow: hasUrl ? '0 4px 14px rgba(37,99,235,0.3)' : 'none',
+                                                transition: 'all 0.25s ease'
+                                            }}
+                                        >
+                                            {hasUrl ? 'Apply on Official Website' : 'Application link unavailable'}
+                                        </button>
+                                    );
+                                }
+
+                                if (method === 'express_interest') {
+                                    return (
+                                        <div className="space-y-2">
+                                            {isApplied ? (
+                                                <button disabled style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '14px', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                    <Icons.CheckCircle /> Interest Registered
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => { handleApplyScholarship(selectedScholarship); }}
+                                                    disabled={isExpired || isApplyingScholarshipId === String(selectedScholarship.id)}
+                                                    className="btn-press"
+                                                    style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: isExpired || isApplyingScholarshipId === String(selectedScholarship.id) ? '#cbd5e1' : 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: isExpired || isApplyingScholarshipId === String(selectedScholarship.id) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: isExpired || isApplyingScholarshipId === String(selectedScholarship.id) ? 'none' : '0 4px 14px rgba(37,99,235,0.3)', transition: 'all 0.25s ease' }}
+                                                >
+                                                    {isExpired ? 'Deadline Passed' : (isApplyingScholarshipId === String(selectedScholarship.id) ? 'Registering...' : 'Express Interest')}
+                                                </button>
+                                            )}
+                                            <p className="text-[11px] text-gray-400 text-center">
+                                                * This registers interest for reservation. Additional requirements may be requested by CARE staff.
+                                            </p>
+                                        </div>
+                                    );
+                                }
+
+                                // Default portal method
+                                return isApplied ? (
+                                    <button disabled style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: '14px', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        <Icons.CheckCircle /> Application Submitted
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => { handleApplyScholarship(selectedScholarship); }}
+                                        disabled={isExpired || isApplyingScholarshipId === String(selectedScholarship.id)}
+                                        className="btn-press"
+                                        style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', background: isExpired || isApplyingScholarshipId === String(selectedScholarship.id) ? '#cbd5e1' : 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: isExpired || isApplyingScholarshipId === String(selectedScholarship.id) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: isExpired || isApplyingScholarshipId === String(selectedScholarship.id) ? 'none' : '0 4px 14px rgba(37,99,235,0.3)', transition: 'all 0.25s ease' }}
+                                    >
+                                        {isExpired ? 'Deadline Passed' : (isApplyingScholarshipId === String(selectedScholarship.id) ? 'Applying...' : 'Apply Now')}
+                                    </button>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>,
