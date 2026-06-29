@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Award, Trash2, XCircle, Download, RefreshCw, Archive } from 'lucide-react';
+import { Plus, Award, Trash2, XCircle, Download, RefreshCw, Archive, Edit } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import { supabase } from '../../lib/supabase';
 import { managedArchiveService } from '../../services/managedArchiveService';
@@ -9,6 +9,7 @@ import { Scholarship } from '../../types/models';
 import { splitFullName } from '../../utils/nameUtils';
 import { buildStudentAddress } from '../../utils/studentFields';
 import type { CareStaffDashboardFunctions } from './types';
+import { parseScholarship, serializeRequirements } from '../../utils/scholarshipHelpers';
 
 interface ScholarshipApplicantStudent {
     student_id: string;
@@ -70,6 +71,11 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
 
     const [loading, setLoading] = useState(false);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+
+    // Derived states with metadata parsed
+    const parsedScholarships = (scholarships || []).map(parseScholarship);
+    const parsedClosedScholarships = (closedScholarships || []).map(parseScholarship);
 
     // Modal State
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
@@ -79,28 +85,69 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
     const [applicantsError, setApplicantsError] = useState('');
 
     // Form & Data State
-    const [scholarshipForm, setScholarshipForm] = useState<Partial<Scholarship>>({ title: '', description: '', requirements: '', deadline: '' });
+    const [scholarshipForm, setScholarshipForm] = useState<Partial<Scholarship>>({ 
+        title: '', 
+        description: '', 
+        requirements: '', 
+        deadline: '',
+        application_method: 'portal',
+        application_url: '',
+        is_active: true 
+    });
     const [applicantsList, setApplicantsList] = useState<ScholarshipApplicantRecord[]>([]);
     const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
     const [detailScholarship, setDetailScholarship] = useState<Scholarship | null>(null);
 
     // Form & Data State
-    const handleAddScholarship = async () => {
+    const handleSaveScholarship = async () => {
         if (!scholarshipForm.title || !scholarshipForm.deadline) {
             if (showToast) showToast("Title and Deadline are required.", "error");
             return;
         }
         setLoading(true);
         try {
-            const { error } = await supabase.from('scholarships').insert([{
-                ...scholarshipForm,
-                is_active: true
-            }]);
-            if (error) throw error;
-            if (showToast) showToast("Scholarship added.");
+            const reqs = serializeRequirements(
+                scholarshipForm.requirements || '',
+                scholarshipForm.application_method || 'portal',
+                scholarshipForm.application_url || ''
+            );
+
+            if (isEditing && scholarshipForm.id) {
+                const { error } = await supabase
+                    .from('scholarships')
+                    .update({
+                        title: scholarshipForm.title,
+                        description: scholarshipForm.description,
+                        requirements: reqs,
+                        deadline: scholarshipForm.deadline,
+                        is_active: scholarshipForm.is_active !== false
+                    })
+                    .eq('id', scholarshipForm.id);
+                if (error) throw error;
+                if (showToast) showToast("Scholarship updated.");
+            } else {
+                const { error } = await supabase.from('scholarships').insert([{
+                    title: scholarshipForm.title,
+                    description: scholarshipForm.description,
+                    requirements: reqs,
+                    deadline: scholarshipForm.deadline,
+                    is_active: true
+                }]);
+                if (error) throw error;
+                if (showToast) showToast("Scholarship added.");
+            }
             setShowScholarshipModal(false);
-            setScholarshipForm({ title: '', description: '', requirements: '', deadline: '' });
-            fetchScholarships();
+            setIsEditing(false);
+            setScholarshipForm({ 
+                title: '', 
+                description: '', 
+                requirements: '', 
+                deadline: '', 
+                application_method: 'portal', 
+                application_url: '', 
+                is_active: true 
+            });
+            Promise.all([fetchScholarships(), fetchClosedScholarships()]);
         } catch (err: any) {
             if (showToast) showToast(err.message, "error");
         } finally {
@@ -324,7 +371,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                         className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 shadow-sm hover:text-purple-600"
                     >
                         <Archive size={16} />
-                        <span>Closed ({closedScholarships.length})</span>
+                        <span>Closed ({parsedClosedScholarships.length})</span>
                     </button>
                     <button
                         onClick={handleRefreshData}
@@ -334,14 +381,29 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                         <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
                         <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
                     </button>
-                    <button onClick={() => setShowScholarshipModal(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-purple-200 transition-all duration-300">
+                    <button 
+                        onClick={() => {
+                            setIsEditing(false);
+                            setScholarshipForm({ 
+                                title: '', 
+                                description: '', 
+                                requirements: '', 
+                                deadline: '', 
+                                application_method: 'portal', 
+                                application_url: '', 
+                                is_active: true 
+                            });
+                            setShowScholarshipModal(true);
+                        }} 
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-purple-200 transition-all duration-300"
+                    >
                         <Plus size={14} /> Add Scholarship
                     </button>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {scholarships.map(s => (
+                {parsedScholarships.map(s => (
                     <div key={s.id} onClick={() => setDetailScholarship(s)} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow cursor-pointer">
                         <div>
                             <div className="flex justify-between items-start mb-4">
@@ -356,6 +418,19 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                         </div>
                         <div className="pt-4 border-t border-gray-50 flex gap-2">
                             <button onClick={(event) => { event.stopPropagation(); handleViewApplicants(s); }} className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition">View Applicants</button>
+                            <button 
+                                onClick={(event) => { 
+                                    event.stopPropagation(); 
+                                    setIsEditing(true); 
+                                    setScholarshipForm(s); 
+                                    setShowScholarshipModal(true); 
+                                }} 
+                                className="py-2 px-3 bg-purple-50 text-purple-750 text-purple-700 rounded-lg text-sm font-bold hover:bg-purple-100 transition flex items-center gap-1"
+                                title="Edit Scholarship"
+                            >
+                                <Edit size={14} />
+                                <span>Edit</span>
+                            </button>
                             <button onClick={(event) => { event.stopPropagation(); handleExportApplicantsForScholarship(s); }} className="py-2 px-3 bg-green-50 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition">Export</button>
                             {canArchiveRecords && (
                                 <button onClick={(event) => { event.stopPropagation(); s.id && handleDeleteScholarship(s.id); }} className="p-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition" title="Close Scholarship"><Trash2 size={16} /></button>
@@ -363,7 +438,7 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                         </div>
                     </div>
                 ))}
-                {scholarships.length === 0 && (
+                {parsedScholarships.length === 0 && (
                     <div className="col-span-full text-center py-12 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                         <p>No active scholarships found. Click "Add Scholarship" to create one.</p>
                     </div>
@@ -373,17 +448,76 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
             {/* Modals */}
             {showScholarshipModal && (
                 <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-scale-in">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">Add New Scholarship</h3>
-                            <button onClick={() => setShowScholarshipModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                            <h3 className="font-bold text-lg">{isEditing ? 'Edit Scholarship' : 'Add New Scholarship'}</h3>
+                            <button 
+                                onClick={() => {
+                                    setShowScholarshipModal(false);
+                                    setIsEditing(false);
+                                    setScholarshipForm({ 
+                                        title: '', 
+                                        description: '', 
+                                        requirements: '', 
+                                        deadline: '', 
+                                        application_method: 'portal', 
+                                        application_url: '', 
+                                        is_active: true 
+                                    });
+                                }}
+                            >
+                                <XCircle className="text-gray-400 hover:text-gray-600" />
+                            </button>
                         </div>
                         <div className="space-y-4">
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Scholarship Title</label><input className="w-full border rounded-lg p-2 text-sm" value={scholarshipForm.title} onChange={e => setScholarshipForm({ ...scholarshipForm, title: e.target.value })} placeholder="e.g. Academic Excellence 2026" /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Description</label><textarea className="w-full border rounded-lg p-2 text-sm" rows={3} value={scholarshipForm.description} onChange={e => setScholarshipForm({ ...scholarshipForm, description: e.target.value })} placeholder="Overview..." /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Requirements</label><textarea className="w-full border rounded-lg p-2 text-sm" rows={3} value={scholarshipForm.requirements} onChange={e => setScholarshipForm({ ...scholarshipForm, requirements: e.target.value })} placeholder="List requirements..." /></div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Deadline</label><input type="date" className="w-full border rounded-lg p-2 text-sm" value={scholarshipForm.deadline} onChange={e => setScholarshipForm({ ...scholarshipForm, deadline: e.target.value })} /></div>
-                            <button onClick={handleAddScholarship} disabled={loading} className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition mt-2">{loading ? 'Adding...' : 'Post Scholarship'}</button>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Application Method</label>
+                                <select 
+                                    className="w-full border rounded-lg p-2 text-sm bg-white" 
+                                    value={scholarshipForm.application_method || 'portal'} 
+                                    onChange={e => setScholarshipForm({ ...scholarshipForm, application_method: e.target.value })}
+                                >
+                                    <option value="portal">Apply Through Portal</option>
+                                    <option value="external_link">External Link</option>
+                                    <option value="express_interest">Express Interest / Reservation</option>
+                                </select>
+                            </div>
+
+                            {scholarshipForm.application_method === 'external_link' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Application URL</label>
+                                    <input 
+                                        type="url" 
+                                        className="w-full border rounded-lg p-2 text-sm" 
+                                        value={scholarshipForm.application_url || ''} 
+                                        onChange={e => setScholarshipForm({ ...scholarshipForm, application_url: e.target.value })} 
+                                        placeholder="https://example.com/apply" 
+                                    />
+                                </div>
+                            )}
+
+                            {isEditing && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Status</label>
+                                    <select 
+                                        className="w-full border rounded-lg p-2 text-sm bg-white" 
+                                        value={scholarshipForm.is_active === false ? 'closed' : 'open'} 
+                                        onChange={e => setScholarshipForm({ ...scholarshipForm, is_active: e.target.value === 'open' })}
+                                    >
+                                        <option value="open">Open (Visible to Students)</option>
+                                        <option value="closed">Closed (Hidden from Students)</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            <button onClick={handleSaveScholarship} disabled={loading} className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition mt-2">
+                                {loading ? (isEditing ? 'Saving...' : 'Adding...') : (isEditing ? 'Save Changes' : 'Post Scholarship')}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -444,7 +578,18 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                                 <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{detailScholarship.requirements || 'No requirements listed.'}</p>
                             </section>
                         </div>
-                        <div className="p-4 border-t bg-white text-right">
+                        <div className="p-4 border-t bg-white flex justify-between items-center">
+                            <button 
+                                onClick={() => {
+                                    setDetailScholarship(null);
+                                    setIsEditing(true);
+                                    setScholarshipForm(detailScholarship);
+                                    setShowScholarshipModal(true);
+                                }}
+                                className="px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700 transition"
+                            >
+                                Edit Scholarship
+                            </button>
                             <button onClick={() => setDetailScholarship(null)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 transition">Close</button>
                         </div>
                     </div>
@@ -462,11 +607,11 @@ const ScholarshipPage = ({ functions }: ScholarshipPageProps) => {
                             <button onClick={() => setShowClosedModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
                         <div className="p-6 overflow-y-auto flex-1">
-                            {closedScholarships.length === 0 ? (
+                            {parsedClosedScholarships.length === 0 ? (
                                 <div className="text-center py-12 text-gray-400">No closed scholarships yet.</div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {closedScholarships.map((scholarship) => (
+                                    {parsedClosedScholarships.map((scholarship) => (
                                         <div key={`closed-scholarship-${scholarship.id}`} onClick={() => setDetailScholarship(scholarship)} className="rounded-xl border border-slate-200 bg-slate-50 p-5 cursor-pointer hover:border-slate-300 transition">
                                             <div className="flex justify-between items-start gap-3">
                                                 <div>

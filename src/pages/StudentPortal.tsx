@@ -14,6 +14,7 @@ import {
 } from '../services/studentPortalService';
 import { STUDENT_LIST_COLUMNS } from '../services/careStaffService';
 import { fetchDepartmentNameForCourse } from '../utils/courseDepartment';
+import { parseScholarship } from '../utils/scholarshipHelpers';
 import { joinNameParts, splitFullName } from '../utils/nameUtils';
 import { buildStudentAddress, getStudentEmergencyContact, getStudentSex } from '../utils/studentFields';
 import { getAudienceLabel, isStudentEligibleForEvent } from '../utils/eventAudience';
@@ -1418,7 +1419,7 @@ export default function StudentPortal() {
             .select('id, title, description, requirements, deadline')
             .eq('is_active', true)
             .order('deadline', { ascending: true });
-        setScholarshipsList(data || []);
+        setScholarshipsList((data || []).map(parseScholarship));
     }, []);
     const refreshScholarshipsCached = useCallback(
         (options?: { force?: boolean }) => runDatasetRefresh('scholarships', refreshScholarships, options),
