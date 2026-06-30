@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
 import { createDeferredChannelCleanup } from '../../lib/realtime';
 import { formatAuditDetails, isTrackedStaffAuditRole } from '../../lib/staffAudit';
@@ -7,21 +7,28 @@ import { exportToExcel } from '../../utils/dashboardUtils';
 
 const AUDIT_LOG_COLUMNS = 'id, created_at, user_name, actor_role, action, details';
 
-const AuditLogsPage = () => {
+interface AuditLogsPageProps {
+    refreshSignal?: number;
+}
+
+const AuditLogsPage = ({ refreshSignal = 0 }: AuditLogsPageProps) => {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const lastExternalRefreshSignalRef = useRef(refreshSignal);
+
+    const fetchLogs = async () => {
+        setLoading(true);
+        const { data } = await supabase
+            .from('audit_logs')
+            .select(AUDIT_LOG_COLUMNS)
+            .in('actor_role', ['Care Staff', 'Department Head'])
+            .order('created_at', { ascending: false })
+            .limit(100);
+        if (data) setLogs(data);
+        setLoading(false);
+    };
 
     useEffect(() => {
-        const fetchLogs = async () => {
-            const { data } = await supabase
-                .from('audit_logs')
-                .select(AUDIT_LOG_COLUMNS)
-                .in('actor_role', ['Care Staff', 'Department Head'])
-                .order('created_at', { ascending: false })
-                .limit(100);
-            if (data) setLogs(data);
-            setLoading(false);
-        };
         fetchLogs();
 
         return createDeferredChannelCleanup(
@@ -33,6 +40,12 @@ const AuditLogsPage = () => {
             (channel) => supabase.removeChannel(channel)
         );
     }, []);
+
+    useEffect(() => {
+        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
+        lastExternalRefreshSignalRef.current = refreshSignal;
+        void fetchLogs();
+    }, [refreshSignal]);
 
     return (
         <div className="space-y-6">

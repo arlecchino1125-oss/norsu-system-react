@@ -16,6 +16,8 @@ interface NotificationBellProps {
     accentColor?: 'blue' | 'purple' | 'emerald';
     expandProfileUpdates?: boolean;
     className?: string;
+    isLoading?: boolean;
+    onOpen?: () => void;
 }
 
 const COLOR_MAP = {
@@ -124,7 +126,14 @@ const parseProfileUpdateNotification = (n: NotificationItem) => {
     };
 };
 
-const NotificationBell = ({ notifications, accentColor = 'blue', expandProfileUpdates = false, className = '' }: NotificationBellProps) => {
+const NotificationBell = ({
+    notifications,
+    accentColor = 'blue',
+    expandProfileUpdates = false,
+    className = '',
+    isLoading = false,
+    onOpen
+}: NotificationBellProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
     const panelRef = useRef<HTMLDivElement>(null);
@@ -159,11 +168,21 @@ const NotificationBell = ({ notifications, accentColor = 'blue', expandProfileUp
         setExpandedItems((prev) => ({ ...prev, [key]: !prev[key] }));
     };
 
+    const handleToggleOpen = () => {
+        setIsOpen((current) => {
+            const nextOpen = !current;
+            if (nextOpen) {
+                onOpen?.();
+            }
+            return nextOpen;
+        });
+    };
+
     return (
         <div className={`relative ${className}`}>
             <button
                 ref={buttonRef}
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={handleToggleOpen}
                 className={`notification-bell-button w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 ${colors.hover} hover:shadow-md transition-all relative border border-gray-100`}
             >
                 <Bell size={20} />
@@ -198,7 +217,12 @@ const NotificationBell = ({ notifications, accentColor = 'blue', expandProfileUp
 
                     {/* Notification list */}
                     <div className="overflow-y-auto" style={{ maxHeight: 'calc(70vh - 52px)' }}>
-                        {count === 0 ? (
+                        {isLoading && count === 0 ? (
+                            <div className="px-5 py-12 text-center">
+                                <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-500" />
+                                <p className="text-gray-400 text-sm font-medium">Loading notifications...</p>
+                            </div>
+                        ) : count === 0 ? (
                             <div className="px-5 py-12 text-center">
                                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                     <Bell size={20} className="text-gray-300" />

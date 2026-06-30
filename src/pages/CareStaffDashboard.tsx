@@ -102,6 +102,14 @@ const CARE_STAFF_TAB_FEATURES: Partial<Record<ActiveTab, string>> = {
     logbook: 'office_logbook'
 };
 
+const CARE_STAFF_REFRESHABLE_TABS = new Set<ActiveTab>([
+    'population',
+    'dashboard',
+    'counseling',
+    'support',
+    'audit'
+]);
+
 interface ToastState {
     msg: string;
     type: ToastType;
@@ -421,6 +429,8 @@ const CareStaffDashboard = () => {
     // Data States
     const [toast, setToast] = useState<ToastState | null>(null);
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+    const [notificationsLoaded, setNotificationsLoaded] = useState(false);
+    const [notificationsLoading, setNotificationsLoading] = useState(false);
     const [studentActivationPolicy, setStudentActivationPolicy] = useState({
         requireEnrollmentKey: true,
         updatedAt: null as string | null,
@@ -442,9 +452,8 @@ const CareStaffDashboard = () => {
     });
 
     const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const bellSyncRef = useRef<() => Promise<void>>(async () => undefined);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [refreshNonce, setRefreshNonce] = useState(0);
+    const [viewRefreshSignal, setViewRefreshSignal] = useState(0);
 
     // Session guard - redirect to login if no session
     useEffect(() => {
@@ -484,8 +493,10 @@ const CareStaffDashboard = () => {
     }, [showToastMessage]);
 
     useEffect(() => {
-        void loadStudentActivationPolicy();
-    }, [loadStudentActivationPolicy]);
+        if (activeTab === 'settings') {
+            void loadStudentActivationPolicy();
+        }
+    }, [activeTab, loadStudentActivationPolicy]);
 
     const syncStaffSession = useCallback((patch: Record<string, unknown>) => {
         updateSession?.((prev: any) => ({
@@ -650,7 +661,7 @@ const CareStaffDashboard = () => {
             fallbackMessage: 'Failed to reset student data.'
         });
 
-        setRefreshNonce((current) => current + 1);
+        setViewRefreshSignal((current) => current + 1);
         return result;
     }, []);
 
@@ -683,24 +694,9 @@ const CareStaffDashboard = () => {
         }
     }, [session, showToastMessage, studentActivationPolicy.requireEnrollmentKey]);
 
-    const refreshAll = useCallback(async () => {
-        setIsRefreshing(true);
+    const fetchStaffBellNotifications = useCallback(async () => {
+        setNotificationsLoading(true);
         try {
-            await bellSyncRef.current();
-            setRefreshNonce((current) => current + 1);
-            showToastMessage('Current view refreshed.');
-        } catch (error) {
-            console.error('Failed to refresh care staff dashboard view:', error);
-            showToastMessage('Failed to refresh the current view.', 'error');
-        } finally {
-            setIsRefreshing(false);
-        }
-    }, [showToastMessage]);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        const fetchStaffBellNotifications = async () => {
             const now = new Date();
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const tomorrowStart = new Date(todayStart);
@@ -761,7 +757,7 @@ const CareStaffDashboard = () => {
                     .limit(100)
             ]);
 
-            const merged = dedupeAndLimitNotifications([
+            setNotifications(dedupeAndLimitNotifications([
                 ...((auditRows || []) as NotificationItem[]),
                 ...((profileNotificationRows || []) as NotificationItem[]),
                 ...((supportSubmittedRows || []) as SupportNotificationRow[]).map((row) => mapSupportSubmittedNotification(row)),
@@ -773,35 +769,38 @@ const CareStaffDashboard = () => {
                 ...((supportVisitRows || []) as SupportNotificationRow[])
                     .map((row) => mapSupportVisitScheduledTodayNotification(row))
                     .filter(Boolean) as NotificationItem[]
-            ]);
+            ]));
+            setNotificationsLoaded(true);
+        } catch (error) {
+            console.error('Failed to sync care staff notifications:', error);
+            showToastMessage('Failed to load notifications.', 'error');
+        } finally {
+            setNotificationsLoading(false);
+        }
+    }, [showToastMessage]);
 
-            if (isMounted) {
-                setNotifications(merged);
+    const handleOpenNotifications = useCallback(() => {
+        if (notificationsLoaded || notificationsLoading) return;
+        void fetchStaffBellNotifications();
+    }, [fetchStaffBellNotifications, notificationsLoaded, notificationsLoading]);
+
+    const refreshAll = useCallback(async () => {
+        setIsRefreshing(true);
+        try {
+            if (!CARE_STAFF_REFRESHABLE_TABS.has(activeTab)) {
+                showToastMessage('This view has no live data to refresh.', 'info');
+                return;
             }
-        };
+            setViewRefreshSignal((current) => current + 1);
+        } catch (error) {
+            console.error('Failed to refresh care staff dashboard view:', error);
+            showToastMessage('Failed to refresh the current view.', 'error');
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [activeTab, showToastMessage]);
 
-        bellSyncRef.current = fetchStaffBellNotifications;
-        fetchStaffBellNotifications();
-
-        const syncBellNotifications = () => {
-            fetchStaffBellNotifications().catch((error) => {
-                console.error('Failed to sync care staff notifications:', error);
-            });
-        };
-
-        const handleWindowFocus = () => {
-            syncBellNotifications();
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                syncBellNotifications();
-            }
-        };
-
-        window.addEventListener('focus', handleWindowFocus);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
+    useEffect(() => {
         const removeProfileNotificationsChannel = createDeferredChannelCleanup(
             () => supabase
                 .channel('care_staff_profile_notifications')
@@ -911,10 +910,6 @@ const CareStaffDashboard = () => {
         );
 
         return () => {
-            isMounted = false;
-            bellSyncRef.current = async () => undefined;
-            window.removeEventListener('focus', handleWindowFocus);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
             removeProfileNotificationsChannel();
             removeProfileNotificationsFallbackChannel();
             removeSupportNotificationsChannel();
@@ -1010,9 +1005,9 @@ const CareStaffDashboard = () => {
             case 'home':
                 return <HomePage functions={functions} />;
             case 'population':
-                return <StudentPopulationPage functions={functions} pendingProfileId={pendingProfileId} onProfileOpened={() => setPendingProfileId(null)} />;
+                return <StudentPopulationPage functions={functions} pendingProfileId={pendingProfileId} onProfileOpened={() => setPendingProfileId(null)} refreshSignal={viewRefreshSignal} />;
             case 'dashboard':
-                return <CareStaffDashboardView setActiveTab={setActiveTabFromString} />;
+                return <CareStaffDashboardView setActiveTab={setActiveTabFromString} refreshSignal={viewRefreshSignal} />;
             case 'analytics':
                 return (
                     <Suspense fallback={tabLoadingFallback}>
@@ -1022,9 +1017,9 @@ const CareStaffDashboard = () => {
             case 'nat':
                 return <NATManagementPage showToast={showToastMessage} />;
             case 'counseling':
-                return <CounselingPage functions={functions} />;
+                return <CounselingPage functions={functions} refreshSignal={viewRefreshSignal} />;
             case 'support':
-                return <SupportRequestsPage functions={functions} />;
+                return <SupportRequestsPage functions={functions} refreshSignal={viewRefreshSignal} />;
             case 'events':
                 return <EventsPage functions={functions} />;
             case 'calendar':
@@ -1113,7 +1108,7 @@ const CareStaffDashboard = () => {
                     </div>
                 );
             case 'audit':
-                return <AuditLogsPage />;
+                return <AuditLogsPage refreshSignal={viewRefreshSignal} />;
             case 'logbook':
                 return <OfficeLogbookPage functions={functions} />;
             default:
@@ -1225,11 +1220,17 @@ const CareStaffDashboard = () => {
                             <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                             <span>{isRefreshing ? 'Refreshing...' : 'Refresh View'}</span>
                         </button>
-                        <NotificationBell notifications={notifications} accentColor="purple" expandProfileUpdates />
+                        <NotificationBell
+                            notifications={notifications}
+                            accentColor="purple"
+                            expandProfileUpdates
+                            isLoading={notificationsLoading}
+                            onOpen={handleOpenNotifications}
+                        />
                     </div>
                 </header>
 
-                <div key={`${activeTab}-${refreshNonce}`} className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
+                <div className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
                     {renderActiveTab()}
 
                     {renderCareStaffModals({

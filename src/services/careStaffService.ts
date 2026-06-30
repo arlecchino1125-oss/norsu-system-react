@@ -5,6 +5,38 @@ import type { PageParams, SortParams, StudentFilters } from '../types/query';
 
 // Student population pagination needs an exact total so page controls stay accurate.
 const PAGED_LIST_COUNT_MODE = 'exact';
+const STUDENT_SEARCH_COLUMNS = [
+    'first_name',
+    'last_name',
+    'student_id'
+];
+const STUDENT_SEARCH_RESERVED_CHARS = /[%*(),]/g;
+const DEFAULT_STUDENT_POPULATION_OVERVIEW = {
+    totalPopulation: 0,
+    activeStudents: 0,
+    archivedStudents: 0,
+    schoolYears: [] as string[]
+};
+
+export interface CareStudentPopulationOverview {
+    totalPopulation: number;
+    activeStudents: number;
+    archivedStudents: number;
+    schoolYears: string[];
+}
+
+export interface CareStudentCourseYearCount {
+    course: string;
+    year_level: string;
+    student_count: number;
+}
+
+export interface CareStudentBulkTarget {
+    id: string | number;
+    student_id?: string | null;
+    course?: string | null;
+    year_level?: string | null;
+}
 
 export const STUDENT_LIST_COLUMNS = [
     'id',
@@ -158,8 +190,6 @@ export const STUDENT_TABLE_COLUMNS = [
     'student_id',
     'first_name',
     'last_name',
-    'middle_name',
-    'suffix',
     'course',
     'year_level',
     'section',
@@ -177,36 +207,62 @@ export const STUDENT_TABLE_COLUMNS = [
     'archived_at',
     'archived_reason',
     'archived_by',
-    'archive_note',
-    'profile_picture_url',
-    'street',
-    'city',
-    'province',
-    'zip_code',
-    'region',
-    'mobile',
-    'dob',
-    'sex',
-    'gender_identity',
-    'nationality',
-    'facebook_url',
-    'place_of_birth',
-    'religion',
-    'civil_status'
+    'archive_note'
 ].join(', ');
+
+export const getStudentSearchTokens = (search?: string): string[] => {
+    return String(search || '')
+        .replace(STUDENT_SEARCH_RESERVED_CHARS, ' ')
+        .split(/\s+/)
+        .map(token => token.trim())
+        .filter(Boolean);
+};
+
+const buildStudentSearchFilter = (token: string) => (
+    STUDENT_SEARCH_COLUMNS
+        .map(column => `${column}.ilike.%${token}%`)
+        .join(',')
+);
+
+const normalizeSearchValue = (value: any) => String(value || '').trim().toLowerCase();
+
+const getStudentVisibleSearchParts = (student: any) => {
+    const firstName = normalizeSearchValue(student?.first_name);
+    const lastName = normalizeSearchValue(student?.last_name);
+    const studentId = normalizeSearchValue(student?.student_id);
+    const fullName = [firstName, lastName].filter(Boolean).join(' ');
+    const lastFirstName = [lastName, firstName].filter(Boolean).join(' ');
+
+    return {
+        firstName,
+        lastName,
+        studentId,
+        fullName,
+        lastFirstName
+    };
+};
+
+export const studentMatchesSearch = (student: any, search?: string): boolean => {
+    const tokens = getStudentSearchTokens(search).map(token => token.toLowerCase());
+    if (tokens.length === 0) return true;
+
+    const { firstName, lastName, studentId } = getStudentVisibleSearchParts(student);
+    const searchableValues = [firstName, lastName, studentId];
+
+    return tokens.every(token => (
+        searchableValues.some(value => value.includes(token))
+    ));
+};
 
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     let next = query.eq('is_archived', false);
     if (!filters) return next;
 
-    const trimmedSearch = String(filters.search || '').trim();
-    if (trimmedSearch) {
-        const safe = trimmedSearch.replace(/[%]/g, '');
-        next = next.or([
-            `first_name.ilike.%${safe}%`,
-            `last_name.ilike.%${safe}%`,
-            `student_id.ilike.%${safe}%`
-        ].join(','));
+    const searchTokens = getStudentSearchTokens(filters.search);
+    if (searchTokens.length > 0) {
+        searchTokens.forEach(token => {
+            next = next.or(buildStudentSearchFilter(token));
+        });
     }
 
     if (filters.status && filters.status !== 'All') {
@@ -299,17 +355,30 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     return next;
 };
 
-export const getStudentsPage = async (
+const createStudentsQuery = (filters?: StudentFilters, countMode?: 'exact') => {
+    let query: any = countMode
+        ? supabase.from('students').select(STUDENT_TABLE_COLUMNS, { count: countMode })
+        : supabase.from('students').select(STUDENT_TABLE_COLUMNS);
+    return applyStudentFilters(query, filters);
+};
+
+const isMissingRpcError = (error: any, functionName: string) => {
+    const message = String(error?.message || error?.details || '').toLowerCase();
+    return error?.code === '42883' || message.includes(functionName.toLowerCase());
+};
+
+const isMissingSearchRpcError = (error: any) => {
+    return isMissingRpcError(error, 'search_care_students');
+};
+
+const getRestStudentsPage = async (
     filters?: StudentFilters,
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
     const { from, to } = resolvePageParams(pageParams);
-    let query: any = supabase
-        .from('students')
-        .select(STUDENT_TABLE_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
+    let query: any = createStudentsQuery(filters, PAGED_LIST_COUNT_MODE);
 
-    query = applyStudentFilters(query, filters);
     query = applySort(query, sort || { column: 'created_at', ascending: false });
     query = query.range(from, to);
 
@@ -318,29 +387,251 @@ export const getStudentsPage = async (
     return toPageResult(data, count, pageParams);
 };
 
-export const getStudentIdsByFilters = async (filters?: StudentFilters): Promise<string[]> => {
-    let query: any = supabase
-        .from('students')
-        .select('id');
-    query = applyStudentFilters(query, filters);
+const getRpcStudentsPage = async (
+    filters?: StudentFilters,
+    pageParams?: PageParams,
+    sort?: SortParams
+): Promise<PageResult<any>> => {
+    const { page, pageSize } = resolvePageParams(pageParams);
+    const search = getStudentSearchTokens(filters?.search).join(' ');
+    const { data, error } = await supabase.rpc('search_care_students', {
+        p_search: search,
+        p_department: filters?.department || null,
+        p_course: filters?.course || null,
+        p_year_level: filters?.yearLevel || null,
+        p_section: filters?.section || null,
+        p_status: filters?.status || null,
+        p_page: page,
+        p_page_size: pageSize,
+        p_sort_column: sort?.column || 'created_at',
+        p_sort_ascending: sort?.ascending ?? false
+    });
 
-    let allIds: string[] = [];
+    if (error) {
+        if (isMissingSearchRpcError(error)) {
+            return getRestStudentsPage(filters, pageParams, sort);
+        }
+        throw error;
+    }
+
+    const rows = (data || []).map(({ total_count, ...row }: any) => row);
+    const total = data?.length ? Number(data[0].total_count || 0) : 0;
+    return toPageResult(rows, total, pageParams);
+};
+
+export const getStudentsPage = async (
+    filters?: StudentFilters,
+    pageParams?: PageParams,
+    sort?: SortParams
+): Promise<PageResult<any>> => {
+    return getRpcStudentsPage(filters, pageParams, sort);
+};
+
+const getStudentRowsByFilters = async (
+    select: string,
+    filters?: StudentFilters,
+    order?: { column: string; ascending?: boolean }
+): Promise<any[]> => {
+    let allRows: any[] = [];
     let start = 0;
     const limit = 1000;
 
     while (true) {
+        let query: any = supabase
+            .from('students')
+            .select(select);
+        query = applyStudentFilters(query, filters);
+        if (order) {
+            query = query.order(order.column, { ascending: order.ascending ?? true });
+        }
         const { data, error } = await query.range(start, start + limit - 1);
         if (error) throw error;
 
         if (!data || data.length === 0) break;
 
-        allIds = allIds.concat(data.map((row: any) => String(row.id)).filter(Boolean));
+        allRows = allRows.concat(data);
 
         if (data.length < limit) break;
         start += limit;
     }
 
-    return allIds;
+    return allRows;
+};
+
+export const getStudentIdsByFilters = async (filters?: StudentFilters): Promise<string[]> => {
+    const rows = await getStudentRowsByFilters('id', filters);
+    return rows.map((row: any) => String(row.id)).filter(Boolean);
+};
+
+export const getCareStudentBulkTargets = async (filters?: StudentFilters): Promise<CareStudentBulkTarget[]> => {
+    return getStudentRowsByFilters('id, student_id, course, year_level', filters, { column: 'created_at', ascending: false });
+};
+
+export const getActiveStudentsForLocalFiltering = async () => {
+    return getStudentRowsByFilters(STUDENT_TABLE_COLUMNS, undefined, { column: 'created_at', ascending: false });
+};
+
+export const getArchivedCareStudents = async () => {
+    let allRows: any[] = [];
+    let start = 0;
+    const limit = 1000;
+
+    while (true) {
+        const { data, error } = await supabase
+            .from('students')
+            .select(STUDENT_TABLE_COLUMNS)
+            .eq('is_archived', true)
+            .order('archived_at', { ascending: false })
+            .range(start, start + limit - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+
+        allRows = allRows.concat(data);
+        if (data.length < limit) break;
+        start += limit;
+    }
+
+    return allRows;
+};
+
+export const getCareStudentSections = async (filters?: Pick<StudentFilters, 'course' | 'yearLevel'>): Promise<string[]> => {
+    let query: any = supabase
+        .from('students')
+        .select('section')
+        .eq('is_archived', false);
+
+    if (filters?.course && filters.course !== 'All') {
+        query = query.eq('course', filters.course);
+    }
+    if (filters?.yearLevel && filters.yearLevel !== 'All') {
+        query = query.eq('year_level', filters.yearLevel);
+    }
+
+    const { data, error } = await query
+        .order('section', { ascending: true })
+        .range(0, 9999);
+    if (error) throw error;
+
+    return [...new Set<string>((data || [])
+        .map((row: any) => String(row.section || '').trim())
+        .filter(Boolean)
+    )].sort();
+};
+
+const normalizeOverviewRow = (row: any): CareStudentPopulationOverview => ({
+    totalPopulation: Number(row?.total_population || row?.totalPopulation || 0),
+    activeStudents: Number(row?.active_students || row?.activeStudents || 0),
+    archivedStudents: Number(row?.archived_students || row?.archivedStudents || 0),
+    schoolYears: Array.isArray(row?.school_years)
+        ? row.school_years.map((year: unknown) => String(year || '').trim()).filter(Boolean)
+        : []
+});
+
+const deriveSchoolYearLabelFromArchiveEntry = (entry: any) => {
+    const rawSchoolYear = String(entry?.school_year || '').trim();
+    if (rawSchoolYear) {
+        return rawSchoolYear.startsWith('AY') ? `SY${rawSchoolYear.slice(2)}` : rawSchoolYear;
+    }
+
+    const start = entry?.window_start ? new Date(entry.window_start) : null;
+    const end = entry?.window_end ? new Date(entry.window_end) : null;
+    if (start && end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+        return `SY ${Math.min(start.getFullYear(), end.getFullYear())}-${Math.max(start.getFullYear(), end.getFullYear())}`;
+    }
+    return '';
+};
+
+const getSchoolYearsFromArchiveRows = (rows: any[]) => {
+    const years = new Set<string>();
+    rows.forEach((row) => {
+        const entries = Array.isArray(row?.course_year_archive) ? row.course_year_archive : [];
+        entries.forEach((entry: any) => {
+            const schoolYear = deriveSchoolYearLabelFromArchiveEntry(entry);
+            if (schoolYear) years.add(schoolYear);
+        });
+    });
+    return [...years].sort().reverse();
+};
+
+const getCareStudentPopulationOverviewRest = async (): Promise<CareStudentPopulationOverview> => {
+    const [
+        totalResult,
+        activeResult,
+        archivedResult,
+        schoolYearResult
+    ] = await Promise.all([
+        supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+        supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false).eq('status', 'Active'),
+        supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', true),
+        supabase.from('students').select('course_year_archive').eq('is_archived', false).range(0, 9999)
+    ]);
+
+    const firstError = totalResult.error || activeResult.error || archivedResult.error || schoolYearResult.error;
+    if (firstError) throw firstError;
+
+    return {
+        totalPopulation: Number(totalResult.count || 0),
+        activeStudents: Number(activeResult.count || 0),
+        archivedStudents: Number(archivedResult.count || 0),
+        schoolYears: getSchoolYearsFromArchiveRows(schoolYearResult.data || [])
+    };
+};
+
+export const getCareStudentPopulationOverview = async (): Promise<CareStudentPopulationOverview> => {
+    const { data, error } = await supabase.rpc('get_care_student_population_overview');
+    if (error) {
+        if (isMissingRpcError(error, 'get_care_student_population_overview')) {
+            return getCareStudentPopulationOverviewRest();
+        }
+        throw error;
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    return row ? normalizeOverviewRow(row) : { ...DEFAULT_STUDENT_POPULATION_OVERVIEW };
+};
+
+export const getCareStudentCourseYearCounts = async (): Promise<CareStudentCourseYearCount[]> => {
+    const { data, error } = await supabase.rpc('get_care_student_course_year_counts');
+    if (error) {
+        if (isMissingRpcError(error, 'get_care_student_course_year_counts')) {
+            let rows: any[] = [];
+            let start = 0;
+            const limit = 1000;
+            while (true) {
+                const { data: batch, error: batchError } = await supabase
+                    .from('students')
+                    .select('course, year_level')
+                    .eq('is_archived', false)
+                    .eq('status', 'Active')
+                    .order('course', { ascending: true })
+                    .range(start, start + limit - 1);
+                if (batchError) throw batchError;
+                if (!batch || batch.length === 0) break;
+
+                rows = rows.concat(batch);
+                if (batch.length < limit) break;
+                start += limit;
+            }
+            const counts = new Map<string, CareStudentCourseYearCount>();
+            rows.forEach((row: any) => {
+                const course = String(row.course || '');
+                const yearLevel = String(row.year_level || '');
+                const key = `${course}\u0000${yearLevel}`;
+                const current = counts.get(key) || { course, year_level: yearLevel, student_count: 0 };
+                current.student_count += 1;
+                counts.set(key, current);
+            });
+            return [...counts.values()];
+        }
+        throw error;
+    }
+
+    return (data || []).map((row: any) => ({
+        course: String(row.course || ''),
+        year_level: String(row.year_level || ''),
+        student_count: Number(row.student_count || 0)
+    }));
 };
 
 export const getAllStudentsForExport = async () => {

@@ -194,6 +194,13 @@ const matchesAuthUser = (value: any, authUser: any) => {
     const currentAuthUserId = String(authUser?.id || '').trim();
     return Boolean(currentAuthUserId) && getSessionAuthUserId(value) === currentAuthUserId;
 };
+const shouldReuseLoadedAuthSession = (event: string, currentSession: any, authUser: any) =>
+    event === 'INITIAL_SESSION'
+    || (
+        (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')
+        && Boolean(currentSession)
+        && matchesAuthUser(currentSession, authUser)
+    );
 
 const isInvalidAuthCredentialsError = (error: any) => {
     const message = String(error || '').toLowerCase();
@@ -694,10 +701,14 @@ export function AuthProvider({ children }: any) {
 
         const {
             data: { subscription }
-        } = supabase.auth.onAuthStateChange((_event, nextAuthSession) => {
+        } = supabase.auth.onAuthStateChange((event, nextAuthSession) => {
             const currentSession = sessionRef.current;
 
             if (nextAuthSession?.user) {
+                if (shouldReuseLoadedAuthSession(event, currentSession, nextAuthSession.user)) {
+                    return;
+                }
+
                 restoreStaffSessionFromAuth(nextAuthSession.user)
                     .then((restoredStaff) => {
                         if (restoredStaff) return restoredStaff;

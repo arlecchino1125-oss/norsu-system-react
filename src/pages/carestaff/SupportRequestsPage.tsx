@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { createDeferredChannelCleanup } from '../../lib/realtime';
 import { invokeEdgeFunction } from '../../lib/invokeEdgeFunction';
@@ -25,6 +25,7 @@ import PaginationControls from '../../components/PaginationControls';
 
 interface SupportRequestsPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
+    refreshSignal?: number;
 }
 
 const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
@@ -70,8 +71,9 @@ const SUPPORT_STUDENT_COLUMNS = [
 const isSupportedDocumentFile = (file: File) =>
     file.type.startsWith('image/') || file.type === 'application/pdf';
 
-const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
+const SupportRequestsPage = ({ functions, refreshSignal = 0 }: SupportRequestsPageProps) => {
     const { showToast } = functions || {};
+    const lastExternalRefreshSignalRef = useRef(refreshSignal);
     const sortSupportByCreatedAt = (rows: any[]) =>
         [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
@@ -239,6 +241,12 @@ const SupportRequestsPage = ({ functions }: SupportRequestsPageProps) => {
             setIsRefreshingData(false);
         }
     };
+
+    useEffect(() => {
+        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
+        lastExternalRefreshSignalRef.current = refreshSignal;
+        void handleRefreshData();
+    }, [refreshSignal]);
 
     // Handlers
     const openSupportModal = async (req: any) => {
