@@ -37,6 +37,8 @@ import {
 import { validateTextInput, isValidEmailDomain } from '../utils/inputSecurity';
 import { getProfileTextFieldRule } from '../utils/profileFieldRules';
 import { getSafeErrorMessage } from '../utils/errorMasking';
+import { driveService } from '../services/driveService';
+import { getStoredAssetPath } from '../utils/storageAssets';
 
 const supabaseClient = supabase;
 const ProfileCompletionModal = lazy(() => import('./student/forms/ProfileCompletionModal'));
@@ -2423,20 +2425,18 @@ export default function StudentPortal() {
         });
     };
 
-    // Upload profile picture to Supabase Storage & update DB
+    // Upload profile picture to Google Drive & update DB
     const uploadProfilePicture = async (file: File) => {
         if (!personalInfo.studentId) return;
         try {
-            const ext = file.name.split('.').pop() || 'jpg';
-            const path = `${personalInfo.studentId}/avatar.${ext}`;
-            const { error: uploadError } = await supabaseClient.storage
-                .from('profile-pictures')
-                .upload(path, file, { upsert: true, contentType: file.type });
-            if (uploadError) throw uploadError;
-            const { data: urlData } = supabaseClient.storage
-                .from('profile-pictures')
-                .getPublicUrl(path);
-            const publicUrl = urlData.publicUrl;
+            const oldUrl = personalInfo.profile_picture_url || personalInfo.profilePictureUrl;
+            const oldPath = oldUrl ? getStoredAssetPath('profile-pictures', oldUrl) : '';
+
+            const result = await driveService.uploadFile(file, personalInfo.studentId);
+            if (!result.success || (!result.directLink && !result.webViewLink)) {
+                throw new Error(result.error || 'Failed to upload to Google Drive');
+            }
+            const publicUrl = result.directLink || result.webViewLink || '';
             await invokeManagedStudentFunction({
                 mode: 'update-profile-picture',
                 profilePictureUrl: publicUrl
@@ -2450,8 +2450,17 @@ export default function StudentPortal() {
             });
             setPersonalInfo((prev: any) => ({ ...prev, profilePictureUrl: publicUrl, profile_picture_url: publicUrl }));
             showToast("Profile picture updated!");
+
+            // Delete old file from Supabase storage if it existed there
+            if (oldPath) {
+                try {
+                    await supabaseClient.storage.from('profile-pictures').remove([oldPath]);
+                } catch (deleteErr) {
+                    console.warn('Failed to delete legacy profile picture from Supabase Storage:', deleteErr);
+                }
+            }
         } catch (err: any) {
-            showToast("Couldn't upload picture. ", 'error');
+            showToast(err.message || "Couldn't upload picture. ", 'error');
         }
     };
 
