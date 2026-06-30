@@ -17,9 +17,10 @@ import { isAttendanceActivityType } from '../../utils/eventAudience';
 
 interface CareStaffDashboardViewProps {
     setActiveTab: (tab: string) => void;
+    refreshSignal?: number;
 }
 
-const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab }) => {
+const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab, refreshSignal = 0 }) => {
     const PROFILE_ACTIVITY_ACTIONS = [
         'Student Profile Updated',
         'Student Profile Completed',
@@ -95,6 +96,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
 
         const fetchDashboardData = async () => {
             try {
+                setLoading(true);
                 // Fetch Counts
                 const [
                     { count: studentsCount },
@@ -280,7 +282,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
             removeProfileActivityChannel();
             removeProfileNotificationChannel();
         };
-    }, []);
+    }, [refreshSignal]);
 
     if (loading) {
         return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div></div>;

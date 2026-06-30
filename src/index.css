@@ -16,6 +16,163 @@
     --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
+/* Care staff student refresh animation */
+@keyframes careRefreshCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(-14px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes careRefreshIconSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes careRefreshRing {
+    0% {
+        opacity: 0.55;
+        transform: scale(0.78);
+    }
+
+    70% {
+        opacity: 0;
+        transform: scale(1.55);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(1.55);
+    }
+}
+
+@keyframes careRefreshScan {
+    from {
+        transform: translateX(-120%);
+    }
+
+    to {
+        transform: translateX(120%);
+    }
+}
+
+@keyframes careRefreshProgress {
+    0% {
+        transform: translateX(-95%);
+    }
+
+    55% {
+        transform: translateX(-28%);
+    }
+
+    100% {
+        transform: translateX(0);
+    }
+}
+
+@keyframes careRefreshDot {
+    0%,
+    100% {
+        opacity: 0.25;
+        transform: translateY(0);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translateY(-2px);
+    }
+}
+
+@keyframes careRefreshSurface {
+    0%,
+    100% {
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        transform: translateY(0);
+    }
+
+    50% {
+        box-shadow: 0 16px 36px rgba(124, 58, 237, 0.12);
+        transform: translateY(-1px);
+    }
+}
+
+.care-refresh-card {
+    animation: careRefreshCardIn 0.35s var(--ease-out-expo) both;
+}
+
+.care-refresh-scan {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 0%, rgba(139, 92, 246, 0.1) 38%, rgba(59, 130, 246, 0.14) 50%, transparent 64%);
+    animation: careRefreshScan 1.45s ease-in-out infinite;
+}
+
+.care-refresh-core {
+    isolation: isolate;
+}
+
+.care-refresh-icon {
+    animation: careRefreshIconSpin 1s linear infinite;
+    position: relative;
+    z-index: 2;
+}
+
+.care-refresh-ring {
+    position: absolute;
+    inset: -4px;
+    border: 1px solid rgba(124, 58, 237, 0.34);
+    border-radius: 0.9rem;
+    animation: careRefreshRing 1.55s ease-out infinite;
+}
+
+.care-refresh-ring-two {
+    animation-delay: 0.45s;
+}
+
+.care-refresh-progress {
+    width: 100%;
+    background: linear-gradient(90deg, #7c3aed, #2563eb, #06b6d4);
+    animation: careRefreshProgress 1.15s var(--ease-smooth) infinite;
+}
+
+.care-refresh-dot {
+    width: 0.3rem;
+    height: 0.3rem;
+    border-radius: 999px;
+    background: #7c3aed;
+    animation: careRefreshDot 1s ease-in-out infinite;
+}
+
+.care-refresh-dot-delay-one {
+    animation-delay: 0.15s;
+}
+
+.care-refresh-dot-delay-two {
+    animation-delay: 0.3s;
+}
+
+.care-student-refreshing [data-refresh-surface] {
+    animation: careRefreshSurface 1.35s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .care-refresh-card,
+    .care-refresh-scan,
+    .care-refresh-icon,
+    .care-refresh-ring,
+    .care-refresh-progress,
+    .care-refresh-dot,
+    .care-student-refreshing [data-refresh-surface] {
+        animation: none !important;
+    }
+}
+
 /* ─── BASE LAYER ─── */
 @layer base {
     html {

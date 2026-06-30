@@ -8,13 +8,28 @@ import {
 import { supabase } from '../../lib/supabase';
 import { invokeEdgeFunction } from '../../lib/invokeEdgeFunction';
 import { usePermissions } from '../../hooks/usePermissions';
-import { useSupabaseData } from '../../hooks/useSupabaseData';
 import { managedArchiveService } from '../../services/managedArchiveService';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { getValidProfileImageUrl } from '../../utils/formatters';
 import type { CareStaffDashboardFunctions } from './types';
-import { getAllStudentsForExport, getStudentByStudentId, getStudentsPage, STUDENT_TABLE_COLUMNS } from '../../services/careStaffService';
+import {
+    getActiveStudentsForLocalFiltering,
+    getAllStudentsForExport,
+    getArchivedCareStudents,
+    getCareStudentBulkTargets,
+    getCareStudentCourseYearCounts,
+    getCareStudentPopulationOverview,
+    getCareStudentSections,
+    getCoursesWithDepartments,
+    getDepartments,
+    getNatApplicationCourseCounts,
+    getStudentByStudentId,
+    getStudentsPage,
+    studentMatchesSearch,
+    type CareStudentCourseYearCount,
+    type CareStudentPopulationOverview
+} from '../../services/careStaffService';
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
 import { openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../utils/inputSecurity';
@@ -171,8 +186,17 @@ const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th
 const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
 const CARE_STUDENT_PAGE_SIZE = 5;
 const CARE_STUDENT_TABLE_SHELL_CLASS = 'bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex min-h-[28rem] flex-col';
+const CARE_STUDENT_SEARCH_DEBOUNCE_MS = 250;
+const CARE_STUDENT_REFRESH_MIN_MS = 900;
+const EMPTY_POPULATION_OVERVIEW: CareStudentPopulationOverview = {
+    totalPopulation: 0,
+    activeStudents: 0,
+    archivedStudents: 0,
+    schoolYears: []
+};
 
 const getCareStudentTotalPages = (totalItems: number) => Math.max(1, Math.ceil(Math.max(0, totalItems) / CARE_STUDENT_PAGE_SIZE));
+const waitForCareStudentRefreshAnimation = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 const buildCareStudentPaginationItems = (page: number, totalPages: number) => {
     if (totalPages <= 5) {
@@ -288,56 +312,33 @@ interface StudentPopulationPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
     pendingProfileId?: string | null;
     onProfileOpened?: () => void;
+    refreshSignal?: number;
 }
 
-const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }: StudentPopulationPageProps) => {
+const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened, refreshSignal = 0 }: StudentPopulationPageProps) => {
     const { showToast } = functions || {};
     const { canPerformAction } = usePermissions();
     const canArchiveRecords = canPerformAction('archive_records');
     const canRestoreRecords = canPerformAction('restore_records');
 
-    // Use custom hook for data fetching & real-time updates
-    const { data: studentsList, refetch: refetchStudents } = useSupabaseData({
-        table: 'students',
-        select: STUDENT_TABLE_COLUMNS,
-        eq: { column: 'is_archived', value: false },
-        order: { column: 'created_at', ascending: false },
-        subscribe: true,
-        fetchAll: true
-    });
-
-    const {
-        data: archivedStudentsList,
-        loading: archivedStudentsLoading,
-        refetch: refetchArchivedStudents
-    } = useSupabaseData({
-        table: 'students',
-        select: STUDENT_TABLE_COLUMNS,
-        eq: { column: 'is_archived', value: true },
-        order: { column: 'archived_at', ascending: false },
-        subscribe: true,
-        fetchAll: true
-    });
-
-    const { data: allCourses, refetch: refetchCourses } = useSupabaseData({
-        table: 'courses',
-        select: 'id, name, application_limit, status, department_id, departments(name)',
-        order: { column: 'name', ascending: true }
-    });
-
-    const { data: departmentRows } = useSupabaseData({
-        table: 'departments',
-        select: 'id, name',
-        order: { column: 'name', ascending: true },
-        subscribe: true
-    });
-    const allDepartments = departmentRows.filter((department: any) => !department?.is_archived);
-
-    const { data: natApplications, refetch: refetchNatApplications } = useSupabaseData({
-        table: 'applications',
-        select: 'id, priority_course',
-        subscribe: true
-    });
+    const [populationOverview, setPopulationOverview] = useState<CareStudentPopulationOverview>(EMPTY_POPULATION_OVERVIEW);
+    const [overviewLoading, setOverviewLoading] = useState(true);
+    const [allCourses, setAllCourses] = useState<any[]>([]);
+    const [allDepartments, setAllDepartments] = useState<any[]>([]);
+    const [lookupsLoading, setLookupsLoading] = useState(true);
+    const [archivedStudentsList, setArchivedStudentsList] = useState<any[]>([]);
+    const [archivedStudentsLoading, setArchivedStudentsLoading] = useState(false);
+    const [archivedStudentsLoaded, setArchivedStudentsLoaded] = useState(false);
+    const [historicalStudents, setHistoricalStudents] = useState<any[]>([]);
+    const [historicalStudentsLoading, setHistoricalStudentsLoading] = useState(false);
+    const [availableSections, setAvailableSections] = useState<string[]>([]);
+    const [courseYearCounts, setCourseYearCounts] = useState<CareStudentCourseYearCount[]>([]);
+    const [courseYearCountsLoading, setCourseYearCountsLoading] = useState(false);
+    const [courseYearCountsLoaded, setCourseYearCountsLoaded] = useState(false);
+    const [courseApplicantCounts, setCourseApplicantCounts] = useState<Record<string, number>>({});
+    const [courseApplicantCountsLoading, setCourseApplicantCountsLoading] = useState(false);
+    const [courseApplicantCountsLoaded, setCourseApplicantCountsLoaded] = useState(false);
+    const refreshInFlightRef = useRef(false);
 
     // Modals
     const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
@@ -349,12 +350,20 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const [archivedSearchTerm, setArchivedSearchTerm] = useState('');
     const [restoringStudentId, setRestoringStudentId] = useState<string | number | null>(null);
 
-    const openEditModal = (student: any) => {
+    const openEditModal = async (student: any) => {
+        let fullStudent = student;
+        if (student?.student_id) {
+            try {
+                fullStudent = await getStudentByStudentId(student.student_id) || student;
+            } catch (error) {
+                if (showToast) showToast("Couldn't load complete student details for editing.", 'error');
+            }
+        }
         setEditForm({
-            ...student,
-            course_year_update_required: Boolean(student.course_year_update_required),
-            course_year_window_start: toDateTimeLocal(student.course_year_window_start),
-            course_year_window_end: toDateTimeLocal(student.course_year_window_end),
+            ...fullStudent,
+            course_year_update_required: Boolean(fullStudent.course_year_update_required),
+            course_year_window_start: toDateTimeLocal(fullStudent.course_year_window_start),
+            course_year_window_end: toDateTimeLocal(fullStudent.course_year_window_end),
         });
         setShowEditModal(true);
     };
@@ -411,7 +420,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
             if (showToast) showToast("Student updated.");
             setShowEditModal(false);
-            refetchStudents();
+            void refreshPopulationAfterStudentMutation();
         } catch (error: any) {
             if (showToast) showToast("Error updating student: ", 'error');
         }
@@ -429,8 +438,10 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             if (showToast) showToast("Student archived and linked key marked inactive.");
             setShowDeleteModal(false);
             setStudentToDelete(null);
-            refetchStudents();
-            setTableRefreshTick((current) => current + 1);
+            void refreshPopulationAfterStudentMutation();
+            if (archivedStudentsLoaded) {
+                void loadArchivedStudents(true);
+            }
             if (showEnrollmentModal) {
                 fetchEnrollmentKeys();
             }
@@ -450,9 +461,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 String(student.student_id || '').trim()
             );
             if (showToast) showToast('Student unarchived and restored to the active roster.');
-            refetchStudents();
-            refetchArchivedStudents();
-            setTableRefreshTick((current) => current + 1);
+            void refreshPopulationAfterStudentMutation();
+            void loadArchivedStudents(true);
             if (showEnrollmentModal) {
                 fetchEnrollmentKeys();
             }
@@ -463,6 +473,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         }
     };
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState('All');
     const [enrollmentSearchQuery, setEnrollmentSearchQuery] = useState('');
@@ -498,6 +509,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     const [targetStudent, setTargetStudent] = useState<any | null>(null);
     const [sourceLoading, setSourceLoading] = useState<boolean>(false);
     const [targetLoading, setTargetLoading] = useState<boolean>(false);
+    const studentTableRequestIdRef = useRef(0);
+    const lastExternalRefreshSignalRef = useRef(refreshSignal);
 
     useEffect(() => {
         if (!showIdSwapModal) {
@@ -579,6 +592,135 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         sessionStorage.getItem(ARCHIVE_RPC_MISSING_CACHE_KEY) === '1' ? 'missing' : 'unknown'
     );
 
+    const loadPopulationOverview = async () => {
+        setOverviewLoading(true);
+        try {
+            setPopulationOverview(await getCareStudentPopulationOverview());
+        } catch (error) {
+            console.error('Error loading student population overview:', error);
+            if (showToast) showToast("Couldn't load student population totals.", 'error');
+        } finally {
+            setOverviewLoading(false);
+        }
+    };
+
+    const loadLookupData = async () => {
+        setLookupsLoading(true);
+        try {
+            const [courses, departments] = await Promise.all([
+                getCoursesWithDepartments(),
+                getDepartments()
+            ]);
+            setAllCourses(courses);
+            setAllDepartments(departments);
+        } catch (error) {
+            console.error('Error loading student population lookups:', error);
+            if (showToast) showToast("Couldn't load course and department filters.", 'error');
+        } finally {
+            setLookupsLoading(false);
+        }
+    };
+
+    const loadArchivedStudents = async (force = false) => {
+        if (archivedStudentsLoaded && !force) return;
+        setArchivedStudentsLoading(true);
+        try {
+            setArchivedStudentsList(await getArchivedCareStudents());
+            setArchivedStudentsLoaded(true);
+        } catch (error) {
+            console.error('Error loading archived students:', error);
+            if (showToast) showToast("Couldn't load archived students.", 'error');
+        } finally {
+            setArchivedStudentsLoading(false);
+        }
+    };
+
+    const loadHistoricalStudents = async (force = false) => {
+        if (schoolYearFilter === 'All') {
+            setHistoricalStudents([]);
+            return;
+        }
+        if (historicalStudents.length > 0 && !force) return;
+        setHistoricalStudentsLoading(true);
+        try {
+            setHistoricalStudents(await getActiveStudentsForLocalFiltering());
+        } catch (error) {
+            console.error('Error loading historical student rows:', error);
+            if (showToast) showToast("Couldn't load school-year student history.", 'error');
+        } finally {
+            setHistoricalStudentsLoading(false);
+        }
+    };
+
+    const loadCourseYearCounts = async (force = false) => {
+        if (courseYearCountsLoaded && !force) return;
+        setCourseYearCountsLoading(true);
+        try {
+            setCourseYearCounts(await getCareStudentCourseYearCounts());
+            setCourseYearCountsLoaded(true);
+        } catch (error) {
+            console.error('Error loading course/year counts:', error);
+            if (showToast) showToast("Couldn't load student population stats.", 'error');
+        } finally {
+            setCourseYearCountsLoading(false);
+        }
+    };
+
+    const loadCourseApplicantCounts = async (force = false) => {
+        if (courseApplicantCountsLoaded && !force) return;
+        setCourseApplicantCountsLoading(true);
+        try {
+            const rows = await getNatApplicationCourseCounts();
+            const counts = (rows || []).reduce((acc: Record<string, number>, app: any) => {
+                if (app.priority_course) {
+                    acc[app.priority_course] = (acc[app.priority_course] || 0) + 1;
+                }
+                return acc;
+            }, {});
+            setCourseApplicantCounts(counts);
+            setCourseApplicantCountsLoaded(true);
+        } catch (error) {
+            console.error('Error loading NAT applicant counts:', error);
+            if (showToast) showToast("Couldn't load applicant counts.", 'error');
+        } finally {
+            setCourseApplicantCountsLoading(false);
+        }
+    };
+
+    const refreshPopulationAfterStudentMutation = async () => {
+        setTableRefreshTick((current) => current + 1);
+        await loadPopulationOverview();
+        if (schoolYearFilter !== 'All') {
+            await loadHistoricalStudents(true);
+        }
+    };
+
+    useEffect(() => {
+        void loadPopulationOverview();
+        void loadLookupData();
+    }, []);
+
+    useEffect(() => {
+        if (viewMode === 'stats') {
+            void loadCourseYearCounts();
+        }
+    }, [viewMode]);
+
+    useEffect(() => {
+        if (showEnrollmentModal && settingsTab === 'limits') {
+            void loadCourseApplicantCounts();
+        }
+    }, [showEnrollmentModal, settingsTab]);
+
+    useEffect(() => {
+        if (schoolYearFilter === 'All') {
+            setHistoricalStudents([]);
+            setHistoricalStudentsLoading(false);
+            return;
+        }
+        void loadHistoricalStudents();
+    }, [schoolYearFilter]);
+
     const openProfileModal = async (student: any) => {
         setProfileLoading(true);
         setProfileCategoryIndex(0);
@@ -627,20 +769,49 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     };
 
     const handleRefreshData = async () => {
+        if (refreshInFlightRef.current) return;
+        refreshInFlightRef.current = true;
+        const refreshStartedAt = Date.now();
         setIsRefreshingData(true);
         try {
-            await Promise.all([
-                refetchStudents(),
-                refetchCourses(),
-                refetchNatApplications(),
-                fetchEnrollmentKeys()
-            ]);
+            const refreshJobs = [
+                loadPopulationOverview(),
+                loadLookupData(),
+                cleanupExpiredCourseYearWindows(true)
+            ];
+            if (schoolYearFilter !== 'All') {
+                refreshJobs.push(loadHistoricalStudents(true));
+            }
+            if (showArchivedStudentsModal || archivedStudentsLoaded) {
+                refreshJobs.push(loadArchivedStudents(true));
+            }
+            if (courseYearCountsLoaded) {
+                refreshJobs.push(loadCourseYearCounts(true));
+            }
+            if (courseApplicantCountsLoaded) {
+                refreshJobs.push(loadCourseApplicantCounts(true));
+            }
+            if (showEnrollmentModal) {
+                refreshJobs.push(fetchEnrollmentKeys());
+            }
+            await Promise.all(refreshJobs);
             setTableRefreshTick((current) => current + 1);
             functions.showToast('Student data refreshed.', 'success');
         } finally {
+            const remainingAnimationMs = CARE_STUDENT_REFRESH_MIN_MS - (Date.now() - refreshStartedAt);
+            if (remainingAnimationMs > 0) {
+                await waitForCareStudentRefreshAnimation(remainingAnimationMs);
+            }
+            refreshInFlightRef.current = false;
             setIsRefreshingData(false);
         }
     };
+
+    useEffect(() => {
+        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
+        lastExternalRefreshSignalRef.current = refreshSignal;
+        void handleRefreshData();
+    }, [refreshSignal]);
 
     const cleanupExpiredCourseYearWindows = async (silent = true) => {
         try {
@@ -661,7 +832,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                         if (!silent) {
                             functions.showToast(`School-year windows were updated for ${cleanedCount} students.`, 'info');
                         }
-                        refetchStudents();
+                        void refreshPopulationAfterStudentMutation();
                     }
                     return;
                 }
@@ -689,7 +860,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 if (!silent) {
                     functions.showToast(`Expired windows processed for ${fallbackCount} students.`, 'info');
                 }
-                refetchStudents();
+                void refreshPopulationAfterStudentMutation();
             }
         } catch (error: any) {
             console.error('Error cleaning expired course/year windows:', error);
@@ -698,10 +869,6 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             }
         }
     };
-
-    useEffect(() => {
-        cleanupExpiredCourseYearWindows(true);
-    }, []);
 
     // Handle pending profile view from other pages
     useEffect(() => {
@@ -724,11 +891,27 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     }, [showEnrollmentModal, enrollmentStatusFilter, enrollmentSearchQuery]);
 
     useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, schoolYearFilter]);
+        const timer = window.setTimeout(() => {
+            setCurrentPage(1);
+            setDebouncedSearchTerm(searchTerm);
+        }, CARE_STUDENT_SEARCH_DEBOUNCE_MS);
+
+        return () => window.clearTimeout(timer);
+    }, [searchTerm]);
 
     useEffect(() => {
+        setCurrentPage(1);
+    }, [departmentFilter, courseFilter, yearFilter, sectionFilter, schoolYearFilter]);
+
+    useEffect(() => {
+        if (schoolYearFilter !== 'All') {
+            setTableLoading(false);
+            return;
+        }
+
         const fetchPagedStudents = async () => {
+            const requestId = studentTableRequestIdRef.current + 1;
+            studentTableRequestIdRef.current = requestId;
             setTableLoading(true);
             try {
                 const sortColumnMap: Record<string, string> = {
@@ -741,7 +924,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
                 const result = await getStudentsPage(
                     {
-                        search: searchTerm,
+                        search: debouncedSearchTerm,
                         department: departmentFilter,
                         course: courseFilter,
                         yearLevel: yearFilter,
@@ -753,17 +936,20 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                         ascending: sortConfig.direction === 'asc'
                     }
                 );
+                if (studentTableRequestIdRef.current !== requestId) return;
                 setTableStudents(result.rows);
                 setTableStudentsTotal(result.total);
             } catch (error: any) {
-                if (showToast) showToast("Couldn't load the students list. ", 'error');
+                if (studentTableRequestIdRef.current === requestId && showToast) showToast("Couldn't load the students list. ", 'error');
             } finally {
-                setTableLoading(false);
+                if (studentTableRequestIdRef.current === requestId) {
+                    setTableLoading(false);
+                }
             }
         };
 
         fetchPagedStudents();
-    }, [searchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, currentPage, sortConfig.key, sortConfig.direction, tableRefreshTick]);
+    }, [debouncedSearchTerm, departmentFilter, courseFilter, yearFilter, sectionFilter, schoolYearFilter, currentPage, sortConfig.key, sortConfig.direction, tableRefreshTick]);
 
     /* handlers lifted */
 
@@ -802,8 +988,19 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         }
     };
 
-    const getBulkTargetStudents = () => {
-        return studentsList;
+    const getCurrentStudentFilters = (search = debouncedSearchTerm) => ({
+        search,
+        department: departmentFilter,
+        course: courseFilter,
+        yearLevel: yearFilter,
+        section: sectionFilter
+    });
+
+    const getBulkTargetStudents = async () => {
+        if (schoolYearFilter !== 'All') {
+            return filteredStudents;
+        }
+        return getCareStudentBulkTargets(getCurrentStudentFilters(searchTerm));
     };
 
     const updateStudentsByIds = async (targetIds: Array<string | number>, payload: any) => {
@@ -833,7 +1030,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             return;
         }
 
-        const targets = getBulkTargetStudents();
+        const targets = await getBulkTargetStudents();
         if (targets.length === 0) {
             functions.showToast('No students match the selected filter.', 'info');
             return;
@@ -856,7 +1053,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 status: 'Inactive'
             });
             functions.showToast(`Update applied to ${updatedCount || targets.length} students.`);
-            refetchStudents();
+            await refreshPopulationAfterStudentMutation();
         } catch (error: any) {
             functions.showToast("Couldn't apply window. ", 'error');
         } finally {
@@ -865,7 +1062,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     };
 
     const clearBulkCourseYearWindow = async () => {
-        const targets = getBulkTargetStudents();
+        const targets = await getBulkTargetStudents();
         if (targets.length === 0) {
             functions.showToast('No students match the selected filter.', 'info');
             return;
@@ -887,7 +1084,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                 course_year_profile_edited: false
             });
             functions.showToast(`Window cleared for ${updatedCount || targets.length} students.`);
-            refetchStudents();
+            await refreshPopulationAfterStudentMutation();
         } catch (error: any) {
             functions.showToast("Couldn't clear window. ", 'error');
         } finally {
@@ -896,7 +1093,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     };
 
     const syncEnrollmentKeysFromStudents = async () => {
-        const targets = getBulkTargetStudents().filter((student: any) => student.student_id && student.course);
+        const targets = (await getBulkTargetStudents()).filter((student: any) => student.student_id && student.course);
         if (targets.length === 0) {
             functions.showToast('No students with valid Student ID and Course in the selected filter.', 'info');
             return;
@@ -982,7 +1179,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             if (error) throw error;
             functions.showToast('Course added.');
             setCourseForm({ name: '', capacity: 500, application_limit: 200, department_id: '' });
-            refetchCourses();
+            await loadLookupData();
         } catch (error: any) {
             functions.showToast("Couldn't add course. ", 'error');
         }
@@ -1003,7 +1200,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
 
             if (error) throw error;
             functions.showToast(`${field === 'capacity' ? 'Capacity' : 'Applicant'} limit updated!`);
-            refetchCourses();
+            await loadLookupData();
         } catch (error: any) {
             functions.showToast("Couldn't update limit. ", 'error');
         }
@@ -1122,15 +1319,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             return dept && dept.name === departmentFilter;
         });
 
-    const bulkTargetCount = getBulkTargetStudents().length;
-
-    const schoolYearOptions = [...new Set(
-        studentsList.flatMap((student: any) =>
-            parseArchiveEntries(student.course_year_archive)
-                .map((entry: any) => deriveSchoolYearLabel(entry))
-                .filter(Boolean)
-        )
-    )].sort().reverse() as string[];
+    const schoolYearOptions = populationOverview.schoolYears;
 
     const getStudentCourseYearForFilter = (student: any) => {
         if (schoolYearFilter === 'All') {
@@ -1148,13 +1337,6 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         };
     };
 
-    const courseApplicantCounts = (natApplications || []).reduce((acc: Record<string, number>, app: any) => {
-        if (app.priority_course) {
-            acc[app.priority_course] = (acc[app.priority_course] || 0) + 1;
-        }
-        return acc;
-    }, {});
-
     const courseRowsForManagement = (courseDeptFilter === 'All'
         ? allCourses
         : allCourses.filter((course: any) => {
@@ -1163,22 +1345,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         })
     ) as any[];
 
-    // Derive unique sections from filtered students (scoped by course + year)
-    const availableSections = [...new Set(
-        studentsList
-            .filter((s: any) => {
-                const values = getStudentCourseYearForFilter(s);
-                const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
-                const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
-                return matchesCourse && matchesYear;
-            })
-            .map(s => s.section)
-            .filter(Boolean)
-    )].sort() as string[];
-
-    const filteredStudents = studentsList.filter((s: any) => {
+    const filteredStudents = historicalStudents.filter((s: any) => {
         const values = getStudentCourseYearForFilter(s);
-        const matchesSearch = (s.first_name + ' ' + s.last_name + ' ' + s.student_id).toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = studentMatchesSearch(s, searchTerm);
         const matchesDept = departmentFilter === 'All' || s.department === departmentFilter;
         const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
         const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
@@ -1186,6 +1355,42 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         const matchesSchoolYear = schoolYearFilter === 'All' || Boolean(values.snapshot);
         return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesSection && matchesSchoolYear;
     });
+
+    const bulkTargetCount = schoolYearFilter === 'All' ? tableStudentsTotal : filteredStudents.length;
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (schoolYearFilter !== 'All') {
+            const nextSections = [...new Set(
+                historicalStudents
+                    .filter((student: any) => {
+                        const values = getStudentCourseYearForFilter(student);
+                        const matchesSchoolYear = Boolean(values.snapshot);
+                        const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
+                        const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
+                        return matchesSchoolYear && matchesCourse && matchesYear;
+                    })
+                    .map((student: any) => student.section)
+                    .filter(Boolean)
+            )].sort() as string[];
+            setAvailableSections(nextSections);
+            return;
+        }
+
+        getCareStudentSections({ course: courseFilter, yearLevel: yearFilter })
+            .then((sections) => {
+                if (!cancelled) setAvailableSections(sections);
+            })
+            .catch((error) => {
+                console.error('Error loading student sections:', error);
+                if (!cancelled) setAvailableSections([]);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [courseFilter, yearFilter, schoolYearFilter, historicalStudents]);
 
     const filteredArchivedStudents = archivedStudentsList.filter((student: any) => {
         const needle = archivedSearchTerm.trim().toLowerCase();
@@ -1353,7 +1558,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         ? tableStudents
         : filteredStudents;
 
-    const sortedStudents = [...visibleTableStudents].sort((a, b) => {
+    const shouldUseServiceSearchOrder = schoolYearFilter === 'All' && debouncedSearchTerm.trim().length > 0;
+
+    const sortedStudents = shouldUseServiceSearchOrder ? visibleTableStudents : [...visibleTableStudents].sort((a, b) => {
         let aVal = a[sortConfig.key];
         let bVal = b[sortConfig.key];
         if (sortConfig.key === 'name') {
@@ -1369,6 +1576,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
     });
 
     const effectiveTotal = schoolYearFilter === 'All' ? tableStudentsTotal : sortedStudents.length;
+    const isStudentTableLoading = schoolYearFilter === 'All' ? tableLoading : historicalStudentsLoading;
     const totalPages = getCareStudentTotalPages(effectiveTotal);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedStudents = schoolYearFilter === 'All'
@@ -1386,8 +1594,48 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
         setCurrentPage((prev) => Math.min(prev, totalPages));
     }, [totalPages]);
 
+    const courseYearCountMap = courseYearCounts.reduce((acc: Record<string, Record<string, number>>, row) => {
+        const course = row.course || '';
+        const year = row.year_level || '';
+        if (!acc[course]) acc[course] = {};
+        acc[course][year] = Number(row.student_count || 0);
+        return acc;
+    }, {});
+
+    const openArchivedStudentsModal = () => {
+        setShowArchivedStudentsModal(true);
+        void loadArchivedStudents();
+    };
+
     return (
-        <div className="space-y-6 relative min-h-screen">
+        <div className={`space-y-6 relative min-h-screen ${isRefreshingData ? 'care-student-refreshing' : ''}`}>
+            {isRefreshingData && (
+                <div className="pointer-events-none fixed left-1/2 top-24 z-[60] w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 lg:left-auto lg:right-8 lg:translate-x-0" role="status" aria-live="polite">
+                    <div className="care-refresh-card relative overflow-hidden rounded-xl border border-violet-100 bg-white/95 p-4 shadow-2xl shadow-violet-200/40 backdrop-blur-md">
+                        <div className="care-refresh-scan" aria-hidden="true" />
+                        <div className="relative flex items-center gap-3">
+                            <div className="care-refresh-core relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-lg shadow-violet-300/60">
+                                <span className="care-refresh-ring care-refresh-ring-one" aria-hidden="true" />
+                                <span className="care-refresh-ring care-refresh-ring-two" aria-hidden="true" />
+                                <RefreshCw size={20} className="care-refresh-icon" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-sm font-bold text-slate-900">Refreshing student data</p>
+                                    <span className="care-refresh-dot" aria-hidden="true" />
+                                    <span className="care-refresh-dot care-refresh-dot-delay-one" aria-hidden="true" />
+                                    <span className="care-refresh-dot care-refresh-dot-delay-two" aria-hidden="true" />
+                                </div>
+                                <p className="mt-0.5 text-xs text-slate-500">Syncing totals, filters, and the current page.</p>
+                            </div>
+                            <Activity size={18} className="shrink-0 text-violet-500" />
+                        </div>
+                        <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                            <div className="care-refresh-progress h-full rounded-full" />
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Student Population</h1>
@@ -1401,8 +1649,8 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                         Export Excel
                     </Button>
                     {(canArchiveRecords || canRestoreRecords) && (
-                        <Button variant="secondary" onClick={() => setShowArchivedStudentsModal(true)} leftIcon={<Archive size={16} />}>
-                            Archived Students ({archivedStudentsList.length})
+                        <Button variant="secondary" onClick={openArchivedStudentsModal} leftIcon={<Archive size={16} />}>
+                            Archived Students ({overviewLoading ? '...' : populationOverview.archivedStudents})
                         </Button>
                     )}
                     <Button variant="secondary" onClick={() => setShowIdSwapModal(true)} leftIcon={<RefreshCw size={16} />}>
@@ -1418,30 +1666,30 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             </div>
 
             <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-3">
-                <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                <div data-refresh-surface className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600"><Users size={18} /></div>
                     <div className="min-w-0">
                         <p className="text-xs font-medium text-slate-500">Total Population</p>
-                        <p className="text-xl font-bold leading-tight text-slate-900">{studentsList.length}</p>
+                        <p className="text-xl font-bold leading-tight text-slate-900">{overviewLoading ? '...' : populationOverview.totalPopulation}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                <div data-refresh-surface className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600"><TrendingUp size={18} /></div>
                     <div className="min-w-0">
                         <p className="text-xs font-medium text-slate-500">Active Students</p>
-                        <p className="text-xl font-bold leading-tight text-slate-900">{studentsList.filter(s => s.status === 'Active').length}</p>
+                        <p className="text-xl font-bold leading-tight text-slate-900">{overviewLoading ? '...' : populationOverview.activeStudents}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                <div data-refresh-surface className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600"><Archive size={18} /></div>
                     <div className="min-w-0">
                         <p className="text-xs font-medium text-slate-500">Archived Students</p>
-                        <p className="text-xl font-bold leading-tight text-slate-900">{archivedStudentsList.length}</p>
+                        <p className="text-xl font-bold leading-tight text-slate-900">{overviewLoading ? '...' : populationOverview.archivedStudents}</p>
                     </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 flex flex-col gap-3">
+            <div data-refresh-surface className="bg-white rounded-xl border border-slate-200 p-4 mb-6 flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
                     <div className="relative w-full md:w-96">
                         <Search size={16} className="absolute left-3 top-3 text-slate-400" />
@@ -1481,7 +1729,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
             </div>
 
             {viewMode === 'stats' ? (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden p-6">
+                <div data-refresh-surface className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden p-6">
                     <h3 className="font-bold text-lg text-slate-900 mb-4">Live Student Population Counter</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm border-collapse">
@@ -1496,12 +1744,14 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {allCourses.map(course => {
-                                    const courseStudents = studentsList.filter(s => s.course === course.name && s.status === 'Active');
-                                    const y1 = courseStudents.filter(s => s.year_level === '1st Year').length;
-                                    const y2 = courseStudents.filter(s => s.year_level === '2nd Year').length;
-                                    const y3 = courseStudents.filter(s => s.year_level === '3rd Year').length;
-                                    const y4 = courseStudents.filter(s => s.year_level === '4th Year').length;
+                                {courseYearCountsLoading ? (
+                                    <tr><td colSpan={6} className="p-6 text-center text-slate-400">Loading student population stats...</td></tr>
+                                ) : allCourses.map(course => {
+                                    const courseCounts = courseYearCountMap[course.name] || {};
+                                    const y1 = courseCounts['1st Year'] || 0;
+                                    const y2 = courseCounts['2nd Year'] || 0;
+                                    const y3 = courseCounts['3rd Year'] || 0;
+                                    const y4 = courseCounts['4th Year'] || 0;
                                     const total = y1 + y2 + y3 + y4;
                                     return (
                                         <tr key={course.id} className="hover:bg-slate-50">
@@ -1519,7 +1769,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     </div>
                 </div>
             ) : (
-                <div className={CARE_STUDENT_TABLE_SHELL_CLASS}>
+                <div data-refresh-surface className={CARE_STUDENT_TABLE_SHELL_CLASS}>
                     <div className="flex-1 overflow-x-auto">
                         <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase text-slate-500 font-semibold">
@@ -1532,7 +1782,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {tableLoading ? (
+                                    {isStudentTableLoading ? (
                                         <tr>
                                             <td colSpan={5} className="h-[360px] p-12 text-center text-slate-500">Loading students...</td>
                                         </tr>
@@ -1565,7 +1815,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                 })()}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {isProfileIncompleteStep1(student) ? (
+                                                {student.profile_completed === false || (student.profile_completed == null && isProfileIncompleteStep1(student)) ? (
                                                     <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">Incomplete</span>
                                                 ) : (
                                                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{student.status}</span>
@@ -1587,7 +1837,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                     </div>
                     <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 text-xs md:flex-row md:items-center md:justify-between">
                         <span className="text-slate-500">
-                            {tableLoading
+                            {isStudentTableLoading
                                 ? 'Loading students...'
                                 : effectiveTotal === 0
                                 ? 'No students found.'
@@ -1597,7 +1847,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                             <button
                                 type="button"
                                 onClick={() => setCurrentPage(1)}
-                                disabled={tableLoading || currentPage === 1}
+                                disabled={isStudentTableLoading || currentPage === 1}
                                 className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 aria-label="First page"
                             >
@@ -1606,7 +1856,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                             <button
                                 type="button"
                                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                disabled={tableLoading || currentPage === 1}
+                                disabled={isStudentTableLoading || currentPage === 1}
                                 className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 aria-label="Previous page"
                             >
@@ -1618,7 +1868,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                         key={`student-page-${item}`}
                                         type="button"
                                         onClick={() => setCurrentPage(item)}
-                                        disabled={tableLoading}
+                                        disabled={isStudentTableLoading}
                                         className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold transition ${item === currentPage
                                             ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
                                             : 'border-slate-300 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700'
@@ -1636,7 +1886,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                             <button
                                 type="button"
                                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={tableLoading || currentPage === totalPages}
+                                disabled={isStudentTableLoading || currentPage === totalPages}
                                 className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 aria-label="Next page"
                             >
@@ -1645,7 +1895,7 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                             <button
                                 type="button"
                                 onClick={() => setCurrentPage(totalPages)}
-                                disabled={tableLoading || currentPage === totalPages}
+                                disabled={isStudentTableLoading || currentPage === totalPages}
                                 className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 aria-label="Last page"
                             >
@@ -2050,7 +2300,9 @@ const StudentPopulationPage = ({ functions, pendingProfileId, onProfileOpened }:
                                                             <tr key={course.id} className="hover:bg-slate-50/50">
                                                                 <td className="px-4 py-3 font-semibold text-slate-800">{course.name}</td>
                                                                 <td className="px-4 py-3 text-slate-600 text-xs">{department?.name || 'Unassigned'}</td>
-                                                                <td className="px-4 py-3 text-center font-mono text-blue-700">{courseApplicantCounts[course.name] || 0}</td>
+                                                                <td className="px-4 py-3 text-center font-mono text-blue-700">
+                                                                    {courseApplicantCountsLoading ? '...' : (courseApplicantCounts[course.name] || 0)}
+                                                                </td>
                                                                 <td className="px-4 py-3 text-center">
                                                                     <input type="number" min={0} className="w-20 px-2 py-1.5 border border-slate-300 rounded text-center focus:outline-none focus:border-purple-600" defaultValue={course.capacity ?? 500} onBlur={e => handleUpdateCourseLimit(course.id, 'capacity', e.target.value)} title="Change Enrolled Capacity Limit" />
                                                                 </td>

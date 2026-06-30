@@ -24,6 +24,8 @@ type ActivatedStudentCredentials = {
     password: string;
 };
 
+const FORGOT_PASSWORD_OTP_RESEND_COOLDOWN_MS = 3 * 60 * 1000;
+
 export default function StudentLogin() {
     const navigate = useNavigate();
     const { loginStudent, loading: authLoading } = useAuth() as any;
@@ -53,6 +55,8 @@ export default function StudentLogin() {
     const [showForgotPasswordNewPassword, setShowForgotPasswordNewPassword] = useState<boolean>(false);
     const [showForgotPasswordConfirmPassword, setShowForgotPasswordConfirmPassword] = useState<boolean>(false);
     const [forgotPasswordOtpInfo, setForgotPasswordOtpInfo] = useState<ForgotPasswordOtpInfo | null>(null);
+    const [forgotPasswordResendAvailableAt, setForgotPasswordResendAvailableAt] = useState<number | null>(null);
+    const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
     const [isRequestingForgotPasswordOtp, setIsRequestingForgotPasswordOtp] = useState<boolean>(false);
     const [isResettingForgotPassword, setIsResettingForgotPassword] = useState<boolean>(false);
 
@@ -116,6 +120,11 @@ const TOTAL_STEPS = 3;
     const forgotPasswordOtpHint = forgotPasswordOtpInfo
         ? `${forgotPasswordOtpInfo.message || 'If the account exists, a verification code has been sent to the registered email.'}${forgotPasswordOtpInfo.expiresInMinutes ? ` The code expires in ${forgotPasswordOtpInfo.expiresInMinutes} minutes.` : ''}`
         : '';
+    const forgotPasswordResendSecondsRemaining = forgotPasswordResendAvailableAt
+        ? Math.max(0, Math.ceil((forgotPasswordResendAvailableAt - currentTimeMs) / 1000))
+        : 0;
+    const isForgotPasswordResendCoolingDown = forgotPasswordResendSecondsRemaining > 0;
+    const forgotPasswordResendCountdown = `${Math.floor(forgotPasswordResendSecondsRemaining / 60)}:${String(forgotPasswordResendSecondsRemaining % 60).padStart(2, '0')}`;
 
     useEffect(() => {
         if (!showActivateModal) return;
@@ -162,6 +171,25 @@ const TOTAL_STEPS = 3;
         };
     }, []);
 
+    useEffect(() => {
+        if (!forgotPasswordResendAvailableAt) return;
+
+        const updateCountdown = () => {
+            const now = Date.now();
+            setCurrentTimeMs(now);
+            if (now >= forgotPasswordResendAvailableAt) {
+                setForgotPasswordResendAvailableAt(null);
+            }
+        };
+
+        updateCountdown();
+        const intervalId = window.setInterval(updateCountdown, 1000);
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, [forgotPasswordResendAvailableAt]);
+
     const showToast = (msg: string, type: string = 'success') => {
         const safeMessage = type === 'error' ? getSafeErrorMessage(msg) : msg;
         setToast({ msg: safeMessage, type });
@@ -176,6 +204,7 @@ const TOTAL_STEPS = 3;
         setForgotPasswordNewPassword('');
         setForgotPasswordConfirmPassword('');
         setForgotPasswordOtpInfo(null);
+        setForgotPasswordResendAvailableAt(null);
     };
 
     const openForgotPasswordModal = () => {
@@ -185,6 +214,7 @@ const TOTAL_STEPS = 3;
         setForgotPasswordNewPassword('');
         setForgotPasswordConfirmPassword('');
         setForgotPasswordOtpInfo(null);
+        setForgotPasswordResendAvailableAt(null);
         setShowForgotPasswordModal(true);
     };
 
@@ -282,6 +312,10 @@ const TOTAL_STEPS = 3;
     };
 
     const handleRequestForgotPasswordOtp = async () => {
+        if (isForgotPasswordResendCoolingDown) {
+            return;
+        }
+
         const trimmedIdentifier = String(forgotPasswordIdentifier || '').trim();
         if (!trimmedIdentifier) {
             showToast(`Please enter your ${forgotPasswordFieldLabel.toLowerCase()} first so we can find your account.`, 'error');
@@ -311,10 +345,9 @@ const TOTAL_STEPS = 3;
                 expiresInMinutes: result?.expiresInMinutes
             });
             setForgotPasswordOtp('');
-            showToast(
-                result?.message || 'If the account exists, a verification code has been sent to the registered email.',
-                'success'
-            );
+            const now = Date.now();
+            setCurrentTimeMs(now);
+            setForgotPasswordResendAvailableAt(now + FORGOT_PASSWORD_OTP_RESEND_COOLDOWN_MS);
         } catch (error: any) {
             showToast('We could not send the reset code at this time. Please try again later.', 'error');
         } finally {
@@ -626,14 +659,14 @@ const TOTAL_STEPS = 3;
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.5, delay: 0.2 }}
-                        className="w-full max-w-[400px]"
+                        className="w-full max-w-[400px] px-1 sm:px-0"
                     >
                         <div className="relative group">
                             {/* Card Glow Effect */}
                             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/20 to-sky-500/20 rounded-[2.5rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
 
                             {/* Card Body */}
-                            <div className="relative bg-[#0d1527]/90 backdrop-blur-3xl border border-indigo-500/30 rounded-[2.5rem] shadow-2xl p-8 overflow-hidden">
+                            <div className="relative bg-[#0d1527]/90 backdrop-blur-3xl border border-indigo-500/30 rounded-[2rem] p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8 overflow-hidden">
 
                                 {/* Inner Top Highlight */}
                                 <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
@@ -691,7 +724,7 @@ const TOTAL_STEPS = 3;
                                             />
                                             <label
                                                 htmlFor="studentLoginIdentifier"
-                                                className="absolute left-5 top-2 text-[10px] font-bold text-indigo-300/40 uppercase tracking-widest transition-all peer-placeholder-shown:text-sm peer-placeholder-shown:top-3.5 peer-placeholder-shown:normal-case peer-placeholder-shown:font-medium peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-bold peer-focus:uppercase peer-focus:text-sky-400 pointer-events-none"
+                                                className="absolute left-5 top-2 text-[10px] font-bold text-indigo-300/40 uppercase tracking-wide transition-all peer-placeholder-shown:text-sm peer-placeholder-shown:top-3.5 peer-placeholder-shown:normal-case peer-placeholder-shown:font-medium peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-bold peer-focus:uppercase peer-focus:text-sky-400 pointer-events-none"
                                             >
                                                 {loginFieldLabel}
                                             </label>
@@ -718,7 +751,7 @@ const TOTAL_STEPS = 3;
                                         />
                                         <label
                                             htmlFor="password"
-                                            className="absolute left-5 top-2 text-[10px] font-bold text-indigo-300/40 uppercase tracking-widest transition-all peer-placeholder-shown:text-sm peer-placeholder-shown:top-3.5 peer-placeholder-shown:normal-case peer-placeholder-shown:font-medium peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-bold peer-focus:uppercase peer-focus:text-sky-400 pointer-events-none"
+                                            className="absolute left-5 top-2 text-[10px] font-bold text-indigo-300/40 uppercase tracking-wide transition-all peer-placeholder-shown:text-sm peer-placeholder-shown:top-3.5 peer-placeholder-shown:normal-case peer-placeholder-shown:font-medium peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-bold peer-focus:uppercase peer-focus:text-sky-400 pointer-events-none"
                                         >
                                             Password
                                         </label>
@@ -750,7 +783,7 @@ const TOTAL_STEPS = 3;
                                             type="submit"
                                             className="w-full bg-gradient-to-r from-indigo-500 to-sky-500 text-white py-3.5 rounded-xl text-sm font-bold shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-70 border border-t-white/10"
                                         >
-                                            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Authenticating...</> : 'Sign In / Log In'}
+                                            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Authenticating...</> : 'Log In'}
                                         </motion.button>
 
                                         <div className="relative flex items-center justify-center py-1">
@@ -781,15 +814,15 @@ const TOTAL_STEPS = 3;
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent"
+                        className="fixed inset-0 z-50 flex items-stretch justify-stretch bg-transparent p-0 md:items-center md:justify-center md:p-4"
                     >
                         <motion.div
                             initial={{ scale: 0.95, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.95, y: 20, opacity: 0 }}
-                            className="bg-white w-full max-w-lg max-h-[90vh] rounded-[2rem] shadow-2xl shadow-indigo-900/50 flex flex-col overflow-hidden relative"
+                            className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl shadow-indigo-900/50 md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-[2rem]"
                         >
-                            <div className="border-b border-slate-100 bg-slate-50/70 p-6">
+                            <div className="border-b border-slate-100 bg-slate-50/70 p-5 sm:p-6">
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
                                         <h2 className="flex items-center gap-2 text-2xl font-extrabold text-slate-800">
@@ -799,7 +832,7 @@ const TOTAL_STEPS = 3;
                                             Forgot Password
                                         </h2>
                                         <p className="mt-2 text-sm text-slate-500">
-                                            Request a one-time password and reset your student portal password here.
+                                            Enter your email or student ID to receive an OTP.
                                         </p>
                                     </div>
                                     <button
@@ -812,7 +845,7 @@ const TOTAL_STEPS = 3;
                                 </div>
                             </div>
 
-                            <div className="space-y-5 p-6 md:p-8 overflow-y-auto">
+                            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 [scrollbar-width:none] sm:p-6 md:p-8 [&::-webkit-scrollbar]:hidden">
                                 <div className="grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
                                     <button
                                         type="button"
@@ -820,6 +853,7 @@ const TOTAL_STEPS = 3;
                                             setForgotPasswordMethod('studentId');
                                             setForgotPasswordOtpInfo(null);
                                             setForgotPasswordOtp('');
+                                            setForgotPasswordResendAvailableAt(null);
                                         }}
                                         className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
                                             forgotPasswordMethod === 'studentId'
@@ -835,6 +869,7 @@ const TOTAL_STEPS = 3;
                                             setForgotPasswordMethod('email');
                                             setForgotPasswordOtpInfo(null);
                                             setForgotPasswordOtp('');
+                                            setForgotPasswordResendAvailableAt(null);
                                         }}
                                         className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
                                             forgotPasswordMethod === 'email'
@@ -847,7 +882,7 @@ const TOTAL_STEPS = 3;
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                                    <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
                                         {forgotPasswordFieldLabel}
                                     </label>
                                     <div className="relative">
@@ -873,18 +908,26 @@ const TOTAL_STEPS = 3;
                                 <button
                                     type="button"
                                     onClick={handleRequestForgotPasswordOtp}
-                                    disabled={isRequestingForgotPasswordOtp || isResettingForgotPassword}
-                                    className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+                                    disabled={isForgotPasswordResendCoolingDown || isRequestingForgotPasswordOtp || isResettingForgotPassword}
+                                    className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-bold transition-all disabled:cursor-not-allowed ${
+                                        isForgotPasswordResendCoolingDown
+                                            ? 'bg-slate-200 text-slate-500 shadow-none'
+                                            : 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white shadow-lg shadow-indigo-500/20 hover:shadow-xl disabled:opacity-60'
+                                    }`}
                                 >
-                                    {isRequestingForgotPasswordOtp ? 'Sending OTP...' : 'Send OTP'}
+                                    {isRequestingForgotPasswordOtp
+                                        ? 'Sending OTP...'
+                                        : isForgotPasswordResendCoolingDown
+                                            ? `Resend OTP in ${forgotPasswordResendCountdown}`
+                                            : forgotPasswordOtpInfo ? 'Resend OTP' : 'Send OTP'}
                                 </button>
 
                                 {forgotPasswordOtpInfo && (
-                                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
-                                        <p className="text-sm leading-relaxed text-slate-600">{forgotPasswordOtpHint}</p>
+                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                                        <p className="text-sm font-semibold leading-relaxed text-emerald-800">{forgotPasswordOtpHint}</p>
                                         <div className="mt-4 space-y-4">
                                             <div>
-                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">OTP Code</label>
+                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">OTP Code</label>
                                                 <input
                                                     type="text"
                                                     inputMode="numeric"
@@ -896,7 +939,7 @@ const TOTAL_STEPS = 3;
                                                 />
                                             </div>
                                             <div>
-                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">New Password</label>
+                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">New Password</label>
                                                 <div className="relative">
                                                     <input
                                                         type={showForgotPasswordNewPassword ? 'text' : 'password'}
@@ -915,7 +958,7 @@ const TOTAL_STEPS = 3;
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Confirm Password</label>
+                                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Confirm Password</label>
                                                 <div className="relative">
                                                     <input
                                                         type={showForgotPasswordConfirmPassword ? 'text' : 'password'}
@@ -938,7 +981,8 @@ const TOTAL_STEPS = 3;
                                 )}
                             </div>
 
-                            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-5">
+                            {forgotPasswordOtpInfo && (
+                            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
                                 <button
                                     type="button"
                                     onClick={closeForgotPasswordModal}
@@ -949,12 +993,13 @@ const TOTAL_STEPS = 3;
                                 <button
                                     type="button"
                                     onClick={handleConfirmForgotPasswordReset}
-                                    disabled={!forgotPasswordOtpInfo || isRequestingForgotPasswordOtp || isResettingForgotPassword}
-                                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-2.5 font-bold text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                    disabled={!forgotPasswordOtp.trim() || !forgotPasswordNewPassword || !forgotPasswordConfirmPassword || isRequestingForgotPasswordOtp || isResettingForgotPassword}
+                                    className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 font-bold text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2.5"
                                 >
                                     {isResettingForgotPassword ? 'Resetting...' : 'Reset Password'}
                                 </button>
                             </div>
+                            )}
                         </motion.div>
                     </motion.div>
                 )}
@@ -967,13 +1012,13 @@ const TOTAL_STEPS = 3;
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent"
+                        className="fixed inset-0 z-50 flex items-stretch justify-stretch bg-transparent p-0 md:items-center md:justify-center md:p-4"
                     >
                         <motion.div
                                                             initial={{ scale: 0.95, y: 20 }}
                                                             animate={{ scale: 1, y: 0 }}
                                                             exit={{ scale: 0.95, y: 20, opacity: 0 }}
-                                                            className={`bg-white w-full max-w-3xl max-h-[90vh] rounded-[2.5rem] shadow-2xl shadow-indigo-900/50 flex flex-col overflow-hidden relative ${isMainModalHidden ? 'hidden' : ''}`}
+                                                            className={`relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl shadow-indigo-900/50 md:h-auto md:max-h-[90vh] md:max-w-3xl md:rounded-[2.5rem] ${isMainModalHidden ? 'hidden' : ''}`}
                                                         >
                                                             {/* Modal Header */}
                                                             <div className="p-5 border-b border-slate-100 flex flex-col bg-slate-50/30">
@@ -1010,7 +1055,7 @@ const TOTAL_STEPS = 3;
                             </div>
 
                             {/* Modal Body */}
-                            <div className="flex-grow overflow-y-auto p-6 md:p-10 custom-scrollbar bg-white">
+                            <div className="min-h-0 flex-1 overflow-y-auto bg-white p-5 pb-28 [scrollbar-width:none] sm:p-6 sm:pb-28 md:p-10 md:pb-10 [&::-webkit-scrollbar]:hidden">
                                 {activatedCredentials ? (
                                     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
                                         <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1075,7 +1120,7 @@ const TOTAL_STEPS = 3;
                                                     </div>
                                                     <div className="space-y-6">
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Student ID <span className="text-rose-500">*</span></label>
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Student ID <span className="text-rose-500">*</span></label>
                                                             <input required name="studentId" className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-semibold text-slate-700 placeholder:text-slate-300" placeholder="Ex: 202312345" value={formData.studentId} onChange={handleChange} />
                                                         </div>
                                                         <div className="space-y-2">
@@ -1101,62 +1146,62 @@ const TOTAL_STEPS = 3;
                                                         <p className="text-slate-400 text-[10px] mt-0.5 font-medium">Basic details needed for your student profile.</p>
                                                     </div>
                                                     {/* Name */}
-                                                    <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6">
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Last Name *</label>
-                                                            <input required name="lastName" value={formData.lastName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Last Name *</label>
+                                                            <input required name="lastName" value={formData.lastName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">First Name *</label>
-                                                            <input required name="firstName" value={formData.firstName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">First Name *</label>
+                                                            <input required name="firstName" value={formData.firstName} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Suffix</label>
-                                                            <input name="suffix" value={formData.suffix} onChange={handleChange} placeholder="Jr., II, etc." className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700 placeholder:text-slate-300" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Suffix</label>
+                                                            <input name="suffix" value={formData.suffix} onChange={handleChange} placeholder="Jr., II, etc." className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700 placeholder:text-slate-300" />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Middle Name</label>
-                                                            <input name="middleName" value={formData.middleName} onChange={handleChange} placeholder='N/A if none' className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700 placeholder:text-slate-300" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Middle Name</label>
+                                                            <input name="middleName" value={formData.middleName} onChange={handleChange} placeholder='N/A if none' className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700 placeholder:text-slate-300" />
                                                         </div>
                                                     </div>
                                                     {/* Address */}
                                                     <div className="space-y-2">
-                                                        <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Address</label>
-                                                        <input name="street" placeholder="Street / Block / Subd." value={formData.street} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                        <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Address</label>
+                                                        <input name="street" placeholder="Street / Block / Subd." value={formData.street} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                     </div>
-                                                    <div className="grid grid-cols-3 gap-x-4 gap-y-4">
+                                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-x-4">
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">City</label>
-                                                            <input name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">City</label>
+                                                            <input name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Province</label>
-                                                            <input name="province" value={formData.province} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Province</label>
+                                                            <input name="province" value={formData.province} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Zip</label>
-                                                            <input name="zipCode" value={formData.zipCode} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Zip</label>
+                                                            <input name="zipCode" value={formData.zipCode} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                         </div>
                                                     </div>
                                                     {/* Contact, Age, DOB */}
-                                                    <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6">
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Contact Number *</label>
-                                                            <input required name="mobile" value={formData.mobile} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Contact Number *</label>
+                                                            <input required name="mobile" value={formData.mobile} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Email *</label>
-                                                            <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Email *</label>
+                                                            <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" />
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-3 gap-x-4 gap-y-4">
+                                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-x-4">
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Birthday *</label>
-                                                            <DatePicker required name="dob" value={formData.dob} onChange={(val) => { setFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Birthday *</label>
+                                                            <DatePicker required name="dob" value={formData.dob} onChange={(val) => { setFormData((prev: any) => { const age = val ? Math.floor((Date.now() - new Date(val + 'T00:00:00').getTime()) / 31557600000) : ''; return { ...prev, dob: val, age }; }); }} placeholder="Select birth date" className="[&>button]:py-3 [&>button>span]:truncate" />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.15em] px-1">Age</label>
-                                                            <input type="number" name="age" value={formData.age} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-xs font-bold text-slate-700" readOnly />
+                                                            <label className="text-[10px] font-black text-slate-800 uppercase tracking-[0.08em] px-1">Age</label>
+                                                            <input type="number" name="age" value={formData.age} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700" readOnly />
                                                         </div>
                                                         <div className="space-y-3">
                                                             <SearchableSelect
@@ -1252,12 +1297,12 @@ const TOTAL_STEPS = 3;
 
                             {/* Modal Footer (Wizard Controls) */}
                             {!activatedCredentials && (
-                                <div className="p-8 border-t border-slate-100 bg-slate-50 flex justify-between items-center rounded-b-[2.5rem]">
+                                <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-8 md:rounded-b-[2.5rem]">
                                     {activationStep > 1 ? (
                                         <button
                                             type="button"
                                             onClick={() => setActivationStep(prev => prev - 1)}
-                                            className="px-8 py-3 rounded-2xl font-black text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-all text-sm"
+                                            className="w-full rounded-2xl px-8 py-3 text-sm font-black text-slate-400 transition-all hover:bg-slate-200 hover:text-slate-600 sm:w-auto"
                                         >
                                             Previous
                                         </button>
@@ -1265,7 +1310,7 @@ const TOTAL_STEPS = 3;
                                         <button
                                             type="button"
                                             onClick={() => setShowActivateModal(false)}
-                                            className="px-8 py-3 rounded-2xl font-black text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all text-sm"
+                                            className="w-full rounded-2xl px-8 py-3 text-sm font-black text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600 sm:w-auto"
                                         >
                                             Cancel
                                         </button>
@@ -1275,17 +1320,17 @@ const TOTAL_STEPS = 3;
                                         <button
                                             type="button"
                                             onClick={handleNextStep}
-                                            className="px-10 py-3 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 hover:-translate-y-0.5 active:scale-95"
+                                            className="w-full rounded-2xl bg-slate-900 px-10 py-3 text-sm font-black text-white shadow-xl shadow-slate-900/10 transition-all hover:-translate-y-0.5 hover:bg-slate-800 active:scale-95 sm:w-auto"
                                         >
-                                            Next Step
+                                            Continue
                                         </button>
                                     ) : (
                                         <button
                                             type="button"
                                             onClick={handleActivationTrigger}
-                                            className="px-10 py-3 bg-gradient-to-r from-indigo-600 to-sky-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-500/30 hover:shadow-2xl flex items-center gap-2 hover:-translate-y-0.5 transition-all active:scale-95"
+                                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-500 px-10 py-3 text-sm font-black text-white shadow-xl shadow-indigo-500/30 transition-all hover:-translate-y-0.5 hover:shadow-2xl active:scale-95 sm:w-auto"
                                         >
-                                            Create
+                                            Create Account
                                         </button>
                                     )}
                                 </div>
@@ -1434,13 +1479,13 @@ const TOTAL_STEPS = 3;
             <AnimatePresence>
                 {toast && (
                     <motion.div
-                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                        initial={{ opacity: 0, y: -20, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                        className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border text-white flex items-center gap-4 z-[60] ${toast.type === 'error' ? 'bg-rose-500/90 border-rose-400/50' : 'bg-emerald-500/90 border-emerald-400/50'}`}
+                        className={`fixed left-4 right-4 top-4 z-[70] flex items-start gap-3 rounded-2xl border px-4 py-3 text-white shadow-2xl backdrop-blur-xl sm:bottom-6 sm:left-auto sm:right-6 sm:top-auto sm:max-w-sm ${toast.type === 'error' ? 'bg-rose-500/90 border-rose-400/50' : 'bg-emerald-500/90 border-emerald-400/50'}`}
                     >
-                        <div className="text-2xl">{toast.type === 'error' ? <AlertCircle /> : <CheckCircle />}</div>
-                        <div>
+                        <div className="pt-0.5 text-xl">{toast.type === 'error' ? <AlertCircle /> : <CheckCircle />}</div>
+                        <div className="min-w-0">
                             <h4 className="font-extrabold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4>
                             <p className="text-xs font-medium opacity-90">{toast.msg}</p>
                         </div>

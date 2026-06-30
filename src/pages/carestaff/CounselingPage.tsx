@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { exportToExcel } from '../../utils/dashboardUtils';
 import { formatDate, formatDateTime, generateExportFilename } from '../../utils/formatters';
 import { createDeferredChannelCleanup } from '../../lib/realtime';
@@ -24,6 +24,7 @@ import PaginationControls from '../../components/PaginationControls';
 
 interface CounselingPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToastMessage' | 'handleViewProfile'>;
+    refreshSignal?: number;
 }
 
 const COUNSELING_REQUESTS_PAGE_SIZE = 12;
@@ -53,8 +54,9 @@ const COUNSELING_REQUEST_COLUMNS = [
     'referrer_signature'
 ].join(', ');
 
-const CounselingPage = ({ functions }: CounselingPageProps) => {
+const CounselingPage = ({ functions, refreshSignal = 0 }: CounselingPageProps) => {
     const { handleViewProfile, showToastMessage } = functions;
+    const lastExternalRefreshSignalRef = useRef(refreshSignal);
     const sortCounselingByCreatedAt = (rows: any[]) =>
         [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
@@ -212,6 +214,12 @@ const CounselingPage = ({ functions }: CounselingPageProps) => {
             setIsRefreshingData(false);
         }
     };
+
+    useEffect(() => {
+        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
+        lastExternalRefreshSignalRef.current = refreshSignal;
+        void handleRefreshData();
+    }, [refreshSignal]);
 
     // Handlers
     const handleScheduleSubmit = async (e: any) => {
