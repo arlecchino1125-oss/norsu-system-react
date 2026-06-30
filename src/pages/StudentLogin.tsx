@@ -399,7 +399,7 @@ const TOTAL_STEPS = 3;
             resetForgotPasswordForm();
             showToast('Password updated. Sign in with your new password.', 'success');
         } catch (error: any) {
-            showToast('We were unable to reset your password. Please try again.', 'error');
+            showToast(error?.message || 'We were unable to reset your password. Please try again.', 'error');
         } finally {
             setIsResettingForgotPassword(false);
         }
