@@ -13,8 +13,6 @@ export default defineConfig([
     '.vite',
     'backups',
     'scratch',
-    'apps/student/student/android',
-    'apps/student/student/ios',
     'scripts',
   ]),
   {
