@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import {
     GraduationCap, ArrowLeft, FileText, Info, Check, User, Key,
-    Calendar, MapPin, Loader2, Printer, X, Clock, HelpCircle, LogOut, Mail, Moon, Phone, ArrowRight, SunMedium
+    Calendar, MapPin, Loader2, Printer, X, Clock, HelpCircle, LogOut, Mail, Moon, Phone, ArrowRight, SunMedium, Menu
 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
@@ -428,7 +428,15 @@ const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false,
         <div className="relative z-10 flex flex-col min-h-screen">
             {/* Glass Header */}
             <div className="sticky top-0 z-50 border-b border-white/50 bg-white/70 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/50 dark:border-slate-700/60 dark:bg-slate-900/80 dark:supports-[backdrop-filter]:bg-slate-900/75">
-                <div className="nat-layout-header max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <button
+                    type="button"
+                    aria-label="NAT navigation menu"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="absolute left-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl border border-blue-100 bg-white/85 text-blue-700 shadow-sm transition-all hover:border-blue-200 hover:bg-white hover:text-blue-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-sky-200 dark:hover:border-sky-400 dark:hover:text-sky-100"
+                >
+                    <Menu className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <div className="nat-layout-header max-w-7xl mx-auto py-4 pl-14 pr-6 md:px-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-2.5 shadow-lg shadow-blue-500/20 ring-1 ring-white/50">
                             <GraduationCap className="w-6 h-6 text-white" />
@@ -1288,13 +1296,20 @@ const NATPortal = () => {
                     </button>
                 )}
             >
-                <div className="nat-page-shell nat-page-shell-sm max-w-3xl mx-auto w-full">
-                    <div className={`rounded-[2.5rem] border p-10 text-center shadow-2xl ${isDark ? 'border-slate-700 bg-slate-900/80 text-slate-100' : 'border-white bg-white/70 text-slate-800'}`}>
-                        <h2 className="text-2xl font-black tracking-tight">Unable to load NAT portal availability</h2>
-                        <p className={`mt-3 text-sm leading-6 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                            {permissionsError}
-                        </p>
-                    </div>
+                <div className="nat-page-shell nat-page-shell-lg max-w-5xl mx-auto w-full">
+                    <FeatureAvailabilityView
+                        title="NAT Portal"
+                        permission={{
+                            isAllowed: false,
+                            status: 'hidden',
+                            noticeText: null,
+                            description: null
+                        }}
+                        description="Online NAT services are temporarily unavailable. Please check official NORSU announcements for the next opening schedule or return later."
+                        accent="blue"
+                        showStatusBadge={false}
+                        showNotice={false}
+                    />
                 </div>
             </NATLayout>
         );
@@ -1318,6 +1333,8 @@ const NATPortal = () => {
                         permission={natPortalAccessState}
                         description="Online NAT services are temporarily unavailable. Please check official NORSU announcements for the next opening schedule or return later."
                         accent="blue"
+                        showStatusBadge={false}
+                        showNotice={false}
                     />
                 </div>
             </NATLayout>
