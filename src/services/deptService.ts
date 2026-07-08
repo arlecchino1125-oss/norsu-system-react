@@ -5,6 +5,7 @@ import type { AdmissionsFilters, PageParams, RequestFilters, SortParams, Student
 import { readSessionCache, writeSessionCache } from '../utils/sessionCache';
 
 const PAGED_LIST_COUNT_MODE = 'planned';
+const DEPT_STUDENT_COUNT_MODE = 'exact';
 
 const DEPT_STUDENT_COLUMNS = [
     'id',
@@ -23,6 +24,7 @@ const DEPT_STUDENT_COLUMNS = [
     'zip_code',
     'year_level',
     'status',
+    'profile_completed',
     'department',
     'course',
     'section'
@@ -123,7 +125,9 @@ const DEFAULT_ADMISSIONS_STATUSES = [
 ];
 
 const DEPARTMENT_ADMISSIONS_RPC_CACHE_KEY = 'dept.admissions.rpc.available';
-const DEPT_CACHE_TTL_MS = 30 * 1000;
+// Only static lookups are cached here. Paged lists are cached by React Query,
+// whose invalidation (realtime, refresh, mutations) must not be masked by a
+// second cache layer in this service.
 const DEPT_LOOKUP_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const readDepartmentAdmissionsRpcAvailability = () => {
@@ -160,6 +164,12 @@ const readDeptCache = <T>(scope: string, payload: unknown) =>
 const writeDeptCache = <T>(scope: string, payload: unknown, value: T, ttlMs: number) =>
     writeSessionCache(buildDeptCacheKey(scope, payload), value, ttlMs);
 
+const sanitizePostgrestSearchTerm = (value: string) =>
+    value
+        .replace(/[%,()]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
 const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     let next = query.eq('is_archived', false);
     if (!filters) return next;
@@ -181,18 +191,24 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     }
 
     if (filters.status && filters.status !== 'All') {
-        next = next.eq('status', filters.status);
+        if (filters.status === 'Incomplete') {
+            next = next.or('profile_completed.eq.false,profile_completed.is.null');
+        } else {
+            next = next.eq('status', filters.status);
+        }
     }
 
     const search = String(filters.search || '').trim();
     if (search) {
-        const safe = search.replace(/[%]/g, '');
-        next = next.or([
-            `first_name.ilike.%${safe}%`,
-            `last_name.ilike.%${safe}%`,
-            `student_id.ilike.%${safe}%`,
-            `email.ilike.%${safe}%`
-        ].join(','));
+        const safe = sanitizePostgrestSearchTerm(search);
+        if (safe) {
+            next = next.or([
+                `first_name.ilike.%${safe}%`,
+                `last_name.ilike.%${safe}%`,
+                `student_id.ilike.%${safe}%`,
+                `email.ilike.%${safe}%`
+            ].join(','));
+        }
     }
 
     return next;
@@ -216,13 +232,25 @@ const applyRequestFilters = (query: any, filters?: RequestFilters) => {
         next = next.eq('status', filters.status);
     }
 
+    const scheduledOn = String(filters.scheduledOn || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(scheduledOn)) {
+        // scheduled_date is written as a naive local timestamp, so plain date
+        // boundaries (no timezone) match the storage convention
+        const nextDay = new Date(`${scheduledOn}T00:00:00`);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayKey = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+        next = next.gte('scheduled_date', `${scheduledOn} 00:00:00`).lt('scheduled_date', `${nextDayKey} 00:00:00`);
+    }
+
     const search = String(filters.search || '').trim();
     if (search) {
-        const safe = search.replace(/[%]/g, '');
-        next = next.or([
-            `student_name.ilike.%${safe}%`,
-            `student_id.ilike.%${safe}%`
-        ].join(','));
+        const safe = sanitizePostgrestSearchTerm(search);
+        if (safe) {
+            next = next.or([
+                `student_name.ilike.%${safe}%`,
+                `student_id.ilike.%${safe}%`
+            ].join(','));
+        }
     }
 
     return next;
@@ -233,16 +261,10 @@ export const getStudentsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
-    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
-    const cached = readDeptCache<PageResult<any>>('students-page', cacheKeyPayload);
-    if (cached) {
-        return cached;
-    }
-
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('students')
-        .select(DEPT_STUDENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
+        .select(DEPT_STUDENT_COLUMNS, { count: DEPT_STUDENT_COUNT_MODE });
 
     query = applyStudentFilters(query, filters);
     query = applySort(query, sort || { column: 'last_name', ascending: true });
@@ -250,9 +272,7 @@ export const getStudentsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    const result = toPageResult(data, count, pageParams);
-    writeDeptCache('students-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-    return result;
+    return toPageResult(data, count, pageParams);
 };
 
 export const getCounselingRequestsPage = async (
@@ -260,12 +280,6 @@ export const getCounselingRequestsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
-    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
-    const cached = readDeptCache<PageResult<any>>('counseling-page', cacheKeyPayload);
-    if (cached) {
-        return cached;
-    }
-
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('counseling_requests')
@@ -277,9 +291,7 @@ export const getCounselingRequestsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    const result = toPageResult(data, count, pageParams);
-    writeDeptCache('counseling-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-    return result;
+    return toPageResult(data, count, pageParams);
 };
 
 export const getSupportRequestsPage = async (
@@ -287,12 +299,6 @@ export const getSupportRequestsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
-    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
-    const cached = readDeptCache<PageResult<any>>('support-page', cacheKeyPayload);
-    if (cached) {
-        return cached;
-    }
-
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('support_requests')
@@ -304,35 +310,31 @@ export const getSupportRequestsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    const result = toPageResult(data, count, pageParams);
-    writeDeptCache('support-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-    return result;
+    return toPageResult(data, count, pageParams);
 };
 
 export const getEventsPage = async (
     pageParams?: PageParams,
-    sort?: SortParams
+    sort?: SortParams,
+    filters?: { fromDate?: string }
 ): Promise<PageResult<any>> => {
-    const cacheKeyPayload = { pageParams: pageParams || null, sort: sort || null };
-    const cached = readDeptCache<PageResult<any>>('events-page', cacheKeyPayload);
-    if (cached) {
-        return cached;
-    }
-
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('events')
         .select(DEPT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
         .eq('is_archived', false);
 
+    const fromDate = String(filters?.fromDate || '').trim();
+    if (fromDate) {
+        query = query.or(`event_date.is.null,event_date.gte.${fromDate}`);
+    }
+
     query = applySort(query, sort || { column: 'created_at', ascending: false });
     query = query.range(from, to);
 
     const { data, error, count } = await query;
     if (error) throw error;
-    const result = toPageResult(data, count, pageParams);
-    writeDeptCache('events-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-    return result;
+    return toPageResult(data, count, pageParams);
 };
 
 export const getApplicationsPage = async (
@@ -340,12 +342,6 @@ export const getApplicationsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
-    const cacheKeyPayload = { filters: filters || null, pageParams: pageParams || null, sort: sort || null };
-    const cached = readDeptCache<PageResult<any>>('applications-page', cacheKeyPayload);
-    if (cached) {
-        return cached;
-    }
-
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
         .from('applications')
@@ -371,12 +367,14 @@ export const getApplicationsPage = async (
 
     const search = String(filters?.search || '').trim();
     if (search) {
-        const safe = search.replace(/[%]/g, '');
-        query = query.or([
-            `first_name.ilike.%${safe}%`,
-            `last_name.ilike.%${safe}%`,
-            `reference_id.ilike.%${safe}%`
-        ].join(','));
+        const safe = sanitizePostgrestSearchTerm(search);
+        if (safe) {
+            query = query.or([
+                `first_name.ilike.%${safe}%`,
+                `last_name.ilike.%${safe}%`,
+                `reference_id.ilike.%${safe}%`
+            ].join(','));
+        }
     }
 
     query = applySort(query, sort || { column: 'created_at', ascending: false });
@@ -384,9 +382,7 @@ export const getApplicationsPage = async (
 
     const { data, error, count } = await query;
     if (error) throw error;
-    const result = toPageResult(data, count, pageParams);
-    writeDeptCache('applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-    return result;
+    return toPageResult(data, count, pageParams);
 };
 
 const applyAdmissionsFilters = (query: any, filters?: AdmissionsFilters) => {
@@ -399,12 +395,14 @@ const applyAdmissionsFilters = (query: any, filters?: AdmissionsFilters) => {
 
     const search = String(filters?.search || '').trim();
     if (search) {
-        const safe = search.replace(/[%]/g, '');
-        next = next.or([
-            `first_name.ilike.%${safe}%`,
-            `last_name.ilike.%${safe}%`,
-            `reference_id.ilike.%${safe}%`
-        ].join(','));
+        const safe = sanitizePostgrestSearchTerm(search);
+        if (safe) {
+            next = next.or([
+                `first_name.ilike.%${safe}%`,
+                `last_name.ilike.%${safe}%`,
+                `reference_id.ilike.%${safe}%`
+            ].join(','));
+        }
     }
 
     return next;
@@ -425,7 +423,7 @@ const sortRows = (rows: any[], sort?: SortParams) => {
     });
 };
 
-const getDepartmentCourseNames = async (departmentName: string) => {
+export const getDepartmentCourseNames = async (departmentName: string) => {
     const normalizedDepartment = String(departmentName || '').trim();
     if (!normalizedDepartment) {
         return [] as string[];
@@ -578,27 +576,18 @@ export const getDepartmentApplicationsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
-    const cacheKeyPayload = { departmentName, filters: filters || null, pageParams: pageParams || null, sort: sort || null };
-    const cached = readDeptCache<PageResult<any>>('department-applications-page', cacheKeyPayload);
-    if (cached) {
-        return cached;
-    }
-
     if (departmentAdmissionsRpcAvailability === false) {
-        const result = await getDepartmentApplicationsPageFallback(departmentName, filters, pageParams, sort);
-        writeDeptCache('department-applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-        return result;
+        return getDepartmentApplicationsPageFallback(departmentName, filters, pageParams, sort);
     }
 
     try {
         const result = await getDepartmentApplicationsPageViaRpc(departmentName, filters, pageParams, sort);
         departmentAdmissionsRpcAvailability = true;
         writeDepartmentAdmissionsRpcAvailability(true);
-        writeDeptCache('department-applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
         return result;
     } catch (error: any) {
         const isMissingRpc = String(error?.code || '').trim() === 'PGRST202'
-            || String('').includes('Could not find the function public.get_department_applications_page');
+            || String(error?.message || '').includes('Could not find the function public.get_department_applications_page');
 
         if (isMissingRpc) {
             departmentAdmissionsRpcAvailability = false;
@@ -607,9 +596,7 @@ export const getDepartmentApplicationsPage = async (
             console.warn('Department admissions RPC unavailable, falling back to legacy query path.', error);
         }
 
-        const result = await getDepartmentApplicationsPageFallback(departmentName, filters, pageParams, sort);
-        writeDeptCache('department-applications-page', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-        return result;
+        return getDepartmentApplicationsPageFallback(departmentName, filters, pageParams, sort);
     }
 };
 
@@ -617,12 +604,6 @@ export const getDepartmentInterviewQueue = async (
     departmentName: string,
     interviewDate?: string
 ) => {
-    const cacheKeyPayload = { departmentName, interviewDate: interviewDate || null };
-    const cached = readDeptCache<any[]>('department-interview-queue', cacheKeyPayload);
-    if (cached) {
-        return cached;
-    }
-
     const departmentCourseNames = await getDepartmentCourseNames(departmentName);
     if (departmentCourseNames.length === 0) {
         return [] as any[];
@@ -661,9 +642,7 @@ export const getDepartmentInterviewQueue = async (
             && String(row?.interview_queue_status || '').trim() === 'Absent'
         ));
 
-    const result = sortRows(rows, { column: 'interview_date', ascending: true });
-    writeDeptCache('department-interview-queue', cacheKeyPayload, result, DEPT_CACHE_TTL_MS);
-    return result;
+    return sortRows(rows, { column: 'interview_date', ascending: true });
 };
 
 export const getCourseDepartmentMap = async () => {

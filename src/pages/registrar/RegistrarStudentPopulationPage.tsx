@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { Users, Search, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, FileSpreadsheet, RefreshCw, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -182,25 +183,20 @@ const isProfileIncompleteStep1 = (student: any) => {
 };
 
 const CARE_STUDENT_PAGE_SIZE = 10;
+const CARE_STUDENT_SEARCH_DEBOUNCE_MS = 250;
 const getCareStudentTotalPages = (totalItems: number) => Math.max(1, Math.ceil(Math.max(0, totalItems) / CARE_STUDENT_PAGE_SIZE));
 
 export default function RegistrarStudentPopulationPage() {
-    const [students, setStudents] = useState<any[]>([]);
-    const [totalStudents, setTotalStudents] = useState(0);
-    const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
-    
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
     // Filters
     const [departmentFilter, setDepartmentFilter] = useState('All');
     const [courseFilter, setCourseFilter] = useState('All');
     const [yearFilter, setYearFilter] = useState('All');
     const [statusFilter, setStatusFilter] = useState('All');
 
-    // Reference data
-    const [departments, setDepartments] = useState<any[]>([]);
-    const [courses, setCourses] = useState<any[]>([]);
-    
     // Profile Modal
     const [profileViewStudent, setProfileViewStudent] = useState<any>(null);
     const [profileCategoryIndex, setProfileCategoryIndex] = useState(0);
@@ -210,43 +206,45 @@ export default function RegistrarStudentPopulationPage() {
     const [isExporting, setIsExporting] = useState(false);
 
     useEffect(() => {
-        const fetchFilters = async () => {
-            try {
-                const depts = await getDepartments();
-                const crs = await getCoursesWithDepartments();
-                setDepartments(depts);
-                setCourses(crs);
-            } catch (err) {
-                console.error('Error fetching filter data:', err);
-            }
-        };
-        fetchFilters();
-    }, []);
+        const timer = window.setTimeout(() => {
+            setCurrentPage(1);
+            setDebouncedSearchTerm(searchTerm);
+        }, CARE_STUDENT_SEARCH_DEBOUNCE_MS);
 
-    const fetchStudents = async () => {
-        setLoading(true);
-        try {
+        return () => window.clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Reference data — fetched once, cached until page unloads
+    const { data: departments = [] } = useQuery({
+        queryKey: ['registrar_departments'],
+        queryFn: getDepartments,
+        staleTime: Infinity
+    });
+
+    const { data: courses = [] } = useQuery({
+        queryKey: ['registrar_courses'],
+        queryFn: getCoursesWithDepartments,
+        staleTime: Infinity
+    });
+
+    // Student list — re-fetches only when a filter/page combo is new
+    const studentsQuery = useQuery({
+        queryKey: ['registrar_students', currentPage, debouncedSearchTerm, departmentFilter, courseFilter, yearFilter, statusFilter],
+        queryFn: async () => {
             const filters: StudentFilters = {
-                search: searchTerm,
+                search: debouncedSearchTerm,
                 department: departmentFilter !== 'All' ? departmentFilter : undefined,
                 course: courseFilter !== 'All' ? courseFilter : undefined,
                 yearLevel: yearFilter !== 'All' ? yearFilter : undefined,
                 status: statusFilter !== 'All' ? statusFilter : undefined,
             };
-            const result = await getStudentsPage(filters, { page: currentPage, pageSize: CARE_STUDENT_PAGE_SIZE }, { column: 'last_name', ascending: true });
-            setStudents(result.rows);
-            setTotalStudents(result.total);
-        } catch (error) {
-            console.error('Error fetching students:', error);
-            alert('Failed to load students');
-        } finally {
-            setLoading(false);
+            return getStudentsPage(filters, { page: currentPage, pageSize: CARE_STUDENT_PAGE_SIZE }, { column: 'last_name', ascending: true });
         }
-    };
+    });
 
-    useEffect(() => {
-        fetchStudents();
-    }, [currentPage, searchTerm, departmentFilter, courseFilter, yearFilter, statusFilter]);
+    const students = studentsQuery.data?.rows ?? [];
+    const totalStudents = studentsQuery.data?.total ?? 0;
+    const loading = studentsQuery.isLoading;
 
     const handleExportExcel = async () => {
         if (typeof XLSX === 'undefined') {
@@ -309,7 +307,7 @@ export default function RegistrarStudentPopulationPage() {
                 if (col.type === 'file') indexes.push(index);
                 return indexes;
             }, []);
-            
+
             const rows = [];
             for (const student of allStudents) {
                 const row = [];
@@ -331,7 +329,7 @@ export default function RegistrarStudentPopulationPage() {
 
             const wsData = [headers, ...rows];
             const ws = XLSX.utils.aoa_to_sheet(wsData);
-            
+
             fileColumnIndexes.forEach((columnIndex: number) => {
                 rows.forEach((row, rowIndex) => {
                     const fileUrl = String(row[columnIndex] || '').trim();
@@ -342,7 +340,7 @@ export default function RegistrarStudentPopulationPage() {
                     }
                 });
             });
-            
+
             ws['!cols'] = headers.map((h: string) => ({ wch: Math.max(h.length, 18) }));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Student Profiles');
@@ -374,9 +372,9 @@ export default function RegistrarStudentPopulationPage() {
     };
 
     const departmentNames = departments.map(d => d.name);
-    const filteredCourses = courseFilter === 'All' 
-        ? courses 
-        : courses.filter(c => getDepartmentNameFromCourseRecords(c.department_id, departments) === departmentFilter);
+    const filteredCourses = departmentFilter === 'All'
+        ? courses
+        : courses.filter(c => getDepartmentNameFromCourseRecords(c.name, courses, departments) === departmentFilter);
 
     const totalPages = getCareStudentTotalPages(totalStudents);
 
@@ -386,16 +384,16 @@ export default function RegistrarStudentPopulationPage() {
             <div className="w-full lg:w-80 shrink-0 space-y-6">
                 {/* Actions card */}
                 <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-                    <button 
-                        onClick={handleExportExcel} 
+                    <button
+                        onClick={handleExportExcel}
                         disabled={isExporting}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-lg text-sm font-semibold hover:bg-teal-600 transition shadow-sm disabled:opacity-50"
                     >
                         {isExporting ? <RefreshCw size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
                         Export Profiles to Excel
                     </button>
-                    <button 
-                        onClick={fetchStudents} 
+                    <button
+                        onClick={() => studentsQuery.refetch()}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm"
                     >
                         <RefreshCw size={16} />
@@ -406,15 +404,15 @@ export default function RegistrarStudentPopulationPage() {
                 {/* Filters card */}
                 <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Search & Filters</h3>
-                    
+
                     <div className="relative w-full">
                         <Search size={18} className="absolute left-3 top-3 text-slate-400" />
-                        <input 
-                            type="text" 
-                            placeholder="Search by Name or ID..." 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 bg-slate-50 focus:bg-white transition-all" 
+                        <input
+                            type="text"
+                            placeholder="Search by Name or ID..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 bg-slate-50 focus:bg-white transition-all"
                         />
                     </div>
 
@@ -458,8 +456,8 @@ export default function RegistrarStudentPopulationPage() {
                     </div>
 
                     {(searchTerm || departmentFilter !== 'All' || courseFilter !== 'All' || yearFilter !== 'All' || statusFilter !== 'All') && (
-                        <button 
-                            onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setCurrentPage(1); }} 
+                        <button
+                            onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setCurrentPage(1); }}
                             className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium border border-red-100 mt-2"
                         >
                             Reset Filters
@@ -524,146 +522,146 @@ export default function RegistrarStudentPopulationPage() {
             {/* Profile Modal */}
             {profileViewStudent && typeof document !== 'undefined' && createPortal(
                 <>
-                <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setProfileViewStudent(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-                        <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-teal-50 flex items-center justify-between shrink-0">
-                            <div className="flex items-center gap-4">
-                                <button
-                                    onClick={() => profileViewStudent?.profile_picture_url && setShowPhotoModal(true)}
-                                    className={`w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg shadow-teal-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-teal-400 transition-all focus:outline-none' : 'cursor-default'}`}
-                                >
-                                    {profileViewStudent.profile_picture_url ? (
-                                        <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                    ) : (
-                                        <span>{profileViewStudent.first_name?.[0] || 'S'}</span>
-                                    )}
-                                </button>
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-900">
-                                        {profileViewStudent.last_name}, {profileViewStudent.first_name} {profileViewStudent.suffix || ''} {profileViewStudent.middle_name || ''}
-                                    </h2>
-                                    <p className="text-sm text-slate-500 font-mono">{profileViewStudent.student_id} &bull; {profileViewStudent.course} &bull; {profileViewStudent.year_level}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setProfileViewStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 bg-white rounded-full transition shadow-sm border border-slate-100">
-                                <XCircle size={24} />
-                            </button>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
-                            <div className="sm:w-64 bg-slate-50 border-r border-slate-100 overflow-y-auto shrink-0 py-2">
-                                <div className="flex sm:flex-col gap-1 px-2">
-                                    {PROFILE_CATEGORIES.map((cat, i) => (
-                                        <button
-                                            key={cat.key}
-                                            onClick={() => setProfileCategoryIndex(i)}
-                                            className={`text-left px-4 py-3 flex items-center gap-3 text-sm transition-all rounded-lg ${profileCategoryIndex === i
-                                                ? 'bg-white text-teal-700 font-bold border border-teal-100 shadow-sm'
-                                                : 'text-slate-600 hover:bg-white hover:text-slate-900 border border-transparent'
-                                                }`}
-                                        >
-                                            <span className="text-lg">{cat.icon}</span>
-                                            <span className="truncate">{cat.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-6 bg-white">
-                                {profileLoading ? (
-                                    <div className="flex items-center justify-center h-64 text-slate-400">Loading student data...</div>
-                                ) : (
+                    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setProfileViewStudent(null)}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                            <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-teal-50 flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => profileViewStudent?.profile_picture_url && setShowPhotoModal(true)}
+                                        className={`w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg shadow-teal-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-teal-400 transition-all focus:outline-none' : 'cursor-default'}`}
+                                    >
+                                        {profileViewStudent.profile_picture_url ? (
+                                            <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                        ) : (
+                                            <span>{profileViewStudent.first_name?.[0] || 'S'}</span>
+                                        )}
+                                    </button>
                                     <div>
-                                        <div className="flex items-center gap-3 mb-6">
-                                            <span className={`p-2 rounded-lg bg-gradient-to-br ${PROFILE_CATEGORIES[profileCategoryIndex].gradient} text-white text-lg`}>
-                                                {PROFILE_CATEGORIES[profileCategoryIndex].icon}
-                                            </span>
-                                            <h3 className="text-xl font-bold text-slate-900">{PROFILE_CATEGORIES[profileCategoryIndex].label}</h3>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {PROFILE_CATEGORIES[profileCategoryIndex].fields.map((field: any, idx: number) => {
-                                                let value = field.compute ? field.compute(profileViewStudent) : profileViewStudent[field.db];
-                                                if (field.type === 'boolean') value = value ? 'Yes' : 'No';
-                                                return (
-                                                    <div key={(field.db || '') + field.label + idx} className="min-w-0">
-                                                        <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wide mb-1">{field.label}</p>
-                                                        {field.type === 'profilePhoto' && value ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setShowPhotoModal(true)}
-                                                                className="inline-flex items-center rounded-lg border border-teal-100 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100"
-                                                            >
-                                                                View photo
-                                                            </button>
-                                                        ) : field.type === 'document' && value ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={async () => {
-                                                                    try {
-                                                                        await openStoredAsset('support_documents', String(value));
-                                                                    } catch (error: any) {
-                                                                        alert(error.message || 'Unable to open the selected file.');
-                                                                    }
-                                                                }}
-                                                                className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
-                                                            >
-                                                                View file
-                                                            </button>
-                                                        ) : (
-                                                            <p className="text-sm font-semibold text-slate-800 break-words">
-                                                                {value || <span className="text-slate-300 italic font-normal">—</span>}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                        <h2 className="text-xl font-bold text-slate-900">
+                                            {profileViewStudent.last_name}, {profileViewStudent.first_name} {profileViewStudent.suffix || ''} {profileViewStudent.middle_name || ''}
+                                        </h2>
+                                        <p className="text-sm text-slate-500 font-mono">{profileViewStudent.student_id} &bull; {profileViewStudent.course} &bull; {profileViewStudent.year_level}</p>
                                     </div>
+                                </div>
+                                <button onClick={() => setProfileViewStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 bg-white rounded-full transition shadow-sm border border-slate-100">
+                                    <XCircle size={24} />
+                                </button>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
+                                <div className="sm:w-64 bg-slate-50 border-r border-slate-100 overflow-y-auto shrink-0 py-2">
+                                    <div className="flex sm:flex-col gap-1 px-2">
+                                        {PROFILE_CATEGORIES.map((cat, i) => (
+                                            <button
+                                                key={cat.key}
+                                                onClick={() => setProfileCategoryIndex(i)}
+                                                className={`text-left px-4 py-3 flex items-center gap-3 text-sm transition-all rounded-lg ${profileCategoryIndex === i
+                                                    ? 'bg-white text-teal-700 font-bold border border-teal-100 shadow-sm'
+                                                    : 'text-slate-600 hover:bg-white hover:text-slate-900 border border-transparent'
+                                                    }`}
+                                            >
+                                                <span className="text-lg">{cat.icon}</span>
+                                                <span className="truncate">{cat.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-6 bg-white">
+                                    {profileLoading ? (
+                                        <div className="flex items-center justify-center h-64 text-slate-400">Loading student data...</div>
+                                    ) : (
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <span className={`p-2 rounded-lg bg-gradient-to-br ${PROFILE_CATEGORIES[profileCategoryIndex].gradient} text-white text-lg`}>
+                                                    {PROFILE_CATEGORIES[profileCategoryIndex].icon}
+                                                </span>
+                                                <h3 className="text-xl font-bold text-slate-900">{PROFILE_CATEGORIES[profileCategoryIndex].label}</h3>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {PROFILE_CATEGORIES[profileCategoryIndex].fields.map((field: any, idx: number) => {
+                                                    let value = field.compute ? field.compute(profileViewStudent) : profileViewStudent[field.db];
+                                                    if (field.type === 'boolean') value = value ? 'Yes' : 'No';
+                                                    return (
+                                                        <div key={(field.db || '') + field.label + idx} className="min-w-0">
+                                                            <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wide mb-1">{field.label}</p>
+                                                            {field.type === 'profilePhoto' && value ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowPhotoModal(true)}
+                                                                    className="inline-flex items-center rounded-lg border border-teal-100 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100"
+                                                                >
+                                                                    View photo
+                                                                </button>
+                                                            ) : field.type === 'document' && value ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            await openStoredAsset('support_documents', String(value));
+                                                                        } catch (error: any) {
+                                                                            alert(error.message || 'Unable to open the selected file.');
+                                                                        }
+                                                                    }}
+                                                                    className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                                                                >
+                                                                    View file
+                                                                </button>
+                                                            ) : (
+                                                                <p className="text-sm font-semibold text-slate-800 break-words">
+                                                                    {value || <span className="text-slate-300 italic font-normal">—</span>}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Full Size Photo Modal */}
+                    <div
+                        className={`fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                        onClick={() => setShowPhotoModal(false)}
+                    >
+                        <div
+                            className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={() => setShowPhotoModal(false)}
+                                className="absolute top-4 right-4 w-8 h-8 bg-black/40 hover:bg-black/60 text-white backdrop-blur-md rounded-full flex items-center justify-center transition-colors z-10 border border-white/20"
+                            >
+                                <XCircle size={20} />
+                            </button>
+
+                            <div className="w-full aspect-square flex items-center justify-center bg-slate-100 flex-shrink-0">
+                                {profileViewStudent.profile_picture_url ? (
+                                    <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                    <User size={80} className="text-slate-300" />
                                 )}
                             </div>
-                        </div>
-                    </div>
-                </div>
 
-                {/* Full Size Photo Modal */}
-                <div
-                    className={`fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-                    onClick={() => setShowPhotoModal(false)}
-                >
-                    <div
-                        className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <button
-                            onClick={() => setShowPhotoModal(false)}
-                            className="absolute top-4 right-4 w-8 h-8 bg-black/40 hover:bg-black/60 text-white backdrop-blur-md rounded-full flex items-center justify-center transition-colors z-10 border border-white/20"
-                        >
-                            <XCircle size={20} />
-                        </button>
-
-                        <div className="w-full aspect-square flex items-center justify-center bg-slate-100 flex-shrink-0">
-                            {profileViewStudent.profile_picture_url ? (
-                                <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                            ) : (
-                                <User size={80} className="text-slate-300" />
-                            )}
-                        </div>
-
-                        <div className="p-6 text-center bg-white border-t border-slate-100">
-                            <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-tight">
-                                {[profileViewStudent.first_name, profileViewStudent.middle_name, profileViewStudent.last_name, profileViewStudent.suffix].filter(Boolean).join(' ')}
-                            </h3>
-                            <p className="font-mono text-base text-blue-600 font-bold mt-1.5">
-                                {profileViewStudent.student_id}
-                            </p>
-                            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 font-medium mt-1">
-                                <span>{profileViewStudent.course}</span>
-                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                <span>{profileViewStudent.year_level}</span>
+                            <div className="p-6 text-center bg-white border-t border-slate-100">
+                                <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-tight">
+                                    {[profileViewStudent.first_name, profileViewStudent.middle_name, profileViewStudent.last_name, profileViewStudent.suffix].filter(Boolean).join(' ')}
+                                </h3>
+                                <p className="font-mono text-base text-blue-600 font-bold mt-1.5">
+                                    {profileViewStudent.student_id}
+                                </p>
+                                <div className="flex items-center justify-center gap-2 text-sm text-slate-500 font-medium mt-1">
+                                    <span>{profileViewStudent.course}</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                    <span>{profileViewStudent.year_level}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
                 </>,
                 document.body
             )}

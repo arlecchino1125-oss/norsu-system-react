@@ -37,22 +37,11 @@ export const isValidEmailDomain = (email: string): boolean => {
     const parts = String(email).split('@');
     if (parts.length !== 2) return false;
     const domain = parts[1].toLowerCase().trim();
-    
-    const allowedDomains = [
-        'gmail.com',
-        'yahoo.com',
-        'yahoo.com.ph',
-        'outlook.com',
-        'hotmail.com',
-        'icloud.com',
-        'proton.me',
-        'protonmail.com',
-    ];
-    
-    if (allowedDomains.includes(domain)) return true;
-    if (domain.endsWith('.edu.ph') || domain.endsWith('.edu')) return true;
-    
-    return false;
+
+    // Accept any structurally valid domain (dot-separated labels ending in a
+    // 2+ letter TLD). Previously this was an allowlist of common providers,
+    // which locked out students with other legitimate email addresses.
+    return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(domain);
 };
 
 export const normalizePlainTextInput = (value: unknown, multiline = false) => {

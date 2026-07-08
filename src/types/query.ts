@@ -15,6 +15,7 @@ export interface StudentFilters {
     course?: string;
     yearLevel?: string;
     section?: string;
+    annotationStudentIds?: Array<string | number>;
 }
 
 export interface RequestFilters {
@@ -22,6 +23,8 @@ export interface RequestFilters {
     department?: string;
     status?: string | string[];
     search?: string;
+    /** YYYY-MM-DD — matches rows whose scheduled_date falls on this day */
+    scheduledOn?: string;
 }
 
 export interface AdmissionsFilters {
@@ -30,4 +33,3 @@ export interface AdmissionsFilters {
     department?: string;
     course?: string;
 }
-

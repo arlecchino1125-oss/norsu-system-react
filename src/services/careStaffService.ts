@@ -258,6 +258,13 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     let next = query.eq('is_archived', false);
     if (!filters) return next;
 
+    if (filters.annotationStudentIds) {
+        const ids = filters.annotationStudentIds
+            .map((id) => Number(id))
+            .filter((id) => Number.isFinite(id) && id > 0);
+        next = ids.length > 0 ? next.in('id', ids) : next.eq('id', -1);
+    }
+
     const searchTokens = getStudentSearchTokens(filters.search);
     if (searchTokens.length > 0) {
         searchTokens.forEach(token => {
@@ -356,7 +363,7 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
 };
 
 const createStudentsQuery = (filters?: StudentFilters, countMode?: 'exact') => {
-    let query: any = countMode
+    const query: any = countMode
         ? supabase.from('students').select(STUDENT_TABLE_COLUMNS, { count: countMode })
         : supabase.from('students').select(STUDENT_TABLE_COLUMNS);
     return applyStudentFilters(query, filters);
@@ -424,6 +431,10 @@ export const getStudentsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
+    if (filters?.annotationStudentIds) {
+        return getRestStudentsPage(filters, pageParams, sort);
+    }
+
     return getRpcStudentsPage(filters, pageParams, sort);
 };
 

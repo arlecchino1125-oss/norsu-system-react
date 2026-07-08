@@ -1,9 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
-const ProtectedRoute = ({ children, allowedRoles = [] }: any) => {
+type ProtectedRouteProps = {
+    children: ReactNode;
+    allowedRoles?: string[];
+};
+
+const ProtectedRoute = ({ children, allowedRoles = [] }: ProtectedRouteProps) => {
     const { session, loading, isAuthenticated, logout } = useAuth();
 
     if (loading) {

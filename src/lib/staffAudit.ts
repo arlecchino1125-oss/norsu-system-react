@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export const TRACKED_STAFF_AUDIT_ROLES = ['Care Staff', 'Department Head'] as const;
+export const TRACKED_STAFF_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
 
 export type TrackedStaffAuditRole = (typeof TRACKED_STAFF_AUDIT_ROLES)[number];
 
@@ -176,7 +176,11 @@ export const recordStaffAuditAction = async (
     const payload = {
         user_name: String(session?.full_name || session?.username || normalizedRole).trim() || normalizedRole,
         action: String(entry.action || '').trim(),
-        details: entry.details ?? null,
+        details: entry.details == null
+            ? null
+            : typeof entry.details === 'string'
+                ? entry.details
+                : JSON.stringify(entry.details),
         actor_role: normalizedRole,
         actor_id: session?.id ? String(session.id) : null,
         actor_department: String(session?.department || '').trim() || null,

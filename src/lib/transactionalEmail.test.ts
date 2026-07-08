@@ -42,6 +42,7 @@ describe('sendTransactionalEmailNotification', () => {
                 email: 'test@example.com',
                 name: 'Test User'
             },
+            requireAuth: true,
             fallbackMessage: 'Fallback send failure.'
         });
         expect(result).toEqual({

@@ -130,7 +130,8 @@ export const FEATURE_PERMISSIONS = {
         'support',
         'scholarship',
         'events',
-        'feedback'
+        'feedback',
+        'volunteer'
     ],
     publicPortal: [
         'nat_portal'
