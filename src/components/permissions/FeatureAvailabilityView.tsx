@@ -54,6 +54,8 @@ type FeatureAvailabilityViewProps = {
     description?: string;
     accent?: Accent;
     className?: string;
+    showStatusBadge?: boolean;
+    showNotice?: boolean;
 };
 
 export default function FeatureAvailabilityView({
@@ -61,7 +63,9 @@ export default function FeatureAvailabilityView({
     permission,
     description,
     accent = 'slate',
-    className = ''
+    className = '',
+    showStatusBadge = true,
+    showNotice = true
 }: FeatureAvailabilityViewProps) {
     const resolvedStatus = permission.status;
     const statusMeta = STATUS_META[resolvedStatus];
@@ -74,13 +78,17 @@ export default function FeatureAvailabilityView({
                 <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${statusMeta.iconClassName}`}>
                     <StatusIcon className="h-8 w-8" />
                 </div>
-                <div className={`mx-auto mt-5 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${statusMeta.badgeClassName}`}>
-                    {PERMISSION_STATUS_LABELS[resolvedStatus]}
-                </div>
+                {showStatusBadge && (
+                    <div className={`mx-auto mt-5 inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${statusMeta.badgeClassName}`}>
+                        {PERMISSION_STATUS_LABELS[resolvedStatus]}
+                    </div>
+                )}
                 <h1 className="mt-5 text-2xl font-semibold text-slate-900 sm:text-3xl">{title}</h1>
-                <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
-                    {notice}
-                </p>
+                {showNotice && (
+                    <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
+                        {notice}
+                    </p>
+                )}
                 {description && (
                     <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-500">
                         {description}
