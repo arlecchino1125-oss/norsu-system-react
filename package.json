@@ -19,10 +19,6 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.0",
-    "@capacitor/cli": "^8.4.0",
-    "@capacitor/core": "^8.4.0",
-    "@capacitor/ios": "^8.4.0",
     "@sentry/react": "^10.63.0",
     "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-query": "^5.101.2",

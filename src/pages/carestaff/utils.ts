@@ -109,7 +109,9 @@ export const HEADER_TITLES: Record<ActiveTab, string> = {
 export const MODULE_TAB_MAP: Record<string, ActiveTab> = {
     'Student Analytics': 'analytics',
     'Form Management': 'forms',
+    'Event Broadcaster': 'events',
     'Event Broadcasting': 'events',
+    'Manage Scholarships': 'scholarship',
     'Scholarship Tracking': 'scholarship'
 };
 

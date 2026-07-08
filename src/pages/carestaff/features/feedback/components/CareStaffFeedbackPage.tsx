@@ -1,6 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
-import { supabase } from '../../../../../lib/supabase';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
 import { formatDate, formatDateTime, generateExportFilename } from '../../../../../utils/formatters';
 import type { CareStaffDashboardFunctions } from '../../../types';
@@ -19,21 +17,13 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
         currentPage,
         setCurrentPage,
         feedbackTotal,
-        setFeedbackTotal,
         items,
-        setItems,
         rawEventData,
-        setRawEventData,
-        eventNames,
-        setEventNames,
         loading,
-        setLoading,
         stats,
-        setStats,
         viewingEval,
         setViewingEval,
         rawGeneralData,
-        setRawGeneralData,
         viewingCSM,
         setViewingCSM,
         printRef,
@@ -42,8 +32,6 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
         getCcAnswerText,
         getEventName,
         getEventRating,
-        computeStats,
-        fetchData,
         handleViewEvaluation,
         eventOptions,
         filteredEventRows,
@@ -257,9 +245,9 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
 
             {/* View Evaluation Form Modal */}
             {viewingEval && (
-                <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-visible bg-transparent p-4 pt-20 lg:pt-24 pb-8">
-                    <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col max-h-[calc(100vh-7rem)] lg:max-h-[calc(100vh-8rem)]">
-                        <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white flex-shrink-0">
+                <div className="fixed inset-x-0 bottom-3 top-3 z-[70] flex items-start justify-center overflow-visible bg-transparent px-3 md:top-[4.75rem]">
+                    <div className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                        <div className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 text-white">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-[10px] uppercase tracking-widest text-blue-200 mb-1">Negros Oriental State University — CARE Center</p>
@@ -270,7 +258,7 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-8 space-y-6" ref={printRef}>
+                        <div className="flex-1 overflow-y-auto p-5 space-y-5 lg:p-6" ref={printRef}>
                             <div style={{ display: 'none' }} className="eval-header">
                                 <div className="eval-header"><h1>PARTICIPANT'S EVALUATION FORM</h1><p>Negros Oriental State University — CARE Center</p><p>{viewingEval.events?.title || 'Event'}</p></div>
                             </div>
@@ -312,7 +300,7 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                             )}
                         </div>
 
-                        <div className="px-8 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0 flex gap-3">
+                        <div className="flex flex-shrink-0 gap-3 border-t border-gray-100 bg-gray-50/50 px-6 py-3">
                             <Button
                                 variant="primary"
                                 size="lg"
@@ -342,19 +330,89 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                     'SQD8. I got what I needed from the government office, or (if denied) denial of request was sufficiently explained to me.',
                 ];
                 return (
-                    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-visible bg-transparent p-4 pt-20 lg:pt-24 pb-8">
-                        <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col max-h-[calc(100vh-7rem)] lg:max-h-[calc(100vh-8rem)]">
-                            <div className="px-8 py-5 bg-gradient-to-r from-blue-600 to-blue-800 text-white flex-shrink-0">
+                    <div className="fixed inset-x-0 bottom-3 top-3 z-[70] flex items-start justify-center overflow-visible bg-transparent px-3 md:top-[4.75rem]">
+                        <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                            <div className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-800 px-5 py-4 text-white sm:px-6">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-[10px] uppercase tracking-widest text-blue-200 mb-1">Client Satisfaction Measurement</p>
-                                        <h3 className="text-xl font-extrabold">{viewingCSM.service_availed || 'General Feedback'}</h3>
+                                        <h3 className="text-lg font-extrabold leading-tight">{viewingCSM.service_availed || 'General Feedback'}</h3>
                                         <p className="text-xs text-blue-200 mt-1">Submitted by {viewingCSM.student_name}</p>
                                     </div>
                                     <Button variant="ghost" size="sm" onClick={() => setViewingCSM(null)} className="!bg-white/15 hover:!bg-white/25 !text-white !rounded-xl">✕</Button>
                                 </div>
                             </div>
-                            <div className="overflow-y-auto flex-1 p-8 space-y-6">
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
+                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.86fr_1.34fr]">
+                                    <div className="space-y-4">
+                                        <div className="rounded-xl border border-gray-200 bg-white p-4">
+                                            <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-gray-400">Respondent Details</p>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                                <div><p className="text-[10px] font-bold text-gray-400 uppercase">Client Type</p><p className="text-sm font-bold">{viewingCSM.client_type || '-'}</p></div>
+                                                <div><p className="text-[10px] font-bold text-gray-400 uppercase">Sex</p><p className="text-sm font-bold">{viewingCSM.sex || '-'}</p></div>
+                                                <div><p className="text-[10px] font-bold text-gray-400 uppercase">Age</p><p className="text-sm font-bold">{viewingCSM.age || '-'}</p></div>
+                                                <div><p className="text-[10px] font-bold text-gray-400 uppercase">Date</p><p className="text-sm font-bold">{formatDate(viewingCSM.created_at)}</p></div>
+                                                <div><p className="text-[10px] font-bold text-gray-400 uppercase">Region</p><p className="text-sm font-bold">{viewingCSM.region || '-'}</p></div>
+                                                <div><p className="text-[10px] font-bold text-gray-400 uppercase">Service Availed</p><p className="text-sm font-bold">{viewingCSM.service_availed || '-'}</p></div>
+                                                {viewingCSM.email && (
+                                                    <div className="col-span-2">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Email</p>
+                                                        <p className="break-all text-sm font-bold text-blue-600">{viewingCSM.email}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                                            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Citizen's Charter Questions</p>
+                                            <div className="mt-3 space-y-2">
+                                                {ccQuestions.map((item: any) => {
+                                                    const rawValue = viewingCSM[item.key];
+                                                    const code = Number(rawValue);
+                                                    return (
+                                                        <div key={item.key} className="rounded-lg border border-gray-100 bg-white p-2.5">
+                                                            <p className="text-[11px] font-bold leading-snug text-gray-800">{item.question}</p>
+                                                            <p className="mt-1 text-[11px] leading-snug text-gray-700">{getCcAnswerText(item, rawValue)}</p>
+                                                            <p className="mt-1 text-[10px] text-gray-400">Response code: {Number.isFinite(code) && code > 0 ? code : 'N/A'}</p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">Service Quality Dimensions</p>
+                                            <div className="overflow-hidden rounded-xl border border-gray-200">
+                                                <div className="grid grid-cols-[1fr_4rem] border-b border-gray-200 bg-gray-50">
+                                                    <div className="px-3 py-2 text-[10px] font-bold uppercase text-gray-500">Question</div>
+                                                    <div className="flex items-center justify-center text-[10px] font-bold text-gray-500">Score</div>
+                                                </div>
+                                                {sqdLabels.map((label, idx) => {
+                                                    const score = viewingCSM[`sqd${idx}`];
+                                                    const scoreLabel = score === 0 ? 'N/A' : score;
+                                                    const scoreColor = score >= 4 ? '#16a34a' : score >= 3 ? '#ca8a04' : score > 0 ? '#ef4444' : '#9ca3af';
+                                                    return (
+                                                        <div key={idx} className={`grid grid-cols-[1fr_4rem] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} border-b border-gray-100 last:border-0`}>
+                                                            <div className="px-3 py-2 text-[11px] leading-snug text-gray-700">{label}</div>
+                                                            <div className="flex items-center justify-center"><span style={{ fontSize: '15px', fontWeight: 700, color: scoreColor }}>{scoreLabel}</span></div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {viewingCSM.suggestions && (
+                                            <div>
+                                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Suggestions</p>
+                                                <p className="rounded-lg bg-blue-50 p-3 text-sm leading-relaxed text-gray-700">{viewingCSM.suggestions}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="hidden">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Client Type</p><p className="text-sm font-bold">{viewingCSM.client_type || '—'}</p></div>
                                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Sex</p><p className="text-sm font-bold">{viewingCSM.sex || '—'}</p></div>
@@ -410,8 +468,9 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                                 {viewingCSM.suggestions && (
                                     <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Suggestions</p><p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">{viewingCSM.suggestions}</p></div>
                                 )}
+                                </div>
                             </div>
-                            <div className="px-8 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
+                            <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-5 py-3 sm:px-6">
                                 <Button variant="secondary" className="w-full" onClick={() => setViewingCSM(null)}>Close</Button>
                             </div>
                         </div>
