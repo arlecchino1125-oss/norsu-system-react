@@ -38,17 +38,17 @@ const ITEM_SPRING = {
 
 const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
     const tools = [
-        { title: 'Student Analytics', desc: 'Monitor trends & tracking data', icon: <Search size={22} />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30' },
-        { title: 'Form Management', desc: 'Process and review user forms', icon: <ClipboardCheck size={22} />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-500/30' },
-        { title: 'Event Broadcaster', desc: 'Manage system announcements', icon: <CalendarCheck size={22} />, color: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30' },
-        { title: 'Grant Tracking', desc: 'Review scholarship grants', icon: <Award size={22} />, color: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
+        { title: 'Student Analytics', module: 'Student Analytics', desc: 'Monitor trends & tracking data', icon: <Search size={22} />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30' },
+        { title: 'Form Management', module: 'Form Management', desc: 'Process and review user forms', icon: <ClipboardCheck size={22} />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-500/30' },
+        { title: 'Event Broadcaster', module: 'Event Broadcaster', desc: 'Manage system announcements', icon: <CalendarCheck size={22} />, color: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30' },
+        { title: 'Manage Scholarships', module: 'Manage Scholarships', desc: 'Manage scholarship programs and applications', icon: <Award size={22} />, color: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
     ];
 
     return (
-        <div className="mt-10 relative z-10">
-            <div className="flex items-center justify-between mb-6 px-2">
-                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <Settings size={20} className="text-purple-600" /> Quick Launch
+        <div className="relative z-10 mt-10 border-t border-white/10 pt-8">
+            <div className="mb-6 flex items-center justify-between px-2">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-white">
+                    <Settings size={20} className="text-purple-200" /> Quick Launch
                 </h2>
             </div>
             <motion.div
@@ -61,15 +61,15 @@ const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
                     <motion.button
                         key={idx}
                         variants={ITEM_SPRING}
-                        whileHover={{ scale: 1.03, y: -4, transition: { type: "spring", stiffness: 400, damping: 15 } }}
+                        whileHover={{ scale: 1.04, y: -8, transition: { type: "spring", stiffness: 420, damping: 16 } }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => functions.handleLaunchModule(tool.title)}
-                        className="group relative flex flex-col items-start p-6 bg-white rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-2xl overflow-hidden text-left transition-shadow duration-500 will-change-transform"
+                        onClick={() => functions.handleLaunchModule(tool.module)}
+                        className="group relative flex flex-col items-start overflow-hidden rounded-3xl border border-white/80 bg-white/95 p-6 text-left shadow-sm shadow-black/10 transition-[box-shadow,border-color,background-color] duration-500 will-change-transform hover:border-purple-200 hover:bg-white hover:shadow-2xl hover:shadow-purple-950/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A0B2E]"
                     >
-                        {/* Animated background gradient blobb */}
-                        <div className={`absolute -right-12 -top-12 w-40 h-40 bg-gradient-to-br ${tool.color} rounded-full opacity-[0.03] group-hover:opacity-20 group-hover:scale-[2] transition-all duration-700 ease-out`} />
+                        {/* Animated background gradient accent */}
+                        <div className={`absolute -right-12 -top-12 w-40 h-40 bg-gradient-to-br ${tool.color} rounded-full opacity-[0.04] transition-all duration-700 ease-out group-hover:scale-[2.25] group-hover:opacity-25`} />
 
-                        <div className={`relative w-14 h-14 rounded-[1.25rem] bg-gradient-to-br ${tool.color} text-white flex items-center justify-center mb-5 shadow-lg ${tool.shadow} group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 ease-out z-10`}>
+                        <div className={`relative z-10 mb-5 flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-gradient-to-br ${tool.color} text-white shadow-lg ${tool.shadow} transition-all duration-300 ease-out group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-xl`}>
                             {tool.icon}
                         </div>
                         <h3 className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors text-base tracking-tight z-10">{tool.title}</h3>
@@ -84,13 +84,13 @@ const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
 const CareStaffHomePage = ({ functions }: CareStaffHomePageProps) => {
 
     return (
-        <div className="space-y-10 pb-12 overflow-x-hidden pt-2">
+        <div className="overflow-x-hidden pt-2">
             {/* Welcome Hero with Live Clock - Micro-Interactions Upgrade */}
             <motion.div
                 initial={{ opacity: 0, y: 30, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 25 }}
-                className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#241042] via-[#1A0B2E] to-[#120524] p-10 lg:p-14 text-white shadow-[0_20px_50px_rgba(88,28,135,0.15)] border border-purple-500/20 group"
+                className="group relative flex min-h-[calc(100vh-7.25rem)] flex-col overflow-hidden rounded-[2.5rem] border border-purple-500/20 bg-gradient-to-br from-[#241042] via-[#1A0B2E] to-[#120524] p-8 text-white shadow-[0_20px_50px_rgba(88,28,135,0.15)] md:min-h-[calc(100vh-8.25rem)] lg:p-14"
             >
                 {/* Decorative Premium Glows with Mouse Reactivity */}
                 <motion.div
@@ -160,10 +160,10 @@ const CareStaffHomePage = ({ functions }: CareStaffHomePageProps) => {
                         <ClockDisplay />
                     </motion.div>
                 </div>
-            </motion.div>
 
-            {/* Admin Tools Quick Launch */}
-            <HomeAdminTools functions={functions} />
+                {/* Admin Tools Quick Launch */}
+                <HomeAdminTools functions={functions} />
+            </motion.div>
         </div>
     );
 };
