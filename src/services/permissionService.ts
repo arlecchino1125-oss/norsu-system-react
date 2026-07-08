@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { recordStaffAuditAction, type StaffAuditSessionLike } from '../lib/staffAudit';
 import {
     buildPermissionRecord,
     createResolvedPermissionState,
@@ -231,12 +232,13 @@ export class PermissionService {
         status,
         noticeText,
         description
-    }: PermissionUpdate): Promise<boolean> {
+    }: PermissionUpdate, actor?: StaffAuditSessionLike | null): Promise<boolean> {
         const normalizedPermissionKey = String(permissionKey || '').trim();
         if (!normalizedPermissionKey || role === 'Admin') {
             return false;
         }
 
+        const nextStatus = status ?? (isAllowed ? 'enabled' : 'hidden');
         const { error } = await supabase
             .from('role_permissions')
             .upsert([{
@@ -244,7 +246,7 @@ export class PermissionService {
                 permission_type: permissionType,
                 permission_key: normalizedPermissionKey,
                 is_allowed: Boolean(isAllowed),
-                status: status ?? (isAllowed ? 'enabled' : 'hidden'),
+                status: nextStatus,
                 notice_text: this.sanitizeNoticeText(noticeText),
                 description: description ?? this.getPermissionDescription(permissionType, normalizedPermissionKey)
             }], {
@@ -258,10 +260,27 @@ export class PermissionService {
 
         this.invalidateRoleCache(role);
         await this.getRolePermissionRows(role, true);
+
+        void recordStaffAuditAction(actor, {
+            action: 'Updated role permission',
+            entityTable: 'role_permissions',
+            entityId: `${role}:${permissionType}:${normalizedPermissionKey}`,
+            details: {
+                summary: `${actor?.full_name || actor?.username || 'Admin'} set ${role} -> ${permissionType}:${normalizedPermissionKey} to ${isAllowed ? 'allowed' : 'denied'} (${nextStatus}).`,
+                role,
+                permission_type: permissionType,
+                permission_key: normalizedPermissionKey,
+                is_allowed: Boolean(isAllowed),
+                status: nextStatus
+            }
+        }).catch((auditError) => {
+            console.error('Failed to record role permission audit log:', auditError);
+        });
+
         return true;
     }
 
-    async bulkUpdatePermissions(updates: PermissionUpdate[]): Promise<boolean> {
+    async bulkUpdatePermissions(updates: PermissionUpdate[], actor?: StaffAuditSessionLike | null): Promise<boolean> {
         if (!Array.isArray(updates) || updates.length === 0) {
             return true;
         }
@@ -300,10 +319,22 @@ export class PermissionService {
             await this.getRolePermissionRows(role, true);
         }));
 
+        void recordStaffAuditAction(actor, {
+            action: 'Bulk updated role permissions',
+            entityTable: 'role_permissions',
+            details: {
+                summary: `${actor?.full_name || actor?.username || 'Admin'} bulk-updated ${sanitizedUpdates.length} permission(s) for ${affectedRoles.join(', ')}.`,
+                count: sanitizedUpdates.length,
+                roles: affectedRoles
+            }
+        }).catch((auditError) => {
+            console.error('Failed to record bulk role permission audit log:', auditError);
+        });
+
         return true;
     }
 
-    async resetRoleToDefaults(role: Role): Promise<boolean> {
+    async resetRoleToDefaults(role: Role, actor?: StaffAuditSessionLike | null): Promise<boolean> {
         if (role === 'Admin') {
             return false;
         }
@@ -319,6 +350,19 @@ export class PermissionService {
 
         this.invalidateRoleCache(role);
         await this.getRolePermissionRows(role, true);
+
+        void recordStaffAuditAction(actor, {
+            action: 'Reset role permissions to defaults',
+            entityTable: 'role_permissions',
+            entityId: role,
+            details: {
+                summary: `${actor?.full_name || actor?.username || 'Admin'} reset ${role} permissions to the seeded defaults.`,
+                role
+            }
+        }).catch((auditError) => {
+            console.error('Failed to record permission reset audit log:', auditError);
+        });
+
         return true;
     }
 

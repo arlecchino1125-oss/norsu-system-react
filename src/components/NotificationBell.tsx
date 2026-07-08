@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, X } from 'lucide-react';
+import { Bell, ChevronDown, UserRoundCheck, X } from 'lucide-react';
 
 interface NotificationItem {
     id?: string | number;
@@ -15,6 +15,7 @@ interface NotificationBellProps {
     notifications: NotificationItem[];
     accentColor?: 'blue' | 'purple' | 'emerald';
     expandProfileUpdates?: boolean;
+    profileUpdateDisplay?: 'audit' | 'student';
     className?: string;
     isLoading?: boolean;
     onOpen?: () => void;
@@ -126,10 +127,35 @@ const parseProfileUpdateNotification = (n: NotificationItem) => {
     };
 };
 
+const getStudentProfileUpdateSummary = (profileUpdate: ReturnType<typeof parseProfileUpdateNotification>) => {
+    const fields = profileUpdate?.fields || [];
+    const isProfilePhotoOnly = fields.length > 0 && fields.every((field) => /picture|photo/i.test(field));
+
+    if (isProfilePhotoOnly) {
+        return {
+            title: 'Profile photo updated',
+            body: 'Your display photo was updated.'
+        };
+    }
+
+    if ((profileUpdate?.totalFieldCount || 0) > 1) {
+        return {
+            title: 'Profile details updated',
+            body: 'Your student profile has recent changes.'
+        };
+    }
+
+    return {
+        title: 'Profile updated',
+        body: 'Your student profile has recent changes.'
+    };
+};
+
 const NotificationBell = ({
     notifications,
     accentColor = 'blue',
     expandProfileUpdates = false,
+    profileUpdateDisplay = 'audit',
     className = '',
     isLoading = false,
     onOpen
@@ -235,10 +261,44 @@ const NotificationBell = ({
                                 {notifications.map((n, idx) => (
                                     (() => {
                                         const itemKey = getNotificationKey(n, idx);
-                                        const profileUpdate = expandProfileUpdates ? parseProfileUpdateNotification(n) : null;
+                                        const profileUpdate = (expandProfileUpdates || profileUpdateDisplay === 'student') ? parseProfileUpdateNotification(n) : null;
                                         const isExpanded = Boolean(expandedItems[itemKey]);
 
                                         if (profileUpdate) {
+                                            if (profileUpdateDisplay === 'student') {
+                                                const summary = getStudentProfileUpdateSummary(profileUpdate);
+
+                                                return (
+                                                    <div
+                                                        key={itemKey}
+                                                        className="px-4 py-3 transition-colors hover:bg-gray-50/80"
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${colors.soft}`}>
+                                                                <UserRoundCheck size={18} />
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div className="min-w-0">
+                                                                        <p className="truncate text-sm font-black text-gray-900">
+                                                                            {summary.title}
+                                                                        </p>
+                                                                        <p className="mt-0.5 text-xs font-medium leading-5 text-gray-500">
+                                                                            {summary.body}
+                                                                        </p>
+                                                                    </div>
+                                                                    {(n.time_label || n.created_at) && (
+                                                                        <span className="shrink-0 text-[10px] font-semibold text-gray-400">
+                                                                            {n.time_label || formatTimeAgo(n.created_at)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
                                             return (
                                                 <div key={itemKey} className="px-3 py-2.5">
                                                     <button

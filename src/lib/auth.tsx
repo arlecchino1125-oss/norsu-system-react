@@ -578,15 +578,15 @@ export function AuthProvider({ children }: any) {
                 setLoading(false);
 
                 if (!sessionPresent) {
-                    return { 
-                        success: false, 
-                        error: 'Login blocked: Your browser discarded the secure session. Please check if your device DATE & TIME are completely accurate, or try disabling Private/Incognito mode.' 
+                    return {
+                        success: false,
+                        error: 'Login blocked: Your browser discarded the secure session. Please check if your device DATE & TIME are completely accurate, or try disabling Private/Incognito mode.'
                     };
                 }
 
-                return { 
-                    success: false, 
-                    error: 'Profile fetch blocked. Please ensure your device DATE & TIME are accurate (synced to the internet). Incorrect device time blocks secure database connections.' 
+                return {
+                    success: false,
+                    error: 'Profile fetch blocked. Please ensure your device DATE & TIME are accurate (synced to the internet). Incorrect device time blocks secure database connections.'
                 };
             }
 

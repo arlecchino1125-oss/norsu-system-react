@@ -5,6 +5,7 @@ const { queryMock, fromMock, rpcMock } = vi.hoisted(() => ({
         select: vi.fn(),
         or: vi.fn(),
         eq: vi.fn(),
+        in: vi.fn(),
         order: vi.fn(),
         range: vi.fn()
     } as any,
@@ -33,6 +34,7 @@ const resetQueryMock = () => {
     queryMock.select.mockReturnValue(queryMock);
     queryMock.or.mockReturnValue(queryMock);
     queryMock.eq.mockReturnValue(queryMock);
+    queryMock.in.mockReturnValue(queryMock);
     queryMock.order.mockReturnValue(queryMock);
     queryMock.range.mockResolvedValue({ data: [], error: null, count: 12 });
     rpcMock.mockResolvedValue({ data: [], error: null });
@@ -128,6 +130,21 @@ describe('careStaffService.getStudentsPage', () => {
         );
         expect(queryMock.order).toHaveBeenCalledWith('last_name', { ascending: true });
         expect(queryMock.range).toHaveBeenCalledWith(0, 4);
+    });
+
+    it('uses the REST student query when filtering by department annotations', async () => {
+        await getStudentsPage(
+            { annotationStudentIds: [12, 34] },
+            { page: 2, pageSize: 10 }
+        );
+
+        expect(rpcMock).not.toHaveBeenCalled();
+        expect(queryMock.select).toHaveBeenCalledWith(
+            STUDENT_TABLE_COLUMNS,
+            { count: 'exact' }
+        );
+        expect(queryMock.in).toHaveBeenCalledWith('id', [12, 34]);
+        expect(queryMock.range).toHaveBeenCalledWith(10, 19);
     });
 
     it('sanitizes punctuation that would break Supabase OR syntax', () => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
@@ -8,7 +9,6 @@ import {
 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
-import { sendTransactionalEmailNotification } from '../lib/transactionalEmail';
 import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
 import usePublicTheme from '../hooks/usePublicTheme';
 import { usePermissionsForRole } from '../hooks/usePermissions';
@@ -561,11 +561,62 @@ const NATPortal = () => {
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [credentials, setCredentials] = useState<any>(null);
 
-    // Options
-    const [availableCourses, setAvailableCourses] = useState<any[]>([]);
-    const [availableDates, setAvailableDates] = useState<any[]>([]);
-    const [natRequirements, setNatRequirements] = useState<string[]>([]);
-    const [supportsTestTime, setSupportsTestTime] = useState<boolean>(true);
+    // Options — fetched once on mount, cached for 1 minute per global QueryClient config
+    const natOptionsQuery = useQuery({
+        queryKey: ['nat_options'],
+        queryFn: async () => {
+            let statsData: any = { supportsTestTime: true, courseCounts: {}, dateCounts: {}, dateTimeCounts: {} };
+            try {
+                statsData = await invokeNatManagementFunction(
+                    { mode: 'public-stats' },
+                    'Failed to load NAT applicant counts.'
+                );
+            } catch (error) {
+                console.error('Failed to load NAT applicant counts.', error);
+            }
+
+            const { data: coursesData } = await supabase
+                .from('courses')
+                .select('id, name, application_limit, status')
+                .order('name');
+
+            const { data: datesData } = await supabase
+                .from('admission_schedules')
+                .select('*')
+                .eq('is_active', true)
+                .order('date');
+
+            const courseCounts = statsData?.courseCounts || {};
+            const dateCounts = statsData?.dateCounts || {};
+            const dateTimeCounts = statsData?.dateTimeCounts || {};
+            const requirements = Array.isArray(statsData?.requirements)
+                ? statsData.requirements.map((item: unknown) => String(item || '').trim()).filter(Boolean)
+                : [];
+
+            const courses = (coursesData || []).map((c: any) => ({ ...c, applicantCount: courseCounts[c.name] || 0 }));
+
+            const dates = (datesData || []).map((d: any) => {
+                const normalizedWindows = normalizeScheduleTimeWindows(d.time_windows);
+                const timeSlots = normalizedWindows.map((slot: any) => {
+                    const assigned = dateTimeCounts[`${d.date}|${slot.key}`] || 0;
+                    return { ...slot, applicantCount: assigned, remaining: Math.max(slot.slots - assigned, 0) };
+                });
+                return { ...d, applicantCount: dateCounts[d.date] || 0, timeSlots };
+            });
+
+            return {
+                courses,
+                dates,
+                requirements,
+                supportsTestTime: Boolean(statsData?.supportsTestTime)
+            };
+        }
+    });
+
+    const availableCourses = natOptionsQuery.data?.courses ?? [];
+    const availableDates = natOptionsQuery.data?.dates ?? [];
+    const natRequirements = natOptionsQuery.data?.requirements ?? [];
+    const supportsTestTime = natOptionsQuery.data?.supportsTestTime ?? true;
 
     // Form State
     const [formData, setFormData] = useState<any>(draftSnapshot?.formData || INITIAL_NAT_FORM_DATA);
@@ -640,77 +691,7 @@ const NATPortal = () => {
         return nowMin >= startMin && nowMin < endMin;
     };
 
-    // Load Options
-    useEffect(() => {
-        const fetchOptions = async () => {
-            let statsData: any = {
-                supportsTestTime: true,
-                courseCounts: {},
-                dateCounts: {},
-                dateTimeCounts: {}
-            };
-
-            try {
-                statsData = await invokeNatManagementFunction(
-                    { mode: 'public-stats' },
-                    'Failed to load NAT applicant counts.'
-                );
-            } catch (error) {
-                console.error('Failed to load NAT applicant counts.', error);
-            }
-
-            // Fetch Courses
-            const { data: coursesData } = await supabase
-                .from('courses')
-                .select('id, name, application_limit, status')
-                .order('name');
-
-            // Fetch Test Dates
-            const { data: datesData } = await supabase
-                .from('admission_schedules')
-                .select('*')
-                .eq('is_active', true)
-                .order('date');
-
-            const courseCounts = statsData?.courseCounts || {};
-            const dateCounts = statsData?.dateCounts || {};
-            const dateTimeCounts = statsData?.dateTimeCounts || {};
-            const requirements = Array.isArray(statsData?.requirements)
-                ? statsData.requirements.map((item: unknown) => String(item || '').trim()).filter(Boolean)
-                : [];
-            setSupportsTestTime(Boolean(statsData?.supportsTestTime));
-            setNatRequirements(requirements);
-
-            if (coursesData) {
-                const coursesWithStats = coursesData.map((c: any) => ({
-                    ...c,
-                    applicantCount: courseCounts[c.name] || 0
-                }));
-                setAvailableCourses(coursesWithStats);
-            }
-
-            if (datesData) {
-                const datesWithStats = datesData.map((d: any) => {
-                    const normalizedWindows = normalizeScheduleTimeWindows(d.time_windows);
-                    const timeSlots = normalizedWindows.map((slot: any) => {
-                        const assigned = dateTimeCounts[`${d.date}|${slot.key}`] || 0;
-                        return {
-                            ...slot,
-                            applicantCount: assigned,
-                            remaining: Math.max(slot.slots - assigned, 0)
-                        };
-                    });
-                    return {
-                        ...d,
-                        applicantCount: dateCounts[d.date] || 0,
-                        timeSlots
-                    };
-                });
-                setAvailableDates(datesWithStats);
-            }
-        };
-        void fetchOptions();
-    }, []);
+    // natOptionsQuery handles the options fetch above — no useEffect needed
 
     useEffect(() => {
         if (!hasMeaningfulNatDraft(formData, currentStep)) {
@@ -1005,37 +986,12 @@ const NATPortal = () => {
 
             setCredentials({ ...formData, username, password, referenceId });
 
-            let emailRequirements = natRequirements;
-            try {
-                const latestStatsData = await invokeNatManagementFunction(
-                    { mode: 'public-stats' },
-                    'Failed to load NAT requirements.'
-                );
-                emailRequirements = Array.isArray(latestStatsData?.requirements)
-                    ? latestStatsData.requirements.map((item: unknown) => String(item || '').trim()).filter(Boolean)
-                    : emailRequirements;
-            } catch (requirementsError) {
-                console.error('Failed to refresh NAT requirements before email send:', requirementsError);
-            }
-
-            // Send Email Notification
-            try {
-                const emailResult = await sendTransactionalEmailNotification({
-                    type: 'NAT_SUBMISSION',
-                    email: formData.email,
-                    name: `${formData.firstName} ${formData.lastName}`,
-                    testDate: formData.testDate,
-                    testTime: formData.testTime,
-                    requirements: emailRequirements,
-                    username: username,
-                    password: password
-                }, 'Failed to send NAT submission email.');
-                if (!emailResult.emailSent) {
-                    throw new Error(emailResult.emailError || 'Failed to send NAT submission email.');
-                }
-            } catch (emailErr: any) {
-                console.error("Email notification failed:", emailErr);
-                showToast("Application saved, but email notification failed. Please save your credentials manually.", 'error'); // changed type to match HTML slightly or keep as warning
+            // The confirmation email (with credentials) is now sent server-side by
+            // submit-nat-application itself, using the values it just validated and saved
+            // -- not a second, separately-trustable client call.
+            if (submission?.emailSent === false) {
+                console.error('NAT submission email failed:', submission?.emailError);
+                showToast("Application saved, but email notification failed. Please save your credentials manually.", 'error');
             }
 
             setShowSuccessModal(true);
@@ -1188,23 +1144,12 @@ const NATPortal = () => {
                 data = await activateNatAccount(true);
             }
 
-            let emailSent = true;
-            try {
-                const emailResult = await sendTransactionalEmailNotification({
-                    type: 'STUDENT_ACTIVATION',
-                    email: currentUser.email,
-                    name: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
-                    studentId,
-                    password: data.password,
-                    loginUrl: `${window.location.origin}/student/login`
-                }, 'Failed to send activation email.');
-                emailSent = emailResult.emailSent;
-                if (!emailResult.emailSent) {
-                    console.error('Activation email failed:', emailResult.emailError);
-                }
-            } catch (emailErr: any) {
-                emailSent = false;
-                console.error('Activation email failed:', emailErr);
+            // The activation email (with the generated password) is now sent server-side
+            // by activate-student-account itself, using the password it just generated --
+            // not a second, separately-trustable client call.
+            const emailSent = data?.emailSent !== false;
+            if (!emailSent) {
+                console.error('Activation email failed:', data?.emailError);
             }
 
             setShowActivationModal(false);

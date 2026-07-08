@@ -1,409 +1,47 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import {
-    Activity,
-    Award,
-    BarChart2,
-    Bell,
-    BookOpen,
-    Calendar,
-    CheckCircle,
-    ClipboardList,
-    Download,
-    FileText,
-    LayoutDashboard,
-    LogOut,
-    Menu,
-    RefreshCw,
-    Shield,
-    Star,
-    Users,
-    XCircle
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { useAuth } from '../lib/auth';
+import { usePortalTabRoute, readInitialTab } from '../hooks/usePortalTabRoute';
+import { useToast } from '../components/ui/toast/ToastProvider';
 import { usePermissions } from '../hooks/usePermissions';
-import { createDeferredChannelCleanup } from '../lib/realtime';
-import { supabase } from '../lib/supabase';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
-import AuditLogsPage from './carestaff/AuditLogsPage';
-import CareStaffDashboardView from './carestaff/CareStaffDashboardView';
-import CounselingPage from './carestaff/CounselingPage';
-import EventsPage from './carestaff/EventsPage';
-import FeedbackPage from './carestaff/FeedbackPage';
-import FormManagementPage from './carestaff/FormManagementPage';
-import HomePage from './carestaff/HomePage';
-import NATManagementPage from './carestaff/NATManagementPage';
-import OfficeLogbookPage from './carestaff/OfficeLogbookPage';
-import ScholarshipPage from './carestaff/ScholarshipPage';
-import StudentPopulationPage from './carestaff/StudentPopulationPage';
-import SupportRequestsPage from './carestaff/SupportRequestsPage';
-import StaffAccountSecurityPage from './shared/StaffAccountSecurityPage';
-import StudentDataDangerZoneCard, { type StudentResetImpact } from './shared/StudentDataDangerZoneCard';
-import NorsuBrand from '../components/NorsuBrand';
+import CareStaffAuditLogsPage from './carestaff/features/audit/components/CareStaffAuditLogsPage';
+import CareStaffDashboardView from './carestaff/features/dashboard/components/CareStaffDashboardView';
+import CareStaffCounselingPage from './carestaff/features/counseling/components/CareStaffCounselingPage';
+import CareStaffEventsPage from './carestaff/features/events/components/CareStaffEventsPage';
+import CareStaffFeedbackPage from './carestaff/features/feedback/components/CareStaffFeedbackPage';
+import CareStaffFormsPage from './carestaff/features/forms/components/CareStaffFormsPage';
+import CareStaffHomePage from './carestaff/features/home/components/CareStaffHomePage';
+import CareStaffNatPage from './carestaff/features/nat/components/CareStaffNatPage';
+import CareStaffLogbookPage from './carestaff/features/logbook/components/CareStaffLogbookPage';
+import CareStaffScholarshipPage from './carestaff/features/scholarship/components/CareStaffScholarshipPage';
+import CareStaffPopulationPage from './carestaff/features/population/components/CareStaffPopulationPage';
+import CareStaffSettingsPage from './carestaff/features/settings/components/CareStaffSettingsPage';
+import CareStaffSupportPage from './carestaff/features/support/components/CareStaffSupportPage';
 import StaffCalendarPage from './shared/StaffCalendarPage';
 import StaffExportCenterPage from './shared/StaffExportCenterPage';
 import { renderCareStaffModals } from './carestaff/modals/CareStaffModals';
-import NotificationBell from '../components/NotificationBell';
-import type { CareStaffDashboardFunctions, ToastHandler, ToastType } from './carestaff/types';
-import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
-import {
-    getStudentActivationPolicy as fetchStudentActivationPolicy,
-    updateStudentActivationPolicy as saveStudentActivationPolicy
-} from '../lib/studentActivationPolicy';
-import { recordStaffAuditAction } from '../lib/staffAudit';
-import { COUNSELING_STATUS, SUPPORT_STATUS, getCounselingScheduledDate, isCounselingCalendarVisible } from '../utils/workflow';
+import StaffPortalLayout from '../components/layout/StaffPortalLayout';
+import { useCareStaffAccountSecurity } from './carestaff/hooks/useCareStaffAccountSecurity';
+import { useCareStaffActions } from './carestaff/hooks/useCareStaffActions';
+import { useCareStaffData } from './carestaff/hooks/useCareStaffData';
+import { useCareStaffGovernance } from './carestaff/hooks/useCareStaffGovernance';
+import { useCareStaffNavigation } from './carestaff/hooks/useCareStaffNavigation';
+import type {
+    ActiveTab,
+    AuthSession,
+    CommandHubTab,
+    StaffNote,
+    ToastHandler,
+    ToastState
+} from './carestaff/types';
+import { CARE_STAFF_REFRESHABLE_TABS, CARE_STAFF_TAB_FEATURES, HEADER_TITLES } from './carestaff/utils';
+import { ACTIVE_TABS } from './carestaff/types';
 
-const StudentAnalyticsPage = lazy(() => import('./carestaff/StudentAnalyticsPage'));
+const CARE_STAFF_BASE_PATH = '/care-staff/dashboard';
 
-const PROFILE_NOTIFICATION_ACTIONS = [
-    'Student Profile Updated',
-    'Student Profile Completed',
-    'Student Profile Picture Updated'
-];
-
-const ACTIVE_TABS = [
-    'home',
-    'dashboard',
-    'population',
-    'analytics',
-    'nat',
-    'counseling',
-    'support',
-    'events',
-    'calendar',
-    'scholarship',
-    'forms',
-    'feedback',
-    'export_center',
-    'settings',
-    'audit',
-    'logbook'
-] as const;
-
-type ActiveTab = (typeof ACTIVE_TABS)[number];
-type CommandHubTab = 'actions' | 'help' | 'notes';
-
-const CARE_STAFF_TAB_FEATURES: Partial<Record<ActiveTab, string>> = {
-    population: 'student_population',
-    analytics: 'student_analytics',
-    nat: 'nat_management',
-    counseling: 'counseling',
-    support: 'support_requests',
-    events: 'events',
-    calendar: 'calendar',
-    scholarship: 'scholarships',
-    forms: 'forms',
-    feedback: 'feedback',
-    export_center: 'export_center',
-    settings: 'settings',
-    audit: 'audit_logs',
-    logbook: 'office_logbook'
-};
-
-const CARE_STAFF_REFRESHABLE_TABS = new Set<ActiveTab>([
-    'population',
-    'dashboard',
-    'counseling',
-    'support',
-    'audit'
-]);
-
-interface ToastState {
-    msg: string;
-    type: ToastType;
-}
-
-interface NotificationItem {
-    id?: string | number;
-    action?: string;
-    details?: unknown;
-    message?: string;
-    created_at?: string | null;
-    time_label?: string | null;
-    sort_at?: string | null;
-}
-
-interface StaffNote {
-    id: number;
-    text: string;
-    time: string;
-}
-
-interface AuthSession {
-    id?: string;
-    full_name?: string;
-    auth_email?: string;
-    user?: {
-        email?: string;
-    };
-}
-
-interface SupportNotificationRow {
-    id?: string | number;
-    student_id?: string | null;
-    student_name?: string | null;
-    support_type?: string | null;
-    status?: string | null;
-    created_at?: string | null;
-    dept_notes?: string | null;
-}
-
-interface CounselingNotificationRow {
-    id?: string | number;
-    student_id?: string | null;
-    student_name?: string | null;
-    request_type?: string | null;
-    status?: string | null;
-    created_at?: string | null;
-    scheduled_date?: string | null;
-    schedule_date?: string | null;
-}
-
-interface RealtimeChangePayload<T = NotificationItem> {
-    old?: T;
-    new?: T;
-}
-
-type NavItem = { tab: ActiveTab; label: string; icon: LucideIcon };
-type NavSection = { title?: string; withDivider?: boolean; items: NavItem[] };
-
-const NAV_SECTIONS: NavSection[] = [
-    {
-        items: [
-            { tab: 'home', icon: LayoutDashboard, label: 'Home' },
-            { tab: 'dashboard', icon: Activity, label: 'Dashboard' }
-        ]
-    },
-    {
-        title: 'Student Management',
-        withDivider: true,
-        items: [
-            { tab: 'population', icon: Users, label: 'Student Population' },
-            { tab: 'analytics', icon: BarChart2, label: 'Student Analytics' }
-        ]
-    },
-    {
-        title: 'Services',
-        withDivider: true,
-        items: [
-            { tab: 'nat', icon: FileText, label: 'NAT Management' },
-            { tab: 'counseling', icon: Users, label: 'Counseling' },
-            { tab: 'support', icon: CheckCircle, label: 'Support Requests' },
-            { tab: 'events', icon: Calendar, label: 'Events' },
-            { tab: 'calendar', icon: Calendar, label: 'Calendar' },
-            { tab: 'scholarship', icon: Award, label: 'Scholarships' },
-            { tab: 'export_center', icon: Download, label: 'Export Center' }
-        ]
-    },
-    {
-        title: 'Administration',
-        withDivider: true,
-        items: [
-            { tab: 'forms', icon: ClipboardList, label: 'Forms' },
-            { tab: 'feedback', icon: Star, label: 'Feedback' },
-            { tab: 'settings', icon: Shield, label: 'Settings' },
-            { tab: 'audit', icon: Shield, label: 'Audit Logs' },
-            { tab: 'logbook', icon: BookOpen, label: 'Office Logbook' }
-        ]
-    }
-];
-
-const HEADER_TITLES: Record<ActiveTab, string> = {
-    home: 'Home',
-    dashboard: 'Dashboard',
-    population: 'Student Population',
-    analytics: 'Student Analytics',
-    nat: 'NORSU ADMISSION TEST DASHBOARD',
-    counseling: 'Counseling',
-    support: 'Support Requests',
-    events: 'Events',
-    calendar: 'Calendar',
-    scholarship: 'Scholarships',
-    export_center: 'Export Center',
-    forms: 'Forms',
-    feedback: 'Feedback',
-    settings: 'Settings',
-    audit: 'Audit Logs',
-    logbook: 'Office Logbook'
-};
-
-const MODULE_TAB_MAP: Record<string, ActiveTab> = {
-    'Student Analytics': 'analytics',
-    'Form Management': 'forms',
-    'Event Broadcasting': 'events',
-    'Scholarship Tracking': 'scholarship'
-};
-
-const STAT_TAB_MAP: Record<string, ActiveTab> = {
-    students: 'population',
-    cases: 'support',
-    events: 'events',
-    reports: 'forms',
-    forms: 'forms'
-};
-
-const QUICK_ACTION_TAB_MAP: Record<string, ActiveTab> = {
-    'Schedule Wellness Check': 'counseling',
-    'View Reports': 'analytics'
-};
-
-const STAFF_BELL_LIMIT = 25;
-
-const parseTimestamp = (value: unknown): string | null => {
-    if (!value) return null;
-    const raw = String(value).trim();
-    if (!raw) return null;
-    const normalized = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(raw) ? raw.replace(' ', 'T') : raw;
-    const parsed = new Date(normalized);
-    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-};
-
-const parseJsonRecord = (value: unknown): Record<string, unknown> | null => {
-    if (typeof value !== 'string' || !value.trim()) return null;
-    try {
-        const parsed = JSON.parse(value);
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-            ? parsed as Record<string, unknown>
-            : null;
-    } catch {
-        return null;
-    }
-};
-
-const isSameLocalDay = (value: string | null, base = new Date()) => {
-    if (!value) return false;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return false;
-    return (
-        date.getFullYear() === base.getFullYear() &&
-        date.getMonth() === base.getMonth() &&
-        date.getDate() === base.getDate()
-    );
-};
-
-const formatTodayTimeLabel = (value: string | null) => {
-    if (!value) return null;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-    return `Today, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
-};
-
-const getNotificationIdentity = (item: NotificationItem) => {
-    if (item.id !== undefined && item.id !== null) {
-        if (typeof item.id === 'string') return item.id;
-        if (item.message) return `message-${item.id}`;
-        if (item.action) return `action-${item.id}`;
-        return `item-${item.id}`;
-    }
-    return `${item.message || item.action || 'notification'}-${item.sort_at || item.created_at || ''}`;
-};
-
-const getNotificationSortTime = (item: NotificationItem) =>
-    new Date(item.sort_at || item.created_at || 0).getTime();
-
-const dedupeAndLimitNotifications = (items: NotificationItem[]) => {
-    const seen = new Set<string>();
-    return items
-        .filter((item) => {
-            const key = getNotificationIdentity(item);
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        })
-        .sort((a, b) => getNotificationSortTime(b) - getNotificationSortTime(a))
-        .slice(0, STAFF_BELL_LIMIT);
-};
-
-const prependNotification = (prev: NotificationItem[], next: NotificationItem | null) =>
-    next ? dedupeAndLimitNotifications([next, ...prev]) : prev;
-
-const getStudentLabel = (studentName?: string | null, studentId?: string | null) => {
-    const trimmedName = String(studentName || '').trim();
-    if (trimmedName) return trimmedName;
-    const trimmedId = String(studentId || '').trim();
-    return trimmedId ? `student ${trimmedId}` : 'a student';
-};
-
-const mapSupportSubmittedNotification = (request: SupportNotificationRow): NotificationItem => {
-    const studentLabel = getStudentLabel(request.student_name, request.student_id);
-    const supportType = String(request.support_type || '').trim();
-    return {
-        id: `staff-support-submitted-${request.id}`,
-        message: `New support request from ${studentLabel}${supportType ? ` for ${supportType}` : ''}.`,
-        created_at: request.created_at || null,
-        sort_at: request.created_at || null,
-    };
-};
-
-const mapSupportReferredNotification = (
-    request: SupportNotificationRow,
-    alertAt?: string | null
-): NotificationItem => {
-    const deptNotes = parseJsonRecord(request.dept_notes);
-    const occurredAt = alertAt || parseTimestamp(deptNotes?.date_acted) || request.created_at || null;
-    const studentLabel = getStudentLabel(request.student_name, request.student_id);
-    const supportType = String(request.support_type || '').trim();
-    return {
-        id: `staff-support-referred-${request.id}`,
-        message: `Support case for ${studentLabel}${supportType ? ` (${supportType})` : ''} was referred back to CARE.`,
-        created_at: occurredAt,
-        sort_at: occurredAt,
-    };
-};
-
-const mapCounselingReferredNotification = (
-    request: CounselingNotificationRow,
-    alertAt?: string | null
-): NotificationItem => {
-    const occurredAt = alertAt || request.created_at || null;
-    const studentLabel = getStudentLabel(request.student_name, request.student_id);
-    const requestType = String(request.request_type || '').trim();
-    return {
-        id: `staff-counseling-referred-${request.id}`,
-        message: `Counseling case for ${studentLabel}${requestType ? ` (${requestType})` : ''} was referred to CARE.`,
-        created_at: occurredAt,
-        sort_at: occurredAt,
-    };
-};
-
-const mapCounselingScheduledTodayNotification = (
-    request: CounselingNotificationRow,
-    alertAt?: string | null
-): NotificationItem | null => {
-    const scheduledAt = parseTimestamp(getCounselingScheduledDate(request));
-    if (!isSameLocalDay(scheduledAt)) return null;
-
-    const studentLabel = getStudentLabel(request.student_name, request.student_id);
-    const requestType = String(request.request_type || '').trim();
-    return {
-        id: `staff-counseling-scheduled-${request.id}`,
-        message: `Counseling session with ${studentLabel}${requestType ? ` (${requestType})` : ''} is scheduled today.`,
-        created_at: alertAt || request.created_at || scheduledAt,
-        sort_at: alertAt || scheduledAt,
-        time_label: formatTodayTimeLabel(scheduledAt),
-    };
-};
-
-const mapSupportVisitScheduledTodayNotification = (
-    request: SupportNotificationRow,
-    alertAt?: string | null
-): NotificationItem | null => {
-    const deptNotes = parseJsonRecord(request.dept_notes);
-    const scheduledAt = parseTimestamp(deptNotes?.scheduled_date);
-    if (!isSameLocalDay(scheduledAt)) return null;
-
-    const studentLabel = getStudentLabel(request.student_name, request.student_id);
-    const supportType = String(request.support_type || '').trim();
-    return {
-        id: `staff-support-visit-scheduled-${request.id}`,
-        message: `Support visit with ${studentLabel}${supportType ? ` (${supportType})` : ''} is scheduled today.`,
-        created_at: alertAt || request.created_at || scheduledAt,
-        sort_at: alertAt || scheduledAt,
-        time_label: formatTodayTimeLabel(scheduledAt),
-    };
-};
+const CareStaffAnalyticsPage = lazy(() => import('./carestaff/features/analytics/components/CareStaffAnalyticsPage'));
 
 const CareStaffDashboard = () => {
     const navigate = useNavigate();
@@ -422,22 +60,20 @@ const CareStaffDashboard = () => {
     } = usePermissions();
     const canDeleteRecords = canPerformAction('delete_records');
 
-    const [activeTab, setActiveTab] = useState<ActiveTab>('home');
-    const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+    const { tab: urlTab } = useParams<{ tab?: string }>();
+    const [activeTab, setActiveTab] = useState<ActiveTab>(
+        () => readInitialTab<ActiveTab>(urlTab, ACTIVE_TABS, 'home'),
+    );
+    const { goToTab } = usePortalTabRoute<ActiveTab>({
+        basePath: CARE_STAFF_BASE_PATH,
+        tabs: ACTIVE_TABS,
+        defaultTab: 'home',
+        activeTab,
+        onTabResolved: setActiveTab,
+    });
     const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
 
-    // Data States
     const [toast, setToast] = useState<ToastState | null>(null);
-    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-    const [notificationsLoaded, setNotificationsLoaded] = useState(false);
-    const [notificationsLoading, setNotificationsLoading] = useState(false);
-    const [studentActivationPolicy, setStudentActivationPolicy] = useState({
-        requireEnrollmentKey: true,
-        updatedAt: null as string | null,
-        updatedBy: null as string | null
-    });
-    const [isLoadingStudentActivationPolicy, setIsLoadingStudentActivationPolicy] = useState(false);
-    const [isSavingStudentActivationPolicy, setIsSavingStudentActivationPolicy] = useState(false);
 
     // Command Hub (FAB Panel)
     const [showCommandHub, setShowCommandHub] = useState<boolean>(false);
@@ -470,27 +106,34 @@ const CareStaffDashboard = () => {
         };
     }, []);
 
+    const { showToast: pushSharedToast } = useToast();
     const showToastMessage = useCallback<ToastHandler>((msg, type = 'success') => {
-        setToast({ msg, type });
+        // Display is owned by the app-wide <ToastProvider>; the legacy local toast
+        // render (in CareStaffModals) stays null and no-ops.
+        pushSharedToast(msg, type);
+    }, [pushSharedToast]);
 
-        if (toastTimeoutRef.current) {
-            clearTimeout(toastTimeoutRef.current);
-        }
-
-        toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
+    const bumpViewRefreshSignal = useCallback(() => {
+        setViewRefreshSignal((current) => current + 1);
     }, []);
 
-    const loadStudentActivationPolicy = useCallback(async () => {
-        setIsLoadingStudentActivationPolicy(true);
-        try {
-            const policy = await fetchStudentActivationPolicy();
-            setStudentActivationPolicy(policy);
-        } catch (error: any) {
-            showToastMessage('Failed to load the student activation policy.', 'error');
-        } finally {
-            setIsLoadingStudentActivationPolicy(false);
-        }
-    }, [showToastMessage]);
+    const {
+        requestStaffSecurityOtp,
+        confirmStaffSecurityEmailChange,
+        confirmStaffPasswordChange,
+        updateStaffProfileName
+    } = useCareStaffAccountSecurity({ session, updateSession });
+
+    const {
+        studentActivationPolicy,
+        isLoadingStudentActivationPolicy,
+        isSavingStudentActivationPolicy,
+        loadStudentActivationPolicy,
+        toggleStudentActivationPolicy,
+        loadStudentResetImpact,
+        requestStudentResetOtp,
+        confirmStudentReset
+    } = useCareStaffGovernance({ session, showToastMessage, bumpViewRefreshSignal });
 
     useEffect(() => {
         if (activeTab === 'settings') {
@@ -498,291 +141,25 @@ const CareStaffDashboard = () => {
         }
     }, [activeTab, loadStudentActivationPolicy]);
 
-    const syncStaffSession = useCallback((patch: Record<string, unknown>) => {
-        updateSession?.((prev: any) => ({
-            ...(prev || {}),
-            ...(patch || {}),
-            user: {
-                ...(prev?.user || {}),
-                ...((patch as any)?.user || {})
-            }
-        }));
-    }, [updateSession]);
+    const {
+        notifications,
+        notificationsLoading,
+        handleOpenNotifications
+    } = useCareStaffData(showToastMessage);
 
-    const requestStaffSecurityOtp = useCallback(async (
-        purpose: 'password_change' | 'email_change',
-        nextEmailValue?: string
-    ) => {
-        return invokeEdgeFunction('manage-staff-accounts', {
-            body: {
-                mode: 'request-security-otp',
-                purpose,
-                email: purpose === 'email_change'
-                    ? String(nextEmailValue || '').trim().toLowerCase()
-                    : undefined
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to send the security OTP.'
-        });
-    }, []);
+    const { functions } = useCareStaffActions({
+        session,
+        showToastMessage,
+        setActiveTab: goToTab,
+        setPendingProfileId
+    });
 
-    const confirmStaffSecurityEmailChange = useCallback(async (nextEmailValue: string, otp: string) => {
-        const normalizedEmail = String(nextEmailValue || '').trim().toLowerCase();
-        if (!normalizedEmail) {
-            throw new Error('Email is required.');
-        }
-
-        await invokeEdgeFunction('manage-staff-accounts', {
-            body: {
-                mode: 'confirm-email-change',
-                email: normalizedEmail,
-                otp: String(otp || '').trim()
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to update your staff login email.'
-        });
-
-        syncStaffSession({
-            email: normalizedEmail,
-            auth_email: normalizedEmail,
-            user: {
-                ...(session?.user || {}),
-                email: normalizedEmail
-            }
-        });
-        void recordStaffAuditAction(session, {
-            action: 'Updated staff login email',
-            entityTable: 'staff_accounts',
-            entityId: session?.id,
-            details: {
-                summary: `${session?.full_name || 'CARE Staff'} updated the staff login email.`,
-                email: normalizedEmail
-            }
-        }).catch((error) => {
-            console.error('Failed to record staff email audit log:', error);
-        });
-    }, [session, syncStaffSession]);
-
-    const confirmStaffPasswordChange = useCallback(async (nextPasswordValue: string, otp: string) => {
-        await invokeEdgeFunction('manage-staff-accounts', {
-            body: {
-                mode: 'confirm-password-change',
-                password: String(nextPasswordValue || ''),
-                otp: String(otp || '').trim()
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to update your staff password.'
-        });
-        void recordStaffAuditAction(session, {
-            action: 'Updated staff password',
-            entityTable: 'staff_accounts',
-            entityId: session?.id,
-            details: {
-                summary: `${session?.full_name || 'CARE Staff'} updated the staff password.`
-            }
-        }).catch((error) => {
-            console.error('Failed to record staff password audit log:', error);
-        });
-    }, [session]);
-
-    const updateStaffProfileName = useCallback(async (nextNameValue: string) => {
-        const normalizedName = String(nextNameValue || '').trim().replace(/\s+/g, ' ');
-        if (normalizedName.length < 2) {
-            throw new Error('A valid profile name is required.');
-        }
-
-        await invokeEdgeFunction('manage-staff-accounts', {
-            body: {
-                mode: 'update-self-profile',
-                payload: {
-                    full_name: normalizedName
-                }
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to update your staff profile.'
-        });
-
-        syncStaffSession({
-            full_name: normalizedName
-        });
-        void recordStaffAuditAction(session, {
-            action: 'Updated staff profile name',
-            entityTable: 'staff_accounts',
-            entityId: session?.id,
-            details: {
-                summary: `${session?.full_name || 'CARE Staff'} updated the staff profile name to ${normalizedName}.`,
-                full_name: normalizedName
-            }
-        }).catch((error) => {
-            console.error('Failed to record staff profile audit log:', error);
-        });
-    }, [session, syncStaffSession]);
-
-    const loadStudentResetImpact = useCallback(async (): Promise<{ impact?: StudentResetImpact; confirmationText?: string }> => {
-        return invokeEdgeFunction('manage-student-accounts', {
-            body: {
-                mode: 'preview-care-student-reset'
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to load the student reset impact.'
-        });
-    }, []);
-
-    const requestStudentResetOtp = useCallback(async () => {
-        return invokeEdgeFunction('manage-student-accounts', {
-            body: {
-                mode: 'request-care-reset-otp'
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to send the student reset OTP.'
-        });
-    }, []);
-
-    const confirmStudentReset = useCallback(async (payload: {
-        otp: string;
-        reason: string;
-        confirmationText: string;
-    }) => {
-        const result = await invokeEdgeFunction('manage-student-accounts', {
-            body: {
-                mode: 'care-reset-student-data',
-                otp: String(payload.otp || '').trim(),
-                reason: String(payload.reason || '').trim(),
-                confirmationText: String(payload.confirmationText || '').trim()
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to reset student data.'
-        });
-
-        setViewRefreshSignal((current) => current + 1);
-        return result;
-    }, []);
-
-    const toggleStudentActivationPolicy = useCallback(async () => {
-        const nextRequireEnrollmentKey = !studentActivationPolicy.requireEnrollmentKey;
-
-        setIsSavingStudentActivationPolicy(true);
-        try {
-            const updatedPolicy = await saveStudentActivationPolicy(nextRequireEnrollmentKey);
-            setStudentActivationPolicy(updatedPolicy);
-            showToastMessage(
-                nextRequireEnrollmentKey
-                    ? 'Student Portal activation now requires an uploaded enrollment key.'
-                    : 'Student Portal activation can now continue after a warning even without an uploaded enrollment key.'
-            );
-            void recordStaffAuditAction(session, {
-                action: 'Updated student activation policy',
-                entityTable: 'student_activation_settings',
-                details: {
-                    summary: `${session?.full_name || 'CARE Staff'} ${nextRequireEnrollmentKey ? 'enabled' : 'disabled'} required enrollment keys before student activation.`,
-                    require_enrollment_key: nextRequireEnrollmentKey
-                }
-            }).catch((error) => {
-                console.error('Failed to record activation policy audit log:', error);
-            });
-        } catch (error: any) {
-            showToastMessage('Failed to update the student activation policy.', 'error');
-        } finally {
-            setIsSavingStudentActivationPolicy(false);
-        }
-    }, [session, showToastMessage, studentActivationPolicy.requireEnrollmentKey]);
-
-    const fetchStaffBellNotifications = useCallback(async () => {
-        setNotificationsLoading(true);
-        try {
-            const now = new Date();
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const tomorrowStart = new Date(todayStart);
-            tomorrowStart.setDate(todayStart.getDate() + 1);
-
-            const [
-                { data: auditRows },
-                { data: profileNotificationRows },
-                { data: supportSubmittedRows },
-                { data: supportReferredRows },
-                { data: counselingReferredRows },
-                { data: counselingScheduledRows },
-                { data: supportVisitRows }
-            ] = await Promise.all([
-                supabase
-                    .from('audit_logs')
-                    .select('id, action, details, created_at')
-                    .in('action', PROFILE_NOTIFICATION_ACTIONS)
-                    .order('created_at', { ascending: false })
-                    .limit(STAFF_BELL_LIMIT),
-                supabase
-                    .from('notifications')
-                    .select('id, message, created_at')
-                    .like('message', '[PROFILE UPDATE]%')
-                    .order('created_at', { ascending: false })
-                    .limit(STAFF_BELL_LIMIT),
-                supabase
-                    .from('support_requests')
-                    .select('id, student_id, student_name, support_type, status, created_at')
-                    .eq('status', SUPPORT_STATUS.SUBMITTED)
-                    .order('created_at', { ascending: false })
-                    .limit(10),
-                supabase
-                    .from('support_requests')
-                    .select('id, student_id, student_name, support_type, status, created_at, dept_notes')
-                    .eq('status', SUPPORT_STATUS.REFERRED_TO_CARE)
-                    .order('created_at', { ascending: false })
-                    .limit(10),
-                supabase
-                    .from('counseling_requests')
-                    .select('id, student_id, student_name, request_type, status, created_at')
-                    .eq('status', COUNSELING_STATUS.REFERRED)
-                    .order('created_at', { ascending: false })
-                    .limit(10),
-                supabase
-                    .from('counseling_requests')
-                    .select('id, student_id, student_name, request_type, status, created_at, scheduled_date')
-                    .in('status', [COUNSELING_STATUS.STAFF_SCHEDULED, COUNSELING_STATUS.SCHEDULED])
-                    .gte('scheduled_date', todayStart.toISOString())
-                    .lt('scheduled_date', tomorrowStart.toISOString())
-                    .order('scheduled_date', { ascending: true })
-                    .limit(10),
-                supabase
-                    .from('support_requests')
-                    .select('id, student_id, student_name, support_type, status, created_at, dept_notes')
-                    .eq('status', SUPPORT_STATUS.VISIT_SCHEDULED)
-                    .order('created_at', { ascending: false })
-                    .limit(100)
-            ]);
-
-            setNotifications(dedupeAndLimitNotifications([
-                ...((auditRows || []) as NotificationItem[]),
-                ...((profileNotificationRows || []) as NotificationItem[]),
-                ...((supportSubmittedRows || []) as SupportNotificationRow[]).map((row) => mapSupportSubmittedNotification(row)),
-                ...((supportReferredRows || []) as SupportNotificationRow[]).map((row) => mapSupportReferredNotification(row)),
-                ...((counselingReferredRows || []) as CounselingNotificationRow[]).map((row) => mapCounselingReferredNotification(row)),
-                ...((counselingScheduledRows || []) as CounselingNotificationRow[])
-                    .map((row) => mapCounselingScheduledTodayNotification(row))
-                    .filter(Boolean) as NotificationItem[],
-                ...((supportVisitRows || []) as SupportNotificationRow[])
-                    .map((row) => mapSupportVisitScheduledTodayNotification(row))
-                    .filter(Boolean) as NotificationItem[]
-            ]));
-            setNotificationsLoaded(true);
-        } catch (error) {
-            console.error('Failed to sync care staff notifications:', error);
-            showToastMessage('Failed to load notifications.', 'error');
-        } finally {
-            setNotificationsLoading(false);
-        }
-    }, [showToastMessage]);
-
-    const handleOpenNotifications = useCallback(() => {
-        if (notificationsLoaded || notificationsLoading) return;
-        void fetchStaffBellNotifications();
-    }, [fetchStaffBellNotifications, notificationsLoaded, notificationsLoading]);
+    const { layoutNavSections, currentBreadcrumbs } = useCareStaffNavigation({
+        activeTab,
+        setActiveTab: goToTab,
+        isFeatureVisible,
+        setShowCommandHub
+    });
 
     const refreshAll = useCallback(async () => {
         setIsRefreshing(true);
@@ -800,182 +177,9 @@ const CareStaffDashboard = () => {
         }
     }, [activeTab, showToastMessage]);
 
-    useEffect(() => {
-        const removeProfileNotificationsChannel = createDeferredChannelCleanup(
-            () => supabase
-                .channel('care_staff_profile_notifications')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload: RealtimeChangePayload) => {
-                    const action = payload?.new?.action;
-                    if (typeof action !== 'string' || !PROFILE_NOTIFICATION_ACTIONS.includes(action)) {
-                        return;
-                    }
-                    if (payload.new) {
-                        setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
-                    }
-                })
-                .subscribe(),
-            (channel) => supabase.removeChannel(channel)
-        );
-
-        const removeProfileNotificationsFallbackChannel = createDeferredChannelCleanup(
-            () => supabase
-                .channel('care_staff_profile_notifications_fallback')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: RealtimeChangePayload) => {
-                    const message = String(payload?.new?.message || '');
-                    if (!message.startsWith('[PROFILE UPDATE]')) {
-                        return;
-                    }
-                    if (payload.new) {
-                        setNotifications((prev) => prependNotification(prev, payload.new as NotificationItem));
-                    }
-                })
-                .subscribe(),
-            (channel) => supabase.removeChannel(channel)
-        );
-
-        const removeSupportNotificationsChannel = createDeferredChannelCleanup(
-            () => supabase
-                .channel('care_staff_service_notifications_support')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
-                    if (!payload.new) return;
-                    if (payload.new.status === SUPPORT_STATUS.SUBMITTED) {
-                        setNotifications((prev) => prependNotification(prev, mapSupportSubmittedNotification(payload.new as SupportNotificationRow)));
-                    }
-                    if (payload.new.status === SUPPORT_STATUS.REFERRED_TO_CARE) {
-                        setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
-                    }
-                    if (payload.new.status === SUPPORT_STATUS.VISIT_SCHEDULED) {
-                        setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, new Date().toISOString())));
-                    }
-                })
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_requests' }, (payload: RealtimeChangePayload<SupportNotificationRow>) => {
-                    if (!payload.new) return;
-
-                    const nextStatus = payload.new.status;
-                    const prevStatus = payload.old?.status;
-                    const alertAt = new Date().toISOString();
-
-                    if (nextStatus === SUPPORT_STATUS.REFERRED_TO_CARE && prevStatus !== SUPPORT_STATUS.REFERRED_TO_CARE) {
-                        setNotifications((prev) => prependNotification(prev, mapSupportReferredNotification(payload.new as SupportNotificationRow, alertAt)));
-                    }
-
-                    const nextScheduledAt = parseTimestamp(parseJsonRecord(payload.new.dept_notes)?.scheduled_date);
-                    const prevScheduledAt = parseTimestamp(parseJsonRecord(payload.old?.dept_notes)?.scheduled_date);
-                    if (
-                        nextStatus === SUPPORT_STATUS.VISIT_SCHEDULED &&
-                        (prevStatus !== SUPPORT_STATUS.VISIT_SCHEDULED || nextScheduledAt !== prevScheduledAt)
-                    ) {
-                        setNotifications((prev) => prependNotification(prev, mapSupportVisitScheduledTodayNotification(payload.new as SupportNotificationRow, alertAt)));
-                    }
-                })
-                .subscribe(),
-            (channel) => supabase.removeChannel(channel)
-        );
-
-        const removeCounselingNotificationsChannel = createDeferredChannelCleanup(
-            () => supabase
-                .channel('care_staff_service_notifications_counseling')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
-                    if (!payload.new) return;
-                    const alertAt = new Date().toISOString();
-                    if (payload.new.status === COUNSELING_STATUS.REFERRED) {
-                        setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
-                    }
-                    if (isCounselingCalendarVisible(payload.new.status)) {
-                        setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
-                    }
-                })
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'counseling_requests' }, (payload: RealtimeChangePayload<CounselingNotificationRow>) => {
-                    if (!payload.new) return;
-
-                    const nextStatus = payload.new.status;
-                    const prevStatus = payload.old?.status;
-                    const alertAt = new Date().toISOString();
-
-                    if (nextStatus === COUNSELING_STATUS.REFERRED && prevStatus !== COUNSELING_STATUS.REFERRED) {
-                        setNotifications((prev) => prependNotification(prev, mapCounselingReferredNotification(payload.new as CounselingNotificationRow, alertAt)));
-                    }
-
-                    const nextScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.new as CounselingNotificationRow));
-                    const prevScheduledAt = parseTimestamp(getCounselingScheduledDate(payload.old as CounselingNotificationRow | undefined));
-                    if (
-                        isCounselingCalendarVisible(nextStatus) &&
-                        (prevStatus !== nextStatus || nextScheduledAt !== prevScheduledAt)
-                    ) {
-                        setNotifications((prev) => prependNotification(prev, mapCounselingScheduledTodayNotification(payload.new as CounselingNotificationRow, alertAt)));
-                    }
-                })
-                .subscribe(),
-            (channel) => supabase.removeChannel(channel)
-        );
-
-        return () => {
-            removeProfileNotificationsChannel();
-            removeProfileNotificationsFallbackChannel();
-            removeSupportNotificationsChannel();
-            removeCounselingNotificationsChannel();
-        };
-    }, []);
-
-    const logAudit = useCallback(async (action: string, details: unknown) => {
-        try {
-            await recordStaffAuditAction(session, { action, details });
-        } catch (err: unknown) {
-            console.error('Audit log error:', err);
-        }
-    }, [session]);
-
-    const functions = useMemo<CareStaffDashboardFunctions>(() => ({
-        showToast: showToastMessage,
-        showToastMessage,
-        logAudit,
-        handleGetStarted: () => setActiveTab('dashboard'),
-        handleDocs: () => window.open('https://norsu.edu.ph', '_blank'),
-        handleLaunchModule: (module: string) => {
-            const tab = MODULE_TAB_MAP[module];
-            if (tab) {
-                setActiveTab(tab);
-            }
-        },
-        handleOpenAnalytics: () => setActiveTab('analytics'),
-
-        handleStatClick: (stat: string) => {
-            const tab = STAT_TAB_MAP[stat];
-            if (tab) {
-                setActiveTab(tab);
-            }
-        },
-        handleViewAllActivity: () => setActiveTab('audit'),
-        handleQuickAction: (action: string) => {
-            const tab = QUICK_ACTION_TAB_MAP[action];
-            if (tab) {
-                setActiveTab(tab);
-            }
-        },
-        handleViewProfile: (studentId: string) => {
-            setPendingProfileId(studentId);
-            setActiveTab('population');
-        }
-    }), [logAudit, showToastMessage]);
-
     const setActiveTabFromString = useCallback((tab: string) => {
-        setActiveTab(tab as ActiveTab);
-    }, []);
-
-    const isCareStaffTabVisible = useCallback((tab: ActiveTab) => {
-        const featureKey = CARE_STAFF_TAB_FEATURES[tab];
-        return featureKey ? isFeatureVisible(featureKey) : true;
-    }, [isFeatureVisible]);
-
-    const visibleNavSections = useMemo(
-        () => NAV_SECTIONS
-            .map((section) => ({
-                ...section,
-                items: section.items.filter((item) => isCareStaffTabVisible(item.tab))
-            }))
-            .filter((section) => section.items.length > 0),
-        [isCareStaffTabVisible]
-    );
+        goToTab(tab as ActiveTab);
+    }, [goToTab]);
 
     const tabLoadingFallback = (
         <div className="rounded-2xl border border-purple-100 bg-white p-10 text-center shadow-sm">
@@ -1003,114 +207,57 @@ const CareStaffDashboard = () => {
 
         switch (activeTab) {
             case 'home':
-                return <HomePage functions={functions} />;
+                return <CareStaffHomePage functions={functions} />;
             case 'population':
-                return <StudentPopulationPage functions={functions} pendingProfileId={pendingProfileId} onProfileOpened={() => setPendingProfileId(null)} refreshSignal={viewRefreshSignal} />;
+                return <CareStaffPopulationPage functions={functions} pendingProfileId={pendingProfileId} onProfileOpened={() => setPendingProfileId(null)} refreshSignal={viewRefreshSignal} />;
             case 'dashboard':
                 return <CareStaffDashboardView setActiveTab={setActiveTabFromString} refreshSignal={viewRefreshSignal} />;
             case 'analytics':
                 return (
                     <Suspense fallback={tabLoadingFallback}>
-                        <StudentAnalyticsPage functions={functions} />
+                        <CareStaffAnalyticsPage functions={functions} />
                     </Suspense>
                 );
             case 'nat':
-                return <NATManagementPage showToast={showToastMessage} />;
+                return <CareStaffNatPage showToast={showToastMessage} />;
             case 'counseling':
-                return <CounselingPage functions={functions} refreshSignal={viewRefreshSignal} />;
+                return <CareStaffCounselingPage functions={functions} refreshSignal={viewRefreshSignal} />;
             case 'support':
-                return <SupportRequestsPage functions={functions} refreshSignal={viewRefreshSignal} />;
+                return <CareStaffSupportPage functions={functions} refreshSignal={viewRefreshSignal} />;
             case 'events':
-                return <EventsPage functions={functions} />;
+                return <CareStaffEventsPage functions={functions} />;
             case 'calendar':
                 return <StaffCalendarPage scope="care" accent="purple" />;
             case 'export_center':
                 return <StaffExportCenterPage scope="care" accent="purple" showToast={showToastMessage} />;
             case 'scholarship':
-                return <ScholarshipPage functions={functions} />;
+                return <CareStaffScholarshipPage functions={functions} />;
             case 'forms':
-                return <FormManagementPage functions={functions} />;
+                return <CareStaffFormsPage functions={functions} />;
             case 'feedback':
-                return <FeedbackPage functions={functions} />;
+                return <CareStaffFeedbackPage functions={functions} />;
             case 'settings':
                 return (
-                    <div className="space-y-6">
-                        <StaffAccountSecurityPage
-                            portalLabel="CARE Staff"
-                            authEmail={session?.user?.email || session?.auth_email || ''}
-                            staffName={session?.full_name || 'CARE Staff'}
-                            staffRole="Care Staff"
-                            requestStaffSecurityOtp={requestStaffSecurityOtp}
-                            confirmStaffSecurityEmailChange={confirmStaffSecurityEmailChange}
-                            confirmStaffPasswordChange={confirmStaffPasswordChange}
-                            updateStaffProfileName={updateStaffProfileName}
-                            showToast={showToastMessage}
-                        />
-                        <div className="rounded-3xl border border-purple-100/80 bg-white/90 p-6 shadow-sm backdrop-blur-sm">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                <div className="max-w-3xl">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-purple-500/80">Student Activation Policy</p>
-                                    <h2 className="mt-2 text-xl font-bold text-slate-900">Require enrollment keys before Student Portal activation</h2>
-                                    <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                                        When this is turned on, students must match an uploaded enrollment key before their Student Portal account can be activated.
-                                        When turned off, the portal still checks first, then shows a warning and lets the student continue like the previous NAT activation flow.
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={toggleStudentActivationPolicy}
-                                    disabled={isLoadingStudentActivationPolicy || isSavingStudentActivationPolicy}
-                                    className={`relative inline-flex h-11 w-24 items-center rounded-full border px-1 transition-all ${
-                                        studentActivationPolicy.requireEnrollmentKey
-                                            ? 'border-emerald-200 bg-emerald-500/90'
-                                            : 'border-amber-200 bg-amber-400/90'
-                                    } ${(isLoadingStudentActivationPolicy || isSavingStudentActivationPolicy) ? 'cursor-not-allowed opacity-60' : 'hover:scale-[1.02]'}`}
-                                    aria-pressed={studentActivationPolicy.requireEnrollmentKey}
-                                >
-                                    <span
-                                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-[10px] font-black uppercase tracking-wide text-slate-700 shadow-sm transition-transform ${
-                                            studentActivationPolicy.requireEnrollmentKey ? 'translate-x-0' : 'translate-x-12'
-                                        }`}
-                                    >
-                                        {studentActivationPolicy.requireEnrollmentKey ? 'ON' : 'OFF'}
-                                    </span>
-                                </button>
-                            </div>
-                            <div className={`mt-5 rounded-2xl border p-4 ${
-                                studentActivationPolicy.requireEnrollmentKey
-                                    ? 'border-emerald-100 bg-emerald-50/70'
-                                    : 'border-amber-100 bg-amber-50/80'
-                            }`}>
-                                <p className="text-sm font-semibold text-slate-800">
-                                    Current mode:{' '}
-                                    <span className={studentActivationPolicy.requireEnrollmentKey ? 'text-emerald-700' : 'text-amber-700'}>
-                                        {studentActivationPolicy.requireEnrollmentKey
-                                            ? 'Enrollment key required before activation'
-                                            : 'Warning first, then continue activation if no key exists'}
-                                    </span>
-                                </p>
-                                <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                                    {isLoadingStudentActivationPolicy
-                                        ? 'Loading the latest activation policy...'
-                                        : studentActivationPolicy.requireEnrollmentKey
-                                            ? 'Students will stop at activation until CARE Staff uploads or syncs their enrollment key.'
-                                            : 'Students can review a warning and continue activation even if CARE Staff has not uploaded the enrollment key yet.'}
-                                </p>
-                            </div>
-                        </div>
-                        <StudentDataDangerZoneCard
-                            portalLabel="CARE Staff"
-                            loadImpact={loadStudentResetImpact}
-                            requestOtp={requestStudentResetOtp}
-                            confirmReset={confirmStudentReset}
-                            showToast={showToastMessage}
-                        />
-                    </div>
+                    <CareStaffSettingsPage
+                        session={session}
+                        showToastMessage={showToastMessage}
+                        requestStaffSecurityOtp={requestStaffSecurityOtp}
+                        confirmStaffSecurityEmailChange={confirmStaffSecurityEmailChange}
+                        confirmStaffPasswordChange={confirmStaffPasswordChange}
+                        updateStaffProfileName={updateStaffProfileName}
+                        studentActivationPolicy={studentActivationPolicy}
+                        isLoadingStudentActivationPolicy={isLoadingStudentActivationPolicy}
+                        isSavingStudentActivationPolicy={isSavingStudentActivationPolicy}
+                        toggleStudentActivationPolicy={toggleStudentActivationPolicy}
+                        loadStudentResetImpact={loadStudentResetImpact}
+                        requestStudentResetOtp={requestStudentResetOtp}
+                        confirmStudentReset={confirmStudentReset}
+                    />
                 );
             case 'audit':
-                return <AuditLogsPage refreshSignal={viewRefreshSignal} />;
+                return <CareStaffAuditLogsPage refreshSignal={viewRefreshSignal} />;
             case 'logbook':
-                return <OfficeLogbookPage functions={functions} />;
+                return <CareStaffLogbookPage functions={functions} />;
             default:
                 return null;
         }
@@ -1147,100 +294,31 @@ const CareStaffDashboard = () => {
     }
 
     return (
-        <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30 text-gray-800 font-sans overflow-hidden">
-            {/* Sidebar Overlay */}
-            {sidebarOpen && <div className="fixed inset-0 bg-transparent z-20 animate-backdrop" onClick={() => setSidebarOpen(false)} />}
+        <StaffPortalLayout
+            sidebarSections={layoutNavSections}
+            activeTab={activeTab}
+            onTabChange={(tab) => goToTab(tab as ActiveTab)}
+            onLogout={() => { logout(); navigate('/care-staff'); }}
+            onOpenSettings={() => goToTab('settings')}
+            headerTitle={headerTitle}
+            portalLabel="NORSU-G CARE"
+            breadcrumbs={currentBreadcrumbs}
+            accent="purple"
+            onRefresh={refreshAll}
+            isRefreshing={isRefreshing}
+            refreshLabel="Refresh View"
+            notifications={notifications}
+            notificationsLoading={notificationsLoading}
+            onOpenNotifications={handleOpenNotifications}
+        >
+            {renderActiveTab()}
 
-            {/* Premium Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-30 w-72 max-w-[calc(100vw-1rem)] bg-gradient-sidebar transform transition-all duration-500 ease-out flex flex-col ${sidebarOpen ? 'translate-x-0 shadow-2xl shadow-purple-900/30' : '-translate-x-full'}`}>
-                {/* Logo Area */}
-                <div className="p-6 border-b border-white/10">
-                    <div className="flex items-center justify-between">
-                        <div className="cursor-pointer group" onClick={() => setActiveTab('settings')}>
-                            <NorsuBrand title="CARE Staff" subtitle="NORSU-G CARE operations" accent="purple" size="sm" className="min-w-0" />
-                            <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-purple-200/50 transition-colors group-hover:text-purple-100/80">Open Profile & Settings</p>
-                        </div>
-                        <button onClick={() => setSidebarOpen(false)} className="text-purple-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
-                    </div>
-                </div>
-
-                {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                    {visibleNavSections.map((section, sectionIndex) => (
-                        <div key={section.title || `section-${sectionIndex}`} className={section.withDivider ? 'pt-5 mt-4 border-t border-white/5' : ''}>
-                            {section.title && (
-                                <p className="px-4 text-[10px] font-bold text-purple-400/50 uppercase tracking-[0.15em] mb-3">
-                                    {section.title}
-                                </p>
-                            )}
-
-                            {section.items.map((item) => {
-                                const Icon = item.icon;
-                                return (
-                                    <button
-                                        key={item.tab}
-                                        onClick={() => { setActiveTab(item.tab); setSidebarOpen(false); }}
-                                        className={`nav-item w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeTab === item.tab ? 'nav-item-active text-purple-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                    >
-                                        <Icon size={18} /> {item.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    ))}
-                </nav>
-
-                {/* Logout */}
-                <div className="p-4 border-t border-white/5">
-                    <button onClick={() => { logout(); navigate('/care-staff'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-400/80 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all">
-                        <LogOut size={18} /> Logout
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden">
-                {/* Premium Header */}
-                <header className="h-16 glass gradient-border flex items-center justify-between px-6 lg:px-10 relative z-10">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"><Menu /></button>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-purple-500/70">NORSU-G CARE</p>
-                            <h2 className="text-xl font-bold gradient-text">{headerTitle}</h2>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <img src="/carecenter.png" alt="NORSU-G CARE" className="hidden h-10 w-10 rounded-full border border-purple-100 bg-white object-cover shadow-sm md:block" />
-                        <button
-                            onClick={refreshAll}
-                            disabled={isRefreshing}
-                            title="Refresh Current View"
-                            className="inline-flex items-center gap-2 rounded-xl bg-white/80 px-4 py-2 text-sm font-semibold text-gray-600 hover:text-purple-600 hover:shadow-md transition-all border border-gray-100 disabled:opacity-50"
-                        >
-                            <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-                            <span>{isRefreshing ? 'Refreshing...' : 'Refresh View'}</span>
-                        </button>
-                        <NotificationBell
-                            notifications={notifications}
-                            accentColor="purple"
-                            expandProfileUpdates
-                            isLoading={notificationsLoading}
-                            onOpen={handleOpenNotifications}
-                        />
-                    </div>
-                </header>
-
-                <div className="flex-1 overflow-y-auto p-6 lg:p-10 page-transition">
-                    {renderActiveTab()}
-
-                    {renderCareStaffModals({
-                        showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
-                        setActiveTab, toast, setToast,
-                        canDeleteRecords,
-                    })}
-                </div>
-            </main>
-        </div>
+            {renderCareStaffModals({
+                showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
+                setActiveTab: goToTab, toast, setToast,
+                canDeleteRecords,
+            })}
+        </StaffPortalLayout>
     );
 };
 

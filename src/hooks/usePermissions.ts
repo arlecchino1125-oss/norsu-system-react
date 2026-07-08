@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 import { permissionService } from '../services/permissionService';
 import {
     createResolvedPermissionState,
@@ -20,6 +21,36 @@ const isRole = (value: unknown): value is Role =>
     || value === 'Department Head'
     || value === 'Student'
     || value === 'Public';
+
+type RolePermissionChangeListener = (changedRole: Role | null) => void;
+
+// One shared realtime channel for every usePermissions consumer. Without
+// refcounting each mounted component would open its own channel.
+const rolePermissionListeners = new Set<RolePermissionChangeListener>();
+let rolePermissionChannel: ReturnType<typeof supabase.channel> | null = null;
+
+const subscribeToRolePermissionChanges = (listener: RolePermissionChangeListener) => {
+    rolePermissionListeners.add(listener);
+
+    if (!rolePermissionChannel) {
+        rolePermissionChannel = supabase
+            .channel('role_permissions_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'role_permissions' }, (payload: any) => {
+                const rawRole = payload.new?.role ?? payload.old?.role ?? null;
+                const changedRole = isRole(rawRole) ? rawRole : null;
+                rolePermissionListeners.forEach((notify) => notify(changedRole));
+            })
+            .subscribe();
+    }
+
+    return () => {
+        rolePermissionListeners.delete(listener);
+        if (rolePermissionListeners.size === 0 && rolePermissionChannel) {
+            void supabase.removeChannel(rolePermissionChannel).catch(() => undefined);
+            rolePermissionChannel = null;
+        }
+    };
+};
 
 const resolveUntypedPermission = (permissions: PermissionRecord, permission: string) => {
     const normalizedPermission = String(permission || '').trim();
@@ -53,7 +84,7 @@ const useRolePermissionsState = (role: Role | null) => {
     const [loading, setLoading] = useState<boolean>(Boolean(role));
     const [error, setError] = useState<string | null>(null);
 
-    const loadPermissions = useCallback(async (forceRefresh = false) => {
+    const loadPermissions = useCallback(async (forceRefresh = false, silent = false) => {
         if (!role) {
             setPermissions({});
             setLoading(false);
@@ -61,7 +92,9 @@ const useRolePermissionsState = (role: Role | null) => {
             return;
         }
 
-        setLoading(true);
+        if (!silent) {
+            setLoading(true);
+        }
         setError(null);
 
         try {
@@ -73,15 +106,34 @@ const useRolePermissionsState = (role: Role | null) => {
             setPermissions(nextPermissions);
         } catch (nextError: any) {
             setError(nextError?.message || 'Failed to load permissions.');
-            setPermissions({});
+            // A failed silent refresh keeps the last known permissions instead
+            // of blanking access for everyone mid-session.
+            if (!silent) {
+                setPermissions({});
+            }
         } finally {
-            setLoading(false);
+            if (!silent) {
+                setLoading(false);
+            }
         }
     }, [role]);
 
     useEffect(() => {
         void loadPermissions();
     }, [loadPermissions]);
+
+    useEffect(() => {
+        if (!role) {
+            return;
+        }
+
+        return subscribeToRolePermissionChanges((changedRole) => {
+            if (changedRole && changedRole !== role) {
+                return;
+            }
+            void loadPermissions(true, true);
+        });
+    }, [loadPermissions, role]);
 
     const getPermissionAccessState = useCallback((permissionType: PermissionType, permissionKey: string): ResolvedPermissionState => {
         if (!role) {
@@ -181,7 +233,7 @@ export const usePermissionsByType = (permissionType: PermissionType, roleOverrid
     const [loading, setLoading] = useState<boolean>(Boolean(role));
     const [error, setError] = useState<string | null>(null);
 
-    const loadPermissions = useCallback(async (forceRefresh = false) => {
+    const loadPermissions = useCallback(async (forceRefresh = false, silent = false) => {
         if (!role) {
             setPermissions([]);
             setLoading(false);
@@ -189,7 +241,9 @@ export const usePermissionsByType = (permissionType: PermissionType, roleOverrid
             return;
         }
 
-        setLoading(true);
+        if (!silent) {
+            setLoading(true);
+        }
         setError(null);
 
         try {
@@ -201,15 +255,32 @@ export const usePermissionsByType = (permissionType: PermissionType, roleOverrid
             setPermissions(nextPermissions);
         } catch (nextError: any) {
             setError(nextError?.message || 'Failed to load permissions.');
-            setPermissions([]);
+            if (!silent) {
+                setPermissions([]);
+            }
         } finally {
-            setLoading(false);
+            if (!silent) {
+                setLoading(false);
+            }
         }
     }, [permissionType, role]);
 
     useEffect(() => {
         void loadPermissions();
     }, [loadPermissions]);
+
+    useEffect(() => {
+        if (!role) {
+            return;
+        }
+
+        return subscribeToRolePermissionChanges((changedRole) => {
+            if (changedRole && changedRole !== role) {
+                return;
+            }
+            void loadPermissions(true, true);
+        });
+    }, [loadPermissions, role]);
 
     const refetch = useCallback(async () => {
         await loadPermissions(true);

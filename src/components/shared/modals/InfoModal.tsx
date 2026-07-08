@@ -1,5 +1,6 @@
 import React from 'react';
 import { Info } from 'lucide-react';
+import Modal from '../../ui/Modal';
 
 export interface InfoModalProps {
   open: boolean;
@@ -16,16 +17,13 @@ export default function InfoModal({
   onClose,
   actionLabel = 'Close'
 }: InfoModalProps) {
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-transparent p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/70 bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-          <Info size={26} />
-        </div>
-        <h3 className="mb-2 text-xl font-bold text-slate-900">{title}</h3>
-        <div className="mb-6 text-sm leading-relaxed text-slate-600">{description}</div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      size="sm"
+      footer={
         <button
           type="button"
           onClick={onClose}
@@ -33,7 +31,14 @@ export default function InfoModal({
         >
           {actionLabel}
         </button>
+      }
+    >
+      <div className="flex flex-col items-center text-center -mt-2">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+          <Info size={26} />
+        </div>
+        <div className="text-sm leading-relaxed text-slate-600">{description}</div>
       </div>
-    </div>
+    </Modal>
   );
 }

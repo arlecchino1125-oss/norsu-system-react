@@ -3,6 +3,7 @@ import { applySort, resolvePageParams, toPageResult } from './pagedQuery';
 import { validateTextInput } from '../utils/inputSecurity';
 import type { PageResult } from '../types/pagination';
 import type { PageParams, SortParams } from '../types/query';
+import type { Database } from '../types/database';
 
 const PAGED_LIST_COUNT_MODE = 'planned';
 
@@ -286,14 +287,17 @@ export const createGeneralFeedback = async (payload: Record<string, unknown>) =>
         throw new Error(invalidText.error);
     }
 
+    // payload is validated at runtime; student_id/student_name arrive via the spread
+    const row = {
+        ...payload,
+        region: regionCheck.value || null,
+        service_availed: serviceCheck.value || null,
+        suggestions: suggestionsCheck.value || null,
+        email: emailCheck.value || null,
+    } as Database['public']['Tables']['general_feedback']['Insert'];
+
     const { error } = await supabase
         .from('general_feedback')
-        .insert({
-            ...payload,
-            region: regionCheck.value || null,
-            service_availed: serviceCheck.value || null,
-            suggestions: suggestionsCheck.value || null,
-            email: emailCheck.value || null,
-        });
+        .insert(row);
     if (error) throw error;
 };

@@ -22,7 +22,7 @@ export type TransactionalEmailPreview = {
 
 export const sendTransactionalEmailNotification = async (
     payload: TransactionalEmailPayload,
-    fallbackMessage = 'Failed to send email.'
+    fallbackMessage = 'Your changes were saved, but the email notification could not be sent.'
 ): Promise<TransactionalEmailResult> => {
     const email = normalizeEmail(payload?.email);
     if (!payload || !email) {
@@ -38,6 +38,7 @@ export const sendTransactionalEmailNotification = async (
                 ...payload,
                 email
             },
+            requireAuth: true,
             fallbackMessage
         });
 
@@ -45,10 +46,14 @@ export const sendTransactionalEmailNotification = async (
             emailSent: true,
             emailError: null
         };
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error && error.message.trim()
+            ? error.message
+            : fallbackMessage;
+
         return {
             emailSent: false,
-            emailError: fallbackMessage
+            emailError: errorMessage
         };
     }
 };
@@ -68,6 +73,7 @@ export const previewTransactionalEmailNotification = async (
             email,
             preview: true
         },
+        requireAuth: true,
         fallbackMessage
     });
 

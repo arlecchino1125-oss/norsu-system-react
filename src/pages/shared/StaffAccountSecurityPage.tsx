@@ -11,7 +11,7 @@ type StaffAccountSecurityPageProps = {
     confirmStaffSecurityEmailChange: (email: string, otp: string) => Promise<void>;
     confirmStaffPasswordChange: (password: string, otp: string) => Promise<void>;
     updateStaffProfileName?: (name: string) => Promise<void>;
-    showToast?: (message: string, type?: string) => void;
+    showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 };
 
 export default function StaffAccountSecurityPage({

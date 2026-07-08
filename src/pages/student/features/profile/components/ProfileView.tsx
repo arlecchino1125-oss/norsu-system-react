@@ -1,0 +1,654 @@
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import AccountSecuritySettings from '../../../../../components/AccountSecuritySettings';
+import { openStoredAsset } from '../../../../../utils/storageAssets';
+import { cleanLiveProfileText, getProfileTextFieldRule } from '../../../../../utils/profileFieldRules';
+import { getValidProfileImageUrl } from '../../../../../utils/formatters';
+import { fetchDepartmentNameForCourse } from '../../../../../utils/courseDepartment';
+import { supabase } from '../../../../../lib/supabase';
+import { driveService } from '../../../../../services/driveService';
+
+const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
+
+const FALLBACK_PROGRAM_OPTIONS = [
+    'Bachelor of Science in Agriculture Major in Agronomy',
+    'Bachelor of Science in Computer Science',
+    'Bachelor of Science in Midwifery',
+    'Bachelor of Science in AgriBusiness',
+    'Bachelor of Science in Business Administration Major in Human Resource Management',
+    'Bachelor of Science in Hospitality Management',
+    'Bachelor of Science in Office Administration',
+    'Bachelor of Science in Criminology',
+    'Bachelor of Industrial Technology Major in Automotive Technology',
+    'Bachelor of Industrial Technology Major in Computer Technology',
+    'Bachelor of Industrial Technology Major in Electrical Technology',
+    'Bachelor of Industrial Technology Major in Electronics Technology',
+    'Bachelor of Elementary Education',
+    'Bachelor of Secondary Education Major in English',
+    'Bachelor of Secondary Education Major in Mathematics',
+    'Bachelor of Secondary Education Major in Social Studies',
+    'Bachelor of Technology and Livelihood Education Major in Home Economics'
+];
+
+const FALLBACK_DEPARTMENT_OPTIONS = [
+    'College of Agriculture and Forestry',
+    'College of Arts and Sciences',
+    'College of Business Administration',
+    'College of Criminal Justice Education',
+    'College of Education',
+    'College of Engineering and Architecture',
+    'College of Industrial Technology',
+    'College of Nursing, Pharmacy and Allied Health Sciences'
+];
+
+const YEAR_LEVEL_OPTIONS = [
+    { value: '1st Year', label: 'I' },
+    { value: '2nd Year', label: 'II' },
+    { value: '3rd Year', label: 'III' },
+    { value: '4th Year', label: 'IV' },
+    { value: '5th Year', label: 'V' },
+    { value: '6th Year', label: 'VI' },
+    { value: 'Other', label: 'Other' }
+];
+
+// Extracted to top-level so React keeps a stable component identity across re-renders.
+// When these were inline, every state change created a new component type →
+// React unmounted/remounted <select> elements → dropdowns collapsed instantly.
+const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, activePersonalInfo, personalInfo, setDraftPersonalInfo, showToast }: any) => {
+    const fieldId = `profile-${field}`;
+    const showsEditableControl = isEditing && !readOnly;
+    const fieldShellClass = showsEditableControl
+        ? 'min-w-0'
+        : 'min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2';
+    const [isUploading, setIsUploading] = React.useState(false);
+
+    const openDocument = async () => {
+        try {
+            await openStoredAsset('support_documents', personalInfo[field]);
+        } catch (error: any) {
+            showToast?.(error.message || 'Unable to open the selected file.', 'error');
+        }
+    };
+
+    const handleDocumentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const isSupportedFile = file.type.startsWith('image/') || file.type === 'application/pdf';
+        if (!isSupportedFile) {
+            showToast?.('Upload an image or PDF.', 'error');
+            e.target.value = '';
+            return;
+        }
+
+        if (file.size > 1024 * 1024) {
+            showToast?.('Profile documents must be under 1 MB.', 'error');
+            e.target.value = '';
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const studentId = personalInfo?.studentId || personalInfo?.student_id;
+            if (!studentId) throw new Error("Student ID is missing.");
+            
+            const result = await driveService.uploadFile(file, studentId);
+            if (!result.success || !result.webViewLink) {
+                throw new Error(result.error || 'Failed to upload document');
+            }
+            
+            setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: result.webViewLink }));
+            showToast?.('Document uploaded successfully! Click "Save Changes" at the bottom to finalize.', 'success');
+        } catch (err: any) {
+            showToast?.(err.message, 'error');
+            e.target.value = '';
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const fieldRule = getProfileTextFieldRule(field, type === 'textarea');
+
+    const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        const nextFieldValue = cleanLiveProfileText(val, fieldRule.multiline || type === 'textarea');
+        if (nextFieldValue !== val) {
+            showToast?.('Unsafe control or angle-bracket characters were removed.', 'error');
+        }
+        if (nextFieldValue.length > fieldRule.maxLength) {
+            showToast?.(`${fieldRule.label} must be ${fieldRule.maxLength} characters or fewer.`, 'error');
+            return;
+        }
+        setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: nextFieldValue }));
+    };
+
+    return (
+        <div className={`${fieldShellClass} ${colSpan ? `sm:col-span-${colSpan}` : ''}`}>
+            {showsEditableControl ? (
+                <label htmlFor={fieldId} className="mb-1 block text-[10px] font-black uppercase tracking-[0.11em] text-slate-400 sm:text-[10px]">{label}</label>
+            ) : (
+                <p className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 sm:text-[10px]">{label}</p>
+            )}
+            {showsEditableControl ? (
+                type === 'select' ? (
+                    <select id={fieldId} name={field} autoComplete="off" className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] || ''} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value }))}>
+                        <option value="" className="bg-white text-slate-700">Select</option>
+                        {(options || []).map((o: any) => <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value} className="bg-white text-slate-700">{typeof o === 'string' ? o : o.label}</option>)}
+                    </select>
+                ) : type === 'textarea' ? (
+                    <textarea id={fieldId} name={field} autoComplete="off" maxLength={fieldRule.maxLength} className={`${INPUT_CLASS} min-h-[112px] resize-none sm:min-h-0`} style={{ colorScheme: 'light' }} rows={3} value={activePersonalInfo[field] || ''} onChange={handleTextChange} />
+                ) : type === 'boolean' ? (
+                    <select id={fieldId} name={field} autoComplete="off" className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] ? 'Yes' : 'No'} onChange={(e) => setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: e.target.value === 'Yes' }))}>
+                        <option value="No" className="bg-white text-slate-700">No</option><option value="Yes" className="bg-white text-slate-700">Yes</option>
+                    </select>
+                ) : type === 'document' ? (
+                    <div className="space-y-2">
+                        <input
+                            id={fieldId}
+                            name={field}
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={handleDocumentChange}
+                            disabled={isUploading}
+                            className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 sm:text-[10px]">
+                            <span>Max 1 MB.</span>
+                            {isUploading && <span className="font-semibold text-indigo-500 animate-pulse">Uploading...</span>}
+                            {!isUploading && activePersonalInfo[field] && (
+                                <button type="button" onClick={() => openStoredAsset('support_documents', activePersonalInfo[field]).catch(err => showToast?.(err.message, 'error'))} className="font-bold text-indigo-600 hover:text-indigo-700">View current file</button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <input id={fieldId} name={field} autoComplete="off" spellCheck={false} maxLength={fieldRule.maxLength} type={type || 'text'} className={INPUT_CLASS} style={{ colorScheme: 'light' }} value={activePersonalInfo[field] || ''} onChange={(e) => {
+                        if (field === 'dob') {
+                            const dob = e.target.value;
+                            let age = activePersonalInfo.age;
+                            if (dob) { const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); const m = t.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--; age = a >= 0 ? a : ''; }
+                            setDraftPersonalInfo((prev: any) => ({ ...prev, dob, age }));
+                        } else {
+                            handleTextChange(e);
+                        }
+                    }} />
+                )
+            ) : type === 'document' && personalInfo[field] ? (
+                <button type="button" onClick={openDocument} className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">View file</button>
+            ) : (
+                <p className="break-words text-sm font-bold leading-5 text-slate-800 sm:truncate" title={String(activePersonalInfo[field] || '')}>
+                    {type === 'boolean' ? (activePersonalInfo[field] ? 'Yes' : 'No') : (activePersonalInfo[field] || <span className="text-gray-300 italic font-normal">—</span>)}
+                </p>
+            )}
+        </div>
+    );
+};
+
+const Section = ({ icon, gradient, title, children, cardClass, cardStyle }: any) => (
+    <div className={cardClass} style={cardStyle}>
+        <h4 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950"><span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-xs text-white shadow-sm`}>{icon}</span> {title}</h4>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-4">{children}</div>
+    </div>
+);
+
+function ProfileViewContent(p: any) {
+    const {
+        profileTab,
+        setProfileTab,
+        personalInfo,
+        isEditing,
+        setIsEditing,
+        setPersonalInfo,
+        saveProfileChanges,
+        isSavingProfileChanges,
+        authEmail,
+        requestStudentSecurityOtp,
+        confirmStudentSecurityEmailChange,
+        confirmStudentPasswordChange,
+        Icons,
+        attendanceMap,
+        formatFullDate,
+        uploadProfilePicture,
+        showToast,
+        showMoreProfile,
+        setShowMoreProfile
+    } = p;
+    const [draftPersonalInfo, setDraftPersonalInfo] = React.useState(personalInfo);
+    const [isCompactMobileLayout, setIsCompactMobileLayout] = React.useState(() => (
+        typeof window !== 'undefined' ? window.innerWidth < 640 : false
+    ));
+    // Course names are reference data — cached for the session like the
+    // registrar's lookups, so profile visits don't refetch them per nav.
+    // gcTime Infinity too: the default 5-min gc would evict the entry while
+    // this view is unmounted, causing a refetch on later visits.
+    const { data: courseNameRows } = useQuery({
+        queryKey: ['student_course_options'],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('courses').select('name').order('name');
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: Infinity,
+        gcTime: Infinity
+    });
+    const courseOptions = React.useMemo(
+        () => [...new Set([...(courseNameRows || []).map((d: any) => d.name), ...FALLBACK_PROGRAM_OPTIONS].filter(Boolean))],
+        [courseNameRows]
+    );
+    const profileCardClass = isEditing || isCompactMobileLayout
+        ? 'rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5'
+        : 'rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm card-hover sm:p-5';
+    const surfacePanelClass = 'student-profile-tabs grid grid-cols-3 gap-1 rounded-2xl border border-slate-200/80 bg-white p-1 shadow-sm';
+    const largePanelClass = isCompactMobileLayout
+        ? 'rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-8'
+        : 'rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm card-hover sm:p-8';
+    const activePersonalInfo = isEditing ? draftPersonalInfo : personalInfo;
+    const profileTabs = [
+        { id: 'personal', label: 'Personal Info', mobileLabel: 'Personal', icon: <Icons.Profile /> },
+        { id: 'engagement', label: 'Engagement', mobileLabel: 'Activity', icon: <Icons.Clock /> },
+        { id: 'security', label: 'Security', mobileLabel: 'Security', icon: <Icons.Support /> },
+    ];
+    const studentFullName = [personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ') || 'Student';
+    const profileStatus = personalInfo.status || 'Active';
+    const profileChips = [
+        personalInfo.year,
+        personalInfo.section ? `Sec ${personalInfo.section}` : '',
+        profileStatus
+    ].filter(Boolean);
+    const academicSummary = [
+        { label: 'College', value: personalInfo.department || 'Not set' },
+        { label: 'Program', value: personalInfo.course || 'Not set' },
+    ];
+
+    // Shared field props — passed to every <Field> to avoid repetition
+    const fp = { isEditing, activePersonalInfo, personalInfo, setDraftPersonalInfo, showToast };
+
+    React.useEffect(() => {
+        if (!isEditing) {
+            setDraftPersonalInfo(personalInfo);
+        }
+    }, [isEditing, personalInfo]);
+
+    React.useEffect(() => {
+        if (!isEditing) return;
+        
+        // Only fetch a new department if the course has actually changed from the original.
+        // Otherwise, keep the original department to avoid overwriting valid DB data.
+        if (activePersonalInfo.course === personalInfo.course) {
+            if (activePersonalInfo.department !== personalInfo.department) {
+                setDraftPersonalInfo((prev: any) => ({ ...prev, department: personalInfo.department }));
+            }
+            return;
+        }
+
+        let isMounted = true;
+        
+        const updateDepartment = async () => {
+            const course = activePersonalInfo.course;
+            if (!course) return;
+            
+            try {
+                const matchedDept = await fetchDepartmentNameForCourse(supabase, course, activePersonalInfo.department || 'Unassigned');
+                if (isMounted && matchedDept !== activePersonalInfo.department) {
+                    setDraftPersonalInfo((prev: any) => ({ ...prev, department: matchedDept }));
+                }
+            } catch (error) {
+                console.error("Error fetching department:", error);
+            }
+        };
+        
+        updateDepartment();
+        
+        return () => { isMounted = false; };
+    }, [activePersonalInfo.course, isEditing, personalInfo.course, personalInfo.department, personalInfo.course_year_profile_edited, setDraftPersonalInfo]);
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const syncCompactLayout = () => {
+            setIsCompactMobileLayout(window.innerWidth < 640);
+        };
+
+        syncCompactLayout();
+        window.addEventListener('resize', syncCompactLayout);
+
+        return () => {
+            window.removeEventListener('resize', syncCompactLayout);
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (isEditing && !showMoreProfile) {
+            setShowMoreProfile(true);
+        }
+    }, [isEditing, setShowMoreProfile, showMoreProfile]);
+
+    React.useEffect(() => {
+        if (isEditing && (personalInfo.profilePictureUrl || personalInfo.profile_picture_url)) {
+            setDraftPersonalInfo((prev: any) => ({
+                ...prev,
+                profilePictureUrl: personalInfo.profilePictureUrl || personalInfo.profile_picture_url,
+                profile_picture_url: personalInfo.profile_picture_url || personalInfo.profilePictureUrl
+            }));
+        }
+    }, [personalInfo.profilePictureUrl, personalInfo.profile_picture_url, isEditing, setDraftPersonalInfo]);
+
+    // Programmatic file picker — avoids useRef (hook) inside a plain render function
+    const openFilePicker = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e: any) => {
+            const file = e.target.files?.[0];
+            if (file && uploadProfilePicture) uploadProfilePicture(file);
+        };
+        input.click();
+    };
+
+    const shouldRenderFullPersonalTab = !isCompactMobileLayout || showMoreProfile || isEditing;
+
+    const getCardStyle = (delay?: string): React.CSSProperties | undefined => {
+        return delay && !isCompactMobileLayout ? { animationDelay: delay } : undefined;
+    };
+
+    return (
+        <div className={`flex flex-col gap-4 sm:gap-6 ${isEditing ? 'student-profile-edit w-full max-w-full' : (isCompactMobileLayout ? '' : 'page-transition')}`} style={isEditing ? { colorScheme: 'light' } : undefined}>
+            <div className="flex-1 space-y-4 w-full">
+                <div className={`${surfacePanelClass} ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('100ms')}>
+                    {profileTabs.map((tab: any) => (
+                        <button key={tab.id} onClick={() => { setProfileTab(tab.id); setIsEditing(false); }} className={`flex min-h-[2.75rem] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1.5 text-[9px] font-black leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:min-h-0 sm:flex-row sm:gap-2 sm:text-xs ${profileTab === tab.id ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'}`}>
+                            <span className={profileTab === tab.id ? 'text-blue-300' : 'text-slate-400'}>{tab.icon}</span>
+                            <span className="sm:hidden">{tab.mobileLabel}</span>
+                            <span className="hidden sm:inline">{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
+                {profileTab === 'personal' && (
+                    <div className={`space-y-4 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
+                        <section className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5 lg:p-6">
+                            <div className="flex min-w-0 items-start gap-3">
+                                <div className="relative h-14 w-14 shrink-0 sm:h-20 sm:w-20">
+                                    {personalInfo.profile_picture_url ? (
+                                        <img
+                                            src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
+                                            alt="Profile"
+                                            referrerPolicy="no-referrer"
+                                            className="h-14 w-14 rounded-2xl border border-slate-200 bg-slate-50 object-cover shadow-sm sm:h-20 sm:w-20"
+                                        />
+                                    ) : (
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-2xl font-black text-blue-600 shadow-sm sm:h-20 sm:w-20 sm:text-3xl">
+                                            {personalInfo.firstName?.[0] || 'S'}
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        aria-label="Change profile picture"
+                                        title="Change profile picture"
+                                        onClick={openFilePicker}
+                                        className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-600 shadow-md transition-all hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                                    </button>
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex min-w-0 items-start gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-blue-500">Student Profile</p>
+                                            <h3 className="mt-0.5 truncate text-lg font-black leading-tight text-slate-950 sm:text-2xl" title={studentFullName}>
+                                                {studentFullName}
+                                            </h3>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            aria-label="Edit profile"
+                                            title="Edit profile"
+                                            onClick={() => { setProfileTab('personal'); setShowMoreProfile(true); setIsEditing(true); }}
+                                            className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                                        </button>
+                                    </div>
+                                    <p className="mt-0.5 font-mono text-[11px] font-bold text-slate-500">{personalInfo.studentId || 'No student ID'}</p>
+
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {profileChips.map((chip) => (
+                                            <span key={chip} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${chip === profileStatus ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                                                {chip}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-2">
+                                {academicSummary.map((item) => (
+                                    <div key={item.label} className="min-w-0">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
+                                        <p className="mt-0.5 truncate text-[13px] font-bold text-slate-800" title={item.value}>{item.value}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        <Section cardClass={profileCardClass} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
+                            <Field {...fp} label="Email Address" field="email" readOnly />
+                            <Field {...fp} label="Student ID No." field="studentId" />
+                            <Field {...fp} label="Last Name" field="lastName" />
+                            <Field {...fp} label="Given Name" field="firstName" />
+                            <Field {...fp} label="Middle Name" field="middleName" />
+                            <Field {...fp} label="Extension Name" field="suffix" />
+                            <Field {...fp} label="Birthday" field="dob" type="date" />
+                            <Field {...fp} label="Age" field="age" readOnly />
+                            <Field {...fp} label="Sex Assigned at Birth" field="sex" type="select" options={['Male', 'Female']} />
+                            <Field {...fp} label="Gender" field="genderIdentity" type="select" options={['Cis-gender', 'Transgender', 'Non-binary gender', 'Prefer not to say']} />
+                            <Field {...fp} label="Civil Status" field="civilStatus" type="select" options={['Single', 'Cohabitation (Live-In)', 'Was Previously Married But Separated', 'Married', 'Widow/er']} />
+                            <Field {...fp} label="Citizenship" field="nationality" />
+                            <Field {...fp} label="Year Level" field="year" type="select" options={[...new Set([activePersonalInfo.year, ...YEAR_LEVEL_OPTIONS.map(o => o.value)].filter(Boolean))]} />
+                            {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" />}
+                            <Field {...fp} label="Section" field="section" />
+                            <Field {...fp} label="College" field="department" readOnly />
+                            <Field {...fp} label="Program" field="course" colSpan={2} type="select" options={[...new Set([activePersonalInfo.course, ...courseOptions].filter(Boolean))]} />
+                            <Field {...fp} label="Place of Birth" field="placeOfBirth" />
+                            <Field {...fp} label="Religion" field="religion" />
+                        </Section>
+
+                        <Section cardClass={profileCardClass} icon={<Icons.Events />} gradient="from-emerald-400 to-teal-500" title="Contact & Address">
+                            <Field {...fp} label="Contact Number" field="mobile" />
+                            <Field {...fp} label="Facebook Account Link" field="facebookUrl" />
+                            <Field {...fp} label="Permanent Address - Street/Sitio & Barangay" field="street" colSpan={2} />
+                            <Field {...fp} label="Permanent Address - Town/City Municipality" field="city" />
+                            <Field {...fp} label="Permanent Address - Province" field="province" />
+                            <Field {...fp} label="Permanent Address - Zip Code" field="zipCode" />
+                            <Field {...fp} label="Permanent Address - Region" field="region" type="select" options={['Region XVIII (NIR)', 'Region VII (Central Visayas)', 'Region VI (Western Visayas)', 'Other']} />
+                            {activePersonalInfo.region === 'Other' && <Field {...fp} label="Specify Region" field="regionOther" />}
+                        </Section>
+                        {!shouldRenderFullPersonalTab && (
+                            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+                                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">More Sections Available</p>
+                                <p className="mt-2 text-sm text-slate-600 leading-relaxed">Show the remaining profile sections only when needed to keep this page lighter on slower mobile devices.</p>
+                                <button onClick={() => setShowMoreProfile(true)} className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-500">
+                                    Show More Profile Sections
+                                </button>
+                            </div>
+                        )}
+                        {shouldRenderFullPersonalTab && (
+                            <>
+
+                                <Section cardClass={profileCardClass} icon="👨‍👩‍👧" gradient="from-amber-400 to-orange-500" title="Family Background">
+                                    <Field {...fp} label="Name of Spouse" field="spouseName" />
+                                    <Field {...fp} label="Spouse's Occupation" field="spouseOccupation" />
+                                    <Field {...fp} label="Spouse's Employer/Business Name" field="spouseEmployerName" colSpan={2} />
+                                    <Field {...fp} label="Spouse's Employer/Business Address" field="spouseEmployerAddress" colSpan={2} />
+                                    <Field {...fp} label="Spouse's Contact Number" field="spouseContact" />
+                                    <Field {...fp} label="Number of Children" field="numChildren" />
+                                    <Field {...fp} label="Name of Children - Date of Birth" field="childrenNamesBirthdates" type="textarea" colSpan={2} />
+                                    <Field {...fp} label="Currently Pregnant" field="currentlyPregnant" type="select" options={['Yes', 'No', 'Maybe']} />
+                                    <Field {...fp} label="Mother's Maiden Last Name" field="motherLastName" />
+                                    <Field {...fp} label="Mother's Given Name" field="motherGivenName" />
+                                    <Field {...fp} label="Mother's Maiden Middle Name" field="motherMiddleName" />
+                                    <Field {...fp} label="Mother's Occupation" field="motherOccupation" />
+                                    <Field {...fp} label="Mother's Status" field="motherStatus" type="select" options={['Alive', 'Deceased', 'Unknown', 'Prefer not to say']} />
+                                    <Field {...fp} label="Mother's Contact Number" field="motherContact" />
+                                    <Field {...fp} label="Mother's Address" field="motherAddress" colSpan={2} />
+                                    <Field {...fp} label="Father's Last Name" field="fatherLastName" />
+                                    <Field {...fp} label="Father's Given Name" field="fatherGivenName" />
+                                    <Field {...fp} label="Father's Middle Name" field="fatherMiddleName" />
+                                    <Field {...fp} label="Father's Occupation" field="fatherOccupation" />
+                                    <Field {...fp} label="Father's Status" field="fatherStatus" type="select" options={['Alive', 'Deceased', 'Unknown', 'Prefer not to say']} />
+                                    <Field {...fp} label="Father's Contact Number" field="fatherContact" />
+                                    <Field {...fp} label="Father's Address" field="fatherAddress" colSpan={2} />
+                                    <Field {...fp} label="Number of Children Your Parents Have" field="parentsNumChildren" />
+                                    <Field {...fp} label="Your Birth Order in the Family" field="birthOrder" type="select" options={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Only child', 'Legally adopted', 'Simulated', 'Foster child', 'Other']} />
+                                    {activePersonalInfo.birthOrder === 'Other' && <Field {...fp} label="Birth Order Other" field="birthOrderOther" />}
+                                </Section>
+
+                                <Section cardClass={profileCardClass} icon="ℹ️" gradient="from-indigo-400 to-violet-500" title="Socio-Economic Background">
+                                    <Field {...fp} label="Person/Agency Who Supports Your Studies Financially Other Than Yourself" field="supporter" colSpan={2} />
+                                    <Field {...fp} label="Contact Information of the Person/Agency Who Supports Your Studies Financially Other Than Yourself" field="supporterContact" colSpan={2} />
+                                    <Field {...fp} label="Are You a Working Student" field="isWorkingStudent" type="boolean" />
+                                    <Field {...fp} label="Type of Work" field="workingStudentType" type="select" options={['House help', 'Call Center Agent/BPO employee', 'Fast food/Restaurant', 'Online employee/Freelancer', 'Self-employed', 'N/A', 'Other']} />
+                                    {activePersonalInfo.workingStudentType === 'Other' && <Field {...fp} label="Specify Type of Work" field="workingStudentTypeOther" />}
+                                    <Field {...fp} label="Name of Employer" field="employerName" />
+                                    <Field {...fp} label="Address of Employer" field="employerAddress" />
+                                    <Field {...fp} label="Are You a Person With Disability (PWD)" field="isPwd" type="boolean" />
+                                    <Field {...fp} label="PWD Number" field="pwdNumber" />
+                                    <Field {...fp} label="Type of Disability" field="pwdType" type="select" options={['0', 'Visual impairment', 'Hearing impairment', 'Physical/Orthopedic disability', 'Chronic illness', 'Psychosocial disability', 'Communication disability', 'Other']} />
+                                    {activePersonalInfo.pwdType === 'Other' && <Field {...fp} label="Specify Type of Disability" field="pwdTypeOther" />}
+                                    <Field {...fp} label="Cause of Disability" field="disabilityCause" />
+                                    <Field {...fp} label="PWD Document" field="pwdDocumentUrl" type="document" />
+                                    <Field {...fp} label="Are You a Member of Any Indigenous Group & Cultural Communities" field="isIndigenous" type="boolean" />
+                                    <Field {...fp} label="Indigenous Group" field="indigenousGroup" type="select" options={['N/A', 'Bukidnon', 'Tabihanon Group', 'ATA', 'IFUGAO', 'Kalahing Kulot', 'Lumad', 'Other']} />
+                                    {activePersonalInfo.indigenousGroup === 'Other' && <Field {...fp} label="Specify Indigenous Group" field="indigenousGroupOther" />}
+                                    <Field {...fp} label="IP Document" field="ipDocumentUrl" type="document" />
+                                    <Field {...fp} label="Are You a Member of 4Ps" field="isFourPsMember" type="boolean" />
+                                    <Field {...fp} label="4Ps Document" field="fourPsDocumentUrl" type="document" />
+                                    <Field {...fp} label="Are You a Rebel Returnee" field="isRebelReturnee" type="boolean" />
+                                    <Field {...fp} label="Are You a Son/Daughter of a Solo Parent" field="isChildOfSoloParent" type="boolean" />
+                                    <Field {...fp} label="Are You a Solo Parent Yourself" field="isSoloParent" type="boolean" />
+                                    <Field {...fp} label="Solo Parent Document" field="soloParentDocumentUrl" type="document" />
+                                    <Field {...fp} label="Are You an Orphan" field="isOrphan" type="boolean" />
+                                    <Field {...fp} label="Cause of Being an Orphan" field="orphanCause" type="select" options={['N/A', 'Death', 'Abandonment', 'Other']} />
+                                    {activePersonalInfo.orphanCause === 'Other' && <Field {...fp} label="Specify Cause of Being an Orphan" field="orphanCauseOther" />}
+                                    <Field {...fp} label="Are You a Homeless Citizen" field="isHomelessCitizen" type="boolean" />
+                                    <Field {...fp} label="Are You a Senior Citizen" field="isSeniorCitizen" type="boolean" />
+                                    <Field {...fp} label="Senior Citizen Document" field="seniorCitizenDocumentUrl" type="document" />
+                                    <Field {...fp} label="Work Experiences" field="workExperiences" type="textarea" colSpan={2} />
+                                </Section>
+
+                                <Section cardClass={profileCardClass} icon="🛡️" gradient="from-slate-500 to-slate-700" title="Guardian">
+                                    <Field {...fp} label="Guardian Full Name" field="guardianName" colSpan={2} />
+                                    <Field {...fp} label="Guardian Address" field="guardianAddress" colSpan={2} />
+                                    <Field {...fp} label="Guardian Contact Number" field="guardianContact" />
+                                    <Field {...fp} label="Relation to the Guardian" field="guardianRelation" type="select" options={['Family', 'Relative', 'Not relative', 'Landlord', 'Landlady', 'Other']} />
+                                </Section>
+
+                                <Section cardClass={profileCardClass} icon="🚨" gradient="from-rose-400 to-red-500" title="Person to Contact (In Case of Emergency)">
+                                    <Field {...fp} label="Emergency Contact Full Name" field="emergencyName" colSpan={2} />
+                                    <Field {...fp} label="Emergency Contact Address" field="emergencyAddress" colSpan={2} />
+                                    <Field {...fp} label="Emergency Contact Relationship" field="emergencyRelationship" />
+                                    <Field {...fp} label="Emergency Contact Number" field="emergencyNumber" />
+                                </Section>
+
+                                <Section cardClass={profileCardClass} icon={<Icons.Assessment />} gradient="from-cyan-400 to-blue-500" title="Educational Background">
+                                    <Field {...fp} label="Elementary School" field="elemSchool" colSpan={2} />
+                                    <Field {...fp} label="Elementary Inclusive Years Attended" field="elemYearGraduated" colSpan={2} />
+                                    <Field {...fp} label="Junior High School" field="juniorHighSchool" colSpan={2} />
+                                    <Field {...fp} label="Junior High Inclusive Years Attended" field="juniorHighYearGraduated" colSpan={2} />
+                                    <Field {...fp} label="Senior High School" field="seniorHighSchool" colSpan={2} />
+                                    <Field {...fp} label="Senior High Inclusive Years Attended" field="seniorHighYearGraduated" colSpan={2} />
+                                    <Field {...fp} label="Transferee College" field="collegeSchool" colSpan={2} />
+                                    <Field {...fp} label="Transferee College Inclusive Years Attended" field="collegeYearGraduated" colSpan={2} />
+                                    <Field {...fp} label="Honor/Award Received" field="honorsAwards" type="textarea" colSpan={2} />
+                                    <Field {...fp} label="TESDA NC II Acquired - Date Acquired - Validity" field="tesdaNc2Acquired" type="textarea" colSpan={2} />
+                                    <Field {...fp} label="Eligibility Acquired - Date Acquired" field="eligibilityAcquired" type="textarea" colSpan={2} />
+                                    <Field {...fp} label="Special Trainings Attended" field="specialTrainingsAttended" type="textarea" colSpan={2} />
+                                </Section>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+                                    <div className={profileCardClass}>
+                                        <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-pink-400 to-rose-500 text-white rounded-lg text-xs">🎭</span> Extra-Curricular</h4>
+                                        <div className="space-y-4">
+                                            <Field {...fp} label="Name of Voluntary Activities" field="extracurricularActivities" type="textarea" />
+                                            <Field {...fp} label="Do You Hold a Local/National Position in Public Service" field="holdsPublicServicePosition" type="select" options={['Yes', 'No']} />
+                                            <Field {...fp} label="Position in Public Service" field="publicServicePosition" />
+                                            <Field {...fp} label="Organizations You Are a Member Of" field="organizationsMemberships" type="textarea" />
+                                            <Field {...fp} label="Sports You Are Good At" field="sportsSkills" type="textarea" />
+                                            <Field {...fp} label="Other Talent/s" field="otherTalents" type="textarea" />
+                                        </div>
+                                    </div>
+                                    <div className={profileCardClass}>
+                                        <h4 className="font-bold text-sm mb-4 flex items-center gap-2"><span className="p-1.5 bg-gradient-to-br from-yellow-400 to-amber-500 text-white rounded-lg text-xs">🎓</span> Scholarships</h4>
+                                        <div className="space-y-4">
+                                            <Field {...fp} label="Name of Scholarship Availed & Sponsor" field="scholarshipsAvailed" type="textarea" />
+                                            <Field {...fp} label="Have You Been Criminally Charged Before Any Court" field="hasBeenCriminallyCharged" type="select" options={['Yes', 'No']} />
+                                            {activePersonalInfo.hasBeenCriminallyCharged === 'Yes' && <Field {...fp} label="If Yes, Indicate (Criminal Charge Details)" field="criminalChargeDetails" type="textarea" />}
+                                            <Field {...fp} label="Have You Been Convicted of Any Crime" field="hasBeenConvictedOfCrime" type="select" options={['Yes', 'No']} />
+                                            {activePersonalInfo.hasBeenConvictedOfCrime === 'Yes' && <Field {...fp} label="If Yes, Indicate (Crime Conviction Details)" field="crimeConvictionDetails" type="textarea" />}
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </>
+                        )}
+                        {isCompactMobileLayout && showMoreProfile && !isEditing && (
+                            <button onClick={() => setShowMoreProfile(false)} className="w-full rounded-xl border border-blue-100/60 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50">
+                                Show Fewer Profile Sections
+                            </button>
+                        )}
+                        {isEditing && (
+                            <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+                                <button onClick={() => { setIsEditing(false); if (isCompactMobileLayout) setShowMoreProfile(false); }} className="w-full rounded-xl border border-purple-100/50 bg-white/80 px-6 py-3 text-sm font-bold transition-all hover:bg-gray-50 sm:w-auto sm:py-2.5">Cancel</button>
+                                <button disabled={Boolean(isSavingProfileChanges)} onClick={() => { setPersonalInfo(draftPersonalInfo); void saveProfileChanges(draftPersonalInfo); }} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl btn-press disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2.5">{isSavingProfileChanges ? 'Saving...' : 'Save Changes'}</button>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {profileTab === 'engagement' && (
+                    <div className={`${largePanelClass} ${isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
+                        <h3 className="font-bold text-lg mb-4 sm:mb-6">Engagement History</h3>
+                        <p className="text-sm text-gray-400">Your recent event attendance and platform activity.</p>
+                        <div className="mt-4 space-y-3">
+                            {Object.entries(attendanceMap).map(([eventId, record]: [string, any]) => (
+                                <div key={eventId} className="flex flex-col items-start gap-2 rounded-xl border border-purple-100/30 bg-purple-50/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div><p className="text-xs font-bold text-gray-700">Event #{eventId}</p><p className="text-[10px] text-gray-400">Time In: {record.time_in ? formatFullDate(new Date(record.time_in)) : '—'}</p></div>
+                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${record.time_out ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>{record.time_out ? 'Completed' : 'Ongoing'}</span>
+                                </div>
+                            ))}
+                            {Object.keys(attendanceMap).length === 0 && <p className="text-center text-gray-400 text-sm py-6">No activity records found.</p>}
+                        </div>
+                    </div>
+                )}
+                {profileTab === 'security' && (
+                    <div className={`${largePanelClass} ${isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2 sm:mb-6"><span className="p-1.5 bg-gradient-to-br from-slate-600 to-slate-800 text-white rounded-lg"><Icons.Support /></span> Security Settings</h3>
+                        <p className="text-sm text-gray-400">Manage the email and password behind your student login here. OTP verification is required before any email or password change is applied.</p>
+                        <AccountSecuritySettings
+                            currentEmail={authEmail || personalInfo.email || ''}
+                            loginLabel="your student email"
+                            emailHelperText="Your student ID login stays the same. This updates the real email behind your account, and the OTP will be sent to the new email address."
+                            passwordHelperText="Choose a new password for your student login. An OTP will be sent to your current email before the password change is accepted."
+                            requestOtp={requestStudentSecurityOtp}
+                            confirmEmailChange={confirmStudentSecurityEmailChange}
+                            confirmPasswordChange={confirmStudentPasswordChange}
+                            showToast={showToast}
+                        />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+const areProfileViewPropsEqual = (prev: any, next: any) =>
+    prev.profileTab === next.profileTab
+    && prev.isEditing === next.isEditing
+    && prev.showMoreProfile === next.showMoreProfile
+    && prev.isSavingProfileChanges === next.isSavingProfileChanges
+    && prev.personalInfo === next.personalInfo
+    && prev.attendanceMap === next.attendanceMap;
+
+export const ProfileView = React.memo(ProfileViewContent, areProfileViewPropsEqual);
+
+export function renderProfileView(p: any) {
+    return <ProfileView {...p} />;
+}

@@ -74,76 +74,97 @@ const ACCENT_STYLES = {
     }
 } as const;
 
+import { useQuery } from '@tanstack/react-query';
+
 const StaffCalendarPage = ({
     scope,
     departmentName,
     accent = 'emerald'
 }: StaffCalendarPageProps) => {
-    const [items, setItems] = useState<CalendarItem[]>([]);
     const [selectedType, setSelectedType] = useState<'All' | CalendarItemType>('All');
     const [selectedDate, setSelectedDate] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const styles = ACCENT_STYLES[accent];
 
-    const loadCalendarItems = useCallback(async () => {
-        if (scope === 'department' && !String(departmentName || '').trim()) {
-            setItems([]);
-            return;
-        }
+    const isDeptScope = scope === 'department';
+    const deptNameTrim = String(departmentName || '').trim();
 
-        setIsLoading(true);
-        setError(null);
-        try {
-            const todayStart = getTodayStart();
-
-            const interviewsPromise = scope === 'department'
-                ? getDepartmentInterviewQueue(String(departmentName || '').trim())
-                : supabase
+    // ponytail: cache interviews to prevent redundant API sweeps on tab switch
+    const { data: interviewRows, isLoading: loadingInterviews, error: interviewsError, refetch: refetchInterviews } = useQuery({
+        queryKey: ['calendar-interviews', scope, departmentName],
+        queryFn: async () => {
+            if (isDeptScope) {
+                if (!deptNameTrim) return [];
+                return getDepartmentInterviewQueue(deptNameTrim);
+            } else {
+                const { data, error } = await supabase
                     .from('applications')
                     .select('id, first_name, last_name, reference_id, priority_course, alt_course_1, alt_course_2, current_choice, status, interview_date, interview_venue, interview_panel, interview_queue_status')
                     .eq('status', 'Interview Scheduled')
                     .not('interview_date', 'is', null)
-                    .order('interview_date', { ascending: true })
-                    .then(({ data, error: queryError }) => {
-                        if (queryError) throw queryError;
-                        return (data || []).filter((row: any) => String(row?.interview_queue_status || '').trim() !== 'Absent');
-                    });
+                    .order('interview_date', { ascending: true });
+                if (error) throw error;
+                return (data || []).filter((row: any) => String(row?.interview_queue_status || '').trim() !== 'Absent');
+            }
+        },
+        staleTime: 60000
+    });
 
-            let counselingQuery: any = supabase
+    // ponytail: cache counseling requests to prevent redundant API sweeps on tab switch
+    const { data: counselingRows, isLoading: loadingCounseling, error: counselingError, refetch: refetchCounseling } = useQuery({
+        queryKey: ['calendar-counseling', scope, departmentName],
+        queryFn: async () => {
+            let query = supabase
                 .from('counseling_requests')
                 .select('id, student_name, department, request_type, status, scheduled_date, created_at')
                 .in('status', [COUNSELING_STATUS.SCHEDULED, COUNSELING_STATUS.STAFF_SCHEDULED])
                 .order('scheduled_date', { ascending: true });
 
-            if (scope === 'department') {
-                counselingQuery = counselingQuery.eq('department', String(departmentName || '').trim());
+            if (isDeptScope) {
+                if (!deptNameTrim) return [];
+                query = query.eq('department', deptNameTrim);
             }
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 60000
+    });
 
-            const eventsQuery = supabase
+    // ponytail: cache events to prevent redundant API sweeps on tab switch
+    const { data: eventRows, isLoading: loadingEvents, error: eventsError, refetch: refetchEvents } = useQuery({
+        queryKey: ['calendar-events'],
+        queryFn: async () => {
+            const { data, error } = await supabase
                 .from('events')
                 .select('id, title, type, location, event_date, event_time, created_at')
                 .eq('is_archived', false)
                 .not('event_date', 'is', null)
                 .order('event_date', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        },
+        staleTime: 60000
+    });
 
-            const [
-                interviewRows,
-                { data: counselingRows, error: counselingError },
-                { data: eventRows, error: eventError }
-            ] = await Promise.all([
-                interviewsPromise,
-                counselingQuery,
-                eventsQuery
-            ]);
+    const isLoading = loadingInterviews || loadingCounseling || loadingEvents;
+    const error = (interviewsError || counselingError || eventsError)
+        ? [interviewsError, counselingError, eventsError].map((e: any) => e?.message).filter(Boolean).join('; ')
+        : null;
 
-            if (counselingError) throw counselingError;
-            if (eventError) throw eventError;
+    const loadCalendarItems = useCallback(async () => {
+        await Promise.all([
+            refetchInterviews(),
+            refetchCounseling(),
+            refetchEvents()
+        ]);
+    }, [refetchInterviews, refetchCounseling, refetchEvents]);
 
-            const nextItems: CalendarItem[] = [
-                ...(Array.isArray(interviewRows) ? interviewRows : [])
-                    .filter((application: any) => String(application?.status || '').trim() === 'Interview Scheduled')
-                    .map((application: any) => ({
+    const items = useMemo(() => {
+        const todayStart = getTodayStart();
+        const nextItems: CalendarItem[] = [
+            ...(Array.isArray(interviewRows) ? interviewRows : [])
+                .filter((application: any) => String(application?.status || '').trim() === 'Interview Scheduled')
+                .map((application: any) => ({
                     id: `interview-${application.id}`,
                     type: 'Interview' as const,
                     sortAt: String(application?.interview_date || ''),
@@ -160,55 +181,46 @@ const StaffCalendarPage = ({
                     ].filter(Boolean).join(' • '),
                     status: 'Interview Scheduled'
                 })),
-                ...((counselingRows || []).map((request: any) => ({
-                    id: `counseling-${request.id}`,
-                    type: 'Counseling' as const,
-                    sortAt: String(getCounselingScheduledDate(request) || ''),
-                    dateLabel: formatDateLabel(getCounselingScheduledDate(request)),
-                    timeLabel: formatTimeLabel(getCounselingScheduledDate(request)),
-                    title: String(request?.student_name || '').trim() || 'Student',
-                    details: [
-                        String(request?.request_type || '').trim() || 'Counseling session',
-                        scope === 'care' ? String(request?.department || '').trim() || null : null
-                    ].filter(Boolean).join(' • '),
-                    location: scope === 'department'
-                        ? 'Department counseling schedule'
-                        : 'CARE counseling schedule',
-                    status: String(request?.status || '').trim() || 'Scheduled'
-                })) || []),
-                ...((eventRows || []).map((event: any) => ({
-                    id: `event-${event.id}`,
-                    type: 'Event' as const,
-                    sortAt: [String(event?.event_date || '').trim(), String(event?.event_time || '').trim()].filter(Boolean).join(' ') || String(event?.created_at || ''),
-                    dateLabel: formatDateLabel([String(event?.event_date || '').trim(), String(event?.event_time || '').trim()].filter(Boolean).join(' ')),
-                    timeLabel: String(event?.event_time || '').trim() || 'All day',
-                    title: String(event?.title || '').trim() || 'Event',
-                    details: String(event?.type || '').trim() || 'Event',
-                    location: String(event?.location || '').trim() || 'Location pending',
-                    status: String(event?.type || '').trim() || 'Event'
-                })) || [])
-            ]
-                .filter((item) => {
-                    const parsed = normalizeDateInput(item.sortAt);
-                    return Boolean(parsed && parsed >= todayStart);
-                })
-                .sort((left, right) => {
-                    const leftTime = normalizeDateInput(left.sortAt)?.getTime() || 0;
-                    const rightTime = normalizeDateInput(right.sortAt)?.getTime() || 0;
-                    return leftTime - rightTime;
-                });
+            ...((counselingRows || []).map((request: any) => ({
+                id: `counseling-${request.id}`,
+                type: 'Counseling' as const,
+                sortAt: String(getCounselingScheduledDate(request) || ''),
+                dateLabel: formatDateLabel(getCounselingScheduledDate(request)),
+                timeLabel: formatTimeLabel(getCounselingScheduledDate(request)),
+                title: String(request?.student_name || '').trim() || 'Student',
+                details: [
+                    String(request?.request_type || '').trim() || 'Counseling session',
+                    scope === 'care' ? String(request?.department || '').trim() || null : null
+                ].filter(Boolean).join(' • '),
+                location: scope === 'department'
+                    ? 'Department counseling schedule'
+                    : 'CARE counseling schedule',
+                status: String(request?.status || '').trim() || 'Scheduled'
+            })) || []),
+            ...((eventRows || []).map((event: any) => ({
+                id: `event-${event.id}`,
+                type: 'Event' as const,
+                sortAt: [String(event?.event_date || '').trim(), String(event?.event_time || '').trim()].filter(Boolean).join(' ') || String(event?.created_at || ''),
+                dateLabel: formatDateLabel([String(event?.event_date || '').trim(), String(event?.event_time || '').trim()].filter(Boolean).join(' ')),
+                timeLabel: String(event?.event_time || '').trim() || 'All day',
+                title: String(event?.title || '').trim() || 'Event',
+                details: String(event?.type || '').trim() || 'Event',
+                location: String(event?.location || '').trim() || 'Location pending',
+                status: String(event?.type || '').trim() || 'Event'
+            })) || [])
+        ]
+            .filter((item) => {
+                const parsed = normalizeDateInput(item.sortAt);
+                return Boolean(parsed && parsed >= todayStart);
+            })
+            .sort((left, right) => {
+                const leftTime = normalizeDateInput(left.sortAt)?.getTime() || 0;
+                const rightTime = normalizeDateInput(right.sortAt)?.getTime() || 0;
+                return leftTime - rightTime;
+            });
 
-            setItems(nextItems);
-        } catch (nextError: any) {
-            setError(nextError?.message || 'Failed to load calendar items.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [departmentName, scope]);
-
-    useEffect(() => {
-        void loadCalendarItems();
-    }, [loadCalendarItems]);
+        return nextItems;
+    }, [interviewRows, counselingRows, eventRows, scope]);
 
     const filteredItems = useMemo(() => items.filter((item) => {
         if (selectedType !== 'All' && item.type !== selectedType) return false;

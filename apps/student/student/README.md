@@ -32,8 +32,8 @@ This app uses Capacitor for Android and iOS. The native app wraps the built stud
 
 Native projects have already been generated:
 
-- `apps/student/android`
-- `apps/student/ios`
+- `apps/student/student/android`
+- `apps/student/student/ios`
 
 Use this after changing student app code:
 

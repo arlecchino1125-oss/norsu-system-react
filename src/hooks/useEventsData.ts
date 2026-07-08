@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { SystemEvent } from '../types/models';
+import { useQuery } from '@tanstack/react-query';
 
 const EVENT_COLUMNS = [
     'id',
@@ -63,14 +64,9 @@ function isEventArchived(event: SystemEvent): boolean {
 }
 
 export function useEventsData() {
-    const [allEvents, setAllEvents] = useState<SystemEvent[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const fetchEvents = async () => {
-        setLoading(true);
-        setError(null);
-        try {
+    const { data: qData, isLoading: loading, error: qError, refetch: fetchEvents } = useQuery({
+        queryKey: ['care-staff-events-enriched'],
+        queryFn: async () => {
             const { data: evs, error: fetchError } = await supabase
                 .from('events')
                 .select(EVENT_COLUMNS)
@@ -79,105 +75,95 @@ export function useEventsData() {
             if (fetchError) throw fetchError;
 
             const eventsData = (evs || []) as any[];
-            if (eventsData.length > 0) {
-                const eventIds = eventsData
-                    .map((event) => event.id)
-                    .filter((eventId) => eventId != null);
+            if (eventsData.length === 0) return [];
 
-                // Fetch aggregate data in parallel
-                const [
-                    { data: attData, error: attErr },
-                    { data: fbData, error: fbErr },
-                    { data: regData, error: regErr }
-                ] = await Promise.all([
-                    supabase.from('event_attendance').select('event_id').in('event_id', eventIds),
-                    supabase.from('event_feedback').select('event_id, rating').in('event_id', eventIds),
-                    supabase.from('event_registrations').select('event_id, status').in('event_id', eventIds)
-                ]);
+            const eventIds = eventsData
+                .map((event) => event.id)
+                .filter((eventId) => eventId != null);
 
-                if (attErr) throw attErr;
-                if (fbErr) throw fbErr;
-                if (regErr && regErr.code !== '42P01') throw regErr;
+            // Fetch aggregate data in parallel
+            const [
+                { data: attData, error: attErr },
+                { data: fbData, error: fbErr },
+                { data: regData, error: regErr }
+            ] = await Promise.all([
+                supabase.from('event_attendance').select('event_id').in('event_id', eventIds),
+                supabase.from('event_feedback').select('event_id, rating').in('event_id', eventIds),
+                supabase.from('event_registrations').select('event_id, status').in('event_id', eventIds)
+            ]);
 
-                const attendanceCounts = new Map<string, number>();
-                (attData || []).forEach((attendance: any) => {
-                    const eventId = String(attendance.event_id);
-                    attendanceCounts.set(eventId, (attendanceCounts.get(eventId) || 0) + 1);
+            if (attErr) throw attErr;
+            if (fbErr) throw fbErr;
+            if (regErr && regErr.code !== '42P01') throw regErr;
+
+            const attendanceCounts = new Map<string, number>();
+            (attData || []).forEach((attendance: any) => {
+                const eventId = String(attendance.event_id);
+                attendanceCounts.set(eventId, (attendanceCounts.get(eventId) || 0) + 1);
+            });
+
+            const feedbackAggregates = new Map<string, { total: number; count: number }>();
+            (fbData || []).forEach((feedback: any) => {
+                const eventId = String(feedback.event_id);
+                const current = feedbackAggregates.get(eventId) || { total: 0, count: 0 };
+                feedbackAggregates.set(eventId, {
+                    total: current.total + Number(feedback.rating || 0),
+                    count: current.count + 1
                 });
+            });
 
-                const feedbackAggregates = new Map<string, { total: number; count: number }>();
-                (fbData || []).forEach((feedback: any) => {
-                    const eventId = String(feedback.event_id);
-                    const current = feedbackAggregates.get(eventId) || { total: 0, count: 0 };
-                    feedbackAggregates.set(eventId, {
-                        total: current.total + Number(feedback.rating || 0),
-                        count: current.count + 1
-                    });
-                });
+            const registrationAggregates = new Map<string, {
+                registered: number;
+                cancelled: number;
+                attended: number;
+                absent: number;
+            }>();
+            (regData || []).forEach((registration: any) => {
+                const eventId = String(registration.event_id);
+                const current = registrationAggregates.get(eventId) || {
+                    registered: 0,
+                    cancelled: 0,
+                    attended: 0,
+                    absent: 0
+                };
+                const status = String(registration.status || 'Registered');
+                if (status === 'Cancelled') current.cancelled += 1;
+                else if (status === 'Attended') current.attended += 1;
+                else if (status === 'Absent') current.absent += 1;
+                else current.registered += 1;
+                registrationAggregates.set(eventId, current);
+            });
 
-                const registrationAggregates = new Map<string, {
-                    registered: number;
-                    cancelled: number;
-                    attended: number;
-                    absent: number;
-                }>();
-                (regData || []).forEach((registration: any) => {
-                    const eventId = String(registration.event_id);
-                    const current = registrationAggregates.get(eventId) || {
-                        registered: 0,
-                        cancelled: 0,
-                        attended: 0,
-                        absent: 0
-                    };
-                    const status = String(registration.status || 'Registered');
-                    if (status === 'Cancelled') current.cancelled += 1;
-                    else if (status === 'Attended') current.attended += 1;
-                    else if (status === 'Absent') current.absent += 1;
-                    else current.registered += 1;
-                    registrationAggregates.set(eventId, current);
-                });
+            return eventsData.map(ev => {
+                const attendanceCount = attendanceCounts.get(String(ev.id)) || 0;
+                const feedbackAggregate = feedbackAggregates.get(String(ev.id));
+                const registrationAggregate = registrationAggregates.get(String(ev.id)) || {
+                    registered: 0,
+                    cancelled: 0,
+                    attended: 0,
+                    absent: 0
+                };
+                const feedbackCount = feedbackAggregate?.count || 0;
+                const avgRating = feedbackCount > 0
+                    ? (feedbackAggregate!.total / feedbackCount).toFixed(1)
+                    : null;
 
-                const enrichedEvents = eventsData.map(ev => {
-                    const attendanceCount = attendanceCounts.get(String(ev.id)) || 0;
-                    const feedbackAggregate = feedbackAggregates.get(String(ev.id));
-                    const registrationAggregate = registrationAggregates.get(String(ev.id)) || {
-                        registered: 0,
-                        cancelled: 0,
-                        attended: 0,
-                        absent: 0
-                    };
-                    const feedbackCount = feedbackAggregate?.count || 0;
-                    const avgRating = feedbackCount > 0
-                        ? (feedbackAggregate!.total / feedbackCount).toFixed(1)
-                        : null;
-
-                    return {
-                        ...ev,
-                        attendees: attendanceCount,
-                        avgRating,
-                        feedbackCount,
-                        registeredCount: registrationAggregate.registered + registrationAggregate.attended + registrationAggregate.absent,
-                        cancelledRegistrationCount: registrationAggregate.cancelled,
-                        attendedRegistrationCount: registrationAggregate.attended,
-                        absentRegistrationCount: registrationAggregate.absent
-                    };
-                });
-
-                setAllEvents(enrichedEvents);
-            } else {
-                setAllEvents([]);
-            }
-        } catch (err: any) {
-            console.error("Error fetching events:", err);
-            setError(err.message);
-        } finally {
-            setLoading(false);
+                return {
+                    ...ev,
+                    attendees: attendanceCount,
+                    avgRating,
+                    feedbackCount,
+                    registeredCount: registrationAggregate.registered + registrationAggregate.attended + registrationAggregate.absent,
+                    cancelledRegistrationCount: registrationAggregate.cancelled,
+                    attendedRegistrationCount: registrationAggregate.attended,
+                    absentRegistrationCount: registrationAggregate.absent
+                };
+            });
         }
-    };
+    });
 
-    useEffect(() => {
-        fetchEvents();
-    }, []);
+    const allEvents = (qData as SystemEvent[]) || [];
+    const error = qError ? qError.message : null;
 
     // Split into active (upcoming/ongoing) and archived (expired)
     const events = useMemo(() => allEvents.filter(ev => !isEventArchived(ev)), [allEvents]);

@@ -17,7 +17,7 @@ type AccountSecuritySettingsProps = {
     requestOtp: (purpose: 'password_change' | 'email_change', email?: string) => Promise<OtpRequestResult | void>;
     confirmEmailChange: (email: string, otp: string) => Promise<void>;
     confirmPasswordChange: (password: string, otp: string) => Promise<void>;
-    showToast?: (message: string, type?: string) => void;
+    showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 };
 
 export default function AccountSecuritySettings({

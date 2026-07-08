@@ -153,7 +153,7 @@ export interface DepartmentAccount {
 }
 
 export interface SystemEvent {
-    id?: string;
+    id?: number;
     title: string;
     type: 'Event' | 'Seminar' | 'Orientation' | 'Meeting' | 'Announcement' | 'Priority';
     description?: string;

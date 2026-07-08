@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import * as Sentry from '@sentry/react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -22,8 +23,12 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        // You can also log the error to an error reporting service here
         console.error("Uncaught error caught by ErrorBoundary:", error, errorInfo);
+        // Report to Sentry (no-op when Sentry is not initialised, i.e. no DSN).
+        Sentry.withScope((scope) => {
+            scope.setExtra('componentStack', errorInfo.componentStack);
+            Sentry.captureException(error);
+        });
     }
 
     private handleReload = () => {

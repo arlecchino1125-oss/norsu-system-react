@@ -51,11 +51,3 @@ export const writeSessionCache = <T>(key: string, value: T, ttlMs: number) => {
         // Ignore storage write failures.
     }
 };
-
-export const clearSessionCache = (key: string) => {
-    if (!canUseSessionStorage()) {
-        return;
-    }
-
-    window.sessionStorage.removeItem(key);
-};

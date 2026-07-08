@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Info, Loader2 } from 'lucide-react';
+import Modal from '../../ui/Modal';
 
 type ConfirmModalTone = 'danger' | 'primary' | 'neutral';
 
@@ -64,24 +65,20 @@ export default function ConfirmModal({
   maxWidthClassName = 'max-w-md',
   zIndexClassName = 'z-[100]'
 }: ConfirmModalProps) {
-  if (!open) return null;
-
   const style = toneStyles[tone];
 
+  const sizeClass = maxWidthClassName.includes('max-w-sm') ? 'sm' as const : 'md' as const;
+
   return (
-    <div className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center bg-transparent p-4`}>
-      <div className={`w-full ${maxWidthClassName} overflow-hidden rounded-2xl border border-white/70 bg-white p-6 text-center shadow-2xl`}>
-        <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${style.iconWrap} ${style.icon}`}>
-          {icon || defaultIcons[tone]}
-        </div>
-        <h3 className="mb-2 text-xl font-bold text-slate-900">{title}</h3>
-        <div className="mb-6 text-sm leading-relaxed text-slate-500">{description}</div>
-        {note ? (
-          <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs leading-relaxed text-slate-600">
-            {note}
-          </div>
-        ) : null}
-        <div className="flex gap-3">
+    <Modal
+      open={open}
+      onClose={onClose}
+      size={sizeClass}
+      showCloseButton={false}
+      zIndex={zIndexClassName}
+      className="text-center"
+      footer={
+        <div className="flex w-full gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -99,7 +96,20 @@ export default function ConfirmModal({
             <span>{isProcessing ? 'Please wait...' : confirmLabel}</span>
           </button>
         </div>
+      }
+    >
+      <div className="flex flex-col items-center -mt-2">
+        <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${style.iconWrap} ${style.icon}`}>
+          {icon || defaultIcons[tone]}
+        </div>
+        <h3 className="mb-2 text-xl font-bold text-slate-900">{title}</h3>
+        <div className="mb-2 text-sm leading-relaxed text-slate-500">{description}</div>
+        {note && (
+          <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs leading-relaxed text-slate-600">
+            {note}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

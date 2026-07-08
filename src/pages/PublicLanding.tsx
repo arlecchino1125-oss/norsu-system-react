@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, GraduationCap, FileText, Users, Briefcase } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -212,9 +212,15 @@ export default function PublicLanding() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1, duration: 1 }}
-                className="mt-16 text-slate-400/80 font-medium text-xs tracking-wider uppercase z-10"
+                className="mt-16 flex flex-col items-center gap-4 text-center text-slate-400/80 font-medium text-xs tracking-wider uppercase z-10"
             >
-                &copy; 2026 NORSU Management System. All rights reserved.
+                <p>&copy; 2026 NORSU Management System. All rights reserved.</p>
+                <Link
+                    to="/privacy-policy"
+                    className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700 underline decoration-slate-400/60 underline-offset-4 transition hover:text-slate-900 hover:decoration-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-500/20"
+                >
+                    Privacy Policy
+                </Link>
             </motion.div>
         </div>
     );
