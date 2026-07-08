@@ -93,10 +93,26 @@ export default function PublicLandingV2() {
                     src="/new_bgVid.mp4"
                 />
                 <div className={`absolute inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'}`} aria-hidden="true" />
-
-                <div className="mx-auto max-w-7xl relative z-10">
+                <div
+                    className={`pointer-events-none absolute inset-0 ${isDark
+                        ? 'bg-[linear-gradient(115deg,rgba(2,6,23,0.62)_0%,rgba(15,23,42,0.24)_45%,rgba(30,41,59,0.58)_100%)]'
+                        : 'bg-[linear-gradient(115deg,rgba(14,165,233,0.14)_0%,rgba(37,99,235,0.08)_48%,rgba(245,158,11,0.12)_100%)]'
+                        }`}
+                    aria-hidden="true"
+                />
+                <div
+                    className="pointer-events-none absolute inset-x-[-12%] top-[7.5rem] h-36 bg-gradient-to-r from-sky-200/20 via-white/10 to-amber-100/20 backdrop-blur-[1px] dark:from-sky-500/10 dark:via-white/5 dark:to-amber-400/10"
+                    style={{ clipPath: 'polygon(0 36%, 100% 0, 100% 62%, 0 100%)' }}
+                    aria-hidden="true"
+                />
+                <div
+                    className="pointer-events-none absolute inset-x-[-12%] bottom-[-2.5rem] h-40 bg-gradient-to-r from-teal-200/20 via-sky-100/10 to-violet-200/20 backdrop-blur-[1px] dark:from-teal-400/10 dark:via-sky-400/10 dark:to-violet-400/10"
+                    style={{ clipPath: 'polygon(0 28%, 100% 58%, 100% 100%, 0 100%)' }}
+                    aria-hidden="true"
+                />
+                <div className="relative z-10 mx-auto max-w-7xl 2xl:max-w-[82rem]">
                     <header
-                        className="animate-fade-in mb-4 flex items-center justify-between gap-3 rounded-3xl border border-white/30 bg-white/40 px-3 py-2.5 shadow-xl shadow-black/5 backdrop-blur-md dark:border-slate-700/50 dark:bg-slate-900/50 dark:shadow-black/20 sm:mb-6 sm:rounded-full sm:px-4 sm:py-3 md:mb-8 md:px-6"
+                        className="animate-fade-in mb-4 flex items-center justify-between gap-3 rounded-3xl border border-white/30 bg-white/40 px-3 py-2.5 shadow-2xl shadow-slate-950/10 backdrop-blur-md dark:border-slate-700/50 dark:bg-slate-900/50 dark:shadow-black/20 sm:mb-6 sm:rounded-full sm:px-4 sm:py-3 md:mb-8 md:px-6"
                         style={getAnimationDelayStyle(40)}
                     >
                         <NorsuBrand
@@ -120,8 +136,9 @@ export default function PublicLandingV2() {
                     </header>
 
                     <section
-                        className="grid items-center gap-5 rounded-[1.5rem] border border-white/20 bg-white/30 p-3.5 shadow-2xl shadow-black/10 backdrop-blur-xl dark:border-slate-700/40 dark:bg-slate-900/40 dark:shadow-black/40 sm:gap-7 sm:rounded-[2rem] sm:p-5 md:grid-cols-[1.05fr_0.95fr] md:gap-10 md:rounded-[2.5rem] md:p-10"
+                        className="relative grid items-center gap-5 overflow-hidden rounded-[1.5rem] border border-white/25 bg-white/30 p-3.5 shadow-[0_34px_90px_-38px_rgba(15,23,42,0.78)] backdrop-blur-xl dark:border-slate-700/40 dark:bg-slate-900/40 dark:shadow-black/40 sm:gap-7 sm:rounded-[2rem] sm:p-5 md:grid-cols-[1.05fr_0.95fr] md:gap-10 md:rounded-[2.5rem] md:p-10"
                     >
+                        <div className="pointer-events-none absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r from-sky-400 via-blue-600 to-amber-300 opacity-75" aria-hidden="true" />
                         <div className="space-y-5 sm:space-y-7 md:space-y-8">
                             <div className="animate-fade-in-up space-y-3 sm:space-y-5" style={getAnimationDelayStyle(80)}>
                                 <p className="text-[3.25rem] font-black leading-none tracking-normal text-blue-700 dark:text-sky-300 sm:text-7xl md:text-[6.5rem]">
