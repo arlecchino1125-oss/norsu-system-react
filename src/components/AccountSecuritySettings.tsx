@@ -1,8 +1,27 @@
 import React from 'react';
 
-const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
-const PRIMARY_BUTTON_CLASS = 'inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-5 sm:py-2.5';
-const SECONDARY_BUTTON_CLASS = 'inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-5 sm:py-2.5';
+const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:py-2';
+const PRIMARY_BUTTON_CLASS = 'inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-5';
+const SECONDARY_BUTTON_CLASS = 'inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-5';
+
+const maskEmail = (email: string) => {
+    const normalizedEmail = String(email || '').trim();
+    const [localPart, domainPart] = normalizedEmail.split('@');
+
+    if (!localPart || !domainPart) {
+        return normalizedEmail ? '********' : 'No email yet';
+    }
+
+    const domainSegments = domainPart.split('.');
+    const domainName = domainSegments.shift() || '';
+    const maskedLocal = localPart.length <= 2
+        ? `${localPart[0] || ''}***`
+        : `${localPart[0]}${'*'.repeat(Math.max(3, Math.min(8, localPart.length - 2)))}${localPart[localPart.length - 1]}`;
+    const maskedDomain = `${domainName[0] || ''}***`;
+    const suffix = domainSegments.length > 0 ? `.${domainSegments.join('.')}` : '';
+
+    return `${maskedLocal}@${maskedDomain}${suffix}`;
+};
 
 type OtpRequestResult = {
     maskedEmail?: string;
@@ -30,7 +49,7 @@ export default function AccountSecuritySettings({
     confirmPasswordChange,
     showToast
 }: AccountSecuritySettingsProps) {
-    const [securityEmail, setSecurityEmail] = React.useState(currentEmail || '');
+    const [securityEmail, setSecurityEmail] = React.useState('');
     const [emailOtp, setEmailOtp] = React.useState('');
     const [passwordOtp, setPasswordOtp] = React.useState('');
     const [newPassword, setNewPassword] = React.useState('');
@@ -41,10 +60,6 @@ export default function AccountSecuritySettings({
     const [isConfirmingEmail, setIsConfirmingEmail] = React.useState(false);
     const [isSendingPasswordOtp, setIsSendingPasswordOtp] = React.useState(false);
     const [isConfirmingPassword, setIsConfirmingPassword] = React.useState(false);
-
-    React.useEffect(() => {
-        setSecurityEmail(currentEmail || '');
-    }, [currentEmail]);
 
     const emailOtpHint = emailOtpInfo?.maskedEmail
         ? `OTP sent to ${emailOtpInfo.maskedEmail}${emailOtpInfo.expiresInMinutes ? ` and expires in ${emailOtpInfo.expiresInMinutes} minutes.` : '.'}`
@@ -66,7 +81,7 @@ export default function AccountSecuritySettings({
             setEmailOtpInfo(result || {});
             setEmailOtp('');
             showToast?.('Verification code sent to your new email address.');
-        } catch (error: any) {
+        } catch {
             showToast?.('Failed to send the email verification code.', 'error');
         } finally {
             setIsSendingEmailOtp(false);
@@ -90,10 +105,11 @@ export default function AccountSecuritySettings({
         setIsConfirmingEmail(true);
         try {
             await confirmEmailChange(normalizedEmail, normalizedOtp);
+            setSecurityEmail('');
             setEmailOtp('');
             setEmailOtpInfo(null);
             showToast?.('Email updated.');
-        } catch (error: any) {
+        } catch {
             showToast?.('Failed to update your email.', 'error');
         } finally {
             setIsConfirmingEmail(false);
@@ -107,7 +123,7 @@ export default function AccountSecuritySettings({
             setPasswordOtpInfo(result || {});
             setPasswordOtp('');
             showToast?.('Verification code sent to your current email.');
-        } catch (error: any) {
+        } catch {
             showToast?.('Failed to send the password OTP.', 'error');
         } finally {
             setIsSendingPasswordOtp(false);
@@ -139,7 +155,7 @@ export default function AccountSecuritySettings({
             setNewPassword('');
             setConfirmPassword('');
             showToast?.('Password updated.');
-        } catch (error: any) {
+        } catch {
             showToast?.('Failed to update your password.', 'error');
         } finally {
             setIsConfirmingPassword(false);
@@ -147,15 +163,16 @@ export default function AccountSecuritySettings({
     };
 
     return (
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-blue-100/60 bg-blue-50/40 p-5">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-500">Email</p>
-                <p className="mt-2 text-sm font-semibold text-slate-800 break-all">{currentEmail || 'No email yet'}</p>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-blue-100/60 bg-blue-50/40 p-4 sm:p-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-500 sm:text-xs">Email</p>
+                <p className="mt-2 break-all text-xs font-semibold text-slate-800 sm:text-sm">{maskEmail(currentEmail)}</p>
                 <p className="mt-2 text-xs text-slate-500">{emailHelperText}</p>
                 <div className="mt-4 space-y-3">
                     <div>
-                        <label className="mb-1 block text-[11px] font-bold uppercase text-slate-400">New Email</label>
+                        <label htmlFor="account-security-new-email" className="mb-1 block text-[11px] font-bold uppercase text-slate-400">New Email</label>
                         <input
+                            id="account-security-new-email"
                             type="email"
                             value={securityEmail}
                             onChange={(event) => setSecurityEmail(event.target.value)}
@@ -177,8 +194,9 @@ export default function AccountSecuritySettings({
                         <div className="rounded-xl border border-blue-100 bg-white/80 p-4">
                             <p className="text-xs font-medium text-slate-500">{emailOtpHint}</p>
                             <div className="mt-3">
-                                <label className="mb-1 block text-[11px] font-bold uppercase text-slate-400">OTP Code</label>
+                                <label htmlFor="account-security-email-otp" className="mb-1 block text-[11px] font-bold uppercase text-slate-400">OTP Code</label>
                                 <input
+                                    id="account-security-email-otp"
                                     type="text"
                                     inputMode="numeric"
                                     maxLength={6}
@@ -201,8 +219,8 @@ export default function AccountSecuritySettings({
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Password</p>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 sm:text-xs">Password</p>
                 <p className="mt-2 text-xs text-slate-500">{passwordHelperText}</p>
                 <div className="mt-4 space-y-3">
                     <button
@@ -218,8 +236,9 @@ export default function AccountSecuritySettings({
                             <p className="text-xs font-medium text-slate-500">{passwordOtpHint}</p>
                             <div className="mt-3 space-y-3">
                                 <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase text-slate-400">OTP Code</label>
+                                    <label htmlFor="account-security-password-otp" className="mb-1 block text-[11px] font-bold uppercase text-slate-400">OTP Code</label>
                                     <input
+                                        id="account-security-password-otp"
                                         type="text"
                                         inputMode="numeric"
                                         maxLength={6}
@@ -230,8 +249,9 @@ export default function AccountSecuritySettings({
                                     />
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase text-slate-400">New Password</label>
+                                    <label htmlFor="account-security-new-password" className="mb-1 block text-[11px] font-bold uppercase text-slate-400">New Password</label>
                                     <input
+                                        id="account-security-new-password"
                                         type="password"
                                         value={newPassword}
                                         onChange={(event) => setNewPassword(event.target.value)}
@@ -240,8 +260,9 @@ export default function AccountSecuritySettings({
                                     />
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase text-slate-400">Confirm Password</label>
+                                    <label htmlFor="account-security-confirm-password" className="mb-1 block text-[11px] font-bold uppercase text-slate-400">Confirm Password</label>
                                     <input
+                                        id="account-security-confirm-password"
                                         type="password"
                                         value={confirmPassword}
                                         onChange={(event) => setConfirmPassword(event.target.value)}

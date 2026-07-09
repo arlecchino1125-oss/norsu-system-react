@@ -354,7 +354,7 @@ const StudentDashboardView = ({
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {[
                         { label: 'Announcements', value: announcements.length, detail: announcements.length ? 'Recent campus updates' : 'No recent posts', icon: Megaphone, tone: 'text-blue-600 bg-blue-50 border-blue-100' },
-                        { label: 'Notifications', value: notificationItems.length, detail: notificationItems.length ? 'Items needing review' : 'All clear', icon: Bell, tone: 'text-orange-600 bg-orange-50 border-orange-100' },
+                        { label: 'Notifications', value: notificationItems.length, detail: notificationItems.length ? 'New updates available' : 'All clear', icon: Bell, tone: 'text-orange-600 bg-orange-50 border-orange-100' },
                         { label: 'Next Activity', value: nextActivity ? '1' : '0', detail: nextActivity?.title || 'No upcoming events', icon: CalendarDays, tone: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
                     ].map((item) => {
                         const Icon = item.icon;
