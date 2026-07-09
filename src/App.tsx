@@ -1,5 +1,6 @@
 import { Suspense, lazy, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import { AuthProvider } from './lib/auth';
 
@@ -303,6 +304,7 @@ function App() {
           </AuthProvider>
         </Router>
       </ErrorBoundary>
+      <SpeedInsights />
     </QueryClientProvider>
   );
 }
