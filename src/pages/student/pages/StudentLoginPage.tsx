@@ -252,10 +252,6 @@ export default function StudentLogin() {
                         <h2 className="text-7xl font-extrabold mb-6 leading-tight tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-100 to-sky-200 drop-shadow-sm">
                             Student<br />Portal
                         </h2>
-                        <p className="text-indigo-200/80 text-lg leading-relaxed font-light max-w-md border-l-4 border-indigo-500/50 pl-4 py-1 mb-8">
-                            The official gateway for Negros Oriental State University Guihulngan (NORSU-G) students. Access your academic profile, CARE Center services, campus events, and support tools in one unified platform.
-                        </p>
-
                         <div className="text-[10px] font-bold tracking-[0.2em] text-indigo-400/30 uppercase">
                             © {new Date().getFullYear()} NORSU-G CARE Center System
                         </div>

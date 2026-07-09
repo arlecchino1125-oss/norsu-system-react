@@ -141,35 +141,59 @@ export default function PublicLandingV2() {
                         <div className="pointer-events-none absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r from-sky-400 via-blue-600 to-amber-300 opacity-75" aria-hidden="true" />
                         <div className="space-y-5 sm:space-y-7 md:space-y-8">
                             <div className="animate-fade-in-up space-y-3 sm:space-y-5" style={getAnimationDelayStyle(80)}>
-                                <p className="text-[3.25rem] font-black leading-none tracking-normal text-blue-700 dark:text-sky-300 sm:text-7xl md:text-[6.5rem]">
-                                    C.A.R.E
-                                </p>
+                                <div
+                                    className="grid max-w-xl grid-cols-4 gap-1 text-blue-700 dark:text-sky-300 sm:gap-2"
+                                    aria-label="CARE: Counseling, Assessment, Resource, Enhancement"
+                                >
+                                    {[
+                                        ['C', 'Counseling'],
+                                        ['A', 'Assessment'],
+                                        ['R', 'Resource'],
+                                        ['E', 'Enhancement']
+                                    ].map(([letter, word]) => (
+                                        <div key={letter} className="min-w-0 text-center">
+                                            <span
+                                                className="block bg-gradient-to-br from-violet-400 via-blue-600 to-blue-800 bg-clip-text text-[4.0625rem] font-black leading-none text-transparent drop-shadow-[0_4px_14px_rgba(79,70,229,0.28)] dark:from-violet-300 dark:via-sky-400 dark:to-blue-500 sm:text-[5.625rem] md:text-[8.125rem]"
+                                                style={{
+                                                    WebkitTextStroke: '1.5px rgba(109, 40, 217, 0.78)',
+                                                    paintOrder: 'stroke fill'
+                                                }}
+                                                aria-hidden="true"
+                                            >
+                                                {letter}
+                                            </span>
+                                            <span className="mt-1 block text-[0.56rem] font-black uppercase leading-tight text-sky-200 sm:mt-2 sm:text-[0.7rem] md:text-xs">
+                                                {word}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                                 <h1 className="max-w-2xl text-[2rem] font-black leading-[1.08] tracking-normal text-white sm:text-4xl sm:leading-tight md:text-6xl">
                                     Student support, made simpler.
                                 </h1>
-                                <p className="max-w-xl text-sm leading-6 text-slate-200 sm:text-base sm:leading-8 md:text-lg">
-                                    Access admissions, counseling, scholarships, student services, and campus support in one organized CARE Center space.
-                                </p>
                             </div>
 
-                            <div className="animate-fade-in-up grid gap-2 min-[380px]:grid-cols-2 sm:flex sm:flex-wrap sm:gap-3" style={getAnimationDelayStyle(150)} aria-label="Quick access portals">
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/student/login')}
-                                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-blue-600 px-3 py-2.5 text-[0.75rem] font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/25 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent sm:w-auto sm:px-6 sm:py-3 sm:text-sm"
-                                >
-                                    Enter Student Portal
+                            <button
+                                type="button"
+                                onClick={() => setIsGuideOpen(true)}
+                                aria-haspopup="dialog"
+                                aria-controls="portal-guide-modal"
+                                className="animate-fade-in-up group flex w-full max-w-xl items-center justify-between gap-3 rounded-2xl border border-white/30 bg-white/30 px-3 py-2.5 text-left shadow-sm shadow-black/5 backdrop-blur-md transition-all hover:border-white/60 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent dark:border-slate-700/40 dark:bg-slate-900/40 dark:shadow-black/20 dark:hover:border-slate-600/60 dark:hover:bg-slate-900/60 sm:px-4 sm:py-3"
+                                style={getAnimationDelayStyle(150)}
+                            >
+                                <span className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-sky-500/15 dark:text-sky-300 sm:h-9 sm:w-9">
+                                        <HelpCircle className="h-4 w-4" aria-hidden="true" />
+                                    </span>
+                                    <span className="min-w-0">
+                                        <span className="block text-[10px] font-black uppercase tracking-normal text-blue-700 dark:text-sky-300 sm:text-[11px]">Need help choosing?</span>
+                                        <span className="block truncate text-xs font-bold text-white sm:text-sm">Which portal should I use?</span>
+                                    </span>
+                                </span>
+                                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-blue-100/50 bg-blue-50/20 text-white transition-all group-hover:border-blue-200 group-hover:bg-blue-100/20">
                                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/nat')}
-                                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/50 bg-white/30 backdrop-blur-md px-3 py-2.5 text-[0.75rem] font-bold text-white shadow-sm transition-all hover:bg-white/50 hover:border-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent sm:w-auto sm:px-5 sm:py-3 sm:text-sm"
-                                >
-                                    Admissions and NAT
-                                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                            </div>
+                                </span>
+                            </button>
 
                         </div>
 
@@ -207,27 +231,6 @@ export default function PublicLandingV2() {
                                         );
                                     })}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsGuideOpen(true)}
-                                    aria-haspopup="dialog"
-                                    aria-controls="portal-guide-modal"
-                                    className="animate-fade-in-up group mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/20 bg-white/30 backdrop-blur-md px-3 py-2.5 text-left shadow-sm shadow-black/5 transition-all hover:border-white/50 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent dark:border-slate-700/30 dark:bg-slate-900/40 dark:shadow-black/20 dark:hover:border-slate-600/50 dark:hover:bg-slate-900/60 sm:mt-4 sm:px-4 sm:py-3"
-                                    style={getAnimationDelayStyle(640)}
-                                >
-                                    <span className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-                                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-sky-500/15 dark:text-sky-300 sm:h-9 sm:w-9">
-                                            <HelpCircle className="h-4 w-4" aria-hidden="true" />
-                                        </span>
-                                        <span className="min-w-0">
-                                            <span className="block text-[10px] font-black uppercase tracking-normal text-blue-700 dark:text-sky-300 sm:text-[11px]">Need help choosing?</span>
-                                            <span className="block truncate text-xs font-bold text-white sm:text-sm">Which portal should I use?</span>
-                                        </span>
-                                    </span>
-                                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-blue-100/50 bg-blue-50/20 text-white transition-all group-hover:border-blue-200 group-hover:bg-blue-100/20">
-                                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                                    </span>
-                                </button>
                             </div>
                         </div>
                     </section>
@@ -241,11 +244,11 @@ export default function PublicLandingV2() {
                         ].map((item, index) => (
                             <div
                                 key={item.title}
-                                className="animate-fade-in-up rounded-2xl border border-white/20 bg-white/30 backdrop-blur-xl p-3 shadow-lg shadow-black/5 dark:border-slate-700/40 dark:bg-slate-900/40 dark:shadow-black/20 sm:rounded-[1.8rem] sm:p-5 md:p-6"
+                                className="animate-fade-in-up rounded-2xl border border-white/40 bg-slate-900/55 p-3 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-500/40 dark:bg-slate-950/65 sm:rounded-[1.8rem] sm:p-5 md:p-6"
                                 style={getAnimationDelayStyle(460 + (index * 70))}
                             >
-                                <p className="text-[10px] font-black uppercase tracking-normal text-blue-300/80 sm:text-xs">{item.title}</p>
-                                <p className="mt-2 text-xs leading-5 text-slate-200 sm:mt-3 sm:text-sm sm:leading-7">{item.text}</p>
+                                <p className="text-[10px] font-black uppercase tracking-normal text-sky-300 sm:text-xs">{item.title}</p>
+                                <p className="mt-2 text-xs font-medium leading-5 text-white/95 sm:mt-3 sm:text-sm sm:leading-7">{item.text}</p>
                             </div>
                         ))}
                     </section>
@@ -254,7 +257,9 @@ export default function PublicLandingV2() {
                         className="animate-fade-in flex flex-col items-center gap-3 pb-3 pt-6 text-center text-[10px] font-semibold uppercase tracking-normal text-slate-500 dark:text-slate-400 sm:pb-4 sm:pt-10 sm:text-xs"
                         style={getAnimationDelayStyle(720)}
                     >
-                        <p>2026 NORSU-G CARE Center Management System</p>
+                        <p className="rounded-full border border-white/20 bg-slate-950/50 px-4 py-2 text-white/90 shadow-lg shadow-black/20 backdrop-blur-md">
+                            2026 NORSU-G CARE Center Management System
+                        </p>
                         <Link
                             to="/privacy-policy"
                             className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/90 underline decoration-white/30 underline-offset-4 transition hover:text-white hover:decoration-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent dark:text-slate-100 dark:decoration-slate-400/40"

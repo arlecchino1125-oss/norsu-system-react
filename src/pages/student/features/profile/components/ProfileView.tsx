@@ -620,8 +620,8 @@ function ProfileViewContent(p: any) {
                 )}
                 {profileTab === 'security' && (
                     <div className={`${largePanelClass} ${isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
-                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2 sm:mb-6"><span className="p-1.5 bg-gradient-to-br from-slate-600 to-slate-800 text-white rounded-lg"><Icons.Support /></span> Security Settings</h3>
-                        <p className="text-sm text-gray-400">Manage the email and password behind your student login here. OTP verification is required before any email or password change is applied.</p>
+                        <h3 className="mb-3 flex items-center gap-2 text-base font-bold sm:mb-6 sm:text-lg"><span className="rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 p-1 text-white sm:p-1.5"><Icons.Support /></span> Security Settings</h3>
+                        <p className="text-xs leading-5 text-gray-400 sm:text-sm">Manage the email and password behind your student login here. OTP verification is required before any email or password change is applied.</p>
                         <AccountSecuritySettings
                             currentEmail={authEmail || personalInfo.email || ''}
                             loginLabel="your student email"
