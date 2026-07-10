@@ -469,11 +469,6 @@ const getStudentRowsByFilters = async (
     return allRows;
 };
 
-export const getStudentIdsByFilters = async (filters?: StudentFilters): Promise<string[]> => {
-    const rows = await getStudentRowsByFilters('id', filters);
-    return rows.map((row: any) => String(row.id)).filter(Boolean);
-};
-
 export const getCareStudentBulkTargets = async (filters?: StudentFilters): Promise<CareStudentBulkTarget[]> => {
     return getStudentRowsByFilters('id, student_id, course, year_level', filters, { column: 'created_at', ascending: false });
 };
@@ -703,31 +698,6 @@ export const getStudentByStudentId = async (studentId: string) => {
         .maybeSingle();
     if (error) throw error;
     return data;
-};
-
-export const getEnrollmentKeys = async () => {
-    let allKeys: any[] = [];
-    let start = 0;
-    const limit = 1000;
-
-    while (true) {
-        const { data, error } = await supabase
-            .from('enrolled_students')
-            .select('student_id, course, year_level, is_used, status, assigned_to_email, created_at')
-            .order('created_at', { ascending: false })
-            .range(start, start + limit - 1);
-            
-        if (error) throw error;
-        
-        if (!data || data.length === 0) break;
-        
-        allKeys = allKeys.concat(data);
-        
-        if (data.length < limit) break;
-        start += limit;
-    }
-    
-    return allKeys;
 };
 
 export const getCoursesWithDepartments = async () => {

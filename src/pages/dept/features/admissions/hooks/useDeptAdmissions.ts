@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 
-export function useDeptAdmissionsUtils(data: any) {
+function useDeptAdmissionsUtils(data: any) {
     const getApplicantFullName = useCallback((application: any) =>
         [application?.first_name, application?.last_name]
             .map((value) => String(value || '').trim())

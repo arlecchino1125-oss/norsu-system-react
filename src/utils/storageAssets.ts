@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 const HTTP_URL_PATTERN = /^https?:\/\//i;
 
-export const isStoredAssetUrl = (value: string | null | undefined) =>
+const isStoredAssetUrl = (value: string | null | undefined) =>
     HTTP_URL_PATTERN.test(String(value || '').trim());
 
 export const getStoredAssetPath = (bucket: string, value: string | null | undefined) => {

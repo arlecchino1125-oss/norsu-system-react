@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 
-export type ToastType = 'success' | 'error' | 'info';
+type ToastType = 'success' | 'error' | 'info';
 export type ToastHandler = (msg: string, type?: ToastType) => void;
 
 export const ACTIVE_TABS = [
@@ -24,11 +24,6 @@ export const ACTIVE_TABS = [
 
 export type ActiveTab = (typeof ACTIVE_TABS)[number];
 export type CommandHubTab = 'actions' | 'help' | 'notes';
-
-export interface ToastState {
-    msg: string;
-    type: ToastType;
-}
 
 export interface NotificationItem {
     id?: string | number;
@@ -81,7 +76,7 @@ export interface RealtimeChangePayload<T = NotificationItem> {
     new?: T;
 }
 
-export type NavItem = { tab: ActiveTab; label: string; icon: LucideIcon };
+type NavItem = { tab: ActiveTab; label: string; icon: LucideIcon };
 export type NavSection = { title?: string; withDivider?: boolean; items: NavItem[] };
 
 export interface CareStaffDashboardFunctions {

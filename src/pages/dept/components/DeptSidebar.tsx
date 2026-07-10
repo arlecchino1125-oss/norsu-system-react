@@ -2,20 +2,20 @@ import React from 'react';
 import { LayoutDashboard, Users, UserCheck, CalendarDays, ClipboardList, BookOpen, AlertCircle, FileText, Settings, FileSpreadsheet, XCircle, LogOut } from 'lucide-react';
 import NorsuBrand from '../../../components/NorsuBrand';
 
-export const serviceNavItems = [
+const serviceNavItems = [
     { id: 'admissions', icon: <UserCheck size={18} />, label: 'Admissions Screening', hasIndicator: true },
     { id: 'interview_queue', icon: <ClipboardList size={18} />, label: 'Interview Queue' },
     { id: 'counseling_queue', icon: <Users size={18} />, label: 'Counseling & Referrals' },
     { id: 'support_approvals', icon: <AlertCircle size={18} />, label: 'Additional Support', hasIndicator: true }
 ];
 
-export const managementNavItems = [
+const managementNavItems = [
     { id: 'students', icon: <BookOpen size={18} />, label: 'Students Directory' },
     { id: 'counseled', icon: <Users size={18} />, label: 'Counseled Students' },
     { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' }
 ];
 
-export const systemNavItems = [
+const systemNavItems = [
     { id: 'reports', icon: <FileText size={18} />, label: 'Reports' },
     { id: 'export_center', icon: <FileSpreadsheet size={18} />, label: 'Export Center' },
     { id: 'settings', icon: <Settings size={18} />, label: 'Settings' }

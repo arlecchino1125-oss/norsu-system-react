@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import NorsuBrand from '../NorsuBrand';
 
-export interface NavItem {
+interface NavItem {
   id: string;
   label: string;
   icon: LucideIcon;

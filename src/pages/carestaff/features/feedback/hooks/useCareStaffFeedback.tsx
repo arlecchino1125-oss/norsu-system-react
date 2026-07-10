@@ -14,7 +14,7 @@ export interface CareStaffFeedbackPageProps {
 }
 
 export const FEEDBACK_PAGE_SIZE = 12;
-export const EVENT_FEEDBACK_COLUMNS = [
+const EVENT_FEEDBACK_COLUMNS = [
     'id',
     'event_id',
     'student_id',
@@ -37,8 +37,8 @@ export const EVENT_FEEDBACK_COLUMNS = [
     'submitted_at',
     'events(title)'
 ].join(', ');
-export const EVENT_FEEDBACK_FILTERED_COLUMNS = EVENT_FEEDBACK_COLUMNS.replace('events(title)', 'events!inner(title)');
-export const GENERAL_FEEDBACK_COLUMNS = [
+const EVENT_FEEDBACK_FILTERED_COLUMNS = EVENT_FEEDBACK_COLUMNS.replace('events(title)', 'events!inner(title)');
+const GENERAL_FEEDBACK_COLUMNS = [
     'id',
     'student_id',
     'student_name',

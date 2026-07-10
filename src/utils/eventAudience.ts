@@ -1,14 +1,11 @@
-export const GENERAL_ATTENDANCE_TYPES = ['Event', 'Seminar', 'Orientation', 'Meeting'] as const;
+const GENERAL_ATTENDANCE_TYPES = ['Event', 'Seminar', 'Orientation', 'Meeting'] as const;
 export const EVENT_ACTIVITY_TYPES = [...GENERAL_ATTENDANCE_TYPES, 'Announcement'] as const;
-export const EVENT_AUDIENCE_TYPES = ['all_students', 'filtered_students', 'graduating_students'] as const;
-export const EVENT_PARTICIPATION_MODES = ['general_attendance', 'registration_required'] as const;
+const EVENT_AUDIENCE_TYPES = ['all_students', 'filtered_students', 'graduating_students'] as const;
 export const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 export const SECTION_OPTIONS = ['A', 'B', 'C', 'D'];
 
 export type GeneralAttendanceType = typeof GENERAL_ATTENDANCE_TYPES[number];
-export type EventActivityType = typeof EVENT_ACTIVITY_TYPES[number];
 export type EventAudienceType = typeof EVENT_AUDIENCE_TYPES[number];
-export type EventParticipationMode = typeof EVENT_PARTICIPATION_MODES[number];
 
 type AudienceEvent = {
     type?: string | null;
@@ -33,10 +30,7 @@ const normalize = (value: unknown) => String(value ?? '').trim().toLowerCase();
 export const isAttendanceActivityType = (type: unknown) =>
     GENERAL_ATTENDANCE_TYPES.includes(String(type || '') as GeneralAttendanceType);
 
-export const isActivityType = (type: unknown) =>
-    EVENT_ACTIVITY_TYPES.includes(String(type || '') as EventActivityType);
-
-export const normalizeAudienceValues = (value: unknown): string[] => {
+const normalizeAudienceValues = (value: unknown): string[] => {
     if (Array.isArray(value)) {
         return value.map((item) => String(item || '').trim()).filter(Boolean);
     }
@@ -76,7 +70,7 @@ const matchesCriterion = (studentValue: unknown, selectedValues: string[]) => {
     return selectedValues.some((value) => normalize(value) === normalizedStudentValue);
 };
 
-export const isGraduatingStudent = (student: AudienceStudent) => {
+const isGraduatingStudent = (student: AudienceStudent) => {
     const status = normalize(student?.status);
     if (status === 'graduating') return true;
 

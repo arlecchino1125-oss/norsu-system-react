@@ -125,7 +125,7 @@ export const cleanLiveProfileText = (value: string, multiline = false) => {
         .replace(/[<>]/g, '');
 };
 
-export const humanizeProfileFieldName = (name: string) =>
+const humanizeProfileFieldName = (name: string) =>
     name.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase()).trim();
 
 export const getProfileTextFieldRule = (name: string, isTextarea: boolean): ProfileTextFieldRule =>

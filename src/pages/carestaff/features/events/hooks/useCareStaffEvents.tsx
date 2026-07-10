@@ -29,9 +29,9 @@ export interface CareStaffEventsPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
-export const EVENT_ATTENDANCE_COLUMNS = 'id, event_id, student_id, student_name, checked_in_at, time_in, time_out, proof_url, latitude, longitude, department';
-export const EVENT_REGISTRATION_COLUMNS = 'id, event_id, student_id, student_name, email, department, course, year_level, section, status, registered_at, cancelled_at, updated_at';
-export const EVENT_FEEDBACK_COLUMNS = [
+const EVENT_ATTENDANCE_COLUMNS = 'id, event_id, student_id, student_name, checked_in_at, time_in, time_out, proof_url, latitude, longitude, department';
+const EVENT_REGISTRATION_COLUMNS = 'id, event_id, student_id, student_name, email, department, course, year_level, section, status, registered_at, cancelled_at, updated_at';
+const EVENT_FEEDBACK_COLUMNS = [
     'id',
     'event_id',
     'student_id',
@@ -87,7 +87,7 @@ export const getEventTypeBadgeClass = (type: unknown) => {
 export const getArchivedEventTypeBadgeClass = (type: unknown) =>
     getEventTypeBadgeClass(type).replace('100', '50').replace('700', '500');
 
-export const toggleStringValue = (values: string[] | undefined, value: string) => {
+const toggleStringValue = (values: string[] | undefined, value: string) => {
     const current = cleanAudienceValues(values || []);
     return current.includes(value)
         ? current.filter((item) => item !== value)
@@ -144,7 +144,7 @@ export const formatRegistrationDeadline = (value: unknown) => {
     });
 };
 
-export const toDatetimeLocalInput = (value: unknown) => {
+const toDatetimeLocalInput = (value: unknown) => {
     if (!value) return '';
     const date = new Date(String(value));
     if (Number.isNaN(date.getTime())) return String(value).slice(0, 16);
@@ -152,14 +152,14 @@ export const toDatetimeLocalInput = (value: unknown) => {
     return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 };
 
-export const getEventEndDate = (event: SystemEvent | null | undefined) => {
+const getEventEndDate = (event: SystemEvent | null | undefined) => {
     if (!event?.event_date) return null;
     const timeValue = String(event.end_time || event.event_time || '23:59').slice(0, 8);
     const date = new Date(`${event.event_date}T${timeValue}`);
     return Number.isNaN(date.getTime()) ? null : date;
 };
 
-export const getRegistrationAttendanceStatus = (event: SystemEvent | null, registration: any, attendance?: any) => {
+const getRegistrationAttendanceStatus = (event: SystemEvent | null, registration: any, attendance?: any) => {
     if (registration?.status === 'Cancelled') return 'Cancelled';
     if (attendance?.time_in || registration?.status === 'Attended') return 'Attended';
     if (registration?.status === 'Absent') return 'Absent';

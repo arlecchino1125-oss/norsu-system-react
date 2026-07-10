@@ -6,7 +6,7 @@ import {
 
 export const SUPPORT_REQUESTS_PAGE_SIZE = 12;
 
-export const SUPPORT_REQUEST_COLUMNS = [
+const SUPPORT_REQUEST_COLUMNS = [
     'id',
     'created_at',
     'student_id',

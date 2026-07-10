@@ -2,8 +2,6 @@ import type React from 'react';
 import { getStudentSex } from '../../../../utils/studentFields';
 
 export const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year', 'Other'];
-export const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
-export const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
 
 export const isValidYearLevel = (value: string) => YEAR_LEVEL_OPTIONS.includes(value);
 export const normalizeStudentEmail = (value: unknown) => String(value || '').trim().toLowerCase();

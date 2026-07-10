@@ -1,7 +1,7 @@
-export const ADMIN_PANEL_ORDER = ['alerts', 'staffAccounts', 'studentOverview', 'governance', 'audit', 'colleges'] as const;
+const ADMIN_PANEL_ORDER = ['alerts', 'staffAccounts', 'studentOverview', 'governance', 'audit', 'colleges'] as const;
 
 export type AdminPanelKey = typeof ADMIN_PANEL_ORDER[number];
-export const TRACKED_ADMIN_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
+const TRACKED_ADMIN_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
 export type AuditRoleFilter = 'All' | (typeof TRACKED_ADMIN_AUDIT_ROLES)[number];
 
 export interface AdminStats {

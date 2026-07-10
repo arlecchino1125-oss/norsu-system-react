@@ -7,7 +7,6 @@ import type {
     StudentRemainingViewProps
 } from './types';
 
-export { ServiceIntroModal } from './features/shared/components/ServiceIntroModal';
 
 const renderLazyView = (
     isActive: boolean,

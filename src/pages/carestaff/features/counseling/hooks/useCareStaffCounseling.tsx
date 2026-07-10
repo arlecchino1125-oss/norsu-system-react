@@ -32,7 +32,7 @@ export interface CareStaffCounselingPageProps {
     refreshSignal?: number;
 }
 
-export { COUNSELING_REQUESTS_PAGE_SIZE, COUNSELING_REQUEST_COLUMNS } from '../counselingData';
+export { COUNSELING_REQUESTS_PAGE_SIZE } from '../counselingData';
 
 export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
     const { handleViewProfile, showToastMessage } = functions;

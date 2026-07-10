@@ -99,32 +99,6 @@ const ATTENDANCE_COLUMNS = [
     'department'
 ].join(', ');
 
-const GENERAL_FEEDBACK_COLUMNS = [
-    'id',
-    'created_at',
-    'student_id',
-    'student_name',
-    'client_type',
-    'sex',
-    'age',
-    'region',
-    'service_availed',
-    'cc1',
-    'cc2',
-    'cc3',
-    'sqd0',
-    'sqd1',
-    'sqd2',
-    'sqd3',
-    'sqd4',
-    'sqd5',
-    'sqd6',
-    'sqd7',
-    'sqd8',
-    'suggestions',
-    'email'
-].join(', ');
-
 export const getEventsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
@@ -264,16 +238,6 @@ export const getRatedEventIds = async (studentId: string) => {
         .eq('student_id', studentId);
     if (error) throw error;
     return (data || []).map((row: any) => row.event_id);
-};
-
-export const getGeneralFeedbackHistory = async (studentId: string) => {
-    const { data, error } = await supabase
-        .from('general_feedback')
-        .select(GENERAL_FEEDBACK_COLUMNS)
-        .eq('student_id', studentId)
-        .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
 };
 
 export const createGeneralFeedback = async (payload: Record<string, unknown>) => {

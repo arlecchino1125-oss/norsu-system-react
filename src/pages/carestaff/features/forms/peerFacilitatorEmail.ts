@@ -1,4 +1,4 @@
-export const PEER_FACILITATOR_STATUS_EMAIL_TYPE = 'PEER_FACILITATOR_STATUS_UPDATE';
+const PEER_FACILITATOR_STATUS_EMAIL_TYPE = 'PEER_FACILITATOR_STATUS_UPDATE';
 
 const toCleanText = (value: unknown) => String(value || '').trim();
 

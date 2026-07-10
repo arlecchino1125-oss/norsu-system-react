@@ -337,54 +337,6 @@ export const getEventsPage = async (
     return toPageResult(data, count, pageParams);
 };
 
-export const getApplicationsPage = async (
-    filters?: AdmissionsFilters,
-    pageParams?: PageParams,
-    sort?: SortParams
-): Promise<PageResult<any>> => {
-    const { from, to } = resolvePageParams(pageParams);
-    let query: any = supabase
-        .from('applications')
-        .select(DEPT_ADMISSION_COLUMNS, { count: PAGED_LIST_COUNT_MODE });
-
-    const statusList = Array.isArray(filters?.status)
-        ? filters?.status
-        : [
-            'Qualified for Interview (1st Choice)',
-            'Forwarded to 2nd Choice for Interview',
-            'Forwarded to 3rd Choice for Interview',
-            'Interview Scheduled'
-        ];
-    query = query.in('status', statusList);
-
-    if (filters?.course && filters.course !== 'All') {
-        query = query.or([
-            `priority_course.eq.${filters.course}`,
-            `alt_course_1.eq.${filters.course}`,
-            `alt_course_2.eq.${filters.course}`
-        ].join(','));
-    }
-
-    const search = String(filters?.search || '').trim();
-    if (search) {
-        const safe = sanitizePostgrestSearchTerm(search);
-        if (safe) {
-            query = query.or([
-                `first_name.ilike.%${safe}%`,
-                `last_name.ilike.%${safe}%`,
-                `reference_id.ilike.%${safe}%`
-            ].join(','));
-        }
-    }
-
-    query = applySort(query, sort || { column: 'created_at', ascending: false });
-    query = query.range(from, to);
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-    return toPageResult(data, count, pageParams);
-};
-
 const applyAdmissionsFilters = (query: any, filters?: AdmissionsFilters) => {
     let next = query;
 

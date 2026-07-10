@@ -45,7 +45,7 @@ export interface StudentPortalRouteDefinition {
   component: React.LazyExoticComponent<StudentRemainingViewComponent>;
 }
 
-export const STUDENT_PORTAL_ROUTES: StudentPortalRouteDefinition[] = [
+const STUDENT_PORTAL_ROUTES: StudentPortalRouteDefinition[] = [
   { viewId: 'assessment', serviceKey: 'assessment', component: AssessmentView },
   { viewId: 'counseling', serviceKey: 'counseling', component: CounselingView },
   { viewId: 'support', serviceKey: 'support', component: SupportView },

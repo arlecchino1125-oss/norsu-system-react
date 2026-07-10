@@ -1,7 +1,7 @@
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export type ActivationConfirmStatus = 'confirm' | 'loading' | 'error';
+type ActivationConfirmStatus = 'confirm' | 'loading' | 'error';
 
 type ActivationConfirmModalProps = {
     status: ActivationConfirmStatus;

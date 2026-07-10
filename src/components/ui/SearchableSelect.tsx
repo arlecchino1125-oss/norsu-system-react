@@ -3,7 +3,7 @@ import { Search, ChevronDown, X, Check } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export interface SelectOption {
+interface SelectOption {
     label: string;
     value: string;
 }

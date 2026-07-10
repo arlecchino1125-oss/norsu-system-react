@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import type { BreadcrumbItem } from '../../../components/layout/Breadcrumb';
+import type { BreadcrumbItem } from '../../../components/layout/StaffPortalLayout';
 import type { NavSection as LayoutNavSection } from '../../../components/layout/Sidebar';
 import type { ActiveTab } from '../types';
 import { CARE_STAFF_TAB_FEATURES, HEADER_TITLES, NAV_SECTIONS } from '../utils';

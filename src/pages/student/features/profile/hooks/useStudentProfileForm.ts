@@ -30,8 +30,8 @@ import {
 
 const supabaseClient = supabase;
 
-export const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
-export const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
+const ARCHIVE_RPC_MISSING_CACHE_KEY = 'norsu_archive_rpc_missing';
+const ARCHIVE_RPC_CHECKED_CACHE_KEY = 'norsu_archive_rpc_checked_student';
 
 // The student is the only in-session writer of their own profile, so it can
 // stay cached for an hour. Their own writes bypass this via refreshStudentProfile(true),

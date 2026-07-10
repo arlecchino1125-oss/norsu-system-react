@@ -20,7 +20,7 @@ export interface DataTableProps<T> {
   pagination?: DataTablePagination;
 }
 
-export interface DataTablePagination {
+interface DataTablePagination {
   page: number;
   pageSize: number;
   pageSizeOptions?: readonly number[];

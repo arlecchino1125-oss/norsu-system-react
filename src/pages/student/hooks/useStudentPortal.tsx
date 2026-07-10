@@ -18,7 +18,7 @@ import { useStudentProfileData } from '../features/profile/hooks/useStudentProfi
 import { useStudentProfileForm } from '../features/profile/hooks/useStudentProfileForm';
 
 
-export const supabaseClient = supabase;
+const supabaseClient = supabase;
 export const ProfileCompletionModal = lazy(() => import('../features/profile/components/ProfileCompletionModal'));
 export const StudentDashboardView = lazy(() => import('../features/dashboard/components/StudentDashboardView'));
 export const StudentEventsView = lazy(() => import('../features/events/components/StudentEventsView'));
@@ -38,8 +38,6 @@ import {
     createInitialProfileFormData,
     buildProfileCompletionFormSnapshot
 } from '../features/profile/profileFormUtils';
-
-export { ARCHIVE_RPC_MISSING_CACHE_KEY, ARCHIVE_RPC_CHECKED_CACHE_KEY } from '../features/profile/hooks/useStudentProfileForm';
 
 export function useStudentPortal() {
     const { session, loading, updateSession, logout } = useAuth() as any;

@@ -7,7 +7,7 @@ import {
 
 export const COUNSELING_REQUESTS_PAGE_SIZE = 12;
 
-export const COUNSELING_REQUEST_COLUMNS = [
+const COUNSELING_REQUEST_COLUMNS = [
     'id',
     'created_at',
     'student_id',

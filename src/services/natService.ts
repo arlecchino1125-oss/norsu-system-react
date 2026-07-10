@@ -6,7 +6,7 @@ import type { PageParams, SortParams } from '../types/query';
 // NAT pagination needs a reliable total so page controls stay accurate.
 const PAGED_LIST_COUNT_MODE = 'exact';
 
-export type NatListMode = 'applications' | 'completed' | 'test_takers';
+type NatListMode = 'applications' | 'completed' | 'test_takers';
 
 export interface NatApplicationsFilters {
     search?: string;
@@ -113,7 +113,7 @@ const sliceNatRowsForPage = (rows: any[], pageParams?: PageParams) => {
     return rows.slice(from, to + 1);
 };
 
-export const isMissingNatAttendanceColumnsError = (error: any) => {
+const isMissingNatAttendanceColumnsError = (error: any) => {
     const message = String('').toLowerCase();
     return message.includes('applications.time_in')
         || message.includes('applications.time_out')

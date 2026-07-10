@@ -17,7 +17,7 @@ type SupabaseLikeClient = {
 const hasLocalStorage = () =>
     typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 
-export const clearStoredAppSession = () => {
+const clearStoredAppSession = () => {
     if (!hasLocalStorage()) {
         return;
     }
@@ -25,7 +25,7 @@ export const clearStoredAppSession = () => {
     window.localStorage.removeItem(APP_SESSION_STORAGE_KEY);
 };
 
-export const isRecoverableSupabaseSessionError = (error: unknown) => {
+const isRecoverableSupabaseSessionError = (error: unknown) => {
     const message = String((error as any)?.message || error || '').toLowerCase();
     return RECOVERABLE_SESSION_ERROR_MARKERS.some((marker) => message.includes(marker));
 };

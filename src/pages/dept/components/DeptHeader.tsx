@@ -3,7 +3,7 @@ import { Menu, RefreshCw } from 'lucide-react';
 import NotificationBell from '../../../components/NotificationBell';
 
 // Module label map for header
-export const moduleLabels: Record<string, string> = {
+const moduleLabels: Record<string, string> = {
     dashboard: 'Home',
     admissions: 'Admissions Screening',
     interview_queue: 'Interview Queue',

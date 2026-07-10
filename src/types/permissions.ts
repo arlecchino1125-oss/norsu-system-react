@@ -1,6 +1,6 @@
 export const ROLES = ['Admin', 'Care Staff', 'Department Head', 'Student', 'Public', 'Registrar'] as const;
-export const PERMISSION_TYPES = ['table', 'function', 'feature', 'action'] as const;
-export const PERMISSION_STATUSES = ['enabled', 'hidden', 'maintenance', 'coming_soon'] as const;
+const PERMISSION_TYPES = ['table', 'function', 'feature', 'action'] as const;
+const PERMISSION_STATUSES = ['enabled', 'hidden', 'maintenance', 'coming_soon'] as const;
 
 export type Role = typeof ROLES[number];
 export type PermissionType = typeof PERMISSION_TYPES[number];
@@ -38,7 +38,7 @@ export type ResolvedPermissionState = {
 
 export type PermissionRecord = Record<string, ResolvedPermissionState>;
 
-export const TABLE_PERMISSIONS = [
+const TABLE_PERMISSIONS = [
     'students',
     'applications',
     'enrolled_students',
@@ -64,14 +64,14 @@ export const TABLE_PERMISSIONS = [
     'office_visit_reasons'
 ] as const;
 
-export const FUNCTION_PERMISSIONS = [
+const FUNCTION_PERMISSIONS = [
     'manage-student-accounts',
     'manage-care-services',
     'manage-department-admissions',
     'manage-department-services'
 ] as const;
 
-export const ACTION_PERMISSIONS = [
+const ACTION_PERMISSIONS = [
     'reset_student_data',
     'export_data',
     'archive_records',
@@ -91,7 +91,7 @@ export const ACTION_PERMISSIONS = [
     'submit_feedback'
 ] as const;
 
-export const FEATURE_PERMISSIONS = {
+const FEATURE_PERMISSIONS = {
     admin: ['*'],
     careStaff: [
         'student_population',
@@ -143,7 +143,7 @@ export const FEATURE_PERMISSIONS = {
     ]
 } as const;
 
-export const FEATURE_PERMISSION_KEYS = Array.from(
+const FEATURE_PERMISSION_KEYS = Array.from(
     new Set([
         ...FEATURE_PERMISSIONS.careStaff,
         ...FEATURE_PERMISSIONS.departmentHead,
@@ -153,7 +153,7 @@ export const FEATURE_PERMISSION_KEYS = Array.from(
     ])
 );
 
-export const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, string[]>> = {
+const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, string[]>> = {
     Admin: {
         table: ['*'],
         function: ['*'],
@@ -360,10 +360,10 @@ export const PERMISSION_STATUS_LABELS: Record<PermissionStatus, string> = {
     coming_soon: 'Coming Soon'
 };
 
-export const toPermissionLookupKey = (permissionType: PermissionType, permissionKey: string) =>
+const toPermissionLookupKey = (permissionType: PermissionType, permissionKey: string) =>
     `${permissionType}:${permissionKey}`;
 
-export const normalizePermissionStatus = (
+const normalizePermissionStatus = (
     status: string | null | undefined,
     isAllowed = true
 ): PermissionStatus => {
@@ -430,12 +430,6 @@ export const resolvePermissionState = (
     permissionType: PermissionType,
     permissionKey: string
 ) => isPermissionAccessible(resolvePermissionDetails(permissions, permissionType, permissionKey));
-
-export const resolvePermissionVisibility = (
-    permissions: PermissionRecord,
-    permissionType: PermissionType,
-    permissionKey: string
-) => isPermissionVisible(resolvePermissionDetails(permissions, permissionType, permissionKey));
 
 export const getKnownPermissionKeysByType = (permissionType: PermissionType, role?: Role) => {
     if (role) {

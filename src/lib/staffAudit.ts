@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export const TRACKED_STAFF_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
+const TRACKED_STAFF_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
 
 export type TrackedStaffAuditRole = (typeof TRACKED_STAFF_AUDIT_ROLES)[number];
 
@@ -37,7 +37,7 @@ const TRACKED_ROLE_SET = new Set<string>(TRACKED_STAFF_AUDIT_ROLES);
 export const isTrackedStaffAuditRole = (role: unknown): role is TrackedStaffAuditRole =>
     TRACKED_ROLE_SET.has(String(role || '').trim());
 
-export const parseAuditDetails = (details: unknown): Record<string, unknown> | null => {
+const parseAuditDetails = (details: unknown): Record<string, unknown> | null => {
     if (!details) return null;
     if (typeof details === 'object' && !Array.isArray(details)) {
         return details as Record<string, unknown>;

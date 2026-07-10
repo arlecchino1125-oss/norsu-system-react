@@ -30,7 +30,7 @@ export type PermissionUpdate = {
     description?: string;
 };
 
-export class PermissionService {
+class PermissionService {
     private readonly cacheTtlMs = 5 * 60 * 1000;
     private readonly cachePrefix = 'norsu_role_permissions_cache_v2';
     private readonly memoryCache = new Map<Role, PermissionCacheEntry>();

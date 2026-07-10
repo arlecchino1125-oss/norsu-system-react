@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface SelectFilterOption {
+interface SelectFilterOption {
   label: string;
   value: string;
 }

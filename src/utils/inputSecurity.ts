@@ -99,7 +99,7 @@ export const escapeSpreadsheetFormula = (value: unknown) => {
     return SPREADSHEET_FORMULA_PATTERN.test(text) ? `'${text}` : text;
 };
 
-export const escapeCsvCell = (value: unknown) =>
+const escapeCsvCell = (value: unknown) =>
     String(escapeSpreadsheetFormula(value) ?? '').replace(/"/g, '""');
 
 export const buildCsv = (rows: unknown[][]) =>

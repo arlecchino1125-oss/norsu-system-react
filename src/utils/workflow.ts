@@ -48,7 +48,7 @@ export const COUNSELING_CALENDAR_STATUSES = [
     COUNSELING_STATUS.STAFF_SCHEDULED
 ] as const;
 
-export const CARE_STAFF_SUPPORT_QUEUE_STATUSES = [
+const CARE_STAFF_SUPPORT_QUEUE_STATUSES = [
     SUPPORT_STATUS.SUBMITTED,
     SUPPORT_STATUS.FORWARDED_TO_DEPT
 ] as const;
@@ -107,9 +107,6 @@ export const isCareStaffSupportQueue = (status?: string | null) =>
 
 export const isCareStaffSupportDeptUpdate = (status?: string | null) =>
     matchesStatus(CARE_STAFF_SUPPORT_DEPT_UPDATE_STATUSES, status);
-
-export const isCareStaffSupportMonitoring = (status?: string | null) =>
-    matchesStatus(CARE_STAFF_SUPPORT_MONITORING_STATUSES, status);
 
 export const isDeptSupportCompleted = (status?: string | null) =>
     matchesStatus(

@@ -35,10 +35,10 @@ export interface CareStaffSupportPageProps {
     refreshSignal?: number;
 }
 
-export const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
+const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
 export const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
-export { SUPPORT_REQUESTS_PAGE_SIZE, SUPPORT_REQUEST_COLUMNS } from '../supportData';
-export const SUPPORT_STUDENT_COLUMNS = [
+export { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
+const SUPPORT_STUDENT_COLUMNS = [
     'student_id',
     'first_name',
     'last_name',
@@ -60,7 +60,7 @@ export const SUPPORT_STUDENT_COLUMNS = [
     'alt_course_2'
 ].join(', ');
 
-export const isSupportedDocumentFile = (file: File) =>
+const isSupportedDocumentFile = (file: File) =>
     file.type.startsWith('image/') || file.type === 'application/pdf';
 
 export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {

@@ -2,12 +2,13 @@ import React, { useState, useCallback, useEffect, useRef, type ReactNode } from 
 import type { LucideIcon } from 'lucide-react';
 import { RefreshCw, Settings, LogOut, User } from 'lucide-react';
 import Sidebar from './Sidebar';
-import type { BreadcrumbItem } from './Breadcrumb';
 import type { NavSection } from './Sidebar';
 import NotificationBell from '../NotificationBell';
 
-export type { NavItem, NavSection } from './Sidebar';
-export type { BreadcrumbItem } from './Breadcrumb'; // kept for consumers
+export interface BreadcrumbItem {
+  label: string;
+  onClick?: () => void;
+}
 
 interface NotificationItem {
   id?: string | number;
