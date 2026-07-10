@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { useAuth } from '../lib/auth';
@@ -20,8 +20,7 @@ import type {
     AuthSession,
     CommandHubTab,
     StaffNote,
-    ToastHandler,
-    ToastState
+    ToastHandler
 } from './carestaff/types';
 import { CARE_STAFF_REFRESHABLE_TABS, CARE_STAFF_TAB_FEATURES, HEADER_TITLES } from './carestaff/utils';
 import { ACTIVE_TABS } from './carestaff/types';
@@ -56,12 +55,9 @@ const CareStaffDashboard = () => {
     const {
         loading: permissionsLoading,
         error: permissionsError,
-        canPerformAction,
         getFeatureAccessState,
         isFeatureVisible
     } = usePermissions();
-    const canDeleteRecords = canPerformAction('delete_records');
-
     const { tab: urlTab } = useParams<{ tab?: string }>();
     const [activeTab, setActiveTab] = useState<ActiveTab>(
         () => readInitialTab<ActiveTab>(urlTab, ACTIVE_TABS, 'home'),
@@ -75,8 +71,6 @@ const CareStaffDashboard = () => {
     });
     const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
 
-    const [toast, setToast] = useState<ToastState | null>(null);
-
     // Command Hub (FAB Panel)
     const [showCommandHub, setShowCommandHub] = useState<boolean>(false);
     const [commandHubTab, setCommandHubTab] = useState<CommandHubTab>('actions');
@@ -89,7 +83,6 @@ const CareStaffDashboard = () => {
         }
     });
 
-    const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [viewRefreshSignal, setViewRefreshSignal] = useState(0);
 
@@ -100,18 +93,8 @@ const CareStaffDashboard = () => {
         }
     }, [isAuthenticated, navigate]);
 
-    useEffect(() => {
-        return () => {
-            if (toastTimeoutRef.current) {
-                clearTimeout(toastTimeoutRef.current);
-            }
-        };
-    }, []);
-
     const { showToast: pushSharedToast } = useToast();
     const showToastMessage = useCallback<ToastHandler>((msg, type = 'success') => {
-        // Display is owned by the app-wide <ToastProvider>; the legacy local toast
-        // render (in CareStaffModals) stays null and no-ops.
         pushSharedToast(msg, type);
     }, [pushSharedToast]);
 
@@ -314,8 +297,7 @@ const CareStaffDashboard = () => {
 
             {renderCareStaffModals({
                 showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,
-                setActiveTab: goToTab, toast, setToast,
-                canDeleteRecords,
+                setActiveTab: goToTab,
             })}
         </StaffPortalLayout>
     );
