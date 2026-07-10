@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const TRACKED_STAFF_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
+export const TRACKED_STAFF_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
 
 export type TrackedStaffAuditRole = (typeof TRACKED_STAFF_AUDIT_ROLES)[number];
 

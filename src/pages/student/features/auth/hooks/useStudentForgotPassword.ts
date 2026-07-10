@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { isValidEmailDomain } from '../../../../../utils/inputSecurity';
-
-type StudentLoginMethod = 'studentId' | 'email';
+import type { StudentLoginMethod } from '../../../types';
 
 type ForgotPasswordOtpInfo = {
     message?: string;

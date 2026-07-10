@@ -6,8 +6,7 @@ import { getStudentActivationPolicy } from '../../../../../lib/studentActivation
 import { rememberPendingProfileCompletion } from '../../../../../lib/studentProfileCompletionPrompt';
 import { getSafeStudentActivationErrorMessage } from '../../../../../lib/studentActivationErrors';
 import { isValidEmailDomain } from '../../../../../utils/inputSecurity';
-
-type StudentLoginMethod = 'studentId' | 'email';
+import type { StudentLoginMethod } from '../../../types';
 
 type ActivatedStudentCredentials = {
     username: string;

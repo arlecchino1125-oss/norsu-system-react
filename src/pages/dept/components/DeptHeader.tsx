@@ -1,22 +1,7 @@
 import React from 'react';
 import { Menu, RefreshCw } from 'lucide-react';
 import NotificationBell from '../../../components/NotificationBell';
-
-// Module label map for header
-const moduleLabels: Record<string, string> = {
-    dashboard: 'Home',
-    admissions: 'Admissions Screening',
-    interview_queue: 'Interview Queue',
-    calendar: 'Calendar',
-    export_center: 'Export Center',
-    counseling_queue: 'Counseling',
-    events: 'College Events',
-    support_approvals: 'Additional Support',
-    settings: 'Settings',
-    students: 'Students',
-    counseled: 'Counseled Students',
-    reports: 'Reports',
-};
+import { moduleLabels } from '../utils';
 
 export function DeptHeader({
     activeModule,

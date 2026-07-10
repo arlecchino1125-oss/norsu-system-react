@@ -1,7 +1,6 @@
 import { Eye, EyeOff, Lock, Mail, User, X } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-type StudentLoginMethod = 'studentId' | 'email';
+import type { StudentLoginMethod } from '../../../types';
 
 type ForgotPasswordOtpInfo = {
     message?: string;

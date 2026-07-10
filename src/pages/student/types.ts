@@ -1,5 +1,7 @@
 import type React from 'react';
 
+export type StudentLoginMethod = 'studentId' | 'email';
+
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 type AnySetter = React.Dispatch<React.SetStateAction<any>>;
 

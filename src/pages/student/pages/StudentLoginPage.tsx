@@ -10,8 +10,7 @@ import { ActivationConfirmModal } from '../features/auth/components/ActivationCo
 import { ActivationWizard } from '../features/auth/components/ActivationWizard';
 import { ForgotPasswordModal } from '../features/auth/components/ForgotPasswordModal';
 import { LoginPanel } from '../features/auth/components/LoginPanel';
-
-type StudentLoginMethod = 'studentId' | 'email';
+import type { StudentLoginMethod } from '../types';
 
 export default function StudentLogin() {
     const navigate = useNavigate();

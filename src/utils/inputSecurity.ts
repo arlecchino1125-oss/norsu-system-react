@@ -107,3 +107,10 @@ export const buildCsv = (rows: unknown[][]) =>
 
 export const escapeSpreadsheetRows = (rows: unknown[][]) =>
     rows.map(row => row.map(escapeSpreadsheetFormula));
+
+// Support-document upload rules — shared contract between the student
+// submission form and the care-staff upload flow; keep in one place.
+export const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
+export const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
+export const isSupportedDocumentFile = (file: File) =>
+    file.type.startsWith('image/') || file.type === 'application/pdf';

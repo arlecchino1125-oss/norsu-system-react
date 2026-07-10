@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import type { BreadcrumbItem } from '../../../components/layout/StaffPortalLayout';
 import type { NavSection as LayoutNavSection } from '../../../components/layout/Sidebar';
 import type { ActiveTab } from '../types';
-import { CARE_STAFF_TAB_FEATURES, HEADER_TITLES, NAV_SECTIONS } from '../utils';
+import { CARE_STAFF_TAB_FEATURES, NAV_SECTIONS } from '../utils';
 
 export function useCareStaffNavigation({
-    activeTab,
     setActiveTab,
     isFeatureVisible,
     setShowCommandHub
 }: {
-    activeTab: ActiveTab;
     setActiveTab: (tab: ActiveTab) => void;
     isFeatureVisible: (featureKey: string) => boolean;
     setShowCommandHub: React.Dispatch<React.SetStateAction<boolean>>;
@@ -42,14 +39,6 @@ export function useCareStaffNavigation({
         })),
         [visibleNavSections]
     );
-
-    const currentBreadcrumbs: BreadcrumbItem[] = useMemo(() => {
-        const items: BreadcrumbItem[] = [{ label: 'Home', onClick: () => setActiveTab('home') }];
-        if (activeTab !== 'home') {
-            items.push({ label: HEADER_TITLES[activeTab] || activeTab });
-        }
-        return items;
-    }, [activeTab]);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -86,7 +75,6 @@ export function useCareStaffNavigation({
 
     return {
         isCareStaffTabVisible,
-        layoutNavSections,
-        currentBreadcrumbs
+        layoutNavSections
     };
 }

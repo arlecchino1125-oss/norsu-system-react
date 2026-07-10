@@ -10,6 +10,7 @@ import {
     Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip, RefreshCw
 } from 'lucide-react';
 import StatusBadge from '../../../../../components/StatusBadge';
+import { MAX_SUPPORT_DOCUMENT_BYTES, isSupportedDocumentFile } from '../../../../../utils/inputSecurity';
 import { formatDate, generateExportFilename } from '../../../../../utils/formatters';
 import { buildStudentAddress } from '../../../../../utils/studentFields';
 import {
@@ -35,9 +36,8 @@ export interface CareStaffSupportPageProps {
     refreshSignal?: number;
 }
 
-const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
-export const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
 export { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
+export { SUPPORT_DOCUMENT_ACCEPT } from '../../../../../utils/inputSecurity';
 const SUPPORT_STUDENT_COLUMNS = [
     'student_id',
     'first_name',
@@ -59,9 +59,6 @@ const SUPPORT_STUDENT_COLUMNS = [
     'alt_course_1',
     'alt_course_2'
 ].join(', ');
-
-const isSupportedDocumentFile = (file: File) =>
-    file.type.startsWith('image/') || file.type === 'application/pdf';
 
 export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
     const { showToast } = functions || {};

@@ -1,7 +1,10 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../../../lib/supabase';
-import { getTextInputLimitProps, validateTextInput } from '../../../../../utils/inputSecurity';
+import {
+    getTextInputLimitProps, validateTextInput,
+    MAX_SUPPORT_DOCUMENT_BYTES, SUPPORT_DOCUMENT_ACCEPT, isSupportedDocumentFile
+} from '../../../../../utils/inputSecurity';
 
 type SupportFormModalProps = {
     isOpen: boolean;
@@ -25,12 +28,6 @@ const SUPPORT_CATEGORIES = [
     { value: 'Pregnant Women', label: 'Pregnant' },
     { value: 'Women in Especially Difficult Circumstances', label: 'Women in Need' }
 ];
-const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
-const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
-
-const isSupportedDocumentFile = (file: File) =>
-    file.type.startsWith('image/') || file.type === 'application/pdf';
-
 const createInitialSupportForm = () => ({
     categories: [] as string[],
     otherCategory: '',

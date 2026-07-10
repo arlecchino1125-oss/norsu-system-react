@@ -1,8 +1,7 @@
 import type React from 'react';
 import { Eye, EyeOff, Loader2, Mail, Sparkles, User, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-type StudentLoginMethod = 'studentId' | 'email';
+import type { StudentLoginMethod } from '../../../types';
 
 type LoginPanelProps = {
     loginMethod: StudentLoginMethod;

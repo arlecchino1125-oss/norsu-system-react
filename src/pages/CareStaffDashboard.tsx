@@ -139,8 +139,7 @@ const CareStaffDashboard = () => {
         setPendingProfileId
     });
 
-    const { layoutNavSections, currentBreadcrumbs } = useCareStaffNavigation({
-        activeTab,
+    const { layoutNavSections } = useCareStaffNavigation({
         setActiveTab: goToTab,
         isFeatureVisible,
         setShowCommandHub
@@ -282,7 +281,6 @@ const CareStaffDashboard = () => {
             onOpenSettings={() => goToTab('settings')}
             headerTitle={headerTitle}
             portalLabel="NORSU-G CARE"
-            breadcrumbs={currentBreadcrumbs}
             accent="purple"
             onRefresh={refreshAll}
             isRefreshing={isRefreshing}

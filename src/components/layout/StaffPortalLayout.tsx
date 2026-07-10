@@ -5,11 +5,6 @@ import Sidebar from './Sidebar';
 import type { NavSection } from './Sidebar';
 import NotificationBell from '../NotificationBell';
 
-export interface BreadcrumbItem {
-  label: string;
-  onClick?: () => void;
-}
-
 interface NotificationItem {
   id?: string | number;
   action?: string;
@@ -36,9 +31,6 @@ interface StaffPortalLayoutProps {
   headerTitle: string;
   /** Portal label shown above the title */
   portalLabel?: string;
-  /** Breadcrumb trail items */
-  breadcrumbs?: BreadcrumbItem[];
-
   /** Accent color for the portal (sidebar, header gradient) */
   accent?: 'purple' | 'blue' | 'emerald';
 
@@ -70,7 +62,6 @@ export default function StaffPortalLayout({
   onOpenSettings,
   headerTitle,
   portalLabel = 'NORSU-G CARE',
-  breadcrumbs,
   accent = 'purple',
   onRefresh,
   isRefreshing = false,
@@ -113,9 +104,6 @@ export default function StaffPortalLayout({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const gradientTextClass = accent === 'blue' ? 'gradient-text-blue' : accent === 'emerald' ? 'gradient-text-green' : 'gradient-text';
-  const gradientBorderClass = accent === 'blue' ? 'gradient-border-blue' : accent === 'emerald' ? 'gradient-border-green' : 'gradient-border';
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50/30 font-sans text-gray-800">

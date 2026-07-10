@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { sanitizeAuditSearchTerm } from '../utils';
-import { isTrackedStaffAuditRole, type StaffAuditLogRow } from '../../../lib/staffAudit';
+import { isTrackedStaffAuditRole, TRACKED_STAFF_AUDIT_ROLES, type StaffAuditLogRow } from '../../../lib/staffAudit';
 import type { AuditRoleFilter } from '../types';
 
 const AUDIT_PAGE_SIZE = 25;
 const AUDIT_SEARCH_DEBOUNCE_MS = 280;
-const TRACKED_ADMIN_AUDIT_ROLES = ['Care Staff', 'Department Head', 'Admin', 'Registrar'] as const;
 
 export function useAdminAuditLogs(isAuthenticated: boolean, showToast: (msg: string, type?: string) => void) {
     const queryClient = useQueryClient();
@@ -41,7 +40,7 @@ export function useAdminAuditLogs(isAuthenticated: boolean, showToast: (msg: str
                 .select('id, created_at, user_name, action, details, actor_role, actor_department, entity_table, entity_id', { count: 'exact' });
 
             if (auditRoleFilter === 'All') {
-                query = query.in('actor_role', [...TRACKED_ADMIN_AUDIT_ROLES]);
+                query = query.in('actor_role', [...TRACKED_STAFF_AUDIT_ROLES]);
             } else {
                 query = query.eq('actor_role', auditRoleFilter);
             }
