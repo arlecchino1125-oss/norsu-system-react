@@ -1,5 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+
+// If the handler returns a promise, track it as pending so the caller can
+// show a spinner and block double-fires without per-site state. Works for
+// onClick, form onSubmit, or any event handler.
+export const useAsyncHandler = <E,>(handler?: (e: E) => unknown): [(e: E) => void, boolean] => {
+    const [pending, setPending] = useState(false);
+    const wrapped = (e: E) => {
+        const result = handler?.(e);
+        if (result && typeof (result as Promise<unknown>).then === 'function') {
+            setPending(true);
+            (result as Promise<unknown>).finally(() => setPending(false));
+        }
+    };
+    return [wrapped, pending];
+};
+
+const useAsyncClick = (onClick?: React.MouseEventHandler<HTMLButtonElement>) =>
+    useAsyncHandler<React.MouseEvent<HTMLButtonElement>>(onClick);
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -9,8 +27,25 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     rightIcon?: React.ReactNode;
 }
 
+/** Unstyled button that auto-shows a spinner while its async onClick is in flight. */
+export const AsyncButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
+    ({ onClick, children, disabled, ...props }, ref) => {
+        const [handleClick, pending] = useAsyncClick(onClick);
+        return (
+            <button ref={ref} onClick={handleClick} disabled={disabled || pending} {...props}>
+                {pending && <Loader2 className="animate-spin inline-block align-[-2px] mr-1.5" size={14} />}
+                {children}
+            </button>
+        );
+    }
+);
+
+AsyncButton.displayName = 'AsyncButton';
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ className = '', variant = 'primary', size = 'md', isLoading = false, leftIcon, rightIcon, children, disabled, ...props }, ref) => {
+    ({ className = '', variant = 'primary', size = 'md', isLoading = false, leftIcon, rightIcon, children, disabled, onClick, ...props }, ref) => {
+        const [handleClick, pending] = useAsyncClick(onClick);
+        const loading = isLoading || pending;
         // Base styles
         const baseStyle = "inline-flex items-center justify-center font-bold transition-all duration-200 outline-none disabled:opacity-50 disabled:cursor-not-allowed";
 
@@ -35,13 +70,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             <button
                 ref={ref}
                 className={combinedClassName}
-                disabled={disabled || isLoading}
+                disabled={disabled || loading}
+                onClick={handleClick}
                 {...props}
             >
-                {isLoading && <Loader2 className="animate-spin" size={size === 'sm' ? 14 : 18} />}
-                {!isLoading && leftIcon}
+                {loading && <Loader2 className="animate-spin" size={size === 'sm' ? 14 : 18} />}
+                {!loading && leftIcon}
                 {children}
-                {!isLoading && rightIcon}
+                {!loading && rightIcon}
             </button>
         );
     }

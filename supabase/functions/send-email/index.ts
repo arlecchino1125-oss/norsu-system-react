@@ -165,6 +165,29 @@ const buildEmailTemplate = (type: string, name: string, details: Record<string, 
         `;
       break;
     }
+    case 'PEER_FACILITATOR_STATUS_UPDATE': {
+      const loginUrl = buildStudentPortalLoginUrl(toText(details.loginUrl));
+      const status = toText(details.status, 'updated').toLowerCase();
+      const isApproved = status === 'approved';
+      const isRejected = status === 'rejected';
+      subject = isApproved
+        ? 'CARE Peer Facilitator Application Approved'
+        : isRejected
+          ? 'CARE Peer Facilitator Application Update'
+          : 'CARE Peer Facilitator Status Update';
+      html = `
+          <h2>CARE Peer Facilitator Application ${isApproved ? 'Approved' : 'Update'}</h2>
+          <p>Dear ${safeName},</p>
+          <p>${isApproved
+            ? 'Congratulations. Your CARE Peer Facilitator application has been approved.'
+            : `Your CARE Peer Facilitator application status has been updated to <strong>${escapeHtml(status)}</strong>.`
+          }</p>
+          ${toText(details.schoolYear) ? `<p><strong>School Year:</strong> ${toSafeText(details.schoolYear)}</p>` : ''}
+          <p>Please log in to the Student Portal to view your application status and any next steps from the CARE Office.</p>
+          <p><a href="${escapeHtml(loginUrl)}">Login to Student Portal</a></p>
+        `;
+      break;
+    }
     case 'STAFF_ACCOUNT_CREATED': {
       const loginUrl = buildStaffPortalLoginUrl(details);
       subject = `NORSU ${toText(details.role, 'Staff')} Account Created`;

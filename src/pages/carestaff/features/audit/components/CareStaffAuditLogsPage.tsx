@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { createDeferredChannelCleanup } from '../../../../../lib/realtime';
@@ -71,6 +71,8 @@ const columns: DataTableColumn<AuditLog>[] = [
 const CareStaffAuditLogsPage = ({ refreshSignal = 0 }: CareStaffAuditLogsPageProps) => {
     const queryClient = useQueryClient();
     const lastExternalRefreshSignalRef = useRef(refreshSignal);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     // ponytail: cache audit logs to prevent redundant fetch on tab navigation
     const { data: logs = [], isLoading: loading, refetch: fetchLogs } = useQuery({
@@ -133,6 +135,16 @@ const CareStaffAuditLogsPage = ({ refreshSignal = 0 }: CareStaffAuditLogsPagePro
                     rows={logs}
                     rowKey="id"
                     emptyMessage="No logs found."
+                    pagination={{
+                        page,
+                        pageSize,
+                        pageSizeOptions: [5, 10, 30],
+                        onPageChange: setPage,
+                        onPageSizeChange: (nextPageSize) => {
+                            setPageSize(nextPageSize);
+                            setPage(1);
+                        }
+                    }}
                 />
             )}
         </div>

@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, XCircle, Search, User } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
+import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import { buildPeerFacilitatorStatusEmailPayload } from '../peerFacilitatorEmail';
 
 interface CareStaffVolunteerFormsTableProps {
     functions: { showToast: (msg: string, type?: any) => void };
+    refreshSignal?: number;
 }
 
-export default function CareStaffVolunteerFormsTable({ functions }: CareStaffVolunteerFormsTableProps) {
+export default function CareStaffVolunteerFormsTable({ functions, refreshSignal = 0 }: CareStaffVolunteerFormsTableProps) {
     const queryClient = useQueryClient();
+    const lastExternalRefreshSignalRef = useRef(refreshSignal);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedApplication, setSelectedApplication] = useState<any>(null);
@@ -19,7 +23,7 @@ export default function CareStaffVolunteerFormsTable({ functions }: CareStaffVol
     const [yearFilter, setYearFilter] = useState<string | null>(null);
     const [yearDraft, setYearDraft] = useState('');
 
-    const { data: settings } = useQuery({
+    const { data: settings, refetch: refetchSettings } = useQuery({
         queryKey: ['peer-facilitator-settings'],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -53,7 +57,7 @@ export default function CareStaffVolunteerFormsTable({ functions }: CareStaffVol
         }
     });
 
-    const { data: applications = [], isLoading } = useQuery({
+    const { data: applications = [], isLoading, refetch: refetchApplications } = useQuery({
         queryKey: ['care-staff-volunteer-apps'],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -89,15 +93,29 @@ export default function CareStaffVolunteerFormsTable({ functions }: CareStaffVol
                 .eq('id', id);
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['care-staff-volunteer-apps'] });
             functions.showToast('Application status updated successfully.', 'success');
+            void sendTransactionalEmailNotification(
+                buildPeerFacilitatorStatusEmailPayload(selectedApplication, variables.status),
+                'Failed to send Peer Facilitator email.'
+            ).then((emailResult) => {
+                if (emailResult.emailSent === false) {
+                    functions.showToast(`Status updated, but email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
+                }
+            });
             setShowModal(false);
         },
         onError: () => {
             functions.showToast('Failed to update application status.', 'error');
         }
     });
+
+    useEffect(() => {
+        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
+        lastExternalRefreshSignalRef.current = refreshSignal;
+        void Promise.all([refetchSettings(), refetchApplications()]);
+    }, [refetchApplications, refetchSettings, refreshSignal]);
 
     const yearOptions = Array.from(new Set(
         [activeYear, ...applications.map((app: any) => app.school_year)].filter(Boolean)

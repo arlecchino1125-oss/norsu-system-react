@@ -116,7 +116,7 @@ async function fetchCounselingCountsFallback(): Promise<CounselingCounts> {
 // counts if the function isn't deployed, so a missing/denied RPC degrades to the
 // previous behaviour instead of breaking the badges.
 export async function fetchCounselingCounts(): Promise<CounselingCounts> {
-    const { data, error } = await (supabase as any).rpc('get_counseling_status_counts');
+    const { data, error } = await supabase.rpc('get_counseling_status_counts');
     if (!error && Array.isArray(data)) {
         return bucketStatusCounts(data);
     }

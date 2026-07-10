@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, ClipboardList, CheckCircle, Trash2, XCircle, Download, UploadCloud, Archive, HeartHandshake } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
@@ -12,13 +12,15 @@ import CareStaffVolunteerFormsTable from './CareStaffVolunteerFormsTable';
 
 interface CareStaffFormsPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
+    refreshSignal?: number;
 }
 
 const FORM_COLUMNS = 'id, title, description, is_active, created_at';
 const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, scale_min, scale_max, order_index, created_at';
 
-const CareStaffFormsPage = ({ functions }: CareStaffFormsPageProps) => {
+const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPageProps) => {
     const { canPerformAction } = usePermissions();
+    const lastExternalRefreshSignalRef = useRef(refreshSignal);
     const canArchiveRecords = canPerformAction('archive_records');
     const canDeleteRecords = canPerformAction('delete_records');
 
@@ -60,9 +62,9 @@ const CareStaffFormsPage = ({ functions }: CareStaffFormsPageProps) => {
 
     const loading = loadingActive || loadingInactive;
 
-    const fetchForms = async () => {
+    const fetchForms = useCallback(async () => {
         await Promise.all([refetchActive(), refetchInactive()]);
-    };
+    }, [refetchActive, refetchInactive]);
 
     const [editingForm, setEditingForm] = useState(null);
     const [editingQuestions, setEditingQuestions] = useState<any[]>([]);
@@ -73,6 +75,14 @@ const CareStaffFormsPage = ({ functions }: CareStaffFormsPageProps) => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [showInactiveModal, setShowInactiveModal] = useState(false);
     const [activeTab, setActiveTab] = useState<'assessments' | 'volunteers'>('assessments');
+
+    useEffect(() => {
+        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
+        lastExternalRefreshSignalRef.current = refreshSignal;
+        if (activeTab === 'assessments') {
+            void fetchForms();
+        }
+    }, [activeTab, fetchForms, refreshSignal]);
 
     const handlePreview = async (form) => {
         const { data: questions } = await supabase
@@ -143,7 +153,7 @@ const CareStaffFormsPage = ({ functions }: CareStaffFormsPageProps) => {
             functions.showToast("Form saved.");
             setShowEditor(false);
             fetchForms();
-        } catch (err) { functions.showToast('Something went wrong.', 'error'); }
+        } catch { functions.showToast('Something went wrong.', 'error'); }
     };
 
     const handleQuestionChange = (idx, val) => {
@@ -164,7 +174,7 @@ const CareStaffFormsPage = ({ functions }: CareStaffFormsPageProps) => {
             }
             const newQs = editingQuestions.filter((_, i) => i !== idx);
             setEditingQuestions(newQs);
-        } catch (err: any) {
+        } catch {
             functions.showToast('Error deleting question: ', 'error');
         }
     };
@@ -208,7 +218,7 @@ const CareStaffFormsPage = ({ functions }: CareStaffFormsPageProps) => {
             functions.showToast('Form deactivated. Existing submissions were kept.');
             setDeleteConfirm(null);
             await fetchForms();
-        } catch (err) {
+        } catch {
             functions.showToast('Error deactivating form: ', 'error');
         } finally {
             setIsDeleting(false);
@@ -425,7 +435,7 @@ const CareStaffFormsPage = ({ functions }: CareStaffFormsPageProps) => {
                     )}
                 </>
             ) : (
-                <CareStaffVolunteerFormsTable functions={functions} />
+                <CareStaffVolunteerFormsTable functions={functions} refreshSignal={refreshSignal} />
             )}
         </div>
     );

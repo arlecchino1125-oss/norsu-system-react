@@ -101,7 +101,7 @@ async function fetchSupportCountsFallback(): Promise<SupportCounts> {
 // falls back to the per-status counts if the function isn't deployed, so a
 // missing/denied RPC degrades to the previous behaviour instead of breaking.
 export async function fetchSupportCounts(): Promise<SupportCounts> {
-    const { data, error } = await (supabase as any).rpc('get_support_status_counts');
+    const { data, error } = await supabase.rpc('get_support_status_counts');
     if (!error && Array.isArray(data)) {
         return bucketStatusCounts(data);
     }

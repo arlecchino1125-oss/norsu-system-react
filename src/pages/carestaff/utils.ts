@@ -43,6 +43,7 @@ export const CARE_STAFF_REFRESHABLE_TABS = new Set<ActiveTab>([
     'dashboard',
     'counseling',
     'support',
+    'forms',
     'audit'
 ]);
 

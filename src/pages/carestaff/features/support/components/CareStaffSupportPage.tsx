@@ -10,6 +10,7 @@ import {
     Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip, RefreshCw
 } from 'lucide-react';
 import StatusBadge from '../../../../../components/StatusBadge';
+import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
 import { formatDate, generateExportFilename } from '../../../../../utils/formatters';
 import { buildStudentAddress } from '../../../../../utils/studentFields';
 import {
@@ -185,9 +186,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                 </div>
 
                 {supportLoading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>
-                    </div>
+                    <LoadingSkeleton type="card" count={4} />
                 ) : (
                     <motion.div
                         variants={containerVariants}

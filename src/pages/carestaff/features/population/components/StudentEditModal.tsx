@@ -9,7 +9,7 @@ import { supabase } from '../../../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
-import { Button } from '../../../../../components/ui/Button';
+import { Button, useAsyncHandler } from '../../../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../../components/ui/Card';
 import { getValidProfileImageUrl } from '../../../../../utils/formatters';
 import type { CareStaffDashboardFunctions } from '../../../types';
@@ -68,7 +68,9 @@ const StudentEditModal = ({
     setEditForm,
     setShowEditModal,
     showEditModal
-}: any) => (
+}: any) => {
+    const [onUpdateStudent, isUpdatingStudent] = useAsyncHandler(handleUpdateStudent);
+    return (
     <>
             {showEditModal && (
                 <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
@@ -79,7 +81,7 @@ const StudentEditModal = ({
                                 <XCircle size={24} className="text-slate-400" />
                             </button>
                         </div>
-                        <form onSubmit={handleUpdateStudent} className="p-6 space-y-4">
+                        <form onSubmit={onUpdateStudent} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold mb-1">First Name</label>
@@ -183,13 +185,14 @@ const StudentEditModal = ({
 
                             <div className="pt-4 flex gap-3">
                                 <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
-                                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Update Student</button>
+                                <button type="submit" disabled={isUpdatingStudent} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{isUpdatingStudent ? 'Updating...' : 'Update Student'}</button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
     </>
-);
+    );
+};
 
 export default StudentEditModal;

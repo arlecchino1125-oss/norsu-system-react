@@ -4,12 +4,12 @@ export const buildEdgeFunctionHeaders = (userAccessToken?: string | null) => {
     const headers: Record<string, string> = {};
 
     if (functionJwt) {
-        headers.Authorization = `Bearer ${functionJwt}`;
         headers.apikey = functionJwt;
     }
 
-    if (userAccessToken) {
-        headers['x-supabase-auth'] = `Bearer ${userAccessToken}`;
+    const bearerToken = userAccessToken || functionJwt;
+    if (bearerToken) {
+        headers.Authorization = `Bearer ${bearerToken}`;
     }
 
     return Object.keys(headers).length ? headers : undefined;

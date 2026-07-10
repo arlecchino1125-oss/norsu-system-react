@@ -8,6 +8,7 @@ import {
     Users, GraduationCap, Rocket, BarChart2, Send, ChevronRight
 } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
+import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../../components/ui/Card';
 import {
     CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
@@ -261,7 +262,12 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
     }, []);
 
     if (loading) {
-        return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div></div>;
+        return (
+            <div className="space-y-8">
+                <LoadingSkeleton type="stats" count={4} />
+                <LoadingSkeleton type="card" count={2} />
+            </div>
+        );
     }
 
     return (

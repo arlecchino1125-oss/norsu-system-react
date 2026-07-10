@@ -7,6 +7,7 @@ import {
     Sparkles, Activity, FileBarChart, Eye
 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
+import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
 import QuestionChart from '../../../../../components/charts/QuestionChart';
 import YearLevelChart from '../../../../../components/charts/YearLevelChart';
 import TopQuestionsChart from '../../../../../components/charts/TopQuestionsChart';
@@ -403,12 +404,9 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
 
             {/* ── CONTENT AREA ── */}
             {loading ? (
-                <motion.div variants={fadeUp} className="flex flex-col items-center justify-center py-28 gap-5">
-                    <div className="relative w-16 h-16">
-                        <div className="absolute inset-0 rounded-full border-4 border-purple-100" />
-                        <div className="absolute inset-0 rounded-full border-4 border-t-purple-600 animate-spin" />
-                    </div>
-                    <p className="text-slate-500 font-medium">Loading analytics data…</p>
+                <motion.div variants={fadeUp} className="space-y-8">
+                    <LoadingSkeleton type="stats" count={4} />
+                    <LoadingSkeleton type="card" count={2} />
                 </motion.div>
             ) : (
                 <AnimatePresence mode="wait">

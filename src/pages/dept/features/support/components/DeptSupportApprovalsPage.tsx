@@ -10,6 +10,7 @@ import {
 } from '../../../../../utils/storageAssets';
 import { SUPPORT_STATUS, isDeptSupportCompleted } from '../../../../../utils/workflow';
 import { getTextInputLimitProps, validateTextInput } from '../../../../../utils/inputSecurity';
+import { AsyncButton } from '../../../../../components/ui/Button';
 
 const DeptSupportApprovalsPage = ({
     data,
@@ -640,7 +641,7 @@ const DeptSupportApprovalsPage = ({
                                 </div>
                             )}
                             <textarea value={messageData.message} {...getTextInputLimitProps('notes')} onChange={(e) => { setMessageNotice(null); setMessageData({ ...messageData, message: e.target.value }); }} rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Write your message here..." required />
-                            <button onClick={handleSendMessage} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2"><Send size={16} className="mr-2" /> Send Message</button>
+                            <AsyncButton onClick={handleSendMessage} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"><Send size={16} className="mr-2" /> Send Message</AsyncButton>
                         </div>
                     </div>
                 </div>

@@ -9,7 +9,7 @@ import { supabase } from '../../../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
-import { Button } from '../../../../../components/ui/Button';
+import { AsyncButton, Button, useAsyncHandler } from '../../../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../../components/ui/Card';
 import { getValidProfileImageUrl } from '../../../../../utils/formatters';
 import type { CareStaffDashboardFunctions } from '../../../types';
@@ -97,7 +97,10 @@ const EnrollmentKeysModal = ({
     showEnrollmentModal,
     syncEnrollmentKeysFromStudents,
     totalEnrollmentKeysCount
-}: any) => (
+}: any) => {
+    const [onGenerateKey, isGeneratingKey] = useAsyncHandler(handleGenerateKey);
+    const [onAddCourse, isAddingCourse] = useAsyncHandler(handleAddCourse);
+    return (
     <>
             {showEnrollmentModal && (
                 <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
@@ -138,7 +141,7 @@ const EnrollmentKeysModal = ({
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
                                             <label className="block text-xs font-bold text-slate-700 mb-2">Option 1: Manual Entry</label>
-                                            <form onSubmit={handleGenerateKey} className="flex flex-col gap-2">
+                                            <form onSubmit={onGenerateKey} className="flex flex-col gap-2">
                                                 <input required name="enrollmentId" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600" placeholder="Ex: 202612345" pattern="\d{9}" title="Student ID must be exactly 9 digits" />
                                                 <select required name="enrollmentCourse" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white">
                                                     <option value="">Select Course</option>
@@ -148,7 +151,7 @@ const EnrollmentKeysModal = ({
                                                     <select required name="enrollmentYear" defaultValue="1st Year" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white">
                                                         {YEAR_LEVEL_OPTIONS.map((year) => <option key={year} value={year}>{year}</option>)}
                                                     </select>
-                                                    <button type="submit" className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition shadow-md"><Plus size={16} /></button>
+                                                    <button type="submit" disabled={isGeneratingKey} className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition shadow-md disabled:opacity-60">{isGeneratingKey ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />}</button>
                                                 </div>
                                             </form>
                                         </div>
@@ -197,7 +200,7 @@ const EnrollmentKeysModal = ({
                                                             {key.status || (key.is_used ? 'Activated' : 'Pending')}
                                                         </span>
                                                         {canArchiveRecords && String(key.status || '') !== 'Archived' && String(key.status || '') !== 'Revoked' && (
-                                                            <button onClick={() => handleDeleteKey(key.student_id)} className="p-1.5 text-slate-400 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors" title="Revoke Key"><XCircle size={16} /></button>
+                                                            <AsyncButton onClick={() => handleDeleteKey(key.student_id)} className="p-1.5 text-slate-400 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors disabled:opacity-60" title="Revoke Key"><XCircle size={16} /></AsyncButton>
                                                         )}
                                                     </div>
                                                 </div>
@@ -215,7 +218,7 @@ const EnrollmentKeysModal = ({
                                             <h4 className="font-bold text-sm text-slate-800">Course &amp; Applicant Limits</h4>
                                             <p className="text-xs text-slate-500 mt-1">Add courses here and maintain per-course applicant and capacity limits, grouped by department.</p>
                                         </div>
-                                        <form onSubmit={handleAddCourse} className="grid grid-cols-1 md:grid-cols-8 gap-2 mb-4">
+                                        <form onSubmit={onAddCourse} className="grid grid-cols-1 md:grid-cols-8 gap-2 mb-4">
                                             <input type="text" className="md:col-span-3 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white" placeholder="Course name" value={courseForm.name} onChange={e => setCourseForm({ ...courseForm, name: e.target.value })} required />
                                             <input type="number" min={0} className="md:col-span-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white" placeholder="Capacity" value={courseForm.capacity} onChange={e => setCourseForm({ ...courseForm, capacity: parseInt(e.target.value || '0', 10) })} required title="Enrolled Student Capacity Limit" />
                                             <input type="number" min={0} className="md:col-span-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-600 bg-white" placeholder="Applicants" value={courseForm.application_limit} onChange={e => setCourseForm({ ...courseForm, application_limit: parseInt(e.target.value || '0', 10) })} required title="NAT Application Limit" />
@@ -223,7 +226,7 @@ const EnrollmentKeysModal = ({
                                                 <option value="" disabled>Select department</option>
                                                 {allDepartments.map((dept: any) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
                                             </select>
-                                            <button type="submit" className="md:col-span-1 px-3 py-2 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition">Add</button>
+                                            <button type="submit" disabled={isAddingCourse} className="md:col-span-1 px-3 py-2 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition disabled:opacity-60">{isAddingCourse ? 'Adding...' : 'Add'}</button>
                                         </form>
                                         <div className="mb-3">
                                             <label className="block text-xs font-bold text-slate-700 mb-1">Filter Courses by Department</label>
@@ -313,6 +316,7 @@ const EnrollmentKeysModal = ({
                 </div>
             )}
     </>
-);
+    );
+};
 
 export default EnrollmentKeysModal;

@@ -6,21 +6,8 @@ import { usePortalTabRoute, readInitialTab } from '../hooks/usePortalTabRoute';
 import { useToast } from '../components/ui/toast/ToastProvider';
 import { usePermissions } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
-import CareStaffAuditLogsPage from './carestaff/features/audit/components/CareStaffAuditLogsPage';
-import CareStaffDashboardView from './carestaff/features/dashboard/components/CareStaffDashboardView';
-import CareStaffCounselingPage from './carestaff/features/counseling/components/CareStaffCounselingPage';
-import CareStaffEventsPage from './carestaff/features/events/components/CareStaffEventsPage';
-import CareStaffFeedbackPage from './carestaff/features/feedback/components/CareStaffFeedbackPage';
-import CareStaffFormsPage from './carestaff/features/forms/components/CareStaffFormsPage';
+import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 import CareStaffHomePage from './carestaff/features/home/components/CareStaffHomePage';
-import CareStaffNatPage from './carestaff/features/nat/components/CareStaffNatPage';
-import CareStaffLogbookPage from './carestaff/features/logbook/components/CareStaffLogbookPage';
-import CareStaffScholarshipPage from './carestaff/features/scholarship/components/CareStaffScholarshipPage';
-import CareStaffPopulationPage from './carestaff/features/population/components/CareStaffPopulationPage';
-import CareStaffSettingsPage from './carestaff/features/settings/components/CareStaffSettingsPage';
-import CareStaffSupportPage from './carestaff/features/support/components/CareStaffSupportPage';
-import StaffCalendarPage from './shared/StaffCalendarPage';
-import StaffExportCenterPage from './shared/StaffExportCenterPage';
 import { renderCareStaffModals } from './carestaff/modals/CareStaffModals';
 import StaffPortalLayout from '../components/layout/StaffPortalLayout';
 import { useCareStaffAccountSecurity } from './carestaff/hooks/useCareStaffAccountSecurity';
@@ -41,7 +28,22 @@ import { ACTIVE_TABS } from './carestaff/types';
 
 const CARE_STAFF_BASE_PATH = '/care-staff/dashboard';
 
+// Each tab is its own chunk; Home stays eager as the landing tab.
 const CareStaffAnalyticsPage = lazy(() => import('./carestaff/features/analytics/components/CareStaffAnalyticsPage'));
+const CareStaffAuditLogsPage = lazy(() => import('./carestaff/features/audit/components/CareStaffAuditLogsPage'));
+const CareStaffDashboardView = lazy(() => import('./carestaff/features/dashboard/components/CareStaffDashboardView'));
+const CareStaffCounselingPage = lazy(() => import('./carestaff/features/counseling/components/CareStaffCounselingPage'));
+const CareStaffEventsPage = lazy(() => import('./carestaff/features/events/components/CareStaffEventsPage'));
+const CareStaffFeedbackPage = lazy(() => import('./carestaff/features/feedback/components/CareStaffFeedbackPage'));
+const CareStaffFormsPage = lazy(() => import('./carestaff/features/forms/components/CareStaffFormsPage'));
+const CareStaffNatPage = lazy(() => import('./carestaff/features/nat/components/CareStaffNatPage'));
+const CareStaffLogbookPage = lazy(() => import('./carestaff/features/logbook/components/CareStaffLogbookPage'));
+const CareStaffScholarshipPage = lazy(() => import('./carestaff/features/scholarship/components/CareStaffScholarshipPage'));
+const CareStaffPopulationPage = lazy(() => import('./carestaff/features/population/components/CareStaffPopulationPage'));
+const CareStaffSettingsPage = lazy(() => import('./carestaff/features/settings/components/CareStaffSettingsPage'));
+const CareStaffSupportPage = lazy(() => import('./carestaff/features/support/components/CareStaffSupportPage'));
+const StaffCalendarPage = lazy(() => import('./shared/StaffCalendarPage'));
+const StaffExportCenterPage = lazy(() => import('./shared/StaffExportCenterPage'));
 
 const CareStaffDashboard = () => {
     const navigate = useNavigate();
@@ -182,10 +184,9 @@ const CareStaffDashboard = () => {
     }, [goToTab]);
 
     const tabLoadingFallback = (
-        <div className="rounded-2xl border border-purple-100 bg-white p-10 text-center shadow-sm">
-            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-purple-200 border-t-purple-500" />
-            <p className="text-sm font-semibold text-gray-700">Loading module...</p>
-            <p className="mt-1 text-xs text-gray-500">Preparing this page and its assets.</p>
+        <div className="space-y-6">
+            <LoadingSkeleton type="stats" count={4} />
+            <LoadingSkeleton type="table" count={6} />
         </div>
     );
 
@@ -213,11 +214,7 @@ const CareStaffDashboard = () => {
             case 'dashboard':
                 return <CareStaffDashboardView setActiveTab={setActiveTabFromString} refreshSignal={viewRefreshSignal} />;
             case 'analytics':
-                return (
-                    <Suspense fallback={tabLoadingFallback}>
-                        <CareStaffAnalyticsPage functions={functions} />
-                    </Suspense>
-                );
+                return <CareStaffAnalyticsPage functions={functions} />;
             case 'nat':
                 return <CareStaffNatPage showToast={showToastMessage} />;
             case 'counseling':
@@ -233,7 +230,7 @@ const CareStaffDashboard = () => {
             case 'scholarship':
                 return <CareStaffScholarshipPage functions={functions} />;
             case 'forms':
-                return <CareStaffFormsPage functions={functions} />;
+                return <CareStaffFormsPage functions={functions} refreshSignal={viewRefreshSignal} />;
             case 'feedback':
                 return <CareStaffFeedbackPage functions={functions} />;
             case 'settings':
@@ -311,7 +308,9 @@ const CareStaffDashboard = () => {
             notificationsLoading={notificationsLoading}
             onOpenNotifications={handleOpenNotifications}
         >
-            {renderActiveTab()}
+            <Suspense fallback={tabLoadingFallback}>
+                {renderActiveTab()}
+            </Suspense>
 
             {renderCareStaffModals({
                 showCommandHub, setShowCommandHub, commandHubTab, setCommandHubTab, staffNotes, setStaffNotes,

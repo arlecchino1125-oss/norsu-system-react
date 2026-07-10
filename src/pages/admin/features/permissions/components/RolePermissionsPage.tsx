@@ -34,6 +34,7 @@ import {
     type RolePermission
 } from '../../../../../types/permissions';
 import { getSafeErrorMessage } from '../../../../../utils/errorMasking';
+import { AsyncButton } from '../../../../../components/ui/Button';
 
 type ToastState = {
     type: 'success' | 'error';
@@ -767,14 +768,14 @@ export default function RolePermissionsPage() {
                                                                 </label>
 
                                                                 <div className="flex flex-wrap gap-3">
-                                                                    <button
+                                                                    <AsyncButton
                                                                         type="button"
                                                                         disabled={isAdminView || isSaving}
-                                                                        onClick={() => void handleSaveNotice(permission.permissionKey, permission)}
+                                                                        onClick={() => handleSaveNotice(permission.permissionKey, permission)}
                                                                         className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                                                                     >
                                                                         Save Notice
-                                                                    </button>
+                                                                    </AsyncButton>
                                                                     <button
                                                                         type="button"
                                                                         disabled={isAdminView || isSaving}

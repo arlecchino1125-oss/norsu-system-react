@@ -10,7 +10,7 @@ import { supabase } from '../../../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
-import { Button } from '../../../../../components/ui/Button';
+import { AsyncButton, Button } from '../../../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../../components/ui/Card';
 import { getValidProfileImageUrl } from '../../../../../utils/formatters';
 import type { CareStaffDashboardFunctions } from '../../../types';
@@ -788,7 +788,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                                 <p className="text-xs text-slate-500">The student record stays in the database but is removed from the active roster.</p>
                                 <div className="pt-2 flex gap-3">
                                     <button type="button" onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
-                                    <button type="button" onClick={confirmDeleteStudent} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">Archive</button>
+                                    <AsyncButton type="button" onClick={confirmDeleteStudent} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-60 inline-flex items-center justify-center">Archive</AsyncButton>
                                 </div>
                             </div>
                         </div>
