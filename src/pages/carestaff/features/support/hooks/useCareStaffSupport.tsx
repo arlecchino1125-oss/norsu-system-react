@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../../../lib/supabase';
 import { createDeferredChannelCleanup } from '../../../../../lib/realtime';
@@ -18,11 +18,16 @@ import {
 } from '../../../../../utils/storageAssets';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import {
-    CARE_STAFF_SUPPORT_DEPT_UPDATE_STATUSES,
     SUPPORT_STATUS,
     isCareStaffSupportDeptUpdate
 } from '../../../../../utils/workflow';
 import PaginationControls from '../../../../../components/PaginationControls';
+import {
+    applySupportTabFilter as applyTabFilter,
+    applySupportCategoryFilter as applyCategoryFilter,
+    fetchSupportCounts,
+    fetchSupportListPage
+} from '../supportData';
 import { Button } from '../../../../../components/ui/Button';
 
 export interface CareStaffSupportPageProps {
@@ -32,22 +37,7 @@ export interface CareStaffSupportPageProps {
 
 export const MAX_SUPPORT_DOCUMENT_BYTES = 1024 * 1024;
 export const SUPPORT_DOCUMENT_ACCEPT = 'image/*,application/pdf';
-export const SUPPORT_REQUESTS_PAGE_SIZE = 12;
-export const SUPPORT_REQUEST_COLUMNS = [
-    'id',
-    'created_at',
-    'student_id',
-    'student_name',
-    'department',
-    'support_type',
-    'description',
-    'documents_url',
-    'status',
-    'care_notes',
-    'care_documents_url',
-    'dept_notes',
-    'resolution_notes'
-].join(', ');
+export { SUPPORT_REQUESTS_PAGE_SIZE, SUPPORT_REQUEST_COLUMNS } from '../supportData';
 export const SUPPORT_STUDENT_COLUMNS = [
     'student_id',
     'first_name',
@@ -141,76 +131,44 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
         .filter(matchesSupportTab)
         .filter(req => supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)));
 
-    const applySupportTabFilter = (query: any, tab = supportTab) => {
-        if (tab === 'dept_updates') {
-            return query.in('status', [...CARE_STAFF_SUPPORT_DEPT_UPDATE_STATUSES]);
-        }
-        return query.eq('status', tab);
-    };
+    const applySupportTabFilter = (query: any, tab = supportTab) => applyTabFilter(query, tab);
 
-    const applySupportCategoryFilter = (query: any) => {
-        if (supportCategory === 'All') return query;
-        return query.ilike('support_type', `%${supportCategory}%`);
-    };
+    const applySupportCategoryFilter = (query: any) => applyCategoryFilter(query, supportCategory);
 
-    // ponytail: Fetch support requests and counts using React Query to avoid redundant requests during tab switches.
-    const { data: supportData, isFetching: supportLoading, refetch: fetchSupport } = useQuery({
-        queryKey: ['care_staff_support_requests', supportTab, supportCategory, currentPage, refreshTick],
-        queryFn: async () => {
-            const from = (currentPage - 1) * SUPPORT_REQUESTS_PAGE_SIZE;
-            const to = from + SUPPORT_REQUESTS_PAGE_SIZE - 1;
-            let query: any = supabase
-                .from('support_requests')
-                .select(SUPPORT_REQUEST_COLUMNS, { count: 'exact' });
-            query = applySupportTabFilter(query);
-            query = applySupportCategoryFilter(query);
-            const { data, error, count } = await query
-                .order('created_at', { ascending: false })
-                .range(from, to);
-            if (error) throw error;
-
-            const countForTab = async (tab: string) => {
-                let countQuery: any = supabase
-                    .from('support_requests')
-                    .select('id', { count: 'exact', head: true });
-                countQuery = applySupportTabFilter(countQuery, tab);
-                const { count: tabCount, error: tabCountErr } = await countQuery;
-                if (tabCountErr) throw tabCountErr;
-                return tabCount || 0;
-            };
-
-            const [submitted, forwarded, visitScheduled, deptUpdates, completed] = await Promise.all([
-                countForTab(SUPPORT_STATUS.SUBMITTED),
-                countForTab(SUPPORT_STATUS.FORWARDED_TO_DEPT),
-                countForTab(SUPPORT_STATUS.VISIT_SCHEDULED),
-                countForTab('dept_updates'),
-                countForTab(SUPPORT_STATUS.COMPLETED)
-            ]);
-
-            const counts = {
-                [SUPPORT_STATUS.SUBMITTED]: submitted,
-                [SUPPORT_STATUS.FORWARDED_TO_DEPT]: forwarded,
-                [SUPPORT_STATUS.VISIT_SCHEDULED]: visitScheduled,
-                dept_updates: deptUpdates,
-                [SUPPORT_STATUS.COMPLETED]: completed
-            };
-
-            return {
-                reqs: sortSupportByCreatedAt(data || []),
-                total: count || 0,
-                counts
-            };
-        },
+    // List for the selected tab/category. Tab + category + page are in the key, so
+    // this legitimately refetches on those changes; refreshTick busts it on
+    // realtime writes.
+    const { data: listData, isFetching: supportLoading, refetch: refetchList } = useQuery({
+        queryKey: ['care_staff_support_list', supportTab, supportCategory, currentPage, refreshTick],
+        queryFn: () => fetchSupportListPage(supportTab, supportCategory, currentPage),
         staleTime: 60000
     });
 
+    // Tab/stat counts — keyed WITHOUT the tab, category, or page, so clicking any
+    // of them never refetches these. They load once and stay cached until a
+    // realtime write bumps refreshTick.
+    const { data: countsData, refetch: refetchCounts } = useQuery({
+        queryKey: ['care_staff_support_counts', refreshTick],
+        queryFn: fetchSupportCounts,
+        staleTime: 60000
+    });
+
+    // Refreshing the page (manual button, mutations) must hit BOTH queries or the
+    // badges go stale while the list updates.
+    const fetchSupport = useCallback(
+        () => Promise.all([refetchList(), refetchCounts()]),
+        [refetchList, refetchCounts]
+    );
+
     useEffect(() => {
-        if (supportData) {
-            setSupportReqs(supportData.reqs);
-            setSupportTotal(supportData.total);
-            setSupportCounts(supportData.counts);
+        if (listData) {
+            setSupportReqs(listData.reqs);
+            setSupportTotal(listData.total);
         }
-    }, [supportData]);
+        if (countsData) {
+            setSupportCounts(countsData);
+        }
+    }, [listData, countsData]);
 
     useEffect(() => {
         setCurrentPage(1);

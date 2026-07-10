@@ -15,46 +15,24 @@ import {
 import { Button } from '../../../../../components/ui/Button';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import {
-    COUNSELING_AWAITING_DEPT_STATUSES,
-    COUNSELING_CALENDAR_STATUSES,
     COUNSELING_STATUS,
     getCounselingScheduledDate,
     isCareStaffCounselingSchedulable,
     isCounselingAwaitingDept
 } from '../../../../../utils/workflow';
 import PaginationControls from '../../../../../components/PaginationControls';
+import {
+    applyCounselingTabFilter as applyTabFilter,
+    fetchCounselingCounts,
+    fetchCounselingListPage
+} from '../counselingData';
 
 export interface CareStaffCounselingPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToastMessage' | 'handleViewProfile'>;
     refreshSignal?: number;
 }
 
-export const COUNSELING_REQUESTS_PAGE_SIZE = 12;
-export const COUNSELING_REQUEST_COLUMNS = [
-    'id',
-    'created_at',
-    'student_id',
-    'student_name',
-    'request_type',
-    'description',
-    'status',
-    'department',
-    'course_year',
-    'contact_number',
-    'scheduled_date',
-    'resolution_notes',
-    'confidential_notes',
-    'feedback',
-    'reason_for_referral',
-    'personal_actions_taken',
-    'date_duration_of_concern',
-    'referred_by',
-    'referrer_contact_number',
-    'relationship_with_student',
-    'actions_made',
-    'date_duration_of_observations',
-    'referrer_signature'
-].join(', ');
+export { COUNSELING_REQUESTS_PAGE_SIZE, COUNSELING_REQUEST_COLUMNS } from '../counselingData';
 
 export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
     const { handleViewProfile, showToastMessage } = functions;
@@ -120,76 +98,41 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         });
     };
 
-    const applyCounselingTabFilter = (query: any, tab = counselingTab) => {
-        if (tab === COUNSELING_STATUS.SUBMITTED) {
-            return query.in('status', [...COUNSELING_AWAITING_DEPT_STATUSES]);
-        }
-        if (tab === 'Calendar') {
-            return query.in('status', [...COUNSELING_CALENDAR_STATUSES]);
-        }
-        return query.eq('status', tab);
-    };
+    const applyCounselingTabFilter = (query: any, tab = counselingTab) => applyTabFilter(query, tab);
 
-    // ponytail: Fetch counseling requests and counts using React Query to avoid redundant requests during tab switches.
-    const { data: counselingData, isFetching: loading, refetch: fetchCounseling } = useQuery({
-        queryKey: ['care_staff_counseling_requests', counselingTab, currentPage, refreshTick],
-        queryFn: async () => {
-            const from = (currentPage - 1) * COUNSELING_REQUESTS_PAGE_SIZE;
-            const to = from + COUNSELING_REQUESTS_PAGE_SIZE - 1;
-            let query: any = supabase
-                .from('counseling_requests')
-                .select(COUNSELING_REQUEST_COLUMNS, { count: 'exact' });
-            query = applyCounselingTabFilter(query);
-            const { data, error, count } = await query
-                .order('created_at', { ascending: false })
-                .range(from, to);
-            if (error) throw error;
-
-            const countForTab = async (tab: string) => {
-                let countQuery: any = supabase
-                    .from('counseling_requests')
-                    .select('id', { count: 'exact', head: true });
-                countQuery = applyCounselingTabFilter(countQuery, tab);
-                const { count: tabCount, error: tabCountErr } = await countQuery;
-                if (tabCountErr) throw tabCountErr;
-                return tabCount || 0;
-            };
-
-            const [awaitingDept, referred, staffScheduled, deptScheduled, completed, rejected] = await Promise.all([
-                countForTab(COUNSELING_STATUS.SUBMITTED),
-                countForTab(COUNSELING_STATUS.REFERRED),
-                countForTab(COUNSELING_STATUS.STAFF_SCHEDULED),
-                countForTab(COUNSELING_STATUS.SCHEDULED),
-                countForTab(COUNSELING_STATUS.COMPLETED),
-                countForTab(COUNSELING_STATUS.REJECTED)
-            ]);
-
-            const counts = {
-                awaitingDept,
-                [COUNSELING_STATUS.REFERRED]: referred,
-                [COUNSELING_STATUS.STAFF_SCHEDULED]: staffScheduled,
-                [COUNSELING_STATUS.SCHEDULED]: deptScheduled,
-                [COUNSELING_STATUS.COMPLETED]: completed,
-                [COUNSELING_STATUS.REJECTED]: rejected,
-                Calendar: staffScheduled + deptScheduled
-            };
-
-            return {
-                reqs: sortCounselingByCreatedAt(data || []),
-                total: count || 0,
-                counts
-            };
-        },
+    // List for the selected tab. Tab + page are in the key, so this legitimately
+    // refetches on a tab/page change; refreshTick busts it on realtime writes.
+    const { data: listData, isFetching: loading, refetch: refetchList } = useQuery({
+        queryKey: ['care_staff_counseling_list', counselingTab, currentPage, refreshTick],
+        queryFn: () => fetchCounselingListPage(counselingTab, currentPage),
         staleTime: 60000
     });
 
+    // Tab/stat counts — keyed WITHOUT the tab or page, so clicking a tab (or
+    // paging) never refetches them. They load once and stay cached until a
+    // realtime write bumps refreshTick.
+    const { data: countsData, refetch: refetchCounts } = useQuery({
+        queryKey: ['care_staff_counseling_counts', refreshTick],
+        queryFn: fetchCounselingCounts,
+        staleTime: 60000
+    });
+
+    // Refreshing the page (manual button, mutations) must hit BOTH queries or the
+    // badges go stale while the list updates.
+    const refetchCounseling = useCallback(
+        () => Promise.all([refetchList(), refetchCounts()]),
+        [refetchList, refetchCounts]
+    );
+
     useEffect(() => {
-        if (counselingData) {
-            setCounselingReqs(counselingData.reqs);
-            setCounselingTotal(counselingData.total);
-            setCounselingCounts(counselingData.counts);
+        if (listData) {
+            setCounselingReqs(listData.reqs);
+            setCounselingTotal(listData.total);
         }
-    }, [counselingData]);
+        if (countsData) {
+            setCounselingCounts(countsData);
+        }
+    }, [listData, countsData]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -209,7 +152,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
     const handleRefreshData = async () => {
         setIsRefreshingData(true);
         try {
-            await fetchCounseling();
+            await refetchCounseling();
             showToastMessage('Counseling data refreshed.', 'success');
         } finally {
             setIsRefreshingData(false);
@@ -237,7 +180,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
                 notes: scheduleData.notes
             });
 
-            void fetchCounseling();
+            void refetchCounseling();
             showToastMessage('Session Scheduled Successfully', 'success');
             queueProcessEmailNotification(result?.emailPayload, 'Session scheduled successfully.');
             setShowScheduleModal(false);
@@ -261,7 +204,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
                 privateNotes: completionForm.privateNotes
             });
 
-            void fetchCounseling();
+            void refetchCounseling();
             showToastMessage('Session marked as complete.', 'success');
             queueProcessEmailNotification(result?.emailPayload, 'Session marked as complete.');
             setShowCompleteModal(false);

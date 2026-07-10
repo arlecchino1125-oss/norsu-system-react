@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Camera, Pencil } from 'lucide-react';
 import AccountSecuritySettings from '../../../../../components/AccountSecuritySettings';
 import { openStoredAsset } from '../../../../../utils/storageAssets';
 import { cleanLiveProfileText, getProfileTextFieldRule } from '../../../../../utils/profileFieldRules';
@@ -59,7 +60,7 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
     const showsEditableControl = isEditing && !readOnly;
     const fieldShellClass = showsEditableControl
         ? 'min-w-0'
-        : 'min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2';
+        : 'min-w-0 rounded-xl border border-slate-200/80 bg-white px-3.5 py-3 transition-colors hover:border-blue-200 hover:bg-slate-50/70';
     const [isUploading, setIsUploading] = React.useState(false);
 
     const openDocument = async () => {
@@ -125,9 +126,9 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
     return (
         <div className={`${fieldShellClass} ${colSpan ? `sm:col-span-${colSpan}` : ''}`}>
             {showsEditableControl ? (
-                <label htmlFor={fieldId} className="mb-1 block text-[10px] font-black uppercase tracking-[0.11em] text-slate-400 sm:text-[10px]">{label}</label>
+                <label htmlFor={fieldId} className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.11em] text-slate-500 sm:text-[10px]">{label}</label>
             ) : (
-                <p className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 sm:text-[10px]">{label}</p>
+                <p className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 sm:text-[10px]">{label}</p>
             )}
             {showsEditableControl ? (
                 type === 'select' ? (
@@ -175,7 +176,7 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
             ) : type === 'document' && personalInfo[field] ? (
                 <button type="button" onClick={openDocument} className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">View file</button>
             ) : (
-                <p className="break-words text-sm font-bold leading-5 text-slate-800 sm:truncate" title={String(activePersonalInfo[field] || '')}>
+                <p className="min-h-5 break-words text-sm font-bold leading-5 text-slate-900" title={String(activePersonalInfo[field] || '')}>
                     {type === 'boolean' ? (activePersonalInfo[field] ? 'Yes' : 'No') : (activePersonalInfo[field] || <span className="text-gray-300 italic font-normal">—</span>)}
                 </p>
             )}
@@ -184,10 +185,15 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
 };
 
 const Section = ({ icon, gradient, title, children, cardClass, cardStyle }: any) => (
-    <div className={cardClass} style={cardStyle}>
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950"><span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-xs text-white shadow-sm`}>{icon}</span> {title}</h4>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-4">{children}</div>
-    </div>
+    <section className={cardClass} style={cardStyle}>
+        <div className="mb-4 flex items-center justify-between gap-3">
+            <h4 className="flex min-w-0 items-center gap-2 text-sm font-black text-slate-950">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} text-xs text-white shadow-sm`}>{icon}</span>
+                <span className="min-w-0 leading-tight">{title}</span>
+            </h4>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">{children}</div>
+    </section>
 );
 
 function ProfileViewContent(p: any) {
@@ -235,12 +241,12 @@ function ProfileViewContent(p: any) {
         [courseNameRows]
     );
     const profileCardClass = isEditing || isCompactMobileLayout
-        ? 'rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5'
-        : 'rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm card-hover sm:p-5';
-    const surfacePanelClass = 'student-profile-tabs grid grid-cols-3 gap-1 rounded-2xl border border-slate-200/80 bg-white p-1 shadow-sm';
+        ? 'rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5'
+        : 'rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm card-hover sm:p-5';
+    const surfacePanelClass = 'student-profile-tabs grid grid-cols-3 gap-1 rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-sm';
     const largePanelClass = isCompactMobileLayout
-        ? 'rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-8'
-        : 'rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm card-hover sm:p-8';
+        ? 'rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6'
+        : 'rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm card-hover sm:p-6';
     const activePersonalInfo = isEditing ? draftPersonalInfo : personalInfo;
     const profileTabs = [
         { id: 'personal', label: 'Personal Info', mobileLabel: 'Personal', icon: <Icons.Profile /> },
@@ -355,7 +361,13 @@ function ProfileViewContent(p: any) {
             <div className="flex-1 space-y-4 w-full">
                 <div className={`${surfacePanelClass} ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('100ms')}>
                     {profileTabs.map((tab: any) => (
-                        <button key={tab.id} onClick={() => { setProfileTab(tab.id); setIsEditing(false); }} className={`flex min-h-[2.75rem] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1.5 text-[9px] font-black leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:min-h-0 sm:flex-row sm:gap-2 sm:text-xs ${profileTab === tab.id ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'}`}>
+                        <button
+                            key={tab.id}
+                            type="button"
+                            aria-current={profileTab === tab.id ? 'page' : undefined}
+                            onClick={() => { setProfileTab(tab.id); setIsEditing(false); }}
+                            className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2 text-[10px] font-black leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:flex-row sm:gap-2 sm:text-xs ${profileTab === tab.id ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'}`}
+                        >
                             <span className={profileTab === tab.id ? 'text-blue-300' : 'text-slate-400'}>{tab.icon}</span>
                             <span className="sm:hidden">{tab.mobileLabel}</span>
                             <span className="hidden sm:inline">{tab.label}</span>
@@ -364,69 +376,76 @@ function ProfileViewContent(p: any) {
                 </div>
                 {profileTab === 'personal' && (
                     <div className={`space-y-4 ${isEditing || isCompactMobileLayout ? '' : 'animate-fade-in-up'}`} style={getCardStyle('200ms')}>
-                        <section className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-5 lg:p-6">
-                            <div className="flex min-w-0 items-start gap-3">
-                                <div className="relative h-14 w-14 shrink-0 sm:h-20 sm:w-20">
-                                    {personalInfo.profile_picture_url ? (
-                                        <img
-                                            src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
-                                            alt="Profile"
-                                            referrerPolicy="no-referrer"
-                                            className="h-14 w-14 rounded-2xl border border-slate-200 bg-slate-50 object-cover shadow-sm sm:h-20 sm:w-20"
-                                        />
-                                    ) : (
-                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-2xl font-black text-blue-600 shadow-sm sm:h-20 sm:w-20 sm:text-3xl">
-                                            {personalInfo.firstName?.[0] || 'S'}
-                                        </div>
-                                    )}
-                                    <button
-                                        type="button"
-                                        aria-label="Change profile picture"
-                                        title="Change profile picture"
-                                        onClick={openFilePicker}
-                                        className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-600 shadow-md transition-all hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
-                                    </button>
-                                </div>
+                        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                            <div>
+                                <div className="p-4 sm:p-5 lg:p-6">
+                                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                                            <div className="relative h-16 w-16 shrink-0 sm:h-24 sm:w-24">
+                                                {personalInfo.profile_picture_url ? (
+                                                    <img
+                                                        src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
+                                                        alt="Profile"
+                                                        referrerPolicy="no-referrer"
+                                                        className="h-16 w-16 rounded-2xl border border-slate-200 bg-slate-50 object-cover shadow-sm sm:h-24 sm:w-24"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-2xl font-black text-blue-600 shadow-sm sm:h-24 sm:w-24 sm:text-4xl">
+                                                        {personalInfo.firstName?.[0] || 'S'}
+                                                    </div>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    aria-label="Change profile picture"
+                                                    title="Change profile picture"
+                                                    onClick={openFilePicker}
+                                                    className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-600 shadow-sm transition-all hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                                                >
+                                                    <Camera className="h-4 w-4" />
+                                                </button>
+                                            </div>
 
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex min-w-0 items-start gap-2">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-blue-500">Student Profile</p>
-                                            <h3 className="mt-0.5 truncate text-lg font-black leading-tight text-slate-950 sm:text-2xl" title={studentFullName}>
-                                                {studentFullName}
-                                            </h3>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="pr-20 sm:pr-0">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-blue-600">Student Profile</p>
+                                                    <h3 className="mt-1 break-words text-xl font-black leading-tight text-slate-950 sm:text-2xl" title={studentFullName}>
+                                                        {studentFullName}
+                                                    </h3>
+                                                    <p className="mt-1 font-mono text-[11px] font-bold text-slate-500">{personalInfo.studentId || 'No student ID'}</p>
+                                                </div>
+
+                                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                                    {profileChips.map((chip) => (
+                                                        <span key={chip} className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${chip === profileStatus ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                                                            {chip}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
+
                                         <button
                                             type="button"
                                             aria-label="Edit profile"
                                             title="Edit profile"
                                             onClick={() => { setProfileTab('personal'); setShowMoreProfile(true); setIsEditing(true); }}
-                                            className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 text-white shadow-sm transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                                            className="absolute right-0 top-0 inline-flex min-h-11 w-[70px] shrink-0 items-center justify-center gap-1 rounded-xl bg-slate-950 px-2 py-2.5 text-xs font-black text-white shadow-sm transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:static sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                                            <Pencil className="h-4 w-4" />
+                                            <span className="sm:hidden">Edit</span>
+                                            <span className="hidden sm:inline">Edit Profile</span>
                                         </button>
                                     </div>
-                                    <p className="mt-0.5 font-mono text-[11px] font-bold text-slate-500">{personalInfo.studentId || 'No student ID'}</p>
 
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {profileChips.map((chip) => (
-                                            <span key={chip} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${chip === profileStatus ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-                                                {chip}
-                                            </span>
+                                    <div className="mt-5 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+                                        {academicSummary.map((item) => (
+                                            <div key={item.label} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                                                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">{item.label}</p>
+                                                <p className="mt-1 break-words text-[13px] font-bold leading-5 text-slate-900" title={item.value}>{item.value}</p>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
-                            </div>
-
-                            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-2">
-                                {academicSummary.map((item) => (
-                                    <div key={item.label} className="min-w-0">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
-                                        <p className="mt-0.5 truncate text-[13px] font-bold text-slate-800" title={item.value}>{item.value}</p>
-                                    </div>
-                                ))}
                             </div>
                         </section>
 
@@ -463,11 +482,11 @@ function ProfileViewContent(p: any) {
                             {activePersonalInfo.region === 'Other' && <Field {...fp} label="Specify Region" field="regionOther" />}
                         </Section>
                         {!shouldRenderFullPersonalTab && (
-                            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-                                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">More Sections Available</p>
-                                <p className="mt-2 text-sm text-slate-600 leading-relaxed">Show the remaining profile sections only when needed to keep this page lighter on slower mobile devices.</p>
-                                <button onClick={() => setShowMoreProfile(true)} className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-500">
-                                    Show More Profile Sections
+                            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5 shadow-sm">
+                                <p className="text-sm font-black text-slate-950">Family, guardian, education, and support details</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">Review the remaining sections when you need to update the information used by CARE services.</p>
+                                <button type="button" onClick={() => setShowMoreProfile(true)} className="mt-4 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
+                                    View Remaining Sections
                                 </button>
                             </div>
                         )}
@@ -591,14 +610,14 @@ function ProfileViewContent(p: any) {
                             </>
                         )}
                         {isCompactMobileLayout && showMoreProfile && !isEditing && (
-                            <button onClick={() => setShowMoreProfile(false)} className="w-full rounded-xl border border-blue-100/60 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50">
+                            <button type="button" onClick={() => setShowMoreProfile(false)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
                                 Show Fewer Profile Sections
                             </button>
                         )}
                         {isEditing && (
                             <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-                                <button onClick={() => { setIsEditing(false); if (isCompactMobileLayout) setShowMoreProfile(false); }} className="w-full rounded-xl border border-purple-100/50 bg-white/80 px-6 py-3 text-sm font-bold transition-all hover:bg-gray-50 sm:w-auto sm:py-2.5">Cancel</button>
-                                <button disabled={Boolean(isSavingProfileChanges)} onClick={() => { setPersonalInfo(draftPersonalInfo); void saveProfileChanges(draftPersonalInfo); }} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:shadow-xl btn-press disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2.5">{isSavingProfileChanges ? 'Saving...' : 'Save Changes'}</button>
+                                <button type="button" onClick={() => { setIsEditing(false); if (isCompactMobileLayout) setShowMoreProfile(false); }} className="w-full rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:w-auto sm:py-2.5">Cancel</button>
+                                <button type="button" disabled={Boolean(isSavingProfileChanges)} onClick={() => { setPersonalInfo(draftPersonalInfo); void saveProfileChanges(draftPersonalInfo); }} className="w-full rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 btn-press disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2.5">{isSavingProfileChanges ? 'Saving...' : 'Save Changes'}</button>
                             </div>
                         )}
                     </div>

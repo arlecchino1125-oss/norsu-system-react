@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
     Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Archive, RefreshCw
 } from 'lucide-react';
@@ -96,6 +97,13 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         renderAudienceCheckboxGroup
     } = useCareStaffEvents({ functions });
 
+    const eventTabs = [
+        { id: 'All Items', label: 'All Items', count: events.length },
+        { id: 'Activities', label: 'Activities', count: events.filter((item) => isVisibleForStaffFilter(item, 'Activities')).length },
+        { id: 'Announcements', label: 'Announcements', count: events.filter((item) => isVisibleForStaffFilter(item, 'Announcements')).length },
+        { id: 'Archived', label: 'Archived', count: archivedEvents.length }
+    ];
+
     return (
         <>
             <div>
@@ -129,19 +137,37 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                 </div>
 
                 {/* Filter Tabs */}
-                <div className="flex justify-between items-center mb-6">
-                    <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                        {['All Items', 'Activities', 'Announcements', 'Archived'].map(tab => (
-                            <button key={tab} onClick={() => setEventFilter(tab)} className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5 ${eventFilter === tab ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-700'}`}>
-                                {tab === 'Archived' && <Archive size={14} />}
-                                {tab}
-                                {tab === 'Archived' && archivedEvents.length > 0 && (
-                                    <span className="ml-1 bg-gray-200 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{archivedEvents.length}</span>
-                                )}
-                            </button>
-                        ))}
+                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="max-w-full overflow-x-auto rounded-full">
+                        <div className="inline-flex min-w-max items-center gap-1 rounded-full border border-gray-200/60 bg-white/60 p-1.5 shadow-sm backdrop-blur-xl">
+                            <AnimatePresence>
+                                {eventTabs.map((tab) => {
+                                    const isActive = eventFilter === tab.id;
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            type="button"
+                                            aria-pressed={isActive}
+                                            onClick={() => setEventFilter(tab.id)}
+                                            className={`relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800'}`}
+                                        >
+                                            {isActive && (
+                                                <motion.div
+                                                    layoutId="eventFilterBubble"
+                                                    className="absolute inset-0 -z-10 rounded-full bg-purple-600 shadow-md shadow-purple-200"
+                                                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                                                />
+                                            )}
+                                            {tab.id === 'Archived' && <Archive size={14} />}
+                                            <span>{tab.label}</span>
+                                            <span className={`text-xs ${isActive ? 'rounded-full bg-white/20 px-1.5 py-0.5 text-white' : 'rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-500'}`}>{tab.count}</span>
+                                        </button>
+                                    );
+                                })}
+                            </AnimatePresence>
+                        </div>
                     </div>
-                    <span className="text-xs font-bold text-gray-400 bg-white px-3 py-1 rounded-md border border-gray-200">
+                    <span className="self-start rounded-md border border-gray-200 bg-white px-3 py-1 text-xs font-bold text-gray-400 sm:self-auto">
                         {eventFilter === 'Archived' ? `Archived: ${archivedEvents.length}` : `Active: ${events.length}`}
                     </span>
                 </div>
