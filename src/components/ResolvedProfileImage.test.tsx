@@ -34,6 +34,45 @@ describe('ResolvedProfileImage', () => {
         );
     });
 
+    it('shows a loading state until the private image finishes rendering', () => {
+        vi.mocked(useResolvedDocumentUrl).mockReturnValueOnce({
+            url: null,
+            isLoading: true,
+            error: null
+        });
+        const { rerender } = render(
+            <ResolvedProfileImage
+                storedValue="r2:students/1/profile/photo/profile.jpg"
+                studentId="430130903"
+                alt="Student profile"
+                className="h-12 w-12 rounded-lg object-cover"
+            />
+        );
+
+        expect(screen.getByRole('status', { name: 'Loading Student profile' })).toBeInTheDocument();
+
+        vi.mocked(useResolvedDocumentUrl).mockReturnValue({
+            url: 'https://r2.example/profile.jpg',
+            isLoading: false,
+            error: null
+        });
+        rerender(
+            <ResolvedProfileImage
+                storedValue="r2:students/1/profile/photo/profile.jpg"
+                studentId="430130903"
+                alt="Student profile"
+                className="h-12 w-12 rounded-lg object-cover"
+            />
+        );
+
+        const image = screen.getByRole('button', { name: 'Student profile' });
+        expect(screen.getByRole('status', { name: 'Loading Student profile' })).toBeInTheDocument();
+
+        fireEvent.load(image);
+
+        expect(screen.queryByRole('status', { name: 'Loading Student profile' })).not.toBeInTheDocument();
+    });
+
     it('leaves preview handling to an existing profile-photo modal', () => {
         const openExistingModal = vi.fn();
         render(

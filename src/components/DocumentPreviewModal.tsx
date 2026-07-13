@@ -22,6 +22,7 @@ export default function DocumentPreviewModal() {
     const [request, setRequest] = useState<DocumentPreviewRequest | null>(null);
     const [convertedUrl, setConvertedUrl] = useState('');
     const [isPreparing, setIsPreparing] = useState(false);
+    const [isContentLoading, setIsContentLoading] = useState(false);
     const [error, setError] = useState('');
     const extension = useMemo(() => request ? getExtension(request) : '', [request]);
 
@@ -32,7 +33,13 @@ export default function DocumentPreviewModal() {
             setRequest(detail);
             setConvertedUrl('');
             setError('');
-            setIsPreparing(CONVERTED_IMAGE_EXTENSIONS.has(getExtension(detail)));
+            const nextExtension = getExtension(detail);
+            setIsPreparing(CONVERTED_IMAGE_EXTENSIONS.has(nextExtension));
+            setIsContentLoading(
+                DIRECT_IMAGE_EXTENSIONS.has(nextExtension)
+                || CONVERTED_IMAGE_EXTENSIONS.has(nextExtension)
+                || nextExtension === 'pdf'
+            );
         };
         window.addEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
         return () => window.removeEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
@@ -58,7 +65,10 @@ export default function DocumentPreviewModal() {
                 }
                 setConvertedUrl(objectUrl);
             } catch {
-                if (!cancelled) setError('This image could not be prepared for preview.');
+                if (!cancelled) {
+                    setError('This image could not be prepared for preview.');
+                    setIsContentLoading(false);
+                }
             } finally {
                 if (!cancelled) setIsPreparing(false);
             }
@@ -75,6 +85,11 @@ export default function DocumentPreviewModal() {
     const isDirectImage = DIRECT_IMAGE_EXTENSIONS.has(extension);
     const isConvertedImage = CONVERTED_IMAGE_EXTENSIONS.has(extension);
     const isPdf = extension === 'pdf';
+    const finishLoading = () => setIsContentLoading(false);
+    const failLoading = () => {
+        setIsContentLoading(false);
+        setError('This file could not be loaded for preview.');
+    };
 
     return (
         <Modal
@@ -85,24 +100,24 @@ export default function DocumentPreviewModal() {
             className="max-h-[92vh]"
             zIndex="z-[10020]"
         >
-            <div className="flex min-h-[45vh] items-center justify-center overflow-hidden rounded-xl bg-slate-100">
-                {isPreparing && (
-                    <div role="status" className="flex flex-col items-center gap-3 px-6 text-center text-sm font-semibold text-slate-600">
+            <div className="relative flex min-h-[45vh] items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+                {(isPreparing || isContentLoading) && (
+                    <div role="status" aria-label="Loading file preview" className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-100/90 px-6 text-center text-sm font-semibold text-slate-600">
                         <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
-                        Preparing image preview…
+                        {isPreparing ? 'Preparing image preview…' : 'Loading file preview…'}
                     </div>
                 )}
-                {!isPreparing && error && (
+                {!isPreparing && !isContentLoading && error && (
                     <p role="alert" className="px-6 text-center text-sm font-semibold text-rose-700">{error}</p>
                 )}
                 {!isPreparing && !error && request && isDirectImage && (
-                    <img src={request.url} alt={request.label} className="max-h-[60vh] max-w-full object-contain" referrerPolicy="no-referrer" />
+                    <img src={request.url} alt={request.label} onLoad={finishLoading} onError={failLoading} className={`max-h-[60vh] max-w-full object-contain ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} referrerPolicy="no-referrer" />
                 )}
                 {!isPreparing && !error && request && isConvertedImage && convertedUrl && (
-                    <img src={convertedUrl} alt={request.label} className="max-h-[60vh] max-w-full object-contain" />
+                    <img src={convertedUrl} alt={request.label} onLoad={finishLoading} onError={failLoading} className={`max-h-[60vh] max-w-full object-contain ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
                 )}
                 {!isPreparing && !error && request && isPdf && (
-                    <iframe src={request.url} title={request.label} className="h-[60vh] w-full border-0 bg-white" />
+                    <iframe src={request.url} title={request.label} onLoad={finishLoading} onError={failLoading} className={`h-[60vh] w-full border-0 bg-white ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
                 )}
                 {!isPreparing && !error && request && !isDirectImage && !isConvertedImage && !isPdf && (
                     <p role="alert" className="px-6 text-center text-sm font-semibold text-slate-700">This file type cannot be previewed in the portal.</p>

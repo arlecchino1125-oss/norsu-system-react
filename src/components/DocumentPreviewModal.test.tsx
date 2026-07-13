@@ -37,7 +37,13 @@ describe('DocumentPreviewModal', () => {
 
         expect(screen.getByRole('dialog', { name: 'photo.jpg' })).toBeInTheDocument();
         expect(screen.getByRole('dialog', { name: 'photo.jpg' }).parentElement).toHaveClass('z-[10020]');
-        expect(screen.getByRole('img', { name: 'photo.jpg' })).toHaveAttribute('src', 'https://r2.example/photo.jpg?signature=test');
+        const image = screen.getByRole('img', { name: 'photo.jpg' });
+        expect(image).toHaveAttribute('src', 'https://r2.example/photo.jpg?signature=test');
+        expect(screen.getByRole('status', { name: 'Loading file preview' })).toBeInTheDocument();
+
+        fireEvent.load(image);
+
+        expect(screen.queryByRole('status', { name: 'Loading file preview' })).not.toBeInTheDocument();
         expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
     });
 
@@ -70,7 +76,13 @@ describe('DocumentPreviewModal', () => {
             label: 'document.pdf'
         });
 
-        expect(screen.getByTitle('document.pdf')).toHaveAttribute('src', 'https://r2.example/document.pdf?signature=test');
+        const frame = screen.getByTitle('document.pdf');
+        expect(frame).toHaveAttribute('src', 'https://r2.example/document.pdf?signature=test');
+        expect(screen.getByRole('status', { name: 'Loading file preview' })).toBeInTheDocument();
+
+        fireEvent.load(frame);
+
+        expect(screen.queryByRole('status', { name: 'Loading file preview' })).not.toBeInTheDocument();
         expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
     });
 
