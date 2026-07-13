@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import {
     isR2Reference,
+    openStoredAsset,
     resolveStoredAssetUrl,
     resolveStoredAssetUrlsBulk
 } from './storageAssets';
@@ -64,6 +65,36 @@ describe('R2 stored asset resolution', () => {
             requireAuth: true,
             body: { action: 'create-view', locator }
         }));
+    });
+
+    it('requests an in-portal preview without opening a new browser tab', async () => {
+        invokeMock.mockResolvedValue({
+            success: true,
+            url: 'https://r2.example/signed-get',
+            expiresAt: '2026-07-13T00:05:00.000Z'
+        });
+        const previewHandler = vi.fn();
+        const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+        window.addEventListener('care:document-preview', previewHandler);
+
+        await openStoredAsset(
+            'profile-pictures',
+            'r2:students/245/profile/photo/a.jpg',
+            300,
+            locator
+        );
+
+        expect(previewHandler).toHaveBeenCalledTimes(1);
+        expect((previewHandler.mock.calls[0][0] as CustomEvent).detail).toEqual({
+            url: 'https://r2.example/signed-get',
+            storedValue: 'r2:students/245/profile/photo/a.jpg',
+            label: 'a.jpg',
+            locator
+        });
+        expect(openSpy).not.toHaveBeenCalled();
+
+        window.removeEventListener('care:document-preview', previewHandler);
+        openSpy.mockRestore();
     });
 
     it('batch-resolves r2 entries while retaining legacy URLs', async () => {

@@ -27,6 +27,15 @@ export type R2BulkLocatorEntry = {
     locator: R2DocumentLocator;
 };
 
+export const DOCUMENT_PREVIEW_EVENT = 'care:document-preview';
+
+export type DocumentPreviewRequest = {
+    url: string;
+    storedValue: string;
+    label: string;
+    locator?: R2DocumentLocator;
+};
+
 const resolveR2DocumentUrl = async (locator?: R2DocumentLocator) => {
     if (!locator) throw new Error('Document authorization details are required.');
     const result = await invokeEdgeFunction<R2ViewResponse>('manage-r2-documents', {
@@ -136,10 +145,14 @@ export const openStoredAsset = async (
         throw new Error('Unable to open the selected file.');
     }
 
-    const newWindow = window.open(resolvedUrl, '_blank', 'noopener,noreferrer');
-    if (newWindow) {
-        newWindow.opener = null;
-    }
+    window.dispatchEvent(new CustomEvent<DocumentPreviewRequest>(DOCUMENT_PREVIEW_EVENT, {
+        detail: {
+            url: resolvedUrl,
+            storedValue: String(value || '').trim(),
+            label: getStoredAssetLabel(value),
+            locator
+        }
+    }));
 
     return resolvedUrl;
 };

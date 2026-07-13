@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { captureEdgeException } from '../_shared/sentry.ts';
 import { escapeHtml, sendEmail, trySendEmail } from '../_shared/emailService.ts';
+import { hashNatPassword } from '../_shared/natPassword.ts';
 import { enforceRateLimit } from './rateLimit.ts';
 import { sanitizeOptionalPlainText, sanitizePlainText } from './plainText.ts';
 
@@ -81,13 +82,6 @@ const toNullableInt = (value: unknown) => {
     return Number.isInteger(numberValue) && numberValue >= 0
         ? numberValue
         : null;
-};
-
-const sha256Hex = async (value: string) => {
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-    return Array.from(new Uint8Array(digest))
-        .map((byte) => byte.toString(16).padStart(2, '0'))
-        .join('');
 };
 
 const buildReferenceId = () =>
@@ -224,7 +218,7 @@ const submitNatApplication = async (adminClient: any, body: Record<string, unkno
         alt_course_2: sanitizeOptionalPlainText(body.alt_course_2, { maxLength: 120 }),
         test_date: testDate,
         username: email,
-        nat_password_hash: await sha256Hex(password)
+        nat_password_hash: await hashNatPassword(password)
     };
 
     if (Object.prototype.hasOwnProperty.call(body, 'test_time')) {

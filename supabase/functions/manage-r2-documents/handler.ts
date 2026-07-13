@@ -116,6 +116,7 @@ const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$
 const UUID_SEGMENT = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const EXTENSION_SEGMENT = '(?:jpg|png|webp|pdf)';
 const MIGRATED_FILE_SEGMENT = '(?:(?:drive|supabase)-[A-Za-z0-9._-]+)';
+const MIGRATED_EXTENSION_SEGMENT = '(?:jpg|png|webp|pdf|heic|heif|ico)';
 
 const objectKeyMatchesResource = (
     objectKey: string,
@@ -124,21 +125,21 @@ const objectKeyMatchesResource = (
 ) => {
     const studentPrefix = `students/${resource.studentDbId}`;
     const fileSegment = allowMigratedKeys
-        ? `(?:${UUID_SEGMENT}|${MIGRATED_FILE_SEGMENT})`
-        : UUID_SEGMENT;
+        ? `(?:${UUID_SEGMENT}\\.${EXTENSION_SEGMENT}|${MIGRATED_FILE_SEGMENT}\\.${MIGRATED_EXTENSION_SEGMENT})`
+        : `${UUID_SEGMENT}\\.${EXTENSION_SEGMENT}`;
     const supportGroupSegment = allowMigratedKeys && resource.requestId
         ? `(?:${UUID_SEGMENT}|${escapeRegex(String(resource.requestId))})`
         : UUID_SEGMENT;
     const categoryPatterns: Record<R2DocumentCategory, string> = {
-        'profile-photo': `${studentPrefix}/profile/photo/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'claim-pwd': `${studentPrefix}/profile/claims/pwd/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'claim-indigenous': `${studentPrefix}/profile/claims/indigenous/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'claim-four-ps': `${studentPrefix}/profile/claims/four-ps/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'claim-solo-parent': `${studentPrefix}/profile/claims/solo-parent/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'claim-senior-citizen': `${studentPrefix}/profile/claims/senior-citizen/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'support-student': `${studentPrefix}/support/${supportGroupSegment}/student-documents/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'support-endorsement': `${studentPrefix}/support/${escapeRegex(String(resource.requestId || ''))}/endorsement/${fileSegment}\\.${EXTENSION_SEGMENT}`,
-        'attendance-proof': `${studentPrefix}/events/${escapeRegex(String(resource.eventId || ''))}/attendance/${fileSegment}\\.${EXTENSION_SEGMENT}`
+        'profile-photo': `${studentPrefix}/profile/photo/${fileSegment}`,
+        'claim-pwd': `${studentPrefix}/profile/claims/pwd/${fileSegment}`,
+        'claim-indigenous': `${studentPrefix}/profile/claims/indigenous/${fileSegment}`,
+        'claim-four-ps': `${studentPrefix}/profile/claims/four-ps/${fileSegment}`,
+        'claim-solo-parent': `${studentPrefix}/profile/claims/solo-parent/${fileSegment}`,
+        'claim-senior-citizen': `${studentPrefix}/profile/claims/senior-citizen/${fileSegment}`,
+        'support-student': `${studentPrefix}/support/${supportGroupSegment}/student-documents/${fileSegment}`,
+        'support-endorsement': `${studentPrefix}/support/${escapeRegex(String(resource.requestId || ''))}/endorsement/${fileSegment}`,
+        'attendance-proof': `${studentPrefix}/events/${escapeRegex(String(resource.eventId || ''))}/attendance/${fileSegment}`
     };
     return new RegExp(`^${categoryPatterns[resource.category]}$`, 'i').test(objectKey);
 };

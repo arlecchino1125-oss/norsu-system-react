@@ -22,6 +22,51 @@ const NAT_SESSION_REFRESH_INTERVAL_MS = 90 * 1000;
 const NAT_SECURE_TIME_CACHE_TTL_MS = 5 * 60 * 1000;
 const NAT_APPLICATION_DRAFT_STORAGE_KEY = 'norsu-nat-application-draft-v1';
 
+// Cloudflare Turnstile CAPTCHA, rendered only after the server flags a
+// username as requiring a security check (three failed logins).
+const TURNSTILE_SCRIPT_ID = 'cf-turnstile-script';
+
+const TurnstileWidget = ({ onToken }: { onToken: (token: string) => void }) => {
+    const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        let widgetId: string | null = null;
+        let cancelled = false;
+
+        const render = () => {
+            const turnstile = (window as any).turnstile;
+            if (cancelled || widgetId !== null || !containerRef.current || !turnstile) return;
+            widgetId = turnstile.render(containerRef.current, {
+                sitekey: String(import.meta.env.VITE_TURNSTILE_SITE_KEY || ''),
+                callback: onToken,
+                'expired-callback': () => onToken(''),
+                'error-callback': () => onToken('')
+            });
+        };
+
+        if ((window as any).turnstile) {
+            render();
+        } else {
+            let script = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null;
+            if (!script) {
+                script = document.createElement('script');
+                script.id = TURNSTILE_SCRIPT_ID;
+                script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+                script.async = true;
+                document.head.appendChild(script);
+            }
+            script.addEventListener('load', render);
+        }
+
+        return () => {
+            cancelled = true;
+            if (widgetId !== null) (window as any).turnstile?.remove(widgetId);
+        };
+    }, [onToken]);
+
+    return <div ref={containerRef} className="flex justify-center" />;
+};
+
 const INITIAL_NAT_FORM_DATA = {
     agreedToPrivacy: false,
     firstName: '', lastName: '', middleName: '', suffix: '',
@@ -559,6 +604,8 @@ const NATPortal = () => {
     const [currentScreen, setCurrentScreen] = useState<string>('welcome');
     const [currentStep, setCurrentStep] = useState<number>(draftSnapshot?.currentStep || 1);
     const [loading, setLoading] = useState<boolean>(false);
+    const [captchaRequired, setCaptchaRequired] = useState<boolean>(false);
+    const [captchaToken, setCaptchaToken] = useState<string>('');
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
     const [activationConfirm, setActivationConfirm] = useState<{ visible: boolean; studentId: string; course: string }>({ visible: false, studentId: '', course: '' });
@@ -1028,11 +1075,14 @@ const NATPortal = () => {
                 {
                     mode: 'login',
                     username: user,
-                    password: pass
+                    password: pass,
+                    ...(captchaToken ? { captchaToken } : {})
                 },
                 'Failed to sign in to the NAT portal.'
             );
 
+            setCaptchaRequired(false);
+            setCaptchaToken('');
             setCredentials((prev: any) => ({
                 ...(prev || {}),
                 username: user,
@@ -1042,7 +1092,11 @@ const NATPortal = () => {
             setCurrentUser(data.application);
             setCurrentScreen('dashboard');
         } catch (err: any) {
-            showToast("Login error: ", 'error');
+            if (err?.status === 403) {
+                setCaptchaRequired(true);
+                setCaptchaToken('');
+            }
+            showToast(err?.message || 'Failed to sign in to the NAT portal.', 'error');
         } finally {
             setLoading(false);
         }
@@ -1504,8 +1558,15 @@ const NATPortal = () => {
                             </div>
                         </div>
 
+                        {captchaRequired && (
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Security Check</label>
+                                <TurnstileWidget onToken={setCaptchaToken} />
+                            </div>
+                        )}
+
                         <button
-                            disabled={loading}
+                            disabled={loading || (captchaRequired && !captchaToken)}
                             className="nat-primary-action w-full bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 rounded-2xl font-black mt-4 hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70 group relative overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>

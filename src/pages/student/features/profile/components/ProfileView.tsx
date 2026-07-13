@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Camera, Pencil } from 'lucide-react';
+import { Camera, Loader2, Pencil } from 'lucide-react';
 import AccountSecuritySettings from '../../../../../components/AccountSecuritySettings';
 import { openStoredAsset } from '../../../../../utils/storageAssets';
 import { cleanLiveProfileText, getProfileTextFieldRule } from '../../../../../utils/profileFieldRules';
@@ -337,6 +337,8 @@ function ProfileViewContent(p: any) {
         }
     }, [personalInfo.profilePictureUrl, personalInfo.profile_picture_url, isEditing, setDraftPersonalInfo]);
 
+    const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
+
     // Programmatic file picker — avoids useRef (hook) inside a plain render function
     const openFilePicker = () => {
         const input = document.createElement('input');
@@ -344,7 +346,10 @@ function ProfileViewContent(p: any) {
         input.accept = 'image/*';
         input.onchange = (e: any) => {
             const file = e.target.files?.[0];
-            if (file && uploadProfilePicture) uploadProfilePicture(file);
+            if (file && uploadProfilePicture) {
+                setIsUploadingPhoto(true);
+                void Promise.resolve(uploadProfilePicture(file)).finally(() => setIsUploadingPhoto(false));
+            }
         };
         input.click();
     };
@@ -396,12 +401,13 @@ function ProfileViewContent(p: any) {
                                                 )}
                                                 <button
                                                     type="button"
-                                                    aria-label="Change profile picture"
-                                                    title="Change profile picture"
+                                                    aria-label={isUploadingPhoto ? 'Uploading profile picture' : 'Change profile picture'}
+                                                    title={isUploadingPhoto ? 'Uploading…' : 'Change profile picture'}
                                                     onClick={openFilePicker}
-                                                    className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-600 shadow-sm transition-all hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                                                    disabled={isUploadingPhoto}
+                                                    className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-blue-600 shadow-sm transition-all hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:pointer-events-none disabled:opacity-70"
                                                 >
-                                                    <Camera className="h-4 w-4" />
+                                                    {isUploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                                                 </button>
                                             </div>
 

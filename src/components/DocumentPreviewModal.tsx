@@ -1,0 +1,113 @@
+import { useEffect, useMemo, useState } from 'react';
+import Modal from './ui/Modal';
+import {
+    DOCUMENT_PREVIEW_EVENT,
+    type DocumentPreviewRequest
+} from '../utils/storageAssets';
+
+const DIRECT_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'ico']);
+const CONVERTED_IMAGE_EXTENSIONS = new Set(['heic', 'heif']);
+
+const getExtension = (request: DocumentPreviewRequest) => {
+    const candidates = [request.storedValue, request.url];
+    for (const candidate of candidates) {
+        const withoutQuery = String(candidate || '').split(/[?#]/)[0];
+        const match = withoutQuery.match(/\.([a-z0-9]+)$/i);
+        if (match) return match[1].toLowerCase();
+    }
+    return '';
+};
+
+export default function DocumentPreviewModal() {
+    const [request, setRequest] = useState<DocumentPreviewRequest | null>(null);
+    const [convertedUrl, setConvertedUrl] = useState('');
+    const [isPreparing, setIsPreparing] = useState(false);
+    const [error, setError] = useState('');
+    const extension = useMemo(() => request ? getExtension(request) : '', [request]);
+
+    useEffect(() => {
+        const handlePreview = (event: Event) => {
+            const detail = (event as CustomEvent<DocumentPreviewRequest>).detail;
+            if (!detail?.url) return;
+            setRequest(detail);
+            setConvertedUrl('');
+            setError('');
+            setIsPreparing(CONVERTED_IMAGE_EXTENSIONS.has(getExtension(detail)));
+        };
+        window.addEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
+        return () => window.removeEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
+    }, []);
+
+    useEffect(() => {
+        if (!request || !CONVERTED_IMAGE_EXTENSIONS.has(extension)) return;
+
+        let cancelled = false;
+        let objectUrl = '';
+        const preparePreview = async () => {
+            try {
+                const response = await fetch(request.url);
+                if (!response.ok) throw new Error('Unable to retrieve the image.');
+                const original = await response.blob();
+                const { default: heic2any } = await import('heic2any');
+                const result = await heic2any({ blob: original, toType: 'image/jpeg', quality: 0.9 });
+                const converted = Array.isArray(result) ? result[0] : result;
+                if (!converted) throw new Error('The image contained no previewable frame.');
+                objectUrl = URL.createObjectURL(converted);
+                if (cancelled) {
+                    URL.revokeObjectURL(objectUrl);
+                    return;
+                }
+                setConvertedUrl(objectUrl);
+            } catch {
+                if (!cancelled) setError('This image could not be prepared for preview.');
+            } finally {
+                if (!cancelled) setIsPreparing(false);
+            }
+        };
+        void preparePreview();
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [extension, request]);
+
+    const close = () => setRequest(null);
+    const isDirectImage = DIRECT_IMAGE_EXTENSIONS.has(extension);
+    const isConvertedImage = CONVERTED_IMAGE_EXTENSIONS.has(extension);
+    const isPdf = extension === 'pdf';
+
+    return (
+        <Modal
+            open={Boolean(request)}
+            onClose={close}
+            title={request?.label || 'File preview'}
+            size="full"
+            className="max-h-[92vh]"
+        >
+            <div className="flex min-h-[45vh] items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+                {isPreparing && (
+                    <div role="status" className="flex flex-col items-center gap-3 px-6 text-center text-sm font-semibold text-slate-600">
+                        <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
+                        Preparing image preview…
+                    </div>
+                )}
+                {!isPreparing && error && (
+                    <p role="alert" className="px-6 text-center text-sm font-semibold text-rose-700">{error}</p>
+                )}
+                {!isPreparing && !error && request && isDirectImage && (
+                    <img src={request.url} alt={request.label} className="max-h-[60vh] max-w-full object-contain" referrerPolicy="no-referrer" />
+                )}
+                {!isPreparing && !error && request && isConvertedImage && convertedUrl && (
+                    <img src={convertedUrl} alt={request.label} className="max-h-[60vh] max-w-full object-contain" />
+                )}
+                {!isPreparing && !error && request && isPdf && (
+                    <iframe src={request.url} title={request.label} className="h-[60vh] w-full border-0 bg-white" />
+                )}
+                {!isPreparing && !error && request && !isDirectImage && !isConvertedImage && !isPdf && (
+                    <p role="alert" className="px-6 text-center text-sm font-semibold text-slate-700">This file type cannot be previewed in the portal.</p>
+                )}
+            </div>
+        </Modal>
+    );
+}

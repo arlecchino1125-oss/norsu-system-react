@@ -230,6 +230,23 @@ describe('manage-r2-documents handler', () => {
         expect(completion.status).toBe(403);
     });
 
+    it.each(['heic', 'heif', 'ico'])('views migrated claim documents with a .%s extension', async (extension) => {
+        const objectKey = `students/245/profile/claims/pwd/drive-legacy-claim.${extension}`;
+        const deps = createDependencies({
+            resolveViewResource: vi.fn().mockResolvedValue({
+                resource: { ...profileResource, category: 'claim-pwd' },
+                storedReference: `r2:${objectKey}`
+            })
+        });
+
+        const result = await readJson(await handleR2DocumentRequest(request({
+            action: 'create-view', locator: { category: 'claim-pwd', studentId: '2026-0001' }
+        }), deps));
+
+        expect(result.status).toBe(200);
+        expect(deps.signView).toHaveBeenCalledWith(objectKey, 300);
+    });
+
     it('omits individually denied batch entries', async () => {
         const deps = createDependencies({
             resolveViewResource: vi.fn()

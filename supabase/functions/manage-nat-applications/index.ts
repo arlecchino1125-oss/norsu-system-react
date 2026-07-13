@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { captureEdgeException } from '../_shared/sentry.ts';
+import { hashNatPassword, verifyNatPassword } from '../_shared/natPassword.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -9,8 +10,10 @@ const corsHeaders = {
 };
 
 const INVALID_LOGIN_MESSAGE = 'Invalid credentials.';
+const CAPTCHA_REQUIRED_MESSAGE = 'Please complete the security check to continue.';
 const LOGIN_FAILURE_DELAY_MS = 700;
-const textEncoder = new TextEncoder();
+const CAPTCHA_FAIL_THRESHOLD = 3;
+const CAPTCHA_WINDOW_MS = 15 * 60 * 1000;
 
 const json = (body: Record<string, unknown>, status = 200) =>
     new Response(JSON.stringify(body), {
@@ -50,14 +53,52 @@ const sanitizeNatApplication = (application: Record<string, unknown>) => {
     return safeApplication;
 };
 
-const toHex = (buffer: ArrayBuffer) =>
-    Array.from(new Uint8Array(buffer))
-        .map((value) => value.toString(16).padStart(2, '0'))
-        .join('');
+// CAPTCHA is enabled only when the Turnstile secret is configured; without it
+// the login flow behaves exactly as before (attempts are still counted).
+const turnstileSecret = () => String(Deno.env.get('TURNSTILE_SECRET_KEY') || '').trim();
 
-const hashNatPassword = async (password: string) => {
-    const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(password));
-    return toHex(digest);
+const verifyTurnstileToken = async (token: string) => {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ secret: turnstileSecret(), response: token })
+    });
+    if (!response.ok) return false;
+    const payload = await response.json().catch(() => null);
+    return payload?.success === true;
+};
+
+const captchaGateActive = (application: Record<string, unknown>) => {
+    if (!turnstileSecret()) return false;
+    const until = Date.parse(String(application?.captcha_required_until || ''));
+    return Number.isFinite(until) && until > Date.now();
+};
+
+// Best-effort throttle bookkeeping: a failure here (e.g. migration not applied
+// yet) must never block a legitimate login, so errors are reported, not thrown.
+const recordFailedNatLogin = async (adminClient: any, application: any) => {
+    const attempts = (Number(application?.failed_login_attempts) || 0) + 1;
+    const updates: Record<string, unknown> = { failed_login_attempts: attempts };
+    if (attempts >= CAPTCHA_FAIL_THRESHOLD) {
+        updates.captcha_required_until = new Date(Date.now() + CAPTCHA_WINDOW_MS).toISOString();
+    }
+    const { error } = await adminClient.from('applications').update(updates).eq('id', application.id);
+    if (error) {
+        await captureEdgeException(error, { endpoint: 'manage-nat-applications', step: 'record-failed-login' });
+        return Number(application?.failed_login_attempts) || 0;
+    }
+    return attempts;
+};
+
+const clearNatLoginThrottle = async (adminClient: any, application: any) => {
+    if (!(Number(application?.failed_login_attempts) > 0) && !application?.captcha_required_until) return;
+    const { error } = await adminClient
+        .from('applications')
+        .update({ failed_login_attempts: 0, captcha_required_until: null })
+        .eq('id', application.id);
+    if (error) {
+        await captureEdgeException(error, { endpoint: 'manage-nat-applications', step: 'clear-login-throttle' });
+    }
 };
 
 const isMissingNatAttendanceColumnsError = (error: any) => {
@@ -88,7 +129,12 @@ const getNatApplicationByUsername = async (adminClient: any, username: string) =
     return application;
 };
 
-const requireNatApplication = async (adminClient: any, username: unknown, password: unknown) => {
+const requireNatApplication = async (
+    adminClient: any,
+    username: unknown,
+    password: unknown,
+    captchaToken: unknown
+) => {
     const nextUsername = String(username || '').trim();
     const nextPassword = String(password || '').trim();
 
@@ -99,21 +145,45 @@ const requireNatApplication = async (adminClient: any, username: unknown, passwo
 
     const application = await getNatApplicationByUsername(adminClient, nextUsername);
 
-    const storedHash = String(application?.nat_password_hash || '').trim().toLowerCase();
-    const matchesStoredHash = storedHash
-        ? storedHash === await hashNatPassword(nextPassword)
-        : false;
+    if (application && captchaGateActive(application)) {
+        const token = String(captchaToken || '').trim();
+        if (!token || !(await verifyTurnstileToken(token))) {
+            throw withStatus(CAPTCHA_REQUIRED_MESSAGE, 403);
+        }
+    }
 
-    if (!application || !matchesStoredHash) {
+    const passwordCheck = application
+        ? await verifyNatPassword(nextPassword, application.nat_password_hash)
+        : { valid: false, needsUpgrade: false };
+
+    if (!application || !passwordCheck.valid) {
+        let captchaNowRequired = false;
+        if (application) {
+            const attempts = await recordFailedNatLogin(adminClient, application);
+            captchaNowRequired = Boolean(turnstileSecret()) && attempts >= CAPTCHA_FAIL_THRESHOLD;
+        }
         await delay(LOGIN_FAILURE_DELAY_MS);
-        throw withStatus(INVALID_LOGIN_MESSAGE, 401);
+        // 403 tells the client to render the CAPTCHA on its next attempt.
+        throw withStatus(INVALID_LOGIN_MESSAGE, captchaNowRequired ? 403 : 401);
+    }
+
+    await clearNatLoginThrottle(adminClient, application);
+
+    if (passwordCheck.needsUpgrade) {
+        const { error } = await adminClient
+            .from('applications')
+            .update({ nat_password_hash: await hashNatPassword(nextPassword) })
+            .eq('id', application.id);
+        if (error) {
+            await captureEdgeException(error, { endpoint: 'manage-nat-applications', step: 'password-hash-upgrade' });
+        }
     }
 
     return application;
 };
 
-const loginNatApplicant = async (adminClient: any, username: unknown, password: unknown) => {
-    const application = await requireNatApplication(adminClient, username, password);
+const loginNatApplicant = async (adminClient: any, username: unknown, password: unknown, captchaToken: unknown) => {
+    const application = await requireNatApplication(adminClient, username, password, captchaToken);
 
     return json({
         success: true,
@@ -190,8 +260,8 @@ const getNatPublicStats = async (adminClient: any) => {
     });
 };
 
-const refreshNatSession = async (adminClient: any, username: unknown, password: unknown) => {
-    const application = await requireNatApplication(adminClient, username, password);
+const refreshNatSession = async (adminClient: any, username: unknown, password: unknown, captchaToken: unknown) => {
+    const application = await requireNatApplication(adminClient, username, password, captchaToken);
 
     return json({
         success: true,
@@ -203,9 +273,10 @@ const updateNatAttendance = async (
     adminClient: any,
     username: unknown,
     password: unknown,
+    captchaToken: unknown,
     action: 'time-in' | 'time-out'
 ) => {
-    const application = await requireNatApplication(adminClient, username, password);
+    const application = await requireNatApplication(adminClient, username, password, captchaToken);
     const timestamp = new Date().toISOString();
 
     const updates = action === 'time-in'
@@ -260,7 +331,7 @@ serve(async (request) => {
         }
 
         if (mode === 'login') {
-            return await loginNatApplicant(adminClient, body.username, body.password);
+            return await loginNatApplicant(adminClient, body.username, body.password, body.captchaToken);
         }
 
         if (mode === 'public-stats') {
@@ -268,15 +339,15 @@ serve(async (request) => {
         }
 
         if (mode === 'session') {
-            return await refreshNatSession(adminClient, body.username, body.password);
+            return await refreshNatSession(adminClient, body.username, body.password, body.captchaToken);
         }
 
         if (mode === 'time-in') {
-            return await updateNatAttendance(adminClient, body.username, body.password, 'time-in');
+            return await updateNatAttendance(adminClient, body.username, body.password, body.captchaToken, 'time-in');
         }
 
         if (mode === 'time-out') {
-            return await updateNatAttendance(adminClient, body.username, body.password, 'time-out');
+            return await updateNatAttendance(adminClient, body.username, body.password, body.captchaToken, 'time-out');
         }
 
         return json({ success: false, error: 'Unsupported NAT management mode.' }, 400);
