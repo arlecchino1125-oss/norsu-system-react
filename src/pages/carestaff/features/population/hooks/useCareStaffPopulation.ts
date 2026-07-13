@@ -38,7 +38,7 @@ import {
     type DeptStudentAnnotation
 } from '../../../../../services/deptStudentAnnotationService';
 import { getDepartmentNameFromCourseRecords } from '../../../../../utils/courseDepartment';
-import { openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../../../../utils/storageAssets';
+import { isR2Reference, openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../../../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../../../../utils/inputSecurity';
 
 declare const XLSX: any;
@@ -1260,7 +1260,9 @@ export function useCareStaffPopulation({
                     } else if (col.type === 'file') {
                         const rawValue = String(val || '').trim();
                         const bucket = col.bucket || 'support_documents';
-                        const resolvedUrl = rawValue ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || rawValue) : '';
+                        const resolvedUrl = rawValue
+                            ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || (isR2Reference(rawValue) ? 'Available in portal' : rawValue))
+                            : '';
                         row.push(escapeSpreadsheetFormula(resolvedUrl));
                     } else {
                         row.push(escapeSpreadsheetFormula(val ?? ''));

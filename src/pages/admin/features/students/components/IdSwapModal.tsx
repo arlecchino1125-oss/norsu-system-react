@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, X, User } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
-import { getValidProfileImageUrl } from '../../../../../utils/formatters';
+import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
 
 interface IdSwapModalProps {
     showToast: (msg: string, type?: string) => void;
@@ -181,8 +181,9 @@ export function IdSwapModal({ showToast, handleRefreshData, invokeManagedStudent
                                     ) : sourceStudent ? (
                                         <div className="p-3 rounded-xl border border-teal-100 bg-teal-50/30 flex items-start gap-3 min-h-[100px]">
                                             {sourceStudent.profile_picture_url ? (
-                                                <img
-                                                    src={getValidProfileImageUrl(sourceStudent.profile_picture_url)}
+                                                <ResolvedProfileImage
+                                                    storedValue={sourceStudent.profile_picture_url}
+                                                    studentId={sourceStudent.student_id}
                                                     alt="Profile"
                                                     className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
                                                 />
@@ -225,8 +226,9 @@ export function IdSwapModal({ showToast, handleRefreshData, invokeManagedStudent
                                     ) : targetStudent ? (
                                         <div className="p-3 rounded-xl border border-amber-100 bg-amber-50/30 flex items-start gap-3 min-h-[100px]">
                                             {targetStudent.profile_picture_url ? (
-                                                <img
-                                                    src={getValidProfileImageUrl(targetStudent.profile_picture_url)}
+                                                <ResolvedProfileImage
+                                                    storedValue={targetStudent.profile_picture_url}
+                                                    studentId={targetStudent.student_id}
                                                     alt="Profile"
                                                     className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
                                                 />

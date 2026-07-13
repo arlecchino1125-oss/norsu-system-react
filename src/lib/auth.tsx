@@ -208,7 +208,11 @@ const isInvalidAuthCredentialsError = (error: any) => {
         || message.includes('email not confirmed')
         || message.includes('invalid credentials');
 };
-const INVALID_STUDENT_LOGIN_MESSAGE = 'Your email/ID or password is incorrect.';
+// claude — Identical for "no such account" and "wrong password" so login never
+// reveals whether an ID/username/email exists (anti-enumeration). Every failure
+// path in loginStudent/loginStaff returns these exact strings.
+const INVALID_STUDENT_LOGIN_MESSAGE = 'Student ID/email or password is incorrect.';
+const INVALID_STAFF_LOGIN_MESSAGE = 'Username or password is incorrect.';
 const getErrorMessage = (error: any, fallback: string) =>
     error instanceof Error
         ? error.message || fallback
@@ -441,36 +445,16 @@ export function AuthProvider({ children }: any) {
                 username: trimmedUsername
             });
 
-            if (!userCheck) {
-                setLoading(false);
-                return { success: false, error: 'Username not found.' };
-            }
-
-            if (userCheck.is_archived) {
-                setLoading(false);
-                return { success: false, error: 'This staff account has been archived. Ask an admin to restore access.' };
-            }
-
-            if (userCheck.role !== requiredRole) {
-                setLoading(false);
-                return { success: false, error: `Access denied: This account is not a ${requiredRole}.` };
-            }
-
-            if (!userCheck.auth_user_id) {
-                setLoading(false);
-                return {
-                    success: false,
-                    error: 'This staff account has not been linked to Supabase Auth yet. Ask an admin to link it before signing in.'
-                };
-            }
-
-            const resolvedEmail = normalizeLoginEmail(userCheck.email);
+            // claude — Enumeration guard: pre-auth we only learn the account's email (or null).
+            // "no such username", "not linked", and "no email" all collapse into one
+            // generic message so an unauthenticated caller can't distinguish them. The
+            // role / archived / linkage checks run post-auth below, where the caller has
+            // proven ownership (archived accounts are already filtered out by
+            // getStaffProfileByAuthUser).
+            const resolvedEmail = normalizeLoginEmail(userCheck?.email);
             if (!resolvedEmail) {
                 setLoading(false);
-                return {
-                    success: false,
-                    error: 'This staff account has no migrated auth email yet. Run the auth email sync first.'
-                };
+                return { success: false, error: INVALID_STAFF_LOGIN_MESSAGE };
             }
 
             await prepareAuthSessionForLogin();
@@ -479,9 +463,11 @@ export function AuthProvider({ children }: any) {
             if (authError || !authData?.user) {
                 setLoading(false);
                 if (isInvalidAuthCredentialsError(authError)) {
-                    return { success: false, error: 'Incorrect password.' };
+                    return { success: false, error: INVALID_STAFF_LOGIN_MESSAGE };
                 }
-                return { success: false, error: authError?.message || 'Unable to sign in with the migrated auth email.' };
+                // claude — Non-credential failure (network / auth service): stay neutral rather
+                // than surfacing GoTrue's message, which can confirm an account exists.
+                return { success: false, error: 'Unable to sign in right now. Please try again.' };
             }
 
             const staffProfile = await getStaffProfileByAuthUser(authData.user);
@@ -533,23 +519,11 @@ export function AuthProvider({ children }: any) {
                     : { studentId: trimmedIdentifier })
             });
 
-            if (!studentLookup) {
-                setLoading(false);
-                return {
-                    success: false,
-                    error: INVALID_STUDENT_LOGIN_MESSAGE
-                };
-            }
-
-            if (!studentLookup.auth_user_id) {
-                setLoading(false);
-                return {
-                    success: false,
-                    error: INVALID_STUDENT_LOGIN_MESSAGE
-                };
-            }
-
-            const resolvedEmail = normalizeLoginEmail(studentLookup.email);
+            // claude — Same enumeration guard as staff: the resolver returns email-only, so
+            // "no such student", "not activated", and "no email" all collapse to one
+            // generic message. Activation/status is enforced post-auth via
+            // getStudentProfileByAuthUser.
+            const resolvedEmail = normalizeLoginEmail(studentLookup?.email);
             if (!resolvedEmail) {
                 setLoading(false);
                 return {

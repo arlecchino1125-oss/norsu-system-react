@@ -2,9 +2,10 @@ import React from 'react';
 import { XCircle, MapPin } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { COUNSELING_STATUS, getCounselingScheduledDate, isCounselingAwaitingDept, isWithCareStaffCounseling } from '../../../../../utils/workflow';
+import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
 
 export function DeptEventAttendeesModal(props: any) {
-    const { showReferralModal, setShowReferralModal, forwardingToStaff, setForwardingToStaff, referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq, isSubmittingReferral, referralSearchQuery, setReferralSearchQuery, sigCanvasRef, data, showEventAttendees, setShowEventAttendees, deptAttendees, yearLevelFilter, setYearLevelFilter, deptCourseFilter, setDeptCourseFilter, deptSectionFilter, setDeptSectionFilter, exportToExcel, showStudentModal, setShowStudentModal, selectedStudent, viewFormRecord, setViewFormRecord, viewFormMode, setViewFormMode } = props;
+    const { showReferralModal, setShowReferralModal, forwardingToStaff, setForwardingToStaff, referralForm, setReferralForm, handleReferralSubmit, selectedCounselingReq, setSelectedCounselingReq, isSubmittingReferral, referralSearchQuery, setReferralSearchQuery, sigCanvasRef, data, showEventAttendees, setShowEventAttendees, deptAttendees, yearLevelFilter, setYearLevelFilter, deptCourseFilter, setDeptCourseFilter, deptSectionFilter, setDeptSectionFilter, exportToExcel, showStudentModal, setShowStudentModal, selectedStudent, viewFormRecord, setViewFormRecord, viewFormMode, setViewFormMode, showToastMessage } = props;
     return (<>
         {/* Attendees Modal - Enhanced */}
             {
@@ -95,6 +96,7 @@ export function DeptEventAttendeesModal(props: any) {
                                                     <th className="px-6 py-3">Time In</th>
                                                     <th className="px-6 py-3">Time Out</th>
                                                     <th className="px-6 py-3">Location</th>
+                                                    <th className="px-6 py-3">Proof</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -110,6 +112,13 @@ export function DeptEventAttendeesModal(props: any) {
                                                         <td className="px-6 py-3">{att.time_out ? <span className="text-green-600 font-medium dark:text-green-400">{new Date(att.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : <span className="text-yellow-600 text-xs font-bold dark:text-yellow-400">Still In</span>}</td>
                                                         <td className="px-6 py-3 text-xs">
                                                             {att.latitude ? <a href={`https://maps.google.com/?q=${att.latitude},${att.longitude}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 dark:text-blue-400"><MapPin size={12} />Map</a> : '-'}
+                                                        </td>
+                                                        <td className="px-6 py-3 text-xs">
+                                                            <AttendanceProofButton
+                                                                storedReference={att.proof_url}
+                                                                attendanceId={Number(att.id)}
+                                                                onError={(message) => showToastMessage?.(message, 'error')}
+                                                            />
                                                         </td>
                                                     </tr>
                                                 ))}

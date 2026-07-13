@@ -1,6 +1,7 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../../../lib/supabase';
+import { uploadStudentSupportDocuments } from '../supportDocumentStorage';
 import {
     getTextInputLimitProps, validateTextInput,
     MAX_SUPPORT_DOCUMENT_BYTES, SUPPORT_DOCUMENT_ACCEPT, isSupportedDocumentFile
@@ -143,16 +144,7 @@ export default function SupportFormModal({
 
         setIsSubmitting(true);
         try {
-            const docUrls: string[] = [];
-            if (form.files.length > 0) {
-                for (const file of form.files) {
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = `${personalInfo.studentId}_support_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${fileExt}`;
-                    const { error: uploadError } = await supabase.storage.from('support_documents').upload(fileName, file);
-                    if (uploadError) throw uploadError;
-                    docUrls.push(fileName);
-                }
-            }
+            const docUrls = await uploadStudentSupportDocuments(form.files);
 
             const description = `[Q1 Description]: ${q1Check.value}\n[Q2 Previous Support]: ${q2Check.value}\n[Q3 Required Support]: ${q3Check.value}\n[Q4 Other Needs]: ${q4Check.value}`.trim();
             const finalCategories = [...form.categories];

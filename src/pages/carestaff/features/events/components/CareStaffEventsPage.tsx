@@ -9,6 +9,7 @@ import { supabase } from '../../../../../lib/supabase';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
 import { Button } from '../../../../../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../../../../../components/ui/Card';
+import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
 import { useEventsData } from '../../../../../hooks/useEventsData';
 import { SystemEvent } from '../../../../../types/models';
 import { getCoursesWithDepartments, getDepartments } from '../../../../../services/careStaffService';
@@ -551,7 +552,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                             <div className="p-0 overflow-y-auto flex-1">
                                 {filtered.length === 0 ? <p className="text-center py-8 text-gray-500">No attendees yet.</p> : (
                                     <table className="w-full text-left text-sm">
-                                        <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0"><tr><th className="px-6 py-3">Student</th><th className="px-6 py-3">Course</th><th className="px-6 py-3">Year / Sec</th><th className="px-6 py-3">Time In</th><th className="px-6 py-3">Time Out</th><th className="px-6 py-3">Location</th></tr></thead>
+                                        <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0"><tr><th className="px-6 py-3">Student</th><th className="px-6 py-3">Course</th><th className="px-6 py-3">Year / Sec</th><th className="px-6 py-3">Time In</th><th className="px-6 py-3">Time Out</th><th className="px-6 py-3">Location</th><th className="px-6 py-3">Proof</th></tr></thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {filtered.map((att, i) => (
                                                 <tr key={i} className="hover:bg-gray-50">
@@ -562,6 +563,13 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                                     <td className="px-6 py-3">{att.time_out ? <span className="text-green-600 font-medium">{new Date(att.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : <span className="text-yellow-600 text-xs font-bold">Still In</span>}</td>
                                                     <td className="px-6 py-3 text-xs">
                                                         {att.latitude ? <a href={`https://maps.google.com/?q=${att.latitude},${att.longitude}`} target="_blank" className="text-blue-600 hover:underline flex items-center gap-1"><MapPin size={12} />Map</a> : '-'}
+                                                    </td>
+                                                    <td className="px-6 py-3 text-xs">
+                                                        <AttendanceProofButton
+                                                            storedReference={att.proof_url}
+                                                            attendanceId={Number(att.id)}
+                                                            onError={(message) => showToast?.(message, 'error')}
+                                                        />
                                                     </td>
                                                 </tr>
                                             ))}

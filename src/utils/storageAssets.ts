@@ -1,9 +1,41 @@
 import { supabase } from '../lib/supabase';
+import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
+import type { R2DocumentLocator } from '../services/r2DocumentService';
 
 const HTTP_URL_PATTERN = /^https?:\/\//i;
 
 const isStoredAssetUrl = (value: string | null | undefined) =>
     HTTP_URL_PATTERN.test(String(value || '').trim());
+
+export const isR2Reference = (value: unknown) =>
+    String(value || '').trim().startsWith('r2:');
+
+type R2ViewResponse = {
+    success: true;
+    url: string;
+    expiresAt: string;
+};
+
+type R2BulkViewResponse = {
+    success: true;
+    urls: Record<string, string | null>;
+    expiresAt: string;
+};
+
+export type R2BulkLocatorEntry = {
+    key: string;
+    locator: R2DocumentLocator;
+};
+
+const resolveR2DocumentUrl = async (locator?: R2DocumentLocator) => {
+    if (!locator) throw new Error('Document authorization details are required.');
+    const result = await invokeEdgeFunction<R2ViewResponse>('manage-r2-documents', {
+        requireAuth: true,
+        body: { action: 'create-view', locator },
+        fallbackMessage: 'Unable to open the selected file.'
+    });
+    return result?.url || null;
+};
 
 export const getStoredAssetPath = (bucket: string, value: string | null | undefined) => {
     const normalized = String(value || '').trim();
@@ -60,10 +92,15 @@ export const getStoredAssetLabel = (value: string | null | undefined, fallback =
 export const resolveStoredAssetUrl = async (
     bucket: string,
     value: string | null | undefined,
-    expiresInSeconds = 3600
+    expiresInSeconds = 3600,
+    locator?: R2DocumentLocator
 ) => {
     const normalized = String(value || '').trim();
     if (!normalized) return null;
+
+    if (isR2Reference(normalized)) {
+        return resolveR2DocumentUrl(locator);
+    }
 
     const extractedPath = getStoredAssetPath(bucket, normalized);
     if (isStoredAssetUrl(normalized) && !extractedPath) {
@@ -91,9 +128,10 @@ export const resolveStoredAssetUrl = async (
 export const openStoredAsset = async (
     bucket: string,
     value: string | null | undefined,
-    expiresInSeconds = 3600
+    expiresInSeconds = 3600,
+    locator?: R2DocumentLocator
 ) => {
-    const resolvedUrl = await resolveStoredAssetUrl(bucket, value, expiresInSeconds);
+    const resolvedUrl = await resolveStoredAssetUrl(bucket, value, expiresInSeconds, locator);
     if (!resolvedUrl) {
         throw new Error('Unable to open the selected file.');
     }
@@ -132,7 +170,8 @@ export const parseCareNotesPayload = (value: string | null | undefined) => {
 export const resolveStoredAssetUrlsBulk = async (
     bucket: string,
     values: (string | null | undefined)[],
-    expiresInSeconds = 3600
+    expiresInSeconds = 3600,
+    r2Entries: Record<string, R2BulkLocatorEntry> = {}
 ): Promise<Record<string, string | null>> => {
     const resultMap: Record<string, string | null> = {};
     if (!values || values.length === 0) return resultMap;
@@ -143,8 +182,13 @@ export const resolveStoredAssetUrlsBulk = async (
     const pathsToSign: string[] = [];
     const alreadyResolved: Record<string, string> = {};
     const pathToInputMap: Record<string, string[]> = {};
+    const r2Inputs: string[] = [];
 
     for (const normalized of uniqueInputs) {
+        if (isR2Reference(normalized)) {
+            r2Inputs.push(normalized);
+            continue;
+        }
         const extractedPath = getStoredAssetPath(bucket, normalized);
         if (isStoredAssetUrl(normalized) && !extractedPath) {
             alreadyResolved[normalized] = normalized;
@@ -162,6 +206,24 @@ export const resolveStoredAssetUrlsBulk = async (
     // Request signed URLs for all pathsToSign in batches
     const batchSize = 100;
     const signedUrlsMap: Record<string, string> = {};
+
+    if (r2Inputs.length > 0) {
+        const entries = r2Inputs
+            .map((value) => r2Entries[value])
+            .filter((entry): entry is R2BulkLocatorEntry => Boolean(entry));
+        if (entries.length > 0) {
+            const result = await invokeEdgeFunction<R2BulkViewResponse>('manage-r2-documents', {
+                requireAuth: true,
+                body: { action: 'create-view-batch', entries },
+                fallbackMessage: 'Unable to load private documents.'
+            });
+            for (const value of r2Inputs) {
+                const entry = r2Entries[value];
+                const url = entry ? result?.urls?.[entry.key] : null;
+                if (url) resultMap[value] = url;
+            }
+        }
+    }
 
     for (let i = 0; i < pathsToSign.length; i += batchSize) {
         const batch = pathsToSign.slice(i, i + batchSize);
@@ -185,6 +247,10 @@ export const resolveStoredAssetUrlsBulk = async (
 
     // Map everything back to the original unique inputs
     for (const normalized of uniqueInputs) {
+        if (isR2Reference(normalized)) {
+            resultMap[normalized] = resultMap[normalized] || null;
+            continue;
+        }
         if (alreadyResolved[normalized]) {
             resultMap[normalized] = alreadyResolved[normalized];
             continue;
@@ -218,4 +284,3 @@ export const resolveStoredAssetUrlsBulk = async (
 
     return finalMap;
 };
-

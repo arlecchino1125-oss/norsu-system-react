@@ -4,10 +4,10 @@ import { Camera, Pencil } from 'lucide-react';
 import AccountSecuritySettings from '../../../../../components/AccountSecuritySettings';
 import { openStoredAsset } from '../../../../../utils/storageAssets';
 import { cleanLiveProfileText, getProfileTextFieldRule } from '../../../../../utils/profileFieldRules';
-import { getValidProfileImageUrl } from '../../../../../utils/formatters';
+import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
 import { fetchDepartmentNameForCourse } from '../../../../../utils/courseDepartment';
 import { supabase } from '../../../../../lib/supabase';
-import { driveService } from '../../../../../services/driveService';
+import { getProfileDocumentCategory, uploadProfileDocument } from '../profileDocumentStorage';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
@@ -65,7 +65,10 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
 
     const openDocument = async () => {
         try {
-            await openStoredAsset('support_documents', personalInfo[field]);
+            await openStoredAsset('support_documents', personalInfo[field], 300, {
+                category: getProfileDocumentCategory(field),
+                studentId: String(personalInfo?.studentId || personalInfo?.student_id || '')
+            });
         } catch (error: any) {
             showToast?.(error.message || 'Unable to open the selected file.', 'error');
         }
@@ -90,15 +93,8 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
 
         setIsUploading(true);
         try {
-            const studentId = personalInfo?.studentId || personalInfo?.student_id;
-            if (!studentId) throw new Error("Student ID is missing.");
-            
-            const result = await driveService.uploadFile(file, studentId);
-            if (!result.success || !result.webViewLink) {
-                throw new Error(result.error || 'Failed to upload document');
-            }
-            
-            setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: result.webViewLink }));
+            const storedReference = await uploadProfileDocument(file, field);
+            setDraftPersonalInfo((prev: any) => ({ ...prev, [field]: storedReference }));
             showToast?.('Document uploaded successfully! Click "Save Changes" at the bottom to finalize.', 'success');
         } catch (err: any) {
             showToast?.(err.message, 'error');
@@ -157,7 +153,10 @@ const Field = ({ label, field, type, options, readOnly, colSpan, isEditing, acti
                             <span>Max 1 MB.</span>
                             {isUploading && <span className="font-semibold text-indigo-500 animate-pulse">Uploading...</span>}
                             {!isUploading && activePersonalInfo[field] && (
-                                <button type="button" onClick={() => openStoredAsset('support_documents', activePersonalInfo[field]).catch(err => showToast?.(err.message, 'error'))} className="font-bold text-indigo-600 hover:text-indigo-700">View current file</button>
+                                <button type="button" onClick={() => openStoredAsset('support_documents', activePersonalInfo[field], 300, {
+                                    category: getProfileDocumentCategory(field),
+                                    studentId: String(personalInfo?.studentId || personalInfo?.student_id || '')
+                                }).catch(err => showToast?.(err.message, 'error'))} className="font-bold text-indigo-600 hover:text-indigo-700">View current file</button>
                             )}
                         </div>
                     </div>
@@ -383,8 +382,9 @@ function ProfileViewContent(p: any) {
                                         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                                             <div className="relative h-16 w-16 shrink-0 sm:h-24 sm:w-24">
                                                 {personalInfo.profile_picture_url ? (
-                                                    <img
-                                                        src={getValidProfileImageUrl(personalInfo.profile_picture_url)}
+                                                    <ResolvedProfileImage
+                                                        storedValue={personalInfo.profile_picture_url}
+                                                        studentId={String(personalInfo.studentId || personalInfo.student_id || '')}
                                                         alt="Profile"
                                                         referrerPolicy="no-referrer"
                                                         className="h-16 w-16 rounded-2xl border border-slate-200 bg-slate-50 object-cover shadow-sm sm:h-24 sm:w-24"

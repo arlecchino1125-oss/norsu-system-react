@@ -334,7 +334,11 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                                         type="button"
                                                         onClick={async () => {
                                                             try {
-                                                                await openStoredAsset('support_documents', url);
+                                                                await openStoredAsset('support_documents', url, 300, {
+                                                                    category: 'support-student',
+                                                                    requestId: Number(selectedSupportReq.id),
+                                                                    index: idx
+                                                                });
                                                             } catch (error: any) {
                                                                 showToast?.(error.message || 'Unable to open the selected document.', 'error');
                                                             }

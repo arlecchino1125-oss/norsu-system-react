@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useStudentEventsData } from '../hooks/useStudentEventsData';
 import { getAudienceLabel, isAttendanceActivityType } from '../../../../../utils/eventAudience';
 import { getTextInputLimitProps } from '../../../../../utils/inputSecurity';
+import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
 
 const parseDateValue = (value: string) => {
     if (!value) return null;
@@ -128,6 +129,7 @@ const StudentEventsView = ({
     submitRating,
     personalInfo,
     toast,
+    showToast,
     Icons
 }: any) => {
     const [eventsList, setEventsList] = useState<any[]>([]);
@@ -608,6 +610,15 @@ const StudentEventsView = ({
                                                         <p className="mt-1 text-xs font-black leading-5 text-sky-950 sm:text-sm">{formatAttendanceTimestamp(record?.time_out)}</p>
                                                     </div>
                                                 </div>
+                                            )}
+
+                                            {record?.proof_url && record?.id && (
+                                                <AttendanceProofButton
+                                                    storedReference={record.proof_url}
+                                                    attendanceId={Number(record.id)}
+                                                    className="mb-3 text-xs font-black text-blue-600 hover:text-blue-700 hover:underline disabled:opacity-50"
+                                                    onError={(message) => showToast(message, 'error')}
+                                                />
                                             )}
 
                                             {isRegistrationEvent(selectedEvent) && (

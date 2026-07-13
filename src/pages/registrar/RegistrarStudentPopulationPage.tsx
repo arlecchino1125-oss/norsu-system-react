@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { Users, Search, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, FileSpreadsheet, RefreshCw, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { getValidProfileImageUrl } from '../../utils/formatters';
+import { ResolvedProfileImage } from '../../components/ResolvedProfileImage';
+import { getProfileCategoryForDatabaseField } from '../../services/r2DocumentService';
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
-import { openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../utils/storageAssets';
+import { isR2Reference, openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../utils/inputSecurity';
 import { getAllStudentsForExport, getStudentsPage, getDepartments, getCoursesWithDepartments } from '../../services/careStaffService';
 import type { StudentFilters } from '../../types/query';
@@ -318,7 +319,9 @@ export default function RegistrarStudentPopulationPage() {
                     } else if (col.type === 'file') {
                         const rawValue = String(val || '').trim();
                         const bucket = col.bucket || 'support_documents';
-                        const resolvedUrl = rawValue ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || rawValue) : '';
+                        const resolvedUrl = rawValue
+                            ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || (isR2Reference(rawValue) ? 'Available in portal' : rawValue))
+                            : '';
                         row.push(escapeSpreadsheetFormula(resolvedUrl));
                     } else {
                         row.push(escapeSpreadsheetFormula(val ?? ''));
@@ -531,7 +534,7 @@ export default function RegistrarStudentPopulationPage() {
                                         className={`w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg shadow-teal-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-teal-400 transition-all focus:outline-none' : 'cursor-default'}`}
                                     >
                                         {profileViewStudent.profile_picture_url ? (
-                                            <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                         ) : (
                                             <span>{profileViewStudent.first_name?.[0] || 'S'}</span>
                                         )}
@@ -598,7 +601,10 @@ export default function RegistrarStudentPopulationPage() {
                                                                     type="button"
                                                                     onClick={async () => {
                                                                         try {
-                                                                            await openStoredAsset('support_documents', String(value));
+                                                                            await openStoredAsset('support_documents', String(value), 300, {
+                                                                                category: getProfileCategoryForDatabaseField(field.db),
+                                                                                studentId: profileViewStudent.student_id
+                                                                            });
                                                                         } catch (error: any) {
                                                                             alert(error.message || 'Unable to open the selected file.');
                                                                         }
@@ -641,7 +647,7 @@ export default function RegistrarStudentPopulationPage() {
 
                             <div className="w-full aspect-square flex items-center justify-center bg-slate-100 flex-shrink-0">
                                 {profileViewStudent.profile_picture_url ? (
-                                    <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                 ) : (
                                     <User size={80} className="text-slate-300" />
                                 )}

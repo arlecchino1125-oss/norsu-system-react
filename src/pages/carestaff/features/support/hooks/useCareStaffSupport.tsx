@@ -29,6 +29,7 @@ import {
     fetchSupportCounts,
     fetchSupportListPage
 } from '../supportData';
+import { uploadCareEndorsement } from '../../../../student/features/support/supportDocumentStorage';
 import { Button } from '../../../../../components/ui/Button';
 
 export interface CareStaffSupportPageProps {
@@ -229,11 +230,7 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
                 if (letterFile.size > MAX_SUPPORT_DOCUMENT_BYTES) {
                     throw new Error('Endorsement letter must be under 1 MB.');
                 }
-                const fileExt = letterFile.name.split('.').pop();
-                const fileName = `endorsement_${selectedSupportReq.student_id}_${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage.from('support_documents').upload(fileName, letterFile);
-                if (uploadError) throw uploadError;
-                letterPath = fileName;
+                letterPath = await uploadCareEndorsement(letterFile, Number(selectedSupportReq.id));
             }
             const careNotesValue = letterPath
                 ? JSON.stringify({ notes: supportForm.care_notes, letter_path: letterPath })

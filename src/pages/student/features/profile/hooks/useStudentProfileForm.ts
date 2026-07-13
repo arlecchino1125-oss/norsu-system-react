@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { STUDENT_LIST_COLUMNS } from '../../../../../services/careStaffService';
-import { driveService } from '../../../../../services/driveService';
+import { uploadProfileDocument } from '../profileDocumentStorage';
 import { fetchDepartmentNameForCourse } from '../../../../../utils/courseDepartment';
 import { joinNameParts, splitFullName } from '../../../../../utils/nameUtils';
 import { buildStudentAddress, getStudentEmergencyContact, getStudentSex } from '../../../../../utils/studentFields';
@@ -1434,11 +1434,7 @@ export function useStudentProfileForm({
             const oldUrl = personalInfo.profile_picture_url || personalInfo.profilePictureUrl;
             const oldPath = oldUrl ? getStoredAssetPath('profile-pictures', oldUrl) : '';
 
-            const result = await driveService.uploadFile(file, personalInfo.studentId);
-            if (!result.success || (!result.directLink && !result.webViewLink)) {
-                throw new Error(result.error || 'Failed to upload to Google Drive');
-            }
-            const publicUrl = result.directLink || result.webViewLink || '';
+            const publicUrl = await uploadProfileDocument(file, 'profile_picture_url');
             await invokeManagedStudentFunction({
                 mode: 'update-profile-picture',
                 profilePictureUrl: publicUrl

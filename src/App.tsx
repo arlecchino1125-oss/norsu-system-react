@@ -5,6 +5,7 @@ import { AuthProvider } from './lib/auth';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import InAppBrowserBanner from './components/InAppBrowserBanner'; // claude
 import { ToastProvider } from './components/ui/toast/ToastProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -187,6 +188,7 @@ function App() {
         <Router>
           <AuthProvider>
           <ToastProvider>
+            <InAppBrowserBanner /> {/* claude */}
             <Routes>
               <Route path="/" element={
                 <LazyRoute fallback={<LandingPageSkeleton />}>

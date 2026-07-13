@@ -11,7 +11,8 @@ import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { Button } from '../../../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../../components/ui/Card';
-import { getValidProfileImageUrl } from '../../../../../utils/formatters';
+import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
+import { getProfileCategoryForDatabaseField } from '../../../../../services/r2DocumentService';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import {
     getActiveStudentsForLocalFiltering,
@@ -86,7 +87,7 @@ const StudentProfileModal = ({
                                     className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center text-xl sm:text-2xl font-black text-white shrink-0 shadow-lg shadow-blue-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-blue-400 transition-all focus:outline-none' : 'cursor-default'}`}
                                 >
                                     {profileViewStudent.profile_picture_url ? (
-                                        <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                        <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                     ) : (
                                         <span>{profileViewStudent.first_name?.[0] || 'S'}</span>
                                     )}
@@ -192,7 +193,10 @@ const StudentProfileModal = ({
                                                                 type="button"
                                                                 onClick={async () => {
                                                                     try {
-                                                                        await openStoredAsset('support_documents', String(value));
+                                                                        await openStoredAsset('support_documents', String(value), 300, {
+                                                                            category: getProfileCategoryForDatabaseField(field.db),
+                                                                            studentId: profileViewStudent.student_id
+                                                                        });
                                                                     } catch (error: any) {
                                                                         showToast?.(error.message || 'Unable to open the selected file.', 'error');
                                                                     }
@@ -256,7 +260,7 @@ const StudentProfileModal = ({
 
                         <div className="w-full aspect-square flex items-center justify-center bg-slate-100 flex-shrink-0">
                             {profileViewStudent.profile_picture_url ? (
-                                <img src={getValidProfileImageUrl(profileViewStudent.profile_picture_url)} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                                 <User size={80} className="text-slate-300" />
                             )}

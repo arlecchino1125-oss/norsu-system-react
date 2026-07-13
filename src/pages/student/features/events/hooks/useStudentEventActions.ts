@@ -6,6 +6,7 @@ import {
 import { isStudentEligibleForEvent } from '../../../../../utils/eventAudience';
 import { validateTextInput } from '../../../../../utils/inputSecurity';
 import type { StudentDatasetRefreshKey } from '../../../hooks/useStudentPortalRefresh';
+import { uploadAttendanceProof } from '../attendanceProofStorage';
 
 type RunDatasetRefresh = (
     key: StudentDatasetRefreshKey,
@@ -347,12 +348,7 @@ export function useStudentEventActions({
                     return;
                 }
 
-                const fileName = `${personalInfo.studentId}_${event.id}_${Date.now()}.jpg`;
-                const { error: uploadError } = await supabaseClient.storage.from('attendance_proofs').upload(fileName, proofFile, {
-                    contentType: proofFile.type,
-                    upsert: false
-                });
-                if (uploadError) throw uploadError;
+                const proofReference = await uploadAttendanceProof(proofFile, Number(event.id));
 
                 const now = new Date().toISOString();
                 const { error } = await supabaseClient.from('event_attendance').insert([{
@@ -360,7 +356,7 @@ export function useStudentEventActions({
                     student_id: personalInfo.studentId,
                     student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
                     time_in: now,
-                    proof_url: fileName,
+                    proof_url: proofReference,
                     latitude: userLat,
                     longitude: userLng,
                     department: personalInfo.department

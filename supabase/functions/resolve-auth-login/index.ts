@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { captureEdgeException } from '../_shared/sentry.ts';
+import { enforceRateLimit } from '../_shared/rateLimit.ts'; // claude
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -44,9 +45,12 @@ const resolveStaffLogin = async (adminClient: any, username: unknown) => {
         return json({ success: false, error: 'Username is required.' }, 400);
     }
 
+    // claude — ponytail: return only the email — the sole field the client needs to
+    // authenticate. role/auth_user_id are resolved post-auth from the session, so
+    // handing them to unauthenticated callers is pure enumeration/leak surface.
     const { data, error } = await adminClient
         .from('staff_accounts')
-        .select('username, role, auth_user_id, email')
+        .select('email')
         .eq('username', nextUsername)
         .maybeSingle();
 
@@ -54,16 +58,10 @@ const resolveStaffLogin = async (adminClient: any, username: unknown) => {
         throw error;
     }
 
+    const email = data ? normalizeEmail(data.email) : null;
     return json({
         success: true,
-        account: data
-            ? {
-                username: data.username,
-                role: data.role,
-                auth_user_id: data.auth_user_id ? String(data.auth_user_id) : null,
-                email: normalizeEmail(data.email)
-            }
-            : null
+        account: email ? { email } : null
     });
 };
 
@@ -75,10 +73,11 @@ const resolveStudentLogin = async (adminClient: any, studentId: unknown, email: 
         return json({ success: false, error: 'Student ID or email is required.' }, 400);
     }
 
+    // claude — ponytail: email-only, same as staff — status/auth_user_id are post-auth concerns.
     let query = adminClient
         .from('students')
-        .select('student_id, auth_user_id, status, email');
-        
+        .select('email');
+
     if (nextEmail) {
         query = query.ilike('email', nextEmail);
     } else {
@@ -91,16 +90,10 @@ const resolveStudentLogin = async (adminClient: any, studentId: unknown, email: 
         throw error;
     }
 
+    const resolvedEmail = data ? normalizeEmail(data.email) : null;
     return json({
         success: true,
-        account: data
-            ? {
-                student_id: data.student_id,
-                status: data.status,
-                auth_user_id: data.auth_user_id ? String(data.auth_user_id) : null,
-                email: normalizeEmail(data.email)
-            }
-            : null
+        account: resolvedEmail ? { email: resolvedEmail } : null
     });
 };
 
@@ -115,12 +108,34 @@ serve(async (request) => {
 
     try {
         const body = await request.json();
-        const adminClient = getAdminClient();
         const mode = String(body.mode || '').trim();
 
         if (mode === 'ping') {
             return json({ success: true });
         }
+
+        // claude — ponytail: per-IP throttle (100 / 5 min) via the shared limiter — blocks bulk
+        // username enumeration against this public resolver while staying generous
+        // enough for a shared campus-wifi/CGNAT login rush. The constant identifier
+        // seed keys the bucket on client IP only (the anon-key bearer token is
+        // identical for every unauthenticated caller, so the default token-based key
+        // would collapse the whole app into one bucket). Password brute-force is
+        // handled separately by Supabase's own /auth/v1/token limits. Raise the cap if
+        // legit users hit 429s; add Turnstile if an attacker rotates IPs past this.
+        const rateLimited = await enforceRateLimit(request, {
+            endpoint: 'resolve-auth-login',
+            action: mode,
+            identifier: 'per-ip',
+            maxRequests: 100,
+            windowSeconds: 300,
+            message: 'Too many login attempts. Please wait a few minutes and try again.',
+            corsHeaders
+        });
+        if (rateLimited) {
+            return rateLimited;
+        }
+
+        const adminClient = getAdminClient();
 
         if (mode === 'resolve-staff-login') {
             return await resolveStaffLogin(adminClient, body.username);

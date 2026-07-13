@@ -579,7 +579,11 @@ const DeptSupportApprovalsPage = ({
                                                     type="button"
                                                     onClick={async () => {
                                                         try {
-                                                            await openStoredAsset('support_documents', url);
+                                                            await openStoredAsset('support_documents', url, 300, {
+                                                                category: 'support-student',
+                                                                requestId: Number(viewReq.id),
+                                                                index: idx
+                                                            });
                                                         } catch (error) {
                                                             console.error('Failed to open support document.', error);
                                                         }
@@ -688,7 +692,10 @@ const DeptSupportApprovalsPage = ({
                                         type="button"
                                         onClick={async () => {
                                             try {
-                                                await openStoredAsset('support_documents', letterReference);
+                                                await openStoredAsset('support_documents', letterReference, 300, {
+                                                    category: 'support-endorsement',
+                                                    requestId: Number(viewReq.id)
+                                                });
                                             } catch (error) {
                                                 console.error('Failed to open endorsement letter.', error);
                                             }

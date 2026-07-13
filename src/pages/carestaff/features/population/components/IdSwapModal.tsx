@@ -11,7 +11,7 @@ import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { Button } from '../../../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../../components/ui/Card';
-import { getValidProfileImageUrl } from '../../../../../utils/formatters';
+import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import {
     getActiveStudentsForLocalFiltering,
@@ -146,8 +146,9 @@ const IdSwapModal = ({
                                             ) : sourceStudent ? (
                                                 <div className="p-3 rounded-xl border border-blue-100 bg-blue-50/30 flex items-start gap-3 min-h-[100px]">
                                                     {sourceStudent.profile_picture_url ? (
-                                                        <img
-                                                            src={getValidProfileImageUrl(sourceStudent.profile_picture_url)}
+                                                        <ResolvedProfileImage
+                                                            storedValue={sourceStudent.profile_picture_url}
+                                                            studentId={sourceStudent.student_id}
                                                             alt="Profile"
                                                             className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
                                                         />
@@ -191,8 +192,9 @@ const IdSwapModal = ({
                                             ) : targetStudent ? (
                                                 <div className="p-3 rounded-xl border border-amber-100 bg-amber-50/30 flex items-start gap-3 min-h-[100px]">
                                                     {targetStudent.profile_picture_url ? (
-                                                        <img
-                                                            src={getValidProfileImageUrl(targetStudent.profile_picture_url)}
+                                                        <ResolvedProfileImage
+                                                            storedValue={targetStudent.profile_picture_url}
+                                                            studentId={targetStudent.student_id}
                                                             alt="Profile"
                                                             className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
                                                         />

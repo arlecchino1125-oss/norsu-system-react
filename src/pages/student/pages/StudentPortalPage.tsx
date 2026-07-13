@@ -559,6 +559,7 @@ export default function StudentPortal() {
                                 submitTimeIn={submitTimeIn}
                                 personalInfo={personalInfo}
                                 toast={toast}
+                                showToast={showToast}
                                 Icons={Icons}
                                 showCommandHub={showCommandHub}
                                 setShowCommandHub={setShowCommandHub}

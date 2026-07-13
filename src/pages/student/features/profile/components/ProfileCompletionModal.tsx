@@ -6,7 +6,7 @@ import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { joinNameParts } from '../../../../../utils/nameUtils';
 import { getStoredAssetPath, openStoredAsset } from '../../../../../utils/storageAssets';
 import { TEXT_INPUT_RULES } from '../../../../../utils/inputSecurity';
-import { driveService } from '../../../../../services/driveService';
+import { uploadProfileDocument } from '../profileDocumentStorage';
 import { ActivitiesStep } from './steps/ActivitiesStep';
 import { EducationStep } from './steps/EducationStep';
 import { EmergencyContactStep } from './steps/EmergencyContactStep';
@@ -600,13 +600,7 @@ export default function ProfileCompletionModal({
         }
 
         const file = formData.profilePictureFile as File;
-        const result = await driveService.uploadFile(file, studentId);
-        
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to upload profile picture to Google Drive');
-        }
-
-        return result.directLink || result.webViewLink;
+        return uploadProfileDocument(file, 'profile_picture_url');
     };
 
     const uploadProfileCompletionDocument = async (config: typeof PROFILE_DOCUMENT_UPLOADS[number]) => {
@@ -621,13 +615,7 @@ export default function ProfileCompletionModal({
             throw new Error('Student ID is required before uploading profile documents.');
         }
 
-        const result = await driveService.uploadFile(file, studentId);
-        
-        if (!result.success) {
-            throw new Error(result.error || `Failed to upload ${config.label} to Google Drive`);
-        }
-
-        return result.webViewLink;
+        return uploadProfileDocument(file, config.urlField);
     };
 
     const uploadProfileCompletionDocuments = async () => {
@@ -854,9 +842,16 @@ export default function ProfileCompletionModal({
     const visibleProgramOptions = Array.from(new Set([
         ...programOptions
     ].map((value) => String(value || '').trim()).filter(Boolean)));
-    const handleOpenProfileDocument = async (value: string) => {
+    const handleOpenProfileDocument = async (value: string, config: typeof PROFILE_DOCUMENT_UPLOADS[number]) => {
         try {
-            await openStoredAsset('support_documents', value);
+            await openStoredAsset('support_documents', value, 300, {
+                category: config.urlField === 'pwdDocumentUrl' ? 'claim-pwd'
+                    : config.urlField === 'ipDocumentUrl' ? 'claim-indigenous'
+                    : config.urlField === 'fourPsDocumentUrl' ? 'claim-four-ps'
+                    : config.urlField === 'soloParentDocumentUrl' ? 'claim-solo-parent'
+                    : 'claim-senior-citizen',
+                studentId: String(formData.studentId || personalInfo?.studentId || '')
+            });
         } catch (error: any) {
             showToast(error.message || 'Unable to open the uploaded file.', 'error');
         }
@@ -878,7 +873,7 @@ export default function ProfileCompletionModal({
                     <span>Max 1 MB.</span>
                     {file && <span className="font-semibold text-slate-500">{file.name}</span>}
                     {!file && existingUrl && (
-                        <button type="button" onClick={() => handleOpenProfileDocument(existingUrl)} className="font-bold text-indigo-600 hover:text-indigo-700">View uploaded file</button>
+                        <button type="button" onClick={() => handleOpenProfileDocument(existingUrl, config)} className="font-bold text-indigo-600 hover:text-indigo-700">View uploaded file</button>
                     )}
                 </div>
             </div>

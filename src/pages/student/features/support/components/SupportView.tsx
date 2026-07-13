@@ -495,7 +495,11 @@ export default function SupportView({
                                                     type="button"
                                                     onClick={async () => {
                                                         try {
-                                                            await openStoredAsset('support_documents', url);
+                                                            await openStoredAsset('support_documents', url, 300, {
+                                                                category: 'support-student',
+                                                                requestId: Number(selectedSupportRequest.id),
+                                                                index: idx
+                                                            });
                                                         } catch (error: any) {
                                                             showToast?.(error.message || 'Unable to open the selected document.', 'error');
                                                         }

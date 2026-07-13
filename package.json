@@ -16,15 +16,20 @@
     "db:types": "supabase gen types typescript --linked > src/types/database.ts",
     "sanitize:storage": "node scripts/empty-production-storage.mjs",
     "sanitize:storage:dry-run": "node scripts/empty-production-storage.mjs --dry-run",
+    "migrate:r2": "node --env-file-if-exists=.env.r2-migration.local scripts/migrate-documents-to-r2.mjs",
+    "migrate:r2:dry-run": "node --env-file-if-exists=.env.r2-migration.local scripts/migrate-documents-to-r2.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "knip": {
-    "ignore": ["supabase/functions/**"]
+    "ignore": [
+      "supabase/functions/**"
+    ]
   },
   "dependencies": {
     "@sentry/react": "^10.63.0",
     "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-query": "^5.101.2",
+    "aws4fetch": "1.0.20",
     "chart.js": "^4.5.1",
     "framer-motion": "^12.34.3",
     "jspdf": "^4.1.0",
