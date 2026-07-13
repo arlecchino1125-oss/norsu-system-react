@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import heic2any from 'heic2any';
+import { heicTo } from 'heic-to/csp';
 import DocumentPreviewModal from './DocumentPreviewModal';
 import { DOCUMENT_PREVIEW_EVENT, type DocumentPreviewRequest } from '../utils/storageAssets';
 
-vi.mock('heic2any', () => ({ default: vi.fn() }));
+vi.mock('heic-to/csp', () => ({ heicTo: vi.fn() }));
 
 const openPreview = (detail: DocumentPreviewRequest) => {
     act(() => {
@@ -36,6 +36,7 @@ describe('DocumentPreviewModal', () => {
         });
 
         expect(screen.getByRole('dialog', { name: 'photo.jpg' })).toBeInTheDocument();
+        expect(screen.getByRole('dialog', { name: 'photo.jpg' }).parentElement).toHaveClass('z-[10020]');
         expect(screen.getByRole('img', { name: 'photo.jpg' })).toHaveAttribute('src', 'https://r2.example/photo.jpg?signature=test');
         expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
     });
@@ -44,7 +45,7 @@ describe('DocumentPreviewModal', () => {
         const original = new Blob(['original'], { type: 'image/heic' });
         const converted = new Blob(['preview'], { type: 'image/jpeg' });
         vi.mocked(fetch).mockResolvedValue(new Response(original));
-        vi.mocked(heic2any).mockResolvedValue(converted);
+        vi.mocked(heicTo).mockResolvedValue(converted);
         render(<DocumentPreviewModal />);
 
         openPreview({
@@ -54,7 +55,7 @@ describe('DocumentPreviewModal', () => {
         });
 
         expect(await screen.findByRole('img', { name: 'drive-document.heic' })).toHaveAttribute('src', 'blob:converted-preview');
-        expect(heic2any).toHaveBeenCalledWith({ blob: original, toType: 'image/jpeg', quality: 0.9 });
+        expect(heicTo).toHaveBeenCalledWith({ blob: original, type: 'image/jpeg', quality: 0.9 });
 
         fireEvent.click(screen.getByRole('button'));
         await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:converted-preview'));
@@ -75,7 +76,7 @@ describe('DocumentPreviewModal', () => {
 
     it('shows a useful error when HEIC conversion fails', async () => {
         vi.mocked(fetch).mockResolvedValue(new Response(new Blob(['original'], { type: 'image/heic' })));
-        vi.mocked(heic2any).mockRejectedValue(new Error('decoder failed'));
+        vi.mocked(heicTo).mockRejectedValue(new Error('decoder failed'));
         render(<DocumentPreviewModal />);
 
         openPreview({

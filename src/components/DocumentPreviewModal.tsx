@@ -48,9 +48,8 @@ export default function DocumentPreviewModal() {
                 const response = await fetch(request.url);
                 if (!response.ok) throw new Error('Unable to retrieve the image.');
                 const original = await response.blob();
-                const { default: heic2any } = await import('heic2any');
-                const result = await heic2any({ blob: original, toType: 'image/jpeg', quality: 0.9 });
-                const converted = Array.isArray(result) ? result[0] : result;
+                const { heicTo } = await import('heic-to/csp');
+                const converted = await heicTo({ blob: original, type: 'image/jpeg', quality: 0.9 });
                 if (!converted) throw new Error('The image contained no previewable frame.');
                 objectUrl = URL.createObjectURL(converted);
                 if (cancelled) {
@@ -84,6 +83,7 @@ export default function DocumentPreviewModal() {
             title={request?.label || 'File preview'}
             size="full"
             className="max-h-[92vh]"
+            zIndex="z-[10020]"
         >
             <div className="flex min-h-[45vh] items-center justify-center overflow-hidden rounded-xl bg-slate-100">
                 {isPreparing && (
