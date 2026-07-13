@@ -15,6 +15,13 @@ import { usePermissionsForRole } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 import ApplicationWizard from './public/nat/components/ApplicationWizard';
 import { getSafeErrorMessage } from '../utils/errorMasking';
+import {
+    clearNatApplicantSession,
+    getOrCreateNatBrowserId,
+    loadNatApplicantSession,
+    saveNatApplicantSession,
+    type NatApplicantSession
+} from '../lib/natApplicantSession';
 
 // --- ASSETS & CONSTANTS ---
 const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
@@ -26,8 +33,9 @@ const NAT_APPLICATION_DRAFT_STORAGE_KEY = 'norsu-nat-application-draft-v1';
 // username as requiring a security check (three failed logins).
 const TURNSTILE_SCRIPT_ID = 'cf-turnstile-script';
 
-const TurnstileWidget = ({ onToken }: { onToken: (token: string) => void }) => {
+const TurnstileWidget = ({ onToken, resetKey }: { onToken: (token: string) => void; resetKey: number }) => {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
+    const widgetIdRef = React.useRef<string | null>(null);
 
     useEffect(() => {
         let widgetId: string | null = null;
@@ -42,6 +50,7 @@ const TurnstileWidget = ({ onToken }: { onToken: (token: string) => void }) => {
                 'expired-callback': () => onToken(''),
                 'error-callback': () => onToken('')
             });
+            widgetIdRef.current = widgetId;
         };
 
         if ((window as any).turnstile) {
@@ -61,8 +70,15 @@ const TurnstileWidget = ({ onToken }: { onToken: (token: string) => void }) => {
         return () => {
             cancelled = true;
             if (widgetId !== null) (window as any).turnstile?.remove(widgetId);
+            widgetIdRef.current = null;
         };
     }, [onToken]);
+
+    useEffect(() => {
+        if (widgetIdRef.current !== null) {
+            (window as any).turnstile?.reset(widgetIdRef.current);
+        }
+    }, [resetKey]);
 
     return <div ref={containerRef} className="flex justify-center" />;
 };
@@ -606,6 +622,7 @@ const NATPortal = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [captchaRequired, setCaptchaRequired] = useState<boolean>(false);
     const [captchaToken, setCaptchaToken] = useState<string>('');
+    const [captchaResetKey, setCaptchaResetKey] = useState(0);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
     const [activationConfirm, setActivationConfirm] = useState<{ visible: boolean; studentId: string; course: string }>({ visible: false, studentId: '', course: '' });
@@ -615,6 +632,8 @@ const NATPortal = () => {
     // Auth & User State
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [credentials, setCredentials] = useState<any>(null);
+    const [natSession, setNatSession] = useState<NatApplicantSession | null>(null);
+    const [natBrowserId] = useState(() => getOrCreateNatBrowserId());
 
     // Options — fetched once on mount, cached for 1 minute per global QueryClient config
     const natOptionsQuery = useQuery({
@@ -705,6 +724,41 @@ const NATPortal = () => {
             fallbackMessage
         });
     };
+
+    useEffect(() => {
+        const storedSession = loadNatApplicantSession();
+        if (!storedSession) return;
+
+        let cancelled = false;
+        void invokeEdgeFunction('manage-nat-applications', {
+            body: {
+                mode: 'session',
+                token: storedSession.token,
+                browserId: natBrowserId
+            },
+            fallbackMessage: 'Failed to restore the NAT portal session.'
+        }).then((data) => {
+            if (cancelled || !data?.application) return;
+            setNatSession({
+                token: storedSession.token,
+                expiresAt: String(data.sessionExpiresAt || storedSession.expiresAt)
+            });
+            setCredentials({ referenceId: data.application.reference_id || '' });
+            setCurrentUser(data.application);
+            setLastSessionSyncAt(new Date().toISOString());
+            setCurrentScreen('dashboard');
+        }).catch(() => {
+            if (cancelled) return;
+            clearNatApplicantSession();
+            setNatSession(null);
+        }).finally(() => {
+            if (!cancelled) setIsSessionSyncing(false);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [natBrowserId]);
 
     const supportsNatAttendance = hasNatAttendanceColumns(currentUser);
     const hasStartedCurrentNat = supportsNatAttendance ? Boolean(currentUser?.time_in) : hasNatStartedStatus(currentUser?.status);
@@ -850,7 +904,7 @@ const NATPortal = () => {
     }, [currentScreen, currentUser, activationSuccess.visible]);
 
     useEffect(() => {
-        if (currentScreen !== 'dashboard' || activationSuccess.visible || !credentials?.username || !credentials?.password) {
+        if (currentScreen !== 'dashboard' || activationSuccess.visible || !natSession?.token) {
             return;
         }
 
@@ -867,8 +921,8 @@ const NATPortal = () => {
                 const data = await invokeNatManagementFunction(
                     {
                         mode: 'session',
-                        username: credentials.username,
-                        password: credentials.password
+                        token: natSession.token,
+                        browserId: natBrowserId
                     },
                     'Failed to refresh the NAT portal session.'
                 );
@@ -897,6 +951,13 @@ const NATPortal = () => {
             } catch (error) {
                 if (!cancelled) {
                     console.error('Failed to refresh the NAT portal session.', error);
+                    if (Number((error as any)?.status || 0) === 401) {
+                        clearNatApplicantSession();
+                        setNatSession(null);
+                        setCurrentUser(null);
+                        setCredentials(null);
+                        setCurrentScreen('login');
+                    }
                 }
             } finally {
                 if (!cancelled) {
@@ -920,7 +981,7 @@ const NATPortal = () => {
             clearInterval(interval);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [currentScreen, credentials?.username, credentials?.password, activationSuccess.visible]);
+    }, [currentScreen, natSession?.token, natBrowserId, activationSuccess.visible]);
 
     // Handlers
     const handleChange = (e: any) => {
@@ -1076,6 +1137,7 @@ const NATPortal = () => {
                     mode: 'login',
                     username: user,
                     password: pass,
+                    browserId: natBrowserId,
                     ...(captchaToken ? { captchaToken } : {})
                 },
                 'Failed to sign in to the NAT portal.'
@@ -1083,10 +1145,17 @@ const NATPortal = () => {
 
             setCaptchaRequired(false);
             setCaptchaToken('');
+            const nextSession = {
+                token: String(data?.sessionToken || ''),
+                expiresAt: String(data?.sessionExpiresAt || '')
+            };
+            if (!nextSession.token || !nextSession.expiresAt) {
+                throw new Error('The NAT login server returned an incomplete session.');
+            }
+            saveNatApplicantSession(nextSession);
+            setNatSession(nextSession);
             setCredentials((prev: any) => ({
                 ...(prev || {}),
-                username: user,
-                password: pass,
                 referenceId: data?.application?.reference_id || prev?.referenceId || ''
             }));
             setCurrentUser(data.application);
@@ -1094,7 +1163,10 @@ const NATPortal = () => {
         } catch (err: any) {
             if (err?.status === 403) {
                 setCaptchaRequired(true);
+            }
+            if (captchaToken) {
                 setCaptchaToken('');
+                setCaptchaResetKey((previous) => previous + 1);
             }
             showToast(err?.message || 'Failed to sign in to the NAT portal.', 'error');
         } finally {
@@ -1104,7 +1176,7 @@ const NATPortal = () => {
 
     const executeTimeIn = async () => {
         if (loading) return;
-        if (!credentials?.username || !credentials?.password) {
+        if (!natSession?.token) {
             showToast('Your NAT session has expired. Sign in again.', 'error');
             return;
         }
@@ -1114,8 +1186,8 @@ const NATPortal = () => {
             const data = await invokeNatManagementFunction(
                 {
                     mode: 'time-in',
-                    username: credentials.username,
-                    password: credentials.password
+                    token: natSession.token,
+                    browserId: natBrowserId
                 },
                 'Failed to record Time In.'
             );
@@ -1125,6 +1197,12 @@ const NATPortal = () => {
             setCurrentUser({ ...currentUser, ...application, status: application.status || 'Ongoing' });
             setShowTimeInConfirm(false);
         } catch (error: any) {
+            if (Number(error?.status || 0) === 401) {
+                clearNatApplicantSession();
+                setNatSession(null);
+                setCurrentUser(null);
+                setCurrentScreen('login');
+            }
             showToast("Error recording Time In: ", 'error');
         } finally {
             setLoading(false);
@@ -1133,7 +1211,7 @@ const NATPortal = () => {
 
     const executeTimeOut = async () => {
         if (loading) return;
-        if (!credentials?.username || !credentials?.password) {
+        if (!natSession?.token) {
             showToast('Your NAT session has expired. Sign in again.', 'error');
             return;
         }
@@ -1141,10 +1219,10 @@ const NATPortal = () => {
         setLoading(true);
         try {
             const data = await invokeNatManagementFunction(
-                {
-                    mode: 'time-out',
-                    username: credentials.username,
-                    password: credentials.password
+                    {
+                        mode: 'time-out',
+                        token: natSession.token,
+                        browserId: natBrowserId
                 },
                 'Failed to record Time Out.'
             );
@@ -1154,6 +1232,12 @@ const NATPortal = () => {
             setCurrentUser({ ...currentUser, ...application, status: application.status || 'Test Taken' });
             setShowTimeOutConfirm(false);
         } catch (error: any) {
+            if (Number(error?.status || 0) === 401) {
+                clearNatApplicantSession();
+                setNatSession(null);
+                setCurrentUser(null);
+                setCurrentScreen('login');
+            }
             showToast('Something went wrong.', 'error');
         } finally {
             setLoading(false);
@@ -1251,6 +1335,8 @@ const NATPortal = () => {
 
     const handleActivationSuccessContinue = () => {
         setActivationSuccess({ visible: false, studentId: '', course: '', emailSent: true, password: '', viewed: false });
+        clearNatApplicantSession();
+        setNatSession(null);
         setCurrentUser(null);
         setCredentials(null);
         navigate('/student/login');
@@ -1269,6 +1355,8 @@ const NATPortal = () => {
 
             if (result?.success) {
                 setActivationSuccess({ visible: false, studentId: '', course: '', emailSent: true, password: '', viewed: false });
+                clearNatApplicantSession();
+                setNatSession(null);
                 setCurrentUser(null);
                 setCredentials(null);
                 showToast('Login Successful', 'success');
@@ -1286,10 +1374,20 @@ const NATPortal = () => {
         }
     };
 
-    const handleNatLogout = () => {
+    const handleNatLogout = async () => {
+        const activeSession = natSession;
+        clearNatApplicantSession();
+        setNatSession(null);
         setCurrentUser(null);
         setCredentials(null);
         setCurrentScreen('welcome');
+        if (activeSession?.token) {
+            await invokeNatManagementFunction({
+                mode: 'logout',
+                token: activeSession.token,
+                browserId: natBrowserId
+            }, 'Failed to revoke the NAT portal session.').catch(() => null);
+        }
     };
 
 
@@ -1561,7 +1659,7 @@ const NATPortal = () => {
                         {captchaRequired && (
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Security Check</label>
-                                <TurnstileWidget onToken={setCaptchaToken} />
+                                <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} />
                             </div>
                         )}
 

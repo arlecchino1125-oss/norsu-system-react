@@ -4,6 +4,7 @@ import { buildEdgeFunctionHeaders } from './functionHeaders';
 import { sanitizeStudentSession } from './studentAuth';
 import { sanitizeStaffSession } from './staffAuth';
 import { readEdgeFunctionErrorMessage, getFriendlyErrorMessage } from './invokeEdgeFunction';
+import { authenticateLogin } from './authLogin';
 import {
     recoverLocalSupabaseSession
 } from './supabaseSessionRecovery';
@@ -202,12 +203,6 @@ const shouldReuseLoadedAuthSession = (event: string, currentSession: any, authUs
         && matchesAuthUser(currentSession, authUser)
     );
 
-const isInvalidAuthCredentialsError = (error: any) => {
-    const message = String(error || '').toLowerCase();
-    return message.includes('invalid login credentials')
-        || message.includes('email not confirmed')
-        || message.includes('invalid credentials');
-};
 // claude — Identical for "no such account" and "wrong password" so login never
 // reveals whether an ID/username/email exists (anti-enumeration). Every failure
 // path in loginStudent/loginStaff returns these exact strings.
@@ -225,41 +220,17 @@ const getLoginCatchMessage = (error: any, fallbackPrefix: string) => {
         : `${fallbackPrefix}: ${message}`;
 };
 
-const signInWithResolvedEmail = async (email: string, password: string) =>
-    supabase.auth.signInWithPassword({
-        email,
-        password
-    });
-
-const resolveAuthLoginAccount = async (
-    mode: 'resolve-staff-login' | 'resolve-student-login',
-    payload: Record<string, unknown>
-) => {
-    const { data, error, response } = await supabase.functions.invoke('resolve-auth-login', {
-        body: {
-            mode,
-            ...payload
-        },
+const authenticateWithEdge = (payload: Record<string, unknown>) => authenticateLogin({
+    invoke: (body) => supabase.functions.invoke('resolve-auth-login', {
+        body,
         headers: buildEdgeFunctionHeaders()
-    });
-
-    if (error) {
-        const detailedMessage = await readEdgeFunctionErrorMessage(response || error?.context);
-        const baseMessage = detailedMessage || error.message || 'Unable to resolve the login account.';
-        const friendlyMessage = getFriendlyErrorMessage(baseMessage);
-        const nextError: Error & { status?: number | null } = new Error(friendlyMessage);
-        nextError.status = response?.status || error?.context?.status || null;
-        throw nextError;
+    }),
+    setSession: (nextSession) => supabase.auth.setSession(nextSession),
+    readError: async (result) => {
+        const detailed = await readEdgeFunctionErrorMessage(result.response || result.error?.context);
+        return detailed ? getFriendlyErrorMessage(detailed) : null;
     }
-
-    if (!data?.success) {
-        const rawErrorMsg = data?.error || 'Unable to resolve the login account.';
-        const friendlyMessage = getFriendlyErrorMessage(rawErrorMsg);
-        throw new Error(friendlyMessage);
-    }
-
-    return data.account || null;
-};
+}, payload);
 
 const syncLinkedAuthEmailAfterLogin = async (
     functionName: string,
@@ -441,51 +412,23 @@ export function AuthProvider({ children }: any) {
         setLoading(true);
         try {
             const trimmedUsername = String(username || '').trim();
-            const userCheck = await resolveAuthLoginAccount('resolve-staff-login', {
-                username: trimmedUsername
+            await prepareAuthSessionForLogin();
+            const authData = await authenticateWithEdge({
+                mode: 'authenticate-staff-login',
+                username: trimmedUsername,
+                password: String(password || ''),
+                requiredRole
             });
-
-            // claude — Enumeration guard: pre-auth we only learn the account's email (or null).
-            // "no such username", "not linked", and "no email" all collapse into one
-            // generic message so an unauthenticated caller can't distinguish them. The
-            // role / archived / linkage checks run post-auth below, where the caller has
-            // proven ownership (archived accounts are already filtered out by
-            // getStaffProfileByAuthUser).
-            const resolvedEmail = normalizeLoginEmail(userCheck?.email);
-            if (!resolvedEmail) {
+            const staffProfile = await getStaffProfileByAuthUser(authData.user);
+            if (!staffProfile || staffProfile.role !== requiredRole) {
+                await supabase.auth.signOut().catch(() => null);
                 setLoading(false);
                 return { success: false, error: INVALID_STAFF_LOGIN_MESSAGE };
             }
 
-            await prepareAuthSessionForLogin();
-            const { data: authData, error: authError } = await signInWithResolvedEmail(resolvedEmail, password);
-
-            if (authError || !authData?.user) {
-                setLoading(false);
-                if (isInvalidAuthCredentialsError(authError)) {
-                    return { success: false, error: INVALID_STAFF_LOGIN_MESSAGE };
-                }
-                // claude — Non-credential failure (network / auth service): stay neutral rather
-                // than surfacing GoTrue's message, which can confirm an account exists.
-                return { success: false, error: 'Unable to sign in right now. Please try again.' };
-            }
-
-            const staffProfile = await getStaffProfileByAuthUser(authData.user);
-            if (!staffProfile) {
-                await supabase.auth.signOut().catch(() => null);
-                setLoading(false);
-                return { success: false, error: 'Staff profile not found.' };
-            }
-
-            if (staffProfile.role !== requiredRole) {
-                await supabase.auth.signOut().catch(() => null);
-                setLoading(false);
-                return { success: false, error: `Access denied: This account is not a ${requiredRole}.` };
-            }
-
             const syncedAuthEmail = await syncLinkedAuthEmailAfterLogin(
                 'manage-staff-accounts',
-                userCheck.email,
+                staffProfile.email,
                 authData.session?.access_token
             );
             const authUserForSession = syncedAuthEmail
@@ -499,6 +442,9 @@ export function AuthProvider({ children }: any) {
 
         } catch (err) {
             setLoading(false);
+            if (Number((err as any)?.status || 0) === 401) {
+                return { success: false, error: INVALID_STAFF_LOGIN_MESSAGE };
+            }
             return { success: false, error: getLoginCatchMessage(err, 'Connection error') };
         }
     }, [getStaffProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
@@ -513,36 +459,14 @@ export function AuthProvider({ children }: any) {
             const resolvedLoginMode = loginMode === 'email' || trimmedIdentifier.includes('@')
                 ? 'email'
                 : 'studentId';
-            const studentLookup = await resolveAuthLoginAccount('resolve-student-login', {
+            await prepareAuthSessionForLogin();
+            const authData = await authenticateWithEdge({
+                mode: 'authenticate-student-login',
                 ...(resolvedLoginMode === 'email'
                     ? { email: trimmedIdentifier }
-                    : { studentId: trimmedIdentifier })
+                    : { studentId: trimmedIdentifier }),
+                password: String(password || '')
             });
-
-            // claude — Same enumeration guard as staff: the resolver returns email-only, so
-            // "no such student", "not activated", and "no email" all collapse to one
-            // generic message. Activation/status is enforced post-auth via
-            // getStudentProfileByAuthUser.
-            const resolvedEmail = normalizeLoginEmail(studentLookup?.email);
-            if (!resolvedEmail) {
-                setLoading(false);
-                return {
-                    success: false,
-                    error: INVALID_STUDENT_LOGIN_MESSAGE
-                };
-            }
-
-            await prepareAuthSessionForLogin();
-            const { data: authData, error: authError } = await signInWithResolvedEmail(resolvedEmail, password);
-
-            if (authError || !authData?.user) {
-                setLoading(false);
-                if (isInvalidAuthCredentialsError(authError)) {
-                    return { success: false, error: INVALID_STUDENT_LOGIN_MESSAGE };
-                }
-                return { success: false, error: INVALID_STUDENT_LOGIN_MESSAGE };
-            }
-
             const studentProfile = await getStudentProfileByAuthUser(authData.user);
             if (!studentProfile) {
                 const { data: sessionCheck } = await supabase.auth.getSession();
@@ -566,7 +490,7 @@ export function AuthProvider({ children }: any) {
 
             const syncedAuthEmail = await syncLinkedAuthEmailAfterLogin(
                 'manage-student-accounts',
-                studentLookup.email,
+                (studentProfile as any).email,
                 authData.session?.access_token
             );
             const authUserForSession = syncedAuthEmail
@@ -579,6 +503,9 @@ export function AuthProvider({ children }: any) {
             return { success: true, data: sessionData };
         } catch (err) {
             setLoading(false);
+            if (Number((err as any)?.status || 0) === 401) {
+                return { success: false, error: INVALID_STUDENT_LOGIN_MESSAGE };
+            }
             return { success: false, error: getLoginCatchMessage(err, 'Login error') };
         }
     }, [getStudentProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
