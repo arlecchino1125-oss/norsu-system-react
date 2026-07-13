@@ -33,4 +33,23 @@ describe('ResolvedProfileImage', () => {
             { category: 'profile-photo', studentId: '430130903' }
         );
     });
+
+    it('leaves preview handling to an existing profile-photo modal', () => {
+        const openExistingModal = vi.fn();
+        render(
+            <button type="button" onClick={openExistingModal}>
+                <ResolvedProfileImage
+                    storedValue="r2:students/1/profile/photo/profile.jpg"
+                    studentId="430130903"
+                    alt="Student profile"
+                    previewOnClick={false}
+                />
+            </button>
+        );
+
+        fireEvent.click(screen.getByAltText('Student profile'));
+
+        expect(openExistingModal).toHaveBeenCalledOnce();
+        expect(openStoredAsset).not.toHaveBeenCalled();
+    });
 });

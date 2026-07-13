@@ -87,7 +87,7 @@ const StudentProfileModal = ({
                                     className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center text-xl sm:text-2xl font-black text-white shrink-0 shadow-lg shadow-blue-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-blue-400 transition-all focus:outline-none' : 'cursor-default'}`}
                                 >
                                     {profileViewStudent.profile_picture_url ? (
-                                        <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                        <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" previewOnClick={false} />
                                     ) : (
                                         <span>{profileViewStudent.first_name?.[0] || 'S'}</span>
                                     )}
@@ -260,7 +260,7 @@ const StudentProfileModal = ({
 
                         <div className="w-full aspect-square flex items-center justify-center bg-slate-100 flex-shrink-0">
                             {profileViewStudent.profile_picture_url ? (
-                                <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                <ResolvedProfileImage storedValue={profileViewStudent.profile_picture_url} studentId={profileViewStudent.student_id} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" previewOnClick={false} />
                             ) : (
                                 <User size={80} className="text-slate-300" />
                             )}

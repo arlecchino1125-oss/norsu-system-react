@@ -6,9 +6,10 @@ import { openStoredAsset } from '../utils/storageAssets';
 type ResolvedProfileImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
     storedValue: string;
     studentId: string;
+    previewOnClick?: boolean;
 };
 
-export const ResolvedProfileImage = ({ storedValue, studentId, className = '', onClick, onKeyDown, ...imageProps }: ResolvedProfileImageProps) => {
+export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = true, className = '', onClick, onKeyDown, ...imageProps }: ResolvedProfileImageProps) => {
     const { url } = useResolvedDocumentUrl('profile-pictures', storedValue, {
         category: 'profile-photo',
         studentId
@@ -26,16 +27,16 @@ export const ResolvedProfileImage = ({ storedValue, studentId, className = '', o
         <img
             {...imageProps}
             src={getValidProfileImageUrl(url)}
-            role="button"
-            tabIndex={imageProps.tabIndex ?? 0}
-            className={`${className} cursor-zoom-in`}
+            role={previewOnClick ? 'button' : imageProps.role}
+            tabIndex={previewOnClick ? (imageProps.tabIndex ?? 0) : imageProps.tabIndex}
+            className={`${className}${previewOnClick ? ' cursor-zoom-in' : ''}`}
             onClick={(event) => {
                 onClick?.(event);
-                if (!event.defaultPrevented) openPreview();
+                if (previewOnClick && !event.defaultPrevented) openPreview();
             }}
             onKeyDown={(event) => {
                 onKeyDown?.(event);
-                if (!event.defaultPrevented && (event.key === 'Enter' || event.key === ' ')) {
+                if (previewOnClick && !event.defaultPrevented && (event.key === 'Enter' || event.key === ' ')) {
                     event.preventDefault();
                     openPreview();
                 }
