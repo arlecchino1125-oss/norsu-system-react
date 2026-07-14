@@ -33,6 +33,9 @@ export type NatSecurityDependencies = {
     randomBytes: () => Uint8Array;
 };
 
+type NatSessionLookupDependencies = Pick<NatSecurityDependencies, 'now' | 'findSession'>;
+type NatSessionRevocationDependencies = Pick<NatSecurityDependencies, 'deleteSession'>;
+
 const withStatus = (message: string, status: number) => {
     const error = new Error(message) as Error & { status?: number };
     error.status = status;
@@ -40,9 +43,10 @@ const withStatus = (message: string, status: number) => {
 };
 
 const normalizeBrowserId = (value: unknown) => String(value || '').trim().toLowerCase();
+export const normalizeNatUsername = (value: unknown) => String(value || '').trim().toLowerCase();
 
-export const buildNatFailureIdentifier = (username: unknown, browserId: unknown) =>
-    `${String(username || '').trim().toLowerCase()}\n${normalizeBrowserId(browserId)}`;
+export const buildNatFailureIdentifier = (username: unknown, _browserId?: unknown) =>
+    normalizeNatUsername(username);
 
 const toHex = (bytes: Uint8Array) => Array.from(bytes)
     .map((value) => value.toString(16).padStart(2, '0'))
@@ -119,7 +123,7 @@ export const loginNatApplicantSecurity = async (
 
 export const requireNatSessionSecurity = async (
     input: { token?: unknown; browserId?: unknown },
-    dependencies: NatSecurityDependencies
+    dependencies: NatSessionLookupDependencies
 ) => {
     const token = String(input.token || '').trim();
     const browserId = validateBrowserId(input.browserId);
@@ -140,7 +144,7 @@ export const requireNatSessionSecurity = async (
 
 export const revokeNatSessionSecurity = async (
     input: { token?: unknown; browserId?: unknown },
-    dependencies: NatSecurityDependencies
+    dependencies: NatSessionRevocationDependencies
 ) => {
     const token = String(input.token || '').trim();
     const browserId = validateBrowserId(input.browserId);

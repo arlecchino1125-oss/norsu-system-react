@@ -616,6 +616,7 @@ CREATE OR REPLACE FUNCTION "public"."current_staff_account_id"() RETURNS "text"
     select sa.id
     from public.staff_accounts as sa
     where sa.auth_user_id = auth.uid()
+      and sa.is_archived = false
     limit 1;
 $$;
 
@@ -668,6 +669,7 @@ CREATE OR REPLACE FUNCTION "public"."current_staff_department"() RETURNS "text"
     select sa.department
     from public.staff_accounts as sa
     where sa.auth_user_id = auth.uid()
+      and sa.is_archived = false
     limit 1;
 $$;
 
@@ -686,6 +688,7 @@ CREATE OR REPLACE FUNCTION "public"."current_staff_email"() RETURNS "text"
     select sa.email
     from public.staff_accounts as sa
     where sa.auth_user_id = auth.uid()
+      and sa.is_archived = false
     limit 1;
 $$;
 
@@ -704,6 +707,7 @@ CREATE OR REPLACE FUNCTION "public"."current_staff_full_name"() RETURNS "text"
     select sa.full_name
     from public.staff_accounts as sa
     where sa.auth_user_id = auth.uid()
+      and sa.is_archived = false
     limit 1;
 $$;
 
@@ -722,6 +726,7 @@ CREATE OR REPLACE FUNCTION "public"."current_staff_role"() RETURNS "text"
     select sa.role
     from public.staff_accounts as sa
     where sa.auth_user_id = auth.uid()
+      and sa.is_archived = false
     limit 1;
 $$;
 
@@ -740,6 +745,7 @@ CREATE OR REPLACE FUNCTION "public"."current_staff_username"() RETURNS "text"
     select sa.username
     from public.staff_accounts as sa
     where sa.auth_user_id = auth.uid()
+      and sa.is_archived = false
     limit 1;
 $$;
 

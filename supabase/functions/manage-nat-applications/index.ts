@@ -2,13 +2,18 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { captureEdgeException } from '../_shared/sentry.ts';
 import { hashNatPassword, verifyNatPassword } from '../_shared/natPassword.ts';
+import { enforceRateLimit, LOGIN_RATE_LIMIT } from '../_shared/rateLimit.ts';
+import { requireValidTurnstile } from '../_shared/turnstile.ts';
 import {
     hashNatIdentifier,
     loginNatApplicantSecurity,
     requireNatSessionSecurity,
     revokeNatSessionSecurity,
+    normalizeNatUsername,
     type NatSecurityDependencies
 } from './natSecurity.ts';
+import { buildNatAttendanceUpdate } from './natAttendance.ts';
+import { buildNatPublicStats } from './natPublicStats.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -23,7 +28,7 @@ const FAILURE_WINDOW_SECONDS = 15 * 60;
 const json = (body: Record<string, unknown>, status = 200) =>
     new Response(JSON.stringify(body), {
         status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
     });
 
 const getAdminClient = () => {
@@ -50,17 +55,6 @@ const sanitizeNatApplication = (application: Record<string, unknown>) => {
 
 const turnstileSecret = () => String(Deno.env.get('TURNSTILE_SECRET_KEY') || '').trim();
 
-const verifyTurnstileToken = async (token: string) => {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ secret: turnstileSecret(), response: token })
-    });
-    if (!response.ok) return false;
-    const payload = await response.json().catch(() => null);
-    return payload?.success === true;
-};
-
 const reportBookkeepingError = async (error: unknown, step: string) => {
     await captureEdgeException(error, { endpoint: 'manage-nat-applications', step });
 };
@@ -69,7 +63,7 @@ const getNatApplicationByUsername = async (adminClient: any, username: string) =
     const { data, error } = await adminClient
         .from('applications')
         .select('*')
-        .ilike('username', username)
+        .eq('username', normalizeNatUsername(username))
         .maybeSingle();
     if (error) throw error;
     return data;
@@ -80,7 +74,14 @@ const createNatSecurityDependencies = (adminClient: any): NatSecurityDependencie
     captchaEnabled: Boolean(turnstileSecret()),
     getApplication: (username) => getNatApplicationByUsername(adminClient, username),
     verifyPassword: verifyNatPassword,
-    verifyCaptcha: verifyTurnstileToken,
+    verifyCaptcha: async (token) => {
+        try {
+            await requireValidTurnstile(token, turnstileSecret());
+            return true;
+        } catch {
+            return false;
+        }
+    },
     getFailureCount: async (identifier) => {
         try {
             const { data, error } = await adminClient
@@ -168,14 +169,6 @@ const createNatSecurityDependencies = (adminClient: any): NatSecurityDependencie
     randomBytes: () => crypto.getRandomValues(new Uint8Array(32))
 });
 
-const isMissingNatAttendanceColumnsError = (error: any) => {
-    const message = String(error?.message || '').toLowerCase();
-    return message.includes('applications.time_in')
-        || message.includes('applications.time_out')
-        || message.includes('column time_in')
-        || message.includes('column time_out');
-};
-
 const isMissingTestTimeColumnError = (error: any) => {
     const message = String(error?.message || '').toLowerCase();
     return message.includes('applications.test_time') || message.includes('column test_time');
@@ -196,28 +189,20 @@ const getNatPublicStats = async (adminClient: any) => {
         applications = withTime.data || [];
     }
 
-    const courseCounts: Record<string, number> = {};
-    const dateCounts: Record<string, number> = {};
-    const dateTimeCounts: Record<string, number> = {};
-    const { data: natRequirements, error: requirementsError } = await adminClient
-        .from('nat_requirements')
-        .select('name')
-        .order('created_at', { ascending: true });
-    if (requirementsError) throw requirementsError;
+    const [coursesResult, schedulesResult, requirementsResult] = await Promise.all([
+        adminClient.from('courses').select('name, status').eq('status', 'Open'),
+        adminClient.from('admission_schedules').select('date, is_active, time_windows').eq('is_active', true),
+        adminClient.from('nat_requirements').select('name').order('created_at', { ascending: true })
+    ]);
+    if (coursesResult.error) throw coursesResult.error;
+    if (schedulesResult.error) throw schedulesResult.error;
+    if (requirementsResult.error) throw requirementsResult.error;
 
-    for (const application of applications) {
-        const courseName = String(application.priority_course || '').trim();
-        const testDate = String(application.test_date || '').trim();
-        const testTime = String(application.test_time || '').trim();
-        if (courseName) courseCounts[courseName] = (courseCounts[courseName] || 0) + 1;
-        if (testDate) {
-            dateCounts[testDate] = (dateCounts[testDate] || 0) + 1;
-            if (supportsTestTime && testTime) {
-                const key = `${testDate}|${testTime}`;
-                dateTimeCounts[key] = (dateTimeCounts[key] || 0) + 1;
-            }
-        }
-    }
+    const { courseCounts, dateCounts, dateTimeCounts } = buildNatPublicStats({
+        applications,
+        courses: coursesResult.data || [],
+        schedules: schedulesResult.data || []
+    });
 
     return json({
         success: true,
@@ -225,32 +210,38 @@ const getNatPublicStats = async (adminClient: any) => {
         courseCounts,
         dateCounts,
         dateTimeCounts,
-        requirements: (natRequirements || []).map((row: any) => String(row?.name || '').trim()).filter(Boolean)
+        requirements: (requirementsResult.data || []).map((row: any) => String(row?.name || '').trim()).filter(Boolean)
     });
 };
 
 const updateNatAttendance = async (adminClient: any, application: any, action: 'time-in' | 'time-out') => {
-    const timestamp = new Date().toISOString();
-    const updates = action === 'time-in'
-        ? { time_in: timestamp, status: 'Ongoing' }
-        : { time_out: timestamp, status: 'Test Taken' };
-    const fallbackUpdates = action === 'time-in' ? { status: 'Ongoing' } : { status: 'Test Taken' };
-
-    let { data: updatedApplication, error } = await adminClient
+    const updates = buildNatAttendanceUpdate(application, action, new Date());
+    let updateQuery = adminClient
         .from('applications')
         .update(updates)
-        .eq('id', application.id)
-        .select('*')
-        .single();
-    if (error && isMissingNatAttendanceColumnsError(error)) {
-        ({ data: updatedApplication, error } = await adminClient
-            .from('applications')
-            .update(fallbackUpdates)
-            .eq('id', application.id)
-            .select('*')
-            .single());
+        .eq('id', application.id);
+
+    if (action === 'time-in') {
+        updateQuery = updateQuery
+            .eq('status', 'Submitted')
+            .is('time_in', null)
+            .is('time_out', null);
+    } else {
+        updateQuery = updateQuery
+            .eq('status', 'Ongoing')
+            .not('time_in', 'is', null)
+            .is('time_out', null);
     }
+
+    const { data: updatedApplication, error } = await updateQuery
+        .select('*')
+        .maybeSingle();
     if (error) throw error;
+    if (!updatedApplication) {
+        const conflict = new Error('Attendance was already updated. Refresh and try again.') as Error & { status?: number };
+        conflict.status = 409;
+        throw conflict;
+    }
     return updatedApplication;
 };
 
@@ -262,6 +253,29 @@ serve(async (request) => {
         const body = await request.json();
         const mode = String(body.mode || '').trim();
         if (mode === 'ping') return json({ success: true });
+
+        if (mode === 'login') {
+            const rateLimitResponse = await enforceRateLimit(request, {
+                endpoint: 'manage-nat-applications',
+                action: 'login',
+                identifier: String(body.username || ''),
+                ...LOGIN_RATE_LIMIT,
+                corsHeaders
+            });
+            if (rateLimitResponse) return rateLimitResponse;
+        }
+
+        if (mode === 'public-stats') {
+            const rateLimitResponse = await enforceRateLimit(request, {
+                endpoint: 'manage-nat-applications',
+                action: 'public-stats',
+                identifierMode: 'ip',
+                maxRequests: 60,
+                windowSeconds: 60,
+                corsHeaders
+            });
+            if (rateLimitResponse) return rateLimitResponse;
+        }
 
         const adminClient = getAdminClient();
         if (mode === 'public-stats') return await getNatPublicStats(adminClient);

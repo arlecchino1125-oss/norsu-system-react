@@ -50,7 +50,11 @@ const DeptSupportApprovalsPage = ({
         setViewStudent(null);
         setShowViewModal(true);
         if (req.student_id) {
-            const { data } = await supabase.from('students').select('*').eq('student_id', req.student_id).maybeSingle();
+            const { data } = await supabase
+                .from('students_directory')
+                .select('dob, mobile, email, address, street, city, province, zip_code, region, course, year_level, priority_course, alt_course_1, alt_course_2')
+                .eq('student_id', req.student_id)
+                .maybeSingle();
             setViewStudent(data);
         }
     };

@@ -700,6 +700,33 @@ export const getStudentByStudentId = async (studentId: string) => {
     return data;
 };
 
+// Registrar/Department Head export path. Reads students_directory, which exposes
+// only non-sensitive columns, so the sensitive column set (STUDENT_LIST_COLUMNS)
+// never reaches these roles. Care Staff keep getAllStudentsForExport (full data).
+export const getDirectoryStudentsForExport = async () => {
+    const limit = 1000;
+    let start = 0;
+    const rows: any[] = [];
+
+    while (true) {
+        const { data, error } = await supabase
+            .from('students_directory')
+            .select('*')
+            .eq('is_archived', false)
+            .order('last_name', { ascending: true })
+            .range(start, start + limit - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+
+        rows.push(...data);
+        if (data.length < limit) break;
+        start += limit;
+    }
+
+    return rows;
+};
+
 export const getCoursesWithDepartments = async () => {
     const { data, error } = await supabase
         .from('courses')

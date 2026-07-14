@@ -41,7 +41,8 @@ import {
     buildApplicantName,
     getApplicantRouteLabel,
     getSheetColumnValue,
-    createEmptyScheduleForm
+    createEmptyScheduleForm,
+    canMarkNatPassed
 } from '../utils';
 
 export function useCareStaffNat({ showToast }: any) {
@@ -235,16 +236,36 @@ export function useCareStaffNat({ showToast }: any) {
             return;
         }
 
+        if (newStatus === PASS_STATUS && !canMarkNatPassed(application)) {
+            showToast('Record both Time In and Time Out before marking this applicant as passed.', 'error');
+            return;
+        }
+
         try {
             console.log("[DEBUG] Sending update request to Supabase...");
-            const { error } = await supabase
+            let updateQuery = supabase
                 .from('applications')
                 .update({ status: newStatus })
                 .eq('id', id);
 
+            if (newStatus === PASS_STATUS) {
+                updateQuery = updateQuery
+                    .not('time_in', 'is', null)
+                    .not('time_out', 'is', null);
+            }
+
+            const { data: updatedApplication, error } = await updateQuery
+                .select('id')
+                .maybeSingle();
+
             if (error) {
                 console.error("[DEBUG] Supabase Error:", error);
                 showToast(`Error.`, 'error');
+                return;
+            }
+
+            if (!updatedApplication) {
+                showToast('Attendance changed before the result was saved. Refresh and try again.', 'error');
                 return;
             }
 
@@ -519,8 +540,7 @@ export function useCareStaffNat({ showToast }: any) {
 
     const filteredApplications = applications;
     const filteredResults = testTakers;
-    const hasCompletedAttendance = (app: any) => Boolean(app?.time_in) && Boolean(app?.time_out);
-    const isCompletedNatRecord = (app: any) => supportsAttendance ? hasCompletedAttendance(app) : hasTakenNatStatus(app?.status);
+    const isCompletedNatRecord = (app: any) => supportsAttendance ? canMarkNatPassed(app) : hasTakenNatStatus(app?.status);
     const getNatCompletedDateLabel = (app: any) => formatDate(app?.completed_at || app?.archived_at || app?.created_at);
 
     const dateApplicantCounts = summaryApplications.reduce((acc: Record<string, number>, app: any) => {
@@ -775,9 +795,7 @@ export function useCareStaffNat({ showToast }: any) {
                     && normalizeApplicantName(row.applicantName) !== normalizeApplicantName(systemName)
                 );
 
-                const readyForRelease = supportsAttendance
-                    ? hasCompletedAttendance(matchedApplication)
-                    : String(matchedApplication.status || '') === 'Test Taken';
+                const readyForRelease = canMarkNatPassed(matchedApplication);
 
                 if (isNatFinalizedStatus(matchedApplication.status)) {
                     return {
@@ -842,11 +860,17 @@ export function useCareStaffNat({ showToast }: any) {
             const applicationIds = [...new Set(readyRows.map((row) => row.appId).filter(Boolean))];
             for (let index = 0; index < applicationIds.length; index += 100) {
                 const chunk = applicationIds.slice(index, index + 100);
-                const { error } = await supabase
+                const { data: updatedApplications, error } = await supabase
                     .from('applications')
                     .update({ status: PASS_STATUS })
-                    .in('id', chunk);
+                    .in('id', chunk)
+                    .not('time_in', 'is', null)
+                    .not('time_out', 'is', null)
+                    .select('id');
                 if (error) throw error;
+                if ((updatedApplications || []).length !== chunk.length) {
+                    throw new Error('Some attendance records changed. Refresh the list and try again.');
+                }
             }
 
             showToast(`${applicationIds.length} applicants marked as ${PASS_STATUS}.`, 'success');
@@ -1043,7 +1067,6 @@ export function useCareStaffNat({ showToast }: any) {
         handleDeleteRequirement,
         filteredApplications,
         filteredResults,
-        hasCompletedAttendance,
         isCompletedNatRecord,
         getNatCompletedDateLabel,
         dateApplicantCounts,

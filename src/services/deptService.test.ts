@@ -46,6 +46,7 @@ describe('deptService.getStudentsPage', () => {
             { page: 1, pageSize: 10 }
         );
 
+        expect(fromMock).toHaveBeenCalledWith('students_directory');
         expect(queryMock.select).toHaveBeenCalledWith(
             'id, student_id, first_name, middle_name, last_name, suffix, email, mobile, sex, address, street, city, province, zip_code, year_level, status, profile_completed, department, course, section',
             { count: 'exact' }

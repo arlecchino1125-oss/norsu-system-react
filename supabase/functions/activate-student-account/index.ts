@@ -2,6 +2,12 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { captureEdgeException } from '../_shared/sentry.ts';
 import { buildStudentPortalLoginUrl, escapeHtml, maskEmailAddress, sendEmail, trySendEmail } from '../_shared/emailService.ts';
+import { generateRandomPassword } from '../_shared/randomPassword.ts';
+import { requireNatSessionSecurity } from '../manage-nat-applications/natSecurity.ts';
+import {
+    classifyNatActivationCompletion,
+    requireApprovedNatActivation
+} from './natActivation.ts';
 
 const STUDENT_ACTIVATION_SETTINGS_ROW_ID = 1;
 const DEFAULT_REQUIRE_ENROLLMENT_KEY = true;
@@ -125,16 +131,6 @@ const buildParentName = (parts: { given?: unknown; middle?: unknown; last?: unkn
         .join(' ')
     || null;
 
-const generatePassword = (length = 12) => {
-    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
-    const bytes = crypto.getRandomValues(new Uint8Array(length));
-    let result = '';
-    for (let index = 0; index < length; index += 1) {
-        result += alphabet[bytes[index] % alphabet.length];
-    }
-    return result;
-};
-
 const normalizeEmail = (value: unknown) => {
     const email = String(value || '').trim().toLowerCase();
     return email || null;
@@ -151,7 +147,8 @@ const json = (body: Record<string, unknown>, status = 200) =>
         status,
         headers: {
             ...corsHeaders,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store'
         }
     });
 
@@ -169,6 +166,58 @@ const getAdminClient = () => {
             persistSession: false
         }
     });
+};
+
+const requireNatActivationSession = (adminClient: any, input: Record<string, unknown>) =>
+    requireNatSessionSecurity(input, {
+        now: () => new Date(),
+        findSession: async ({ tokenHash, browserIdHash, now }) => {
+            const { data: session, error: sessionError } = await adminClient
+                .from('nat_applicant_sessions')
+                .select('application_id, expires_at')
+                .eq('token_hash', tokenHash)
+                .eq('browser_id_hash', browserIdHash)
+                .gt('expires_at', now)
+                .maybeSingle();
+            if (sessionError) throw sessionError;
+            if (!session) return null;
+
+            const { data: application, error: applicationError } = await adminClient
+                .from('applications')
+                .select('*')
+                .eq('id', session.application_id)
+                .maybeSingle();
+            if (applicationError) throw applicationError;
+
+            return application
+                ? { application, expiresAt: session.expires_at }
+                : null;
+        }
+    });
+
+const probeNatActivationCompletion = async (
+    adminClient: any,
+    expected: { applicationId: string; studentId: string; authUserId: string }
+) => {
+    const [studentResult, archiveResult] = await Promise.all([
+        adminClient
+            .from('students')
+            .select('student_id, auth_user_id')
+            .eq('student_id', expected.studentId)
+            .maybeSingle(),
+        adminClient
+            .from('application_archives')
+            .select('source_application_id, activated_student_id')
+            .eq('source_application_id', expected.applicationId)
+            .maybeSingle()
+    ]);
+
+    return classifyNatActivationCompletion({
+        student: studentResult.data,
+        archive: archiveResult.data,
+        studentError: studentResult.error,
+        archiveError: archiveResult.error
+    }, expected);
 };
 
 // Sent server-side (not via the public send-email relay) so the recipient/credentials in
@@ -220,39 +269,15 @@ const ensureEnrollmentKey = async (
     adminClient: any,
     studentId: string,
     course: string,
-    email: string,
-    options: {
-        allowCreate?: boolean;
-        yearLevel?: unknown;
-    } = {}
+    email: string
 ) => {
-    const allowCreate = options.allowCreate === true;
-    const normalizedYearLevel = String(options.yearLevel || '').trim() || null;
-    const { data: existingKeyData, error: keyError } = await adminClient
+    const { data: keyData, error: keyError } = await adminClient
         .from('enrolled_students')
         .select('*')
         .eq('student_id', studentId)
         .maybeSingle();
-    let keyData = existingKeyData;
 
     if (keyError) throw keyError;
-
-    if (!keyData && allowCreate) {
-        const { data: createdKey, error: createError } = await adminClient
-            .from('enrolled_students')
-            .insert([{
-                student_id: studentId,
-                course,
-                year_level: normalizedYearLevel,
-                is_used: false,
-                status: 'Pending'
-            }])
-            .select('*')
-            .single();
-
-        if (createError) throw createError;
-        keyData = createdKey;
-    }
 
     if (!keyData) {
         throw new Error('Student ID not found in the enrollment list.');
@@ -267,6 +292,17 @@ const ensureEnrollmentKey = async (
     }
 
     return keyData;
+};
+
+const ensureEnrollmentReference = async (adminClient: any, studentId: string) => {
+    const { error } = await adminClient
+        .from('enrolled_students')
+        .upsert(
+            [{ student_id: studentId }],
+            { onConflict: 'student_id', ignoreDuplicates: true }
+        );
+
+    if (error) throw error;
 };
 
 const normalizeCreateAuthError = (error: any, contactEmail: string) => {
@@ -307,6 +343,25 @@ const createStudentAuthUser = async (
     }
 
     return data.user;
+};
+
+const cleanupCreatedAuthUser = async (adminClient: any, authUserId: string, mode: string) => {
+    try {
+        const { error } = await adminClient.auth.admin.deleteUser(authUserId);
+        if (error) {
+            await captureEdgeException(error, {
+                endpoint: 'activate-student-account',
+                phase: 'auth-cleanup',
+                mode
+            });
+        }
+    } catch (error) {
+        await captureEdgeException(error, {
+            endpoint: 'activate-student-account',
+            phase: 'auth-cleanup',
+            mode
+        });
+    }
 };
 
 const upsertStudentRow = async (
@@ -463,7 +518,6 @@ const activateStudentProfileAccount = async (adminClient: any, body: Record<stri
     const studentId = String(body.studentId || '').trim();
     const course = String(body.course || '').trim();
     const password = String(body.password || '');
-    const allowEnrollmentCreate = body.allowEnrollmentCreate === true;
     const profile = typeof body.profile === 'object' && body.profile
         ? body.profile as Record<string, unknown>
         : {};
@@ -493,10 +547,11 @@ const activateStudentProfileAccount = async (adminClient: any, body: Record<stri
     }
 
     const activationPolicy = await getStudentActivationPolicy(adminClient);
-    await ensureEnrollmentKey(adminClient, studentId, course, contactEmail, {
-        allowCreate: !activationPolicy.requireEnrollmentKey && allowEnrollmentCreate,
-        yearLevel: profile.yearLevelApplying
-    });
+    if (activationPolicy.requireEnrollmentKey) {
+        await ensureEnrollmentKey(adminClient, studentId, course, contactEmail);
+    } else {
+        await ensureEnrollmentReference(adminClient, studentId);
+    }
 
     let createdAuthUserId: string | null = null;
 
@@ -511,7 +566,9 @@ const activateStudentProfileAccount = async (adminClient: any, body: Record<stri
         });
         studentPayload.email = contactEmail;
         await upsertStudentRow(adminClient, studentId, authUser.id, studentPayload);
-        await markEnrollmentKeyUsed(adminClient, studentId, contactEmail);
+        if (activationPolicy.requireEnrollmentKey) {
+            await markEnrollmentKeyUsed(adminClient, studentId, contactEmail);
+        }
 
         return {
             success: true,
@@ -519,7 +576,7 @@ const activateStudentProfileAccount = async (adminClient: any, body: Record<stri
         };
     } catch (error) {
         if (createdAuthUserId) {
-            await adminClient.auth.admin.deleteUser(createdAuthUserId).catch(() => null);
+            await cleanupCreatedAuthUser(adminClient, createdAuthUserId, 'student-profile-activation');
         }
         throw error;
     }
@@ -528,21 +585,15 @@ const activateStudentProfileAccount = async (adminClient: any, body: Record<stri
 const activateNatStudentAccount = async (adminClient: any, body: Record<string, unknown>) => {
     const studentId = String(body.studentId || '').trim();
     const course = String(body.course || '').trim();
-    const applicationId = String(body.applicationId || '').trim();
-    const allowEnrollmentCreate = body.allowEnrollmentCreate === true;
 
-    if (!studentId || !course || !applicationId) {
+    if (!studentId || !course) {
         throw new Error('Missing required NAT activation details.');
     }
 
-    const { data: application, error: applicationError } = await adminClient
-        .from('applications')
-        .select('*')
-        .eq('id', applicationId)
-        .maybeSingle();
-
-    if (applicationError) throw applicationError;
-    if (!application) throw new Error('Application not found.');
+    const application = await requireApprovedNatActivation(
+        body,
+        (input) => requireNatActivationSession(adminClient, input)
+    );
 
     const contactEmail = normalizeEmail(application.email);
     if (!contactEmail) throw new Error('Application email is required before activation.');
@@ -550,46 +601,7 @@ const activateNatStudentAccount = async (adminClient: any, body: Record<string, 
         throw new Error('A valid student email address is required before activation.');
     }
 
-    await ensureEnrollmentKey(
-        adminClient,
-        studentId,
-        course,
-        contactEmail,
-        {
-            allowCreate: allowEnrollmentCreate && String(application.status || '') === 'Approved for Enrollment',
-            yearLevel: application.year_level
-        }
-    );
-
-    const initialPassword = generatePassword();
-    const department = await getDepartmentName(adminClient, course);
-    const studentPayload = {
-        first_name: application.first_name || null,
-        last_name: application.last_name || null,
-        middle_name: application.middle_name || null,
-        suffix: application.suffix || null,
-        dob: application.dob || null,
-        age: application.age || null,
-        place_of_birth: application.place_of_birth || null,
-        sex: application.sex || null,
-        gender_identity: application.gender_identity || null,
-        civil_status: application.civil_status || null,
-        nationality: application.nationality || null,
-        email: contactEmail,
-        mobile: application.mobile || null,
-        facebook_url: application.facebook_url || null,
-        street: application.street || null,
-        city: application.city || null,
-        province: application.province || null,
-        zip_code: application.zip_code || null,
-        course,
-        year_level: '1st Year',
-        status: 'Active',
-        department,
-        priority_course: application.priority_course || null,
-        alt_course_1: application.alt_course_1 || null,
-        alt_course_2: application.alt_course_2 || null
-    };
+    const initialPassword = generateRandomPassword();
 
     const { data: existingStudent, error: existingStudentError } = await adminClient
         .from('students')
@@ -603,28 +615,59 @@ const activateNatStudentAccount = async (adminClient: any, body: Record<string, 
         throw new Error('This student ID is already activated. Sign in with the existing account or ask an admin to reset it first.');
     }
 
-    let authUserId = existingStudent?.auth_user_id || null;
     let createdAuthUserId: string | null = null;
+    let databaseActivationCommitted = false;
+    let cleanupAuthOnFailure = true;
 
     try {
-        if (!authUserId) {
-            const authUser = await createStudentAuthUser(adminClient, studentId, initialPassword, contactEmail)
-                .catch((error) => {
-                    throw normalizeCreateAuthError(error, contactEmail);
+        const authUser = await createStudentAuthUser(adminClient, studentId, initialPassword, contactEmail)
+            .catch((error) => {
+                throw normalizeCreateAuthError(error, contactEmail);
+            });
+        createdAuthUserId = authUser.id;
+
+        const { error: activationError } = await adminClient.rpc(
+            'complete_nat_student_activation',
+            {
+                p_application_id: application.id,
+                p_student_id: studentId,
+                p_auth_user_id: authUser.id,
+                p_course: course
+            }
+        );
+
+        if (activationError) {
+            const hasDefiniteDatabaseCode = Boolean(String(activationError.code || '').trim());
+
+            if (hasDefiniteDatabaseCode) {
+                throw new Error(activationError.message || 'Failed to complete student activation.');
+            }
+
+            const completionState = await probeNatActivationCompletion(adminClient, {
+                applicationId: application.id,
+                studentId,
+                authUserId: authUser.id
+            });
+
+            if (completionState === 'committed') {
+                databaseActivationCommitted = true;
+            } else {
+                cleanupAuthOnFailure = false;
+                await captureEdgeException(activationError, {
+                    endpoint: 'activate-student-account',
+                    phase: 'activation-result-ambiguous',
+                    mode: 'nat-application-activation'
                 });
-            authUserId = authUser.id;
-            createdAuthUserId = authUser.id;
+
+                const recoveryError = new Error(
+                    'We could not confirm whether activation completed. Please contact CARE staff before trying again.'
+                ) as Error & { status?: number };
+                recoveryError.status = 503;
+                throw recoveryError;
+            }
+        } else {
+            databaseActivationCommitted = true;
         }
-
-        await upsertStudentRow(adminClient, studentId, authUserId, studentPayload);
-        await markEnrollmentKeyUsed(adminClient, studentId, contactEmail);
-
-        const { error: deleteError } = await adminClient
-            .from('applications')
-            .delete()
-            .eq('id', applicationId);
-
-        if (deleteError) throw deleteError;
 
         const { emailSent, emailError } = await trySendEmail(
             () => sendStudentActivationEmail({
@@ -644,8 +687,8 @@ const activateNatStudentAccount = async (adminClient: any, body: Record<string, 
             emailError
         };
     } catch (error) {
-        if (createdAuthUserId) {
-            await adminClient.auth.admin.deleteUser(createdAuthUserId).catch(() => null);
+        if (createdAuthUserId && !databaseActivationCommitted && cleanupAuthOnFailure) {
+            await cleanupCreatedAuthUser(adminClient, createdAuthUserId, 'nat-application-activation');
         }
         throw error;
     }
@@ -677,6 +720,9 @@ serve(async (request) => {
     } catch (error) {
         await captureEdgeException(error, { endpoint: 'activate-student-account' });
         const message = error instanceof Error ? error.message : 'Unexpected activation error.';
-        return json({ success: false, error: message }, 400);
+        const status = typeof (error as { status?: unknown })?.status === 'number'
+            ? Number((error as { status?: unknown }).status)
+            : 400;
+        return json({ success: false, error: message }, status);
     }
 });

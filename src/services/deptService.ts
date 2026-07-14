@@ -263,7 +263,7 @@ export const getStudentsPage = async (
 ): Promise<PageResult<any>> => {
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
-        .from('students')
+        .from('students_directory')
         .select(DEPT_STUDENT_COLUMNS, { count: DEPT_STUDENT_COUNT_MODE });
 
     query = applyStudentFilters(query, filters);

@@ -3,8 +3,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { captureEdgeException } from '../_shared/sentry.ts';
 import { escapeHtml, sendEmail, trySendEmail } from '../_shared/emailService.ts';
 import { hashNatPassword } from '../_shared/natPassword.ts';
+import { generateRandomPassword } from '../_shared/randomPassword.ts';
+import { requireValidTurnstile } from '../_shared/turnstile.ts';
 import { enforceRateLimit } from './rateLimit.ts';
-import { sanitizeOptionalPlainText, sanitizePlainText } from './plainText.ts';
+import { sanitizeOptionalPlainText } from './plainText.ts';
+import { validateNatSubmission } from './submissionValidation.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -20,7 +23,8 @@ const json = (body: Record<string, unknown>, status = 200) =>
         status,
         headers: {
             ...corsHeaders,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store'
         }
     });
 
@@ -57,32 +61,6 @@ const asObject = (value: unknown): Record<string, unknown> =>
     value && typeof value === 'object' && !Array.isArray(value)
         ? value as Record<string, unknown>
         : {};
-
-const normalizeEmail = (value: unknown) => {
-    const email = String(value || '').trim().toLowerCase();
-    return email || null;
-};
-
-const isValidEmail = (value: string | null) =>
-    Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
-
-const isIsoDate = (value: string) =>
-    /^\d{4}-\d{2}-\d{2}$/.test(value);
-
-const toNullableDate = (value: unknown) => {
-    const text = String(value || '').trim();
-    return text && isIsoDate(text) ? text : null;
-};
-
-const toNullableInt = (value: unknown) => {
-    const text = String(value ?? '').trim();
-    if (!text) return null;
-
-    const numberValue = Number(text);
-    return Number.isInteger(numberValue) && numberValue >= 0
-        ? numberValue
-        : null;
-};
 
 const buildReferenceId = () =>
     `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
@@ -159,37 +137,29 @@ const normalizeDuplicateError = (error: any) => {
 };
 
 const submitNatApplication = async (adminClient: any, body: Record<string, unknown>) => {
-    const email = normalizeEmail(body.email);
-    const password = String(body.password || '');
-    const firstName = sanitizePlainText(body.first_name, { maxLength: 80 });
-    const lastName = sanitizePlainText(body.last_name, { maxLength: 80 });
-    const mobile = sanitizePlainText(body.mobile, { maxLength: 24 });
-    const priorityCourse = sanitizePlainText(body.priority_course, { maxLength: 120 });
-    const testDate = String(body.test_date || '').trim();
-
-    if (!firstName || !lastName) {
-        throw withStatus('First name and last name are required.', 400);
-    }
-
-    if (!isValidEmail(email)) {
-        throw withStatus('A valid email address is required.', 400);
-    }
-
-    if (!mobile) {
-        throw withStatus('Mobile number is required.', 400);
-    }
-
-    if (!priorityCourse) {
-        throw withStatus('Primary course choice is required.', 400);
-    }
-
-    if (!testDate || !isIsoDate(testDate)) {
-        throw withStatus('A valid test date is required.', 400);
-    }
-
-    if (password.length < 8) {
-        throw withStatus('A valid application password is required.', 400);
-    }
+    const validated = validateNatSubmission(body);
+    const password = generateRandomPassword();
+    const {
+        firstName,
+        lastName,
+        dob,
+        age,
+        placeOfBirth,
+        nationality,
+        sex,
+        civilStatus,
+        reason,
+        street,
+        city,
+        province,
+        zipCode,
+        mobile,
+        email,
+        priorityCourse,
+        altCourse1,
+        altCourse2,
+        testDate
+    } = validated;
 
     const referenceId = buildReferenceId();
     const payload: Record<string, unknown> = {
@@ -198,24 +168,24 @@ const submitNatApplication = async (adminClient: any, body: Record<string, unkno
         last_name: lastName,
         middle_name: sanitizeOptionalPlainText(body.middle_name, { maxLength: 80 }),
         suffix: sanitizeOptionalPlainText(body.suffix, { maxLength: 20 }),
-        dob: toNullableDate(body.dob),
-        place_of_birth: sanitizeOptionalPlainText(body.place_of_birth, { maxLength: 120 }),
-        age: toNullableInt(body.age),
-        sex: sanitizeOptionalPlainText(body.sex, { maxLength: 20 }),
+        dob,
+        place_of_birth: placeOfBirth,
+        age,
+        sex,
         gender_identity: sanitizeOptionalPlainText(body.gender_identity, { maxLength: 40 }),
-        civil_status: sanitizeOptionalPlainText(body.civil_status, { maxLength: 40 }),
-        nationality: sanitizeOptionalPlainText(body.nationality, { maxLength: 80 }),
-        reason: sanitizeOptionalPlainText(body.reason, { maxLength: 500 }),
-        street: sanitizeOptionalPlainText(body.street, { maxLength: 160 }),
-        city: sanitizeOptionalPlainText(body.city, { maxLength: 80 }),
-        province: sanitizeOptionalPlainText(body.province, { maxLength: 80 }),
-        zip_code: sanitizeOptionalPlainText(body.zip_code, { maxLength: 20 }),
+        civil_status: civilStatus,
+        nationality,
+        reason,
+        street,
+        city,
+        province,
+        zip_code: zipCode,
         mobile,
         email,
         facebook_url: sanitizeOptionalPlainText(body.facebook_url, { maxLength: 255 }),
         priority_course: priorityCourse,
-        alt_course_1: sanitizeOptionalPlainText(body.alt_course_1, { maxLength: 120 }),
-        alt_course_2: sanitizeOptionalPlainText(body.alt_course_2, { maxLength: 120 }),
+        alt_course_1: altCourse1,
+        alt_course_2: altCourse2,
         test_date: testDate,
         username: email,
         nat_password_hash: await hashNatPassword(password)
@@ -254,6 +224,7 @@ const submitNatApplication = async (adminClient: any, body: Record<string, unkno
         success: true,
         application: data,
         referenceId,
+        password,
         emailSent,
         emailError
     };
@@ -280,6 +251,11 @@ serve(async (request) => {
             corsHeaders
         });
         if (rateLimitResponse) return rateLimitResponse;
+
+        await requireValidTurnstile(
+            body.captchaToken,
+            Deno.env.get('TURNSTILE_SECRET_KEY')
+        );
 
         const adminClient = getAdminClient();
         return json(await submitNatApplication(adminClient, body));

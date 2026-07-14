@@ -13,3 +13,8 @@ export const getSafeStudentActivationErrorMessage = (error: unknown) => {
 
     return `${rawMessage} Please check.`;
 };
+
+export const isMissingEnrollmentActivationError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error || '');
+    return message.includes('Student ID not found in the enrollment list.');
+};

@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
-import { getSafeStudentActivationErrorMessage } from '../lib/studentActivationErrors';
 import usePublicTheme from '../hooks/usePublicTheme';
 import { usePermissionsForRole } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
@@ -28,9 +27,9 @@ const NAT_TIME_CHECK_INTERVAL_MS = 2 * 60 * 1000;
 const NAT_SESSION_REFRESH_INTERVAL_MS = 90 * 1000;
 const NAT_SECURE_TIME_CACHE_TTL_MS = 5 * 60 * 1000;
 const NAT_APPLICATION_DRAFT_STORAGE_KEY = 'norsu-nat-application-draft-v1';
+const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
 
-// Cloudflare Turnstile CAPTCHA, rendered only after the server flags a
-// username as requiring a security check (three failed logins).
+// Cloudflare Turnstile CAPTCHA for NAT submission and repeated login failures.
 const TURNSTILE_SCRIPT_ID = 'cf-turnstile-script';
 
 const TurnstileWidget = ({ onToken, resetKey }: { onToken: (token: string) => void; resetKey: number }) => {
@@ -45,7 +44,7 @@ const TurnstileWidget = ({ onToken, resetKey }: { onToken: (token: string) => vo
             const turnstile = (window as any).turnstile;
             if (cancelled || widgetId !== null || !containerRef.current || !turnstile) return;
             widgetId = turnstile.render(containerRef.current, {
-                sitekey: String(import.meta.env.VITE_TURNSTILE_SITE_KEY || ''),
+                sitekey: TURNSTILE_SITE_KEY,
                 callback: onToken,
                 'expired-callback': () => onToken(''),
                 'error-callback': () => onToken('')
@@ -147,7 +146,9 @@ const loadNatDraft = (): NatDraftPayload | null => {
     if (typeof window === 'undefined') return null;
 
     try {
-        const rawDraft = window.localStorage.getItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
+        // Remove drafts written by older builds so shared browsers do not retain PII.
+        window.localStorage.removeItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
+        const rawDraft = window.sessionStorage.getItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
         if (!rawDraft) return null;
 
         const parsedDraft = JSON.parse(rawDraft) as NatDraftPayload;
@@ -178,18 +179,31 @@ const hasMeaningfulNatDraft = (formData: Record<string, any>, currentStep: numbe
 
 const saveNatDraft = (payload: NatDraftPayload) => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(NAT_APPLICATION_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    try {
+        window.sessionStorage.setItem(NAT_APPLICATION_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+        // Draft persistence is best effort and must never interrupt the form.
+    }
 };
 
 const clearNatDraft = () => {
     if (typeof window === 'undefined') return;
-    window.localStorage.removeItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
+    try {
+        window.sessionStorage.removeItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
+    } catch {
+        // A saved application must remain successful even if storage is blocked.
+    }
+    try {
+        window.localStorage.removeItem(NAT_APPLICATION_DRAFT_STORAGE_KEY);
+    } catch {
+        // Legacy draft cleanup is also best effort.
+    }
 };
 
 const normalizeText = (value: unknown) => String(value || '').trim();
 
 const getCourseCapacityMeta = (course: any) => {
-    const limit = Number(course?.application_limit || 200);
+    const limit = Number(course?.application_limit ?? 200);
     const applicantCount = Number(course?.applicantCount || 0);
     const remaining = Math.max(limit - applicantCount, 0);
     const isClosed = String(course?.status || '') === 'Closed';
@@ -623,11 +637,12 @@ const NATPortal = () => {
     const [captchaRequired, setCaptchaRequired] = useState<boolean>(false);
     const [captchaToken, setCaptchaToken] = useState<string>('');
     const [captchaResetKey, setCaptchaResetKey] = useState(0);
+    const [submissionCaptchaToken, setSubmissionCaptchaToken] = useState<string>('');
+    const [submissionCaptchaResetKey, setSubmissionCaptchaResetKey] = useState(0);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [showActivationModal, setShowActivationModal] = useState<boolean>(false);
     const [activationConfirm, setActivationConfirm] = useState<{ visible: boolean; studentId: string; course: string }>({ visible: false, studentId: '', course: '' });
     const [activationSuccess, setActivationSuccess] = useState<{ visible: boolean; studentId: string; course: string; emailSent: boolean; password: string; viewed: boolean }>({ visible: false, studentId: '', course: '', emailSent: true, password: '', viewed: false });
-    const [enrollConfirm, setEnrollConfirm] = useState<{ visible: boolean; studentId: string; course: string; resolve: ((v: boolean) => void) | null }>({ visible: false, studentId: '', course: '', resolve: null });
 
     // Auth & User State
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -656,7 +671,7 @@ const NATPortal = () => {
 
             const { data: datesData } = await supabase
                 .from('admission_schedules')
-                .select('*')
+                .select('id, date, venue, slots, is_active, time_windows')
                 .eq('is_active', true)
                 .order('date');
 
@@ -763,6 +778,12 @@ const NATPortal = () => {
     const supportsNatAttendance = hasNatAttendanceColumns(currentUser);
     const hasStartedCurrentNat = supportsNatAttendance ? Boolean(currentUser?.time_in) : hasNatStartedStatus(currentUser?.status);
     const hasFinishedCurrentNat = supportsNatAttendance ? Boolean(currentUser?.time_out) : isNatFinishedStatus(currentUser?.status);
+    const canTimeInCurrentNat = supportsNatAttendance
+        ? String(currentUser?.status || '') === 'Submitted' && !currentUser?.time_in && !currentUser?.time_out
+        : !hasStartedCurrentNat;
+    const canTimeOutCurrentNat = supportsNatAttendance
+        ? String(currentUser?.status || '') === 'Ongoing' && Boolean(currentUser?.time_in) && !currentUser?.time_out
+        : hasStartedCurrentNat && !hasFinishedCurrentNat;
 
     const selectedDateSchedule = availableDates.find((d: any) => d.date === formData.testDate);
     const selectedDateTimeSlots = selectedDateSchedule?.timeSlots || [];
@@ -1062,7 +1083,6 @@ const NATPortal = () => {
 
         setLoading(true);
         const username = formData.email.trim();
-        const password = Math.random().toString(36).slice(-8);
 
         try {
             const payload = {
@@ -1089,16 +1109,19 @@ const NATPortal = () => {
                 alt_course_2: formData.altCourse2,
                 test_date: formData.testDate,
                 username: username,
-                password,
-                dob: formData.dob
+                dob: formData.dob,
+                privacy_accepted: formData.agreedToPrivacy
             } as any;
             if (supportsTestTime) payload.test_time = formData.testTime || null;
+            if (TURNSTILE_SITE_KEY) payload.captchaToken = submissionCaptchaToken;
 
             const submission = await invokeEdgeFunction('submit-nat-application', {
                 body: payload,
                 fallbackMessage: 'Failed to submit the NAT application.'
             });
             const referenceId = String(submission?.referenceId || submission?.application?.reference_id || '');
+            const password = String(submission?.password || '');
+            if (!password) throw new Error('The NAT submission server returned incomplete credentials.');
 
             setCredentials({ ...formData, username, password, referenceId });
 
@@ -1115,8 +1138,14 @@ const NATPortal = () => {
             setFieldErrors({});
             setValidationScope(null);
         } catch (error: any) {
+            if (TURNSTILE_SITE_KEY) {
+                setSubmissionCaptchaToken('');
+                setSubmissionCaptchaResetKey((previous) => previous + 1);
+            }
             if (error.code === '23505' || error.message?.includes('duplicate')) {
                 showToast('Submission Failed: This email address is already registered.', 'error');
+            } else if (Number(error?.status || 0) === 403 || Number(error?.status || 0) === 429) {
+                showToast(error?.message || 'Please complete the security check and try again.', 'error');
             } else {
                 showToast('Something went wrong.', 'error');
             }
@@ -1246,49 +1275,23 @@ const NATPortal = () => {
 
     const executeActivation = async (studentId: string, course: string) => {
         if (loading) return;
+        if (!natSession?.token) {
+            showToast('Your NAT session has expired. Sign in again.', 'error');
+            return;
+        }
         setLoading(true);
 
         try {
-            const activateNatAccount = async (allowEnrollmentCreate = false) => {
-                return invokeEdgeFunction('activate-student-account', {
-                    body: {
-                        mode: 'nat-application-activation',
-                        applicationId: currentUser.id,
-                        studentId,
-                        course,
-                        allowEnrollmentCreate
-                    },
-                    fallbackMessage: 'Activation failed.'
-                });
-            };
-
-            let data;
-
-            try {
-                data = await activateNatAccount(false);
-            } catch (error: any) {
-                const missingEnrollment = String('').includes('Student ID not found in the enrollment list.');
-                const canContinue = missingEnrollment && currentUser?.status === 'Approved for Enrollment';
-
-                if (!canContinue) {
-                    throw error;
-                }
-
-                const confirmed = await new Promise<boolean>((resolve) => {
-                    setEnrollConfirm({
-                        visible: true,
-                        studentId,
-                        course,
-                        resolve
-                    });
-                });
-
-                if (!confirmed) {
-                    return;
-                }
-
-                data = await activateNatAccount(true);
-            }
+            const data = await invokeEdgeFunction('activate-student-account', {
+                body: {
+                    mode: 'nat-application-activation',
+                    token: natSession.token,
+                    browserId: natBrowserId,
+                    studentId,
+                    course
+                },
+                fallbackMessage: 'Activation failed.'
+            });
 
             // The activation email (with the generated password) is now sent server-side
             // by activate-student-account itself, using the password it just generated --
@@ -1308,6 +1311,21 @@ const NATPortal = () => {
                 viewed: false
             });
         } catch (error: any) {
+            if (Number(error?.status || 0) === 401) {
+                clearNatApplicantSession();
+                setNatSession(null);
+                setCurrentUser(null);
+                setCurrentScreen('login');
+                showToast('Your NAT session has expired. Sign in again.', 'error');
+                return;
+            }
+            if (Number(error?.status || 0) === 503) {
+                showToast(
+                    error?.message || 'We could not confirm whether activation completed. Please contact CARE staff before trying again.',
+                    'error'
+                );
+                return;
+            }
             showToast(`We couldn't activate your account. Please try again.`, 'error');
         } finally {
             setLoading(false);
@@ -1745,7 +1763,7 @@ const NATPortal = () => {
 
                             {/* Action Button */}
                             <div>
-                                {!hasStartedCurrentNat ? (
+                                {canTimeInCurrentNat ? (
                                     <button
                                         onClick={() => setShowTimeInConfirm(true)}
                                         disabled={!(timeState.isTestDate && timeState.isOpen)}
@@ -1753,7 +1771,7 @@ const NATPortal = () => {
                                     >
                                         <Clock className="w-5 h-5" /> TIME IN
                                     </button>
-                                ) : !hasFinishedCurrentNat ? (
+                                ) : canTimeOutCurrentNat ? (
                                     <button
                                         onClick={() => setShowTimeOutConfirm(true)}
                                         className="px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2 bg-gradient-to-r from-red-500 to-rose-600 hover:scale-105 hover:shadow-red-500/30"
@@ -1897,51 +1915,6 @@ const NATPortal = () => {
                                             onClick={handleConfirmedActivation}
                                             className="py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60"
                                         >{loading ? 'Processing...' : 'Confirm'}</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Enrollment Confirmation Modal (replaces window.confirm) */}
-                    {enrollConfirm.visible && (
-                        <div className="fixed inset-0 bg-transparent flex items-center justify-center z-[300] p-4">
-                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto border border-white/20 relative">
-                                <div className="bg-gradient-to-br from-amber-500 to-orange-500 p-6 text-center rounded-t-2xl">
-                                    <div className="bg-white/20 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center backdrop-blur-md">
-                                        <Info className="w-8 h-8 text-white" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-white">Enrollment Record Still Pending</h3>
-                                </div>
-                                <div className="p-6 space-y-4">
-                                    <p className="text-sm text-gray-600 leading-relaxed">
-                                        We could not find your enrollment record yet. This usually means your enrollment details are still being processed.
-                                    </p>
-                                    <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
-                                        <p className="text-xs font-bold text-gray-500 uppercase">Please review these details:</p>
-                                        <div className="flex items-center gap-2 text-sm text-gray-800">
-                                            <span className="font-bold">Student ID:</span>
-                                            <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{enrollConfirm.studentId}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm text-gray-800">
-                                            <span className="font-bold">Course:</span>
-                                            <span className="bg-white px-2 py-0.5 rounded border border-gray-200">{enrollConfirm.course}</span>
-                                        </div>
-                                    </div>
-                                    <p className="text-xs text-gray-500 leading-relaxed">
-                                        Since your application is already approved for enrollment, you may continue activation using the information shown below.
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-3 pt-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => { enrollConfirm.resolve?.(false); setEnrollConfirm({ visible: false, studentId: '', course: '', resolve: null }); }}
-                                            className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors border border-gray-200"
-                                        >Cancel</button>
-                                        <button
-                                            type="button"
-                                            onClick={() => { enrollConfirm.resolve?.(true); setEnrollConfirm({ visible: false, studentId: '', course: '', resolve: null }); }}
-                                            className="py-3 rounded-xl font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-200 hover:-translate-y-1 transition-all"
-                                        >Continue Activation</button>
                                     </div>
                                 </div>
                             </div>
@@ -2263,6 +2236,13 @@ const NATPortal = () => {
                 }}
                 onSubmit={handleSubmit}
                 getCourseCapacityMeta={getCourseCapacityMeta}
+                submissionSecurityCheck={TURNSTILE_SITE_KEY ? (
+                    <TurnstileWidget
+                        onToken={setSubmissionCaptchaToken}
+                        resetKey={submissionCaptchaResetKey}
+                    />
+                ) : null}
+                submissionBlocked={Boolean(TURNSTILE_SITE_KEY && !submissionCaptchaToken)}
             />
 
             {/* Success Modal */}

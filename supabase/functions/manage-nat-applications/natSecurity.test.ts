@@ -4,6 +4,7 @@ import {
     loginNatApplicantSecurity,
     requireNatSessionSecurity,
     revokeNatSessionSecurity,
+    normalizeNatUsername,
     type NatSecurityDependencies
 } from './natSecurity.ts';
 
@@ -29,14 +30,19 @@ const dependencies = (overrides: Partial<NatSecurityDependencies> = {}): NatSecu
 });
 
 describe('NAT applicant security', () => {
-    it('scopes failures to normalized username plus browser instead of the account or IP', () => {
-        expect(buildNatFailureIdentifier(' Applicant@Example.com ', browserId))
-            .toBe(`applicant@example.com\n${browserId}`);
-        expect(buildNatFailureIdentifier('Applicant@Example.com', '22222222-2222-4222-8222-222222222222'))
-            .not.toBe(buildNatFailureIdentifier('Applicant@Example.com', browserId));
+    it('normalizes usernames without interpreting PostgREST wildcard aliases', () => {
+        expect(normalizeNatUsername(' Applicant_*%@Example.com '))
+            .toBe('applicant_*%@example.com');
     });
 
-    it('records unknown-user failures against the same browser-scoped key and stays generic', async () => {
+    it('scopes failures to the normalized username so changing browsers cannot reset them', () => {
+        expect(buildNatFailureIdentifier(' Applicant@Example.com ', browserId))
+            .toBe('applicant@example.com');
+        expect(buildNatFailureIdentifier('Applicant@Example.com', '22222222-2222-4222-8222-222222222222'))
+            .toBe(buildNatFailureIdentifier('Applicant@Example.com', browserId));
+    });
+
+    it('records unknown-user failures against the same account-scoped key and stays generic', async () => {
         const deps = dependencies({
             getApplication: vi.fn().mockResolvedValue(null),
             verifyPassword: vi.fn().mockResolvedValue({ valid: false, needsUpgrade: false })
@@ -48,10 +54,10 @@ describe('NAT applicant security', () => {
             browserId
         }, deps)).rejects.toMatchObject({ message: 'Invalid credentials.', status: 401 });
 
-        expect(deps.recordFailure).toHaveBeenCalledWith(`missing@example.com\n${browserId}`);
+        expect(deps.recordFailure).toHaveBeenCalledWith('missing@example.com');
     });
 
-    it('requires CAPTCHA for only that username/browser pair after three failures', async () => {
+    it('requires CAPTCHA for that username after three failures', async () => {
         const deps = dependencies({
             verifyPassword: vi.fn().mockResolvedValue({ valid: false, needsUpgrade: false }),
             recordFailure: vi.fn().mockResolvedValue(3)
@@ -64,7 +70,7 @@ describe('NAT applicant security', () => {
         }, deps)).rejects.toMatchObject({ status: 403 });
     });
 
-    it('issues a random fixed six-hour session and clears only the successful pair', async () => {
+    it('issues a random fixed six-hour session and clears that username failure count', async () => {
         const deps = dependencies();
 
         const result = await loginNatApplicantSecurity({
@@ -75,7 +81,7 @@ describe('NAT applicant security', () => {
 
         expect(result.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
         expect(result.expiresAt).toBe('2026-07-13T14:00:00.000Z');
-        expect(deps.clearFailures).toHaveBeenCalledWith(`applicant\n${browserId}`);
+        expect(deps.clearFailures).toHaveBeenCalledWith('applicant');
         expect(deps.storeSession).toHaveBeenCalledWith(expect.objectContaining({
             applicationId: application.id,
             expiresAt: '2026-07-13T14:00:00.000Z',

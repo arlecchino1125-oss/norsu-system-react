@@ -5,7 +5,7 @@ import { formatDate, formatDateTime, formatTime } from '../../../../../utils/for
 import StatusBadge from '../../../../../components/StatusBadge';
 
 import { PASS_STATUS, FAIL_STATUS } from '../constants';
-import { isNatFinalizedStatus } from '../utils';
+import { canMarkNatPassed, isNatFinalizedStatus } from '../utils';
 
 const NatApplicationDetailsModal = ({
     closeSelectedAppModal,
@@ -194,8 +194,10 @@ const NatApplicationDetailsModal = ({
                         {!isNatFinalizedStatus(selectedApp.status) && !isLoadingSelectedApp && (
                             <div className="flex-1 flex gap-3">
                                 <button
+                                    disabled={!canMarkNatPassed(selectedApp)}
                                     onClick={() => updateStatus(selectedApp, PASS_STATUS)}
-                                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                                    className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all focus:outline-none focus:ring-2 ${canMarkNatPassed(selectedApp) ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/20 hover:from-emerald-600 hover:to-green-700 active:scale-[0.98] focus:ring-emerald-500/50' : 'cursor-not-allowed bg-slate-200 text-slate-400 focus:ring-slate-300'}`}
+                                    title={canMarkNatPassed(selectedApp) ? 'Mark as passed' : 'Time In and Time Out are required before passing'}
                                 >
                                     Pass
                                 </button>

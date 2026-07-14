@@ -8,63 +8,70 @@ export function DeptViewFormModal(props: any) {
     return (<>
         {/* View Form Modal — Same as Care Staff: Student Form or Referral Form */}
             {
-                showStudentModal && selectedStudent && (
-                    <div className="fixed inset-0 bg-transparent z-[105] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
-                            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                                <div>
-                                    <h3 className="font-bold text-lg text-gray-900">Student Basic Information</h3>
-                                    <p className="text-sm text-gray-500">Read-only student profile for department viewing</p>
-                                </div>
-                                <button onClick={() => setShowStudentModal(false)} className="text-gray-400 hover:text-gray-600">
+                showStudentModal && selectedStudent && (() => {
+                    const fullName = selectedStudent.name || [
+                        selectedStudent.first_name,
+                        selectedStudent.middle_name,
+                        selectedStudent.last_name,
+                        selectedStudent.suffix
+                    ].filter(Boolean).join(' ');
+                    const isActive = String(selectedStudent.status || '').trim() === 'Active';
+                    const address = [selectedStudent.street, selectedStudent.city, selectedStudent.province, selectedStudent.zip_code, selectedStudent.region].filter(Boolean).join(', ');
+                    const infoRows = [
+                        { label: 'Student ID No.', value: selectedStudent.student_id || selectedStudent.id },
+                        { label: 'College', value: selectedStudent.department },
+                        { label: 'Program', value: selectedStudent.course },
+                        { label: 'Year Level', value: selectedStudent.year_level || selectedStudent.year },
+                        { label: 'Section', value: selectedStudent.section },
+                        { label: 'Contact Number', value: selectedStudent.mobile || selectedStudent.contact_number },
+                        { label: 'Sex Assigned at Birth', value: selectedStudent.sex },
+                    ];
+                    return (
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[105] flex items-center justify-center p-4" onClick={() => setShowStudentModal(false)}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+                            <div className="relative bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-5">
+                                <button onClick={() => setShowStudentModal(false)} className="absolute top-4 right-4 text-white/80 hover:text-white transition">
                                     <XCircle size={24} />
                                 </button>
-                            </div>
-                            <div className="p-6 space-y-6">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-lg">
-                                        {(selectedStudent.name || selectedStudent.first_name || 'S').charAt(0)}
+                                    <div className="w-16 h-16 rounded-2xl bg-white/20 ring-2 ring-white/40 text-white flex items-center justify-center font-black text-2xl shrink-0">
+                                        {(fullName || 'S').charAt(0)}
                                     </div>
-                                    <div>
-                                        <h4 className="text-xl font-bold text-gray-900">
-                                            {selectedStudent.name || [
-                                                selectedStudent.first_name,
-                                                selectedStudent.middle_name,
-                                                selectedStudent.last_name,
-                                                selectedStudent.suffix
-                                            ].filter(Boolean).join(' ')}
-                                        </h4>
-                                        <p className="text-sm text-gray-500">{selectedStudent.email || 'No email provided'}</p>
+                                    <div className="min-w-0">
+                                        <h3 className="text-xl font-bold text-white truncate">{fullName || 'Unnamed Student'}</h3>
+                                        <p className="text-sm text-emerald-50/90 truncate">{selectedStudent.email || 'No email provided'}</p>
+                                        <span className={`mt-1.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-900/20 text-white'}`}>
+                                            {selectedStudent.status || 'Unknown'}
+                                        </span>
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Student ID No.</label><input readOnly value={selectedStudent.student_id || selectedStudent.id || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Status</label><input readOnly value={selectedStudent.status || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">College</label><input readOnly value={selectedStudent.department || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Program</label><input readOnly value={selectedStudent.course || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Year Level</label><input readOnly value={selectedStudent.year_level || selectedStudent.year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Section</label><input readOnly value={selectedStudent.section || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input readOnly value={selectedStudent.mobile || selectedStudent.contact_number || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Sex Assigned at Birth</label><input readOnly value={selectedStudent.sex || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Permanent Address</label>
-                                    <textarea
-                                        readOnly
-                                        rows={3}
-                                        value={[selectedStudent.street, selectedStudent.city, selectedStudent.province, selectedStudent.zip_code, selectedStudent.region].filter(Boolean).join(', ')}
-                                        className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed resize-none"
-                                    />
                                 </div>
                             </div>
-                            <div className="p-6 border-t border-gray-100 bg-gray-50">
+                            <div className="p-6 overflow-y-auto">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Enrollment Details</p>
+                                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                    {infoRows.map((row) => (
+                                        <div key={row.label} className="min-w-0">
+                                            <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-0.5">{row.label}</dt>
+                                            <dd className="text-sm font-semibold text-gray-800 break-words">{row.value || <span className="text-gray-300 italic font-normal">—</span>}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                                <div className="mt-5 pt-5 border-t border-gray-100">
+                                    <dt className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">
+                                        <MapPin size={13} /> Permanent Address
+                                    </dt>
+                                    <dd className="text-sm font-semibold text-gray-800 break-words">{address || <span className="text-gray-300 italic font-normal">—</span>}</dd>
+                                </div>
+                            </div>
+                            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
                                 <button onClick={() => setShowStudentModal(false)} className="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all">
                                     Close
                                 </button>
                             </div>
                         </div>
                     </div>
-                )
+                    );
+                })()
             }
 
             {

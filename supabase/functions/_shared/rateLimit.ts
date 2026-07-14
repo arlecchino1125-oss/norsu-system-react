@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { buildRateLimitIdentifier, type RateLimitIdentifierMode } from './rateLimitIdentifier.ts';
 
 export const LOGIN_RATE_LIMIT = {
   maxRequests: 5,
@@ -16,6 +17,7 @@ type RateLimitOptions = {
   endpoint: string;
   action?: string | null;
   identifier?: string | null;
+  identifierMode?: RateLimitIdentifierMode;
   maxRequests?: number;
   windowSeconds?: number;
   message?: string;
@@ -56,55 +58,6 @@ const getRateLimitClient = () => {
 const normalizeScopePart = (value: unknown, fallback: string) => {
   const text = String(value || '').trim().toLowerCase();
   return (text || fallback).replace(/[^a-z0-9._:-]+/g, '-');
-};
-
-const getBearerTokenFromHeader = (value: string | null) => {
-  const headerValue = String(value || '').trim();
-  if (!headerValue.toLowerCase().startsWith('bearer ')) {
-    return null;
-  }
-
-  return headerValue.slice('Bearer '.length).trim() || null;
-};
-
-const getClientIp = (request: Request) => {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0]?.trim() || 'unknown';
-  }
-
-  return request.headers.get('cf-connecting-ip')
-    || request.headers.get('x-real-ip')
-    || 'unknown';
-};
-
-const sha256Hex = async (value: string) => {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-};
-
-const buildIdentifier = async (request: Request, seed?: string | null) => {
-  const clientIp = getClientIp(request);
-  const normalizedSeed = String(seed || '').trim().toLowerCase();
-
-  if (normalizedSeed) {
-    return `ip:${clientIp}|seed:${await sha256Hex(normalizedSeed)}`;
-  }
-
-  const accessToken = getBearerTokenFromHeader(
-    request.headers.get('x-supabase-auth')
-    || request.headers.get('x-client-authorization')
-    || request.headers.get('Authorization')
-  );
-
-  if (accessToken) {
-    return `auth:${await sha256Hex(accessToken)}`;
-  }
-
-  const userAgent = String(request.headers.get('user-agent') || 'unknown').slice(0, 160);
-  return `ip:${clientIp}|ua:${await sha256Hex(userAgent)}`;
 };
 
 const getRateLimitNumber = (value: number | undefined, fallback: number) => {
@@ -154,7 +107,11 @@ export const enforceRateLimit = async (
   const endpoint = normalizeScopePart(options.endpoint, 'edge-function');
   const action = normalizeScopePart(options.action, 'default');
   const scope = `${endpoint}:${action}`;
-  const identifier = await buildIdentifier(request, options.identifier);
+  const identifier = await buildRateLimitIdentifier(
+    request,
+    options.identifier,
+    options.identifierMode
+  );
 
   let data: unknown = null;
   let error: any = null;

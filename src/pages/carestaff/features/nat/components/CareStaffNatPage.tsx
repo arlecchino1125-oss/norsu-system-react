@@ -51,7 +51,8 @@ import {
     renderTablePaddingRows,
     isNatFinalizedStatus,
     buildApplicantName,
-    getApplicantRouteLabel
+    getApplicantRouteLabel,
+    canMarkNatPassed
 } from '../utils';
 
 const TH_CLASS = 'px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-400/80 border-b border-slate-100 bg-slate-50/40';
@@ -242,7 +243,6 @@ const CareStaffNatPage = ({ showToast }: any) => {
         handleDeleteRequirement,
         filteredApplications,
         filteredResults,
-        hasCompletedAttendance,
         isCompletedNatRecord,
         getNatCompletedDateLabel,
         dateApplicantCounts,
@@ -443,7 +443,13 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     <td className={TD_CLASS}>
                                                         <div className="flex gap-1.5">
                                                             <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className={`${ROW_ACTION_CLASS} text-blue-600 hover:bg-blue-50`}>View</button>
-                                                            <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, PASS_STATUS); }} className={`${ROW_ACTION_CLASS} text-green-600 hover:bg-green-50`}>Pass</button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={!canMarkNatPassed(app)}
+                                                                onClick={(e) => { e.stopPropagation(); updateStatus(app, PASS_STATUS); }}
+                                                                className={`${ROW_ACTION_CLASS} ${canMarkNatPassed(app) ? 'text-green-600 hover:bg-green-50' : 'cursor-not-allowed bg-slate-100 text-slate-400 shadow-none hover:scale-100'}`}
+                                                                title={canMarkNatPassed(app) ? 'Mark as passed' : 'Time In and Time Out are required before passing'}
+                                                            >Pass</button>
                                                             <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(app, FAIL_STATUS); }} className={`${ROW_ACTION_CLASS} text-red-600 hover:bg-red-50`}>Fail</button>
                                                             {canArchiveRecords && (
                                                                 <button type="button" onClick={(e) => { e.stopPropagation(); archiveApplication(app.id); }} className={`${ROW_ACTION_CLASS} text-slate-500 hover:bg-amber-50 hover:text-amber-700`}>Archive</button>
@@ -556,7 +562,13 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     <td className={TD_CLASS}>
                                                         <div className="flex gap-1.5">
                                                             <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(r); }} className={`${ROW_ACTION_CLASS} text-blue-600 hover:bg-blue-50`}>View</button>
-                                                            <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, PASS_STATUS); }} className={`${ROW_ACTION_CLASS} text-green-600 hover:bg-green-50`}>Pass</button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={!canMarkNatPassed(r)}
+                                                                onClick={(e) => { e.stopPropagation(); updateStatus(r, PASS_STATUS); }}
+                                                                className={`${ROW_ACTION_CLASS} ${canMarkNatPassed(r) ? 'text-green-600 hover:bg-green-50' : 'cursor-not-allowed bg-slate-100 text-slate-400 shadow-none hover:scale-100'}`}
+                                                                title={canMarkNatPassed(r) ? 'Mark as passed' : 'Time In and Time Out are required before passing'}
+                                                            >Pass</button>
                                                             <button type="button" onClick={(e) => { e.stopPropagation(); updateStatus(r, FAIL_STATUS); }} className={`${ROW_ACTION_CLASS} text-red-500 hover:bg-red-50`}>Fail</button>
                                                         </div>
                                                     </td>
@@ -1074,7 +1086,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     <input
                                                         type="number"
                                                         className="h-10 w-full rounded-lg border border-slate-200/80 bg-white text-center text-sm font-bold tabular-nums transition focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-100"
-                                                        defaultValue={c.application_limit || 200}
+                                                        defaultValue={c.application_limit ?? 200}
                                                         onBlur={e => handleUpdateLimit(c.id, 'application_limit', e.target.value)}
                                                     />
                                                 </div>

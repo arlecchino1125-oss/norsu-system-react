@@ -61,6 +61,9 @@ export const hasTakenNatStatus = (status: unknown) => {
     return value === 'Test Taken' || isNatFinalizedStatus(value);
 };
 
+export const canMarkNatPassed = (application: any) =>
+    Boolean(application?.time_in) && Boolean(application?.time_out);
+
 export const isNatForwardedStatus = (status: unknown) => String(status || '').includes('Forwarded to');
 export const isNatRejectedStatus = (status: unknown) => String(status || '') === FAIL_STATUS || String(status || '').includes(UNSUCCESSFUL_STATUS);
 export const isNatEnrolledStatus = (status: unknown) => String(status || '') === ENROLLED_STATUS;

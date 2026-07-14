@@ -2135,7 +2135,66 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      students_directory: {
+        Row: {
+          address: string | null
+          age: number | null
+          alt_course_1: string | null
+          alt_course_2: string | null
+          civil_status: string | null
+          college_school: string | null
+          college_year_graduated: string | null
+          course: string | null
+          created_at: string
+          department: string | null
+          dob: string | null
+          elem_school: string | null
+          elem_year_graduated: string | null
+          eligibility_acquired: string | null
+          email: string | null
+          extracurricular_activities: string | null
+          facebook_url: string | null
+          first_name: string
+          gender_identity: string | null
+          holds_public_service_position: boolean | null
+          honors_awards: string | null
+          id: number
+          is_archived: boolean
+          junior_high_school: string | null
+          junior_high_year_graduated: string | null
+          last_name: string
+          middle_name: string | null
+          mobile: string | null
+          nationality: string | null
+          organizations_memberships: string | null
+          other_talents: string | null
+          place_of_birth: string | null
+          priority_course: string | null
+          profile_completed: boolean | null
+          profile_picture_url: string | null
+          province: string | null
+          public_service_position: string | null
+          region: string | null
+          religion: string | null
+          scholarships_availed: string | null
+          school_last_attended: string | null
+          section: string | null
+          senior_high_school: string | null
+          senior_high_year_graduated: string | null
+          sex: string | null
+          special_trainings_attended: string | null
+          sports_skills: string | null
+          status: string | null
+          street: string | null
+          student_id: string
+          suffix: string | null
+          tesda_nc2_acquired: string | null
+          year_level: string | null
+          zip_code: string | null
+          archived_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       archive_and_reset_expired_course_year: {

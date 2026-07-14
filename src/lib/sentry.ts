@@ -35,6 +35,16 @@ export function initSentry(): void {
           ]
         : []),
     ],
+    // Known third-party / self-recovering noise, not app bugs:
+    ignoreErrors: [
+      // Android in-app browser (TikTok etc.) JS bridge GC'd mid-navigation.
+      'Java object is gone',
+      // Browser extensions trying to eval(); our CSP blocks them by design.
+      /Content Security Policy.*unsafe-eval/,
+      // Stale chunk after deploy; the vite:preloadError handler reloads.
+      'Failed to fetch dynamically imported module',
+      'error loading dynamically imported module',
+    ],
     // Do not send request headers / IP / user identifiers by default.
     sendDefaultPii: false,
     // Sample a small share of transactions for performance monitoring.

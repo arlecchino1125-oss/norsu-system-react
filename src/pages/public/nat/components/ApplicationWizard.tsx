@@ -31,6 +31,8 @@ export interface ApplicationWizardProps {
   onTogglePrivacyOpen: () => void;
   onPreviousStep: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  submissionSecurityCheck?: React.ReactNode;
+  submissionBlocked?: boolean;
   getCourseCapacityMeta: (course: any) => {
     limit: number;
     applicantCount: number;
@@ -59,6 +61,8 @@ export default function ApplicationWizard({
   onTogglePrivacyOpen,
   onPreviousStep,
   onSubmit,
+  submissionSecurityCheck,
+  submissionBlocked = false,
   getCourseCapacityMeta
 }: ApplicationWizardProps) {
   return (
@@ -133,7 +137,7 @@ export default function ApplicationWizard({
               Please fill out all fields accurately. Your application will be used for your official university records. Fields marked with <span className="font-black text-red-500">*</span> are required.
             </p>
             <p className="mt-2 text-xs font-bold text-blue-700">
-              {hasRestoredDraft ? 'A saved draft from this browser has been restored for you.' : 'Drafts are saved automatically on this device while you complete the form.'}
+              {hasRestoredDraft ? 'A saved draft from this browser tab has been restored for you.' : 'Drafts are saved in this browser tab while you complete the form.'}
             </p>
           </div>
         </div>
@@ -180,6 +184,13 @@ export default function ApplicationWizard({
             ) : null}
           </AnimatePresence>
 
+          {currentStep === 3 && submissionSecurityCheck ? (
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
+              <p className="mb-3 text-center text-xs font-black uppercase tracking-widest text-slate-500">Security Check</p>
+              {submissionSecurityCheck}
+            </div>
+          ) : null}
+
           <div className="nat-action-bar group sticky bottom-6 z-50 mt-8 flex flex-col items-center justify-between gap-6 rounded-[2rem] border border-white bg-white/40 p-6 shadow-2xl shadow-blue-900/10 backdrop-blur-2xl md:flex-row">
             <div className="absolute inset-0 -z-10 rounded-[2rem] bg-gradient-to-r from-blue-50/50 to-indigo-50/50" />
 
@@ -196,7 +207,7 @@ export default function ApplicationWizard({
                 Next Step <ArrowRight className="h-4 w-4" />
               </button>
             ) : (
-              <button type="submit" disabled={loading} className="nat-primary-action group/btn relative flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-4 text-lg font-black text-white transition-all active:scale-95 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="submit" disabled={loading || submissionBlocked} className="nat-primary-action group/btn relative flex items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-4 text-lg font-black text-white transition-all active:scale-95 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50">
                 <div className="absolute inset-0 translate-y-full bg-white/20 transition-transform duration-300 ease-out group-hover/btn:translate-y-0" />
                 <span className="relative z-10 flex items-center gap-2">
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}

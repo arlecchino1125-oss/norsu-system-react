@@ -1,5 +1,15 @@
 # Supabase Changelog
 
+## 2026-07-14 — Security: Harden NAT public database boundary
+
+**Migration:** `20260714062703_harden_nat_portal.sql`
+
+**Problem:** Anonymous callers could insert directly into `applications`, bypassing the NAT Edge Function's validation, rate limiting, password hashing, and email flow. Public course and schedule policies also exposed inactive rows and more table privileges than the public form needs, while authenticated callers could directly invoke privileged NAT-related functions.
+
+**Fix:** Removed direct anonymous application writes, restricted public reads to safe columns on open courses and active schedules, limited public permission reads to `SELECT`, and made `consume_edge_rate_limit` plus `finalize_application` service-role-only. A transaction-safe insert trigger now validates course and schedule availability and capacity for every NAT application insert.
+
+**Rollback:** Restoring the former policies/grants and dropping the trigger would restore the previous behavior, but it would also reopen the direct anonymous submission bypass and remove server-side capacity enforcement.
+
 ## 2026-07-06 — Security: Revoke anon EXECUTE on SECURITY DEFINER functions
 
 **Migration:** `20260706062900_revoke_anon_execute_security_definer.sql`
