@@ -215,9 +215,7 @@ const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, string[
         action: [
             'approve_applications',
             'schedule_interviews',
-            'manage_own_department',
-            'archive_records',
-            'restore_records'
+            'manage_own_department'
         ]
     },
     Student: {

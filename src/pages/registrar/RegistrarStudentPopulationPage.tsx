@@ -1,19 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
-import { Users, Search, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, FileSpreadsheet, RefreshCw, User } from 'lucide-react';
+import { Users, Search, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, RefreshCw, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ResolvedProfileImage } from '../../components/ResolvedProfileImage';
 import { getProfileCategoryForDatabaseField } from '../../services/r2DocumentService';
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
-import { isR2Reference, openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../utils/storageAssets';
-import { escapeSpreadsheetFormula } from '../../utils/inputSecurity';
-import { getDirectoryStudentsForExport, getStudentsPage, getDepartments, getCoursesWithDepartments } from '../../services/careStaffService';
+import { openStoredAsset } from '../../utils/storageAssets';
+import { getStudentsPage, getDepartments, getCoursesWithDepartments } from '../../services/careStaffService';
 import type { StudentFilters } from '../../types/query';
-
-declare const XLSX: any;
-
-const STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS = 60 * 60 * 24 * 7;
 
 // Registrar-safe profile categories: identity / enrollment / academic only.
 // Sensitive sections (Family, Socio-Economic incl. PWD/pregnancy/4Ps/orphan,
@@ -132,8 +127,6 @@ export default function RegistrarStudentPopulationPage() {
     const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [profileLoading, setProfileLoading] = useState(false);
 
-    const [isExporting, setIsExporting] = useState(false);
-
     useEffect(() => {
         const timer = window.setTimeout(() => {
             setCurrentPage(1);
@@ -175,115 +168,6 @@ export default function RegistrarStudentPopulationPage() {
     const totalStudents = studentsQuery.data?.total ?? 0;
     const loading = studentsQuery.isLoading;
 
-    const handleExportExcel = async () => {
-        if (typeof XLSX === 'undefined') {
-            alert('Excel library not loaded. Please try again.');
-            return;
-        }
-        setIsExporting(true);
-        try {
-            const allStudents = await getDirectoryStudentsForExport();
-            if (!allStudents || allStudents.length === 0) {
-                alert('No students to export.');
-                setIsExporting(false);
-                return;
-            }
-
-            const exportColumns: any[] = PROFILE_CATEGORIES.flatMap(category =>
-                category.fields.map((field: any) => ({
-                    header: field.label,
-                    db: field.db,
-                    compute: field.compute,
-                    type: field.type === 'document' || field.type === 'profilePhoto' ? 'file' : field.type,
-                    bucket: field.type === 'profilePhoto' ? 'profile-pictures' : 'support_documents',
-                }))
-            );
-
-            // Group paths by bucket to resolve them in bulk
-            const pathsByBucket: Record<string, string[]> = {};
-            for (const student of allStudents) {
-                for (const col of exportColumns) {
-                    if (col.type === 'file') {
-                        const val = col.compute ? col.compute(student) : student[col.db];
-                        const rawValue = String(val || '').trim();
-                        if (rawValue) {
-                            const bucket = col.bucket || 'support_documents';
-                            if (!pathsByBucket[bucket]) {
-                                pathsByBucket[bucket] = [];
-                            }
-                            pathsByBucket[bucket].push(rawValue);
-                        }
-                    }
-                }
-            }
-
-            // Resolve URLs in parallel per bucket
-            const resolvedUrlsMapByBucket: Record<string, Record<string, string | null>> = {};
-            const bucketNames = Object.keys(pathsByBucket);
-            const bulkPromises = bucketNames.map(async (bucket) => {
-                const uniquePaths = pathsByBucket[bucket];
-                const resolvedMap = await resolveStoredAssetUrlsBulk(
-                    bucket,
-                    uniquePaths,
-                    STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS
-                );
-                resolvedUrlsMapByBucket[bucket] = resolvedMap;
-            });
-            await Promise.all(bulkPromises);
-
-            const headers = exportColumns.map(c => c.header);
-            const fileColumnIndexes = exportColumns.reduce((indexes: number[], col: any, index: number) => {
-                if (col.type === 'file') indexes.push(index);
-                return indexes;
-            }, []);
-
-            const rows = [];
-            for (const student of allStudents) {
-                const row = [];
-                for (const col of exportColumns) {
-                    const val = col.compute ? col.compute(student) : student[col.db];
-                    if (col.type === 'boolean') {
-                        row.push(val ? 'Yes' : 'No');
-                    } else if (col.type === 'file') {
-                        const rawValue = String(val || '').trim();
-                        const bucket = col.bucket || 'support_documents';
-                        const resolvedUrl = rawValue
-                            ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || (isR2Reference(rawValue) ? 'Available in portal' : rawValue))
-                            : '';
-                        row.push(escapeSpreadsheetFormula(resolvedUrl));
-                    } else {
-                        row.push(escapeSpreadsheetFormula(val ?? ''));
-                    }
-                }
-                rows.push(row);
-            }
-
-            const wsData = [headers, ...rows];
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-            fileColumnIndexes.forEach((columnIndex: number) => {
-                rows.forEach((row, rowIndex) => {
-                    const fileUrl = String(row[columnIndex] || '').trim();
-                    if (!/^https?:\/\//i.test(fileUrl)) return;
-                    const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 1, c: columnIndex });
-                    if (ws[cellRef]) {
-                        ws[cellRef].l = { Target: fileUrl, Tooltip: 'Open uploaded file' };
-                    }
-                });
-            });
-
-            ws['!cols'] = headers.map((h: string) => ({ wch: Math.max(h.length, 18) }));
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Student Profiles');
-            XLSX.writeFile(wb, `Registrar_Student_Profiles_${new Date().toISOString().split('T')[0]}.xlsx`);
-        } catch (err: any) {
-            console.error('Export error:', err);
-            alert('Export failed: ');
-        } finally {
-            setIsExporting(false);
-        }
-    };
-
     const openProfileModal = async (student: any) => {
         setProfileLoading(true);
         setProfileCategoryIndex(0);
@@ -315,14 +199,6 @@ export default function RegistrarStudentPopulationPage() {
             <div className="w-full lg:w-80 shrink-0 space-y-6">
                 {/* Actions card */}
                 <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-                    <button
-                        onClick={handleExportExcel}
-                        disabled={isExporting}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-lg text-sm font-semibold hover:bg-teal-600 transition shadow-sm disabled:opacity-50"
-                    >
-                        {isExporting ? <RefreshCw size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
-                        Export Profiles to Excel
-                    </button>
                     <button
                         onClick={() => studentsQuery.refetch()}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm"

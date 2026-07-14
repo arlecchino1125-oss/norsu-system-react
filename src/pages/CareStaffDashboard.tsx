@@ -50,7 +50,7 @@ const CareStaffDashboard = () => {
         session?: AuthSession | null;
         isAuthenticated: boolean;
         updateSession?: (updates: any) => void;
-        logout: () => void;
+        logout: () => Promise<void>;
     };
     const {
         loading: permissionsLoading,
@@ -277,7 +277,7 @@ const CareStaffDashboard = () => {
             sidebarSections={layoutNavSections}
             activeTab={activeTab}
             onTabChange={(tab) => goToTab(tab as ActiveTab)}
-            onLogout={() => { logout(); navigate('/care-staff'); }}
+            onLogout={async () => { await logout(); navigate('/care-staff'); }}
             onOpenSettings={() => goToTab('settings')}
             headerTitle={headerTitle}
             portalLabel="NORSU-G CARE"

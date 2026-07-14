@@ -60,7 +60,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }: ProtectedRouteProps) =>
                             Home
                         </button>
                         <button
-                            onClick={() => { logout(); window.location.href = '/'; }}
+                            onClick={async () => { await logout(); window.location.href = '/'; }}
                             className="flex-1 py-3 px-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors"
                         >
                             Logout

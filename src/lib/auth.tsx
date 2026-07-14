@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { supabase } from './supabase';
+import { supabase, SUPABASE_AUTH_STORAGE_KEY } from './supabase';
+import { signOutAndClearBrowserState } from './authLogout';
 import { buildEdgeFunctionHeaders } from './functionHeaders';
 import { sanitizeStudentSession } from './studentAuth';
 import { sanitizeStaffSession } from './staffAuth';
@@ -637,11 +638,13 @@ export function AuthProvider({ children }: any) {
         };
     }, [handleRecoverableSessionError, persistSession, restoreStaffSessionFromAuth, restoreStudentBootstrapSessionFromAuth, restoreStudentSessionFromAuth]);
 
-    const logout = useCallback(() => {
-        supabase.auth.signOut().catch((error) => {
-            console.error('Failed to sign out Supabase-auth session.', error);
-        });
+    const logout = useCallback(async () => {
+        const error = await signOutAndClearBrowserState(supabase, SUPABASE_AUTH_STORAGE_KEY);
         persistSession(null);
+
+        if (error) {
+            console.error('Failed to revoke the remote Supabase-auth session. Local credentials were cleared.', error);
+        }
     }, [persistSession]);
 
     const value = React.useMemo(() => ({

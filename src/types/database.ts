@@ -257,6 +257,7 @@ export type Database = {
           age: number | null
           alt_course_1: string | null
           alt_course_2: string | null
+          captcha_required_until: string | null
           city: string | null
           civil_status: string | null
           created_at: string
@@ -264,6 +265,7 @@ export type Database = {
           dob: string | null
           email: string
           facebook_url: string | null
+          failed_login_attempts: number
           first_name: string
           gender_identity: string | null
           id: string
@@ -296,6 +298,7 @@ export type Database = {
           age?: number | null
           alt_course_1?: string | null
           alt_course_2?: string | null
+          captcha_required_until?: string | null
           city?: string | null
           civil_status?: string | null
           created_at?: string
@@ -303,6 +306,7 @@ export type Database = {
           dob?: string | null
           email: string
           facebook_url?: string | null
+          failed_login_attempts?: number
           first_name: string
           gender_identity?: string | null
           id?: string
@@ -335,6 +339,7 @@ export type Database = {
           age?: number | null
           alt_course_1?: string | null
           alt_course_2?: string | null
+          captcha_required_until?: string | null
           city?: string | null
           civil_status?: string | null
           created_at?: string
@@ -342,6 +347,7 @@ export type Database = {
           dob?: string | null
           email?: string
           facebook_url?: string | null
+          failed_login_attempts?: number
           first_name?: string
           gender_identity?: string | null
           id?: string
@@ -1116,6 +1122,41 @@ export type Database = {
           suggestions?: string | null
         }
         Relationships: []
+      }
+      nat_applicant_sessions: {
+        Row: {
+          application_id: string
+          browser_id_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          token_hash: string
+        }
+        Insert: {
+          application_id: string
+          browser_id_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          token_hash: string
+        }
+        Update: {
+          application_id?: string
+          browser_id_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nat_applicant_sessions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       nat_requirements: {
         Row: {
@@ -2141,11 +2182,13 @@ export type Database = {
           age: number | null
           alt_course_1: string | null
           alt_course_2: string | null
+          archived_at: string | null
+          city: string | null
           civil_status: string | null
           college_school: string | null
           college_year_graduated: string | null
           course: string | null
-          created_at: string
+          created_at: string | null
           department: string | null
           dob: string | null
           elem_school: string | null
@@ -2154,15 +2197,15 @@ export type Database = {
           email: string | null
           extracurricular_activities: string | null
           facebook_url: string | null
-          first_name: string
+          first_name: string | null
           gender_identity: string | null
           holds_public_service_position: boolean | null
           honors_awards: string | null
-          id: number
-          is_archived: boolean
+          id: number | null
+          is_archived: boolean | null
           junior_high_school: string | null
           junior_high_year_graduated: string | null
-          last_name: string
+          last_name: string | null
           middle_name: string | null
           mobile: string | null
           nationality: string | null
@@ -2186,12 +2229,11 @@ export type Database = {
           sports_skills: string | null
           status: string | null
           street: string | null
-          student_id: string
+          student_id: string | null
           suffix: string | null
           tesda_nc2_acquired: string | null
           year_level: string | null
           zip_code: string | null
-          archived_at: string | null
         }
         Relationships: []
       }
@@ -2385,6 +2427,66 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      complete_nat_student_activation: {
+        Args: {
+          p_application_id: string
+          p_auth_user_id: string
+          p_course: string
+          p_student_id: string
+        }
+        Returns: {
+          activated_course: string | null
+          activated_student_id: string | null
+          age: number | null
+          alt_course_1: string | null
+          alt_course_2: string | null
+          archive_id: number
+          archive_outcome: string
+          archived_at: string
+          archived_by: number | null
+          city: string | null
+          civil_status: string | null
+          created_at: string
+          current_choice: number | null
+          dob: string | null
+          email: string
+          facebook_url: string | null
+          first_name: string
+          gender_identity: string | null
+          interview_date: string | null
+          interview_panel: string | null
+          interview_queue_status: string | null
+          interview_venue: string | null
+          last_name: string
+          middle_name: string | null
+          mobile: string
+          nat_password_hash: string | null
+          nationality: string | null
+          place_of_birth: string | null
+          priority_course: string
+          province: string | null
+          reason: string | null
+          reference_id: string
+          sex: string | null
+          source_application_id: string
+          source_status: string | null
+          status: string
+          street: string | null
+          suffix: string | null
+          test_date: string | null
+          test_time: string | null
+          time_in: string | null
+          time_out: string | null
+          username: string | null
+          zip_code: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "application_archives"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       compute_school_year_label: {
         Args: { end_ts: string; start_ts: string }
         Returns: string
@@ -2555,6 +2657,67 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_students_directory_rows: {
+        Args: never
+        Returns: {
+          address: string
+          age: number
+          alt_course_1: string
+          alt_course_2: string
+          archived_at: string
+          city: string
+          civil_status: string
+          college_school: string
+          college_year_graduated: string
+          course: string
+          created_at: string
+          department: string
+          dob: string
+          elem_school: string
+          elem_year_graduated: string
+          eligibility_acquired: string
+          email: string
+          extracurricular_activities: string
+          facebook_url: string
+          first_name: string
+          gender_identity: string
+          holds_public_service_position: boolean
+          honors_awards: string
+          id: number
+          is_archived: boolean
+          junior_high_school: string
+          junior_high_year_graduated: string
+          last_name: string
+          middle_name: string
+          mobile: string
+          nationality: string
+          organizations_memberships: string
+          other_talents: string
+          place_of_birth: string
+          priority_course: string
+          profile_completed: boolean
+          profile_picture_url: string
+          province: string
+          public_service_position: string
+          region: string
+          religion: string
+          scholarships_availed: string
+          school_last_attended: string
+          section: string
+          senior_high_school: string
+          senior_high_year_graduated: string
+          sex: string
+          special_trainings_attended: string
+          sports_skills: string
+          status: string
+          street: string
+          student_id: string
+          suffix: string
+          tesda_nc2_acquired: string
+          year_level: string
+          zip_code: string
+        }[]
+      }
       get_support_status_counts: {
         Args: never
         Returns: {
@@ -2562,7 +2725,6 @@ export type Database = {
           status: string
         }[]
       }
-      increment_event_attendees: { Args: { e_id: string }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
       register_student_for_event: {
         Args: { p_event_id: number }
@@ -2748,6 +2910,44 @@ export type Database = {
         }
       }
       search_care_students: {
+        Args: {
+          p_course?: string
+          p_department?: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_section?: string
+          p_sort_ascending?: boolean
+          p_sort_column?: string
+          p_status?: string
+          p_year_level?: string
+        }
+        Returns: {
+          archive_note: string
+          archived_at: string
+          archived_by: string
+          archived_reason: string
+          course: string
+          course_year_archive: Json
+          course_year_confirmed_at: string
+          course_year_update_required: boolean
+          course_year_window_end: string
+          course_year_window_start: string
+          created_at: string
+          department: string
+          first_name: string
+          id: number
+          is_archived: boolean
+          last_name: string
+          profile_completed: boolean
+          section: string
+          status: string
+          student_id: string
+          total_count: number
+          year_level: string
+        }[]
+      }
+      search_care_students_impl: {
         Args: {
           p_course?: string
           p_department?: string

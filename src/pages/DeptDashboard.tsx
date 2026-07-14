@@ -199,8 +199,8 @@ export default function DeptDashboard() {
 
     const handleProfileSubmitBound = (e: any) => handleProfileSubmit(e);
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         navigate('/department/login');
     };
 

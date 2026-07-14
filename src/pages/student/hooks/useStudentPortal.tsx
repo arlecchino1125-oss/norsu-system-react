@@ -140,8 +140,8 @@ export function useStudentPortal() {
     // Office Logbook Modal State
     const [visitReasons, setVisitReasons] = useState<any[]>([]);
 
-    const handleLogout = React.useCallback(() => {
-        logout();
+    const handleLogout = React.useCallback(async () => {
+        await logout();
         navigate('/student/login', { replace: true });
     }, [logout, navigate]);
 
@@ -612,7 +612,7 @@ export function useStudentPortal() {
                             Reload
                         </button>
                         <button
-                            onClick={() => { logout(); navigate('/student/login'); }}
+                            onClick={handleLogout}
                             className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                         >
                             Back to Login
@@ -632,7 +632,7 @@ export function useStudentPortal() {
                         Your student role currently has no enabled portal features. Please contact an administrator or CARE staff for access.
                     </p>
                     <button
-                        onClick={() => { logout(); navigate('/student/login'); }}
+                        onClick={handleLogout}
                         className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
                         Sign Out

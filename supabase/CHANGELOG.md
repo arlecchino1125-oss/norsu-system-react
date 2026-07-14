@@ -1,5 +1,15 @@
 # Supabase Changelog
 
+## 2026-07-14 — Security: Restrict archive surface, drop unguarded event RPC
+
+**Migration:** `20260714100000_restrict_archive_surface.sql`
+
+**Problem:** Three issues from the security-definer advisor sweep. (1) `increment_event_attendees(uuid)` was SECURITY DEFINER with no auth check and no callers — any signed-in user could inflate any event's attendee count. (2) `archive_student`/`restore_student` were executable by `authenticated`, letting staff bypass the `manage-record-archives` edge function's `role_permissions` check, rate limiting, and audit log — and spoof `p_archived_by`. (3) Department Heads held `archive_records`/`restore_records`, but policy is Care Staff + Admin only.
+
+**Fix:** Dropped `increment_event_attendees`. Revoked `authenticated` EXECUTE on `archive_student`/`restore_student` (service role, i.e. the edge function, remains the only caller) and on the two trigger functions (`audit_staff_table_change`, `sync_event_registration_attendance_status` — lint hygiene; they were never RPC-callable). Deleted Department Head `archive_records`/`restore_records` rows and rewrote `seed_archive_action_permission_defaults` to seed Care Staff only, so "reset to defaults" cannot re-grant them. Paired frontend change removes both keys from the Department Head defaults in `src/types/permissions.ts`.
+
+**Rollback:** Re-granting `authenticated` EXECUTE and re-seeding the Department Head rows restores the old behavior, but reopens the permission-toggle/audit-log bypass. Prefer forward repair.
+
 ## 2026-07-14 — Security: Harden NAT public database boundary
 
 **Migration:** `20260714062703_harden_nat_portal.sql`
