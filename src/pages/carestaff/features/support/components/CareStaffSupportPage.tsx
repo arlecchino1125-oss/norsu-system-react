@@ -25,8 +25,10 @@ import {
 } from '../../../../../utils/workflow';
 import PaginationControls from '../../../../../components/PaginationControls';
 import { Button } from '../../../../../components/ui/Button';
-import { useCareStaffSupport, SUPPORT_DOCUMENT_ACCEPT, SUPPORT_REQUESTS_PAGE_SIZE } from '../hooks/useCareStaffSupport';
+import { useCareStaffSupport } from '../hooks/useCareStaffSupport';
 import type { CareStaffSupportPageProps } from '../hooks/useCareStaffSupport';
+import { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
+import { SUPPORT_DOCUMENT_ACCEPT } from '../../../../../utils/inputSecurity';
 
 const containerVariants = {
     hidden: { opacity: 0 },

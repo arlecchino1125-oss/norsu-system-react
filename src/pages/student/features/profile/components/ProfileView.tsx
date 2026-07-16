@@ -673,7 +673,3 @@ const areProfileViewPropsEqual = (prev: any, next: any) =>
     && prev.attendanceMap === next.attendanceMap;
 
 export const ProfileView = React.memo(ProfileViewContent, areProfileViewPropsEqual);
-
-export function renderProfileView(p: any) {
-    return <ProfileView {...p} />;
-}

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Shield, RefreshCw, LogOut, KeyRound, Maximize2, X, AlertCircle, CheckCircle } from 'lucide-react';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '../lib/useAuth';
 import { getSafeErrorMessage } from '../utils/errorMasking';
-import { useToast, type ToastType } from '../components/ui/toast/ToastProvider';
+import { useToast, type ToastType } from '../components/ui/toast/useToast';
 
 import { useAdminData } from './admin/hooks/useAdminData';
 import { useAdminActions } from './admin/hooks/useAdminActions';

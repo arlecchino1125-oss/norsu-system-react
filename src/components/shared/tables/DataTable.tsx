@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { paginateRows } from './paginateRows';
 
 type SortDirection = 'asc' | 'desc';
 
@@ -27,21 +28,6 @@ interface DataTablePagination {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 }
-
-export const paginateRows = <T,>(rows: T[], requestedPage: number, requestedPageSize: number) => {
-  const pageSize = Math.max(1, requestedPageSize);
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const page = Math.min(Math.max(1, requestedPage), totalPages);
-  const start = (page - 1) * pageSize;
-
-  return {
-    rows: rows.slice(start, start + pageSize),
-    page,
-    pageSize,
-    totalPages,
-    start,
-  };
-};
 
 const defaultSortValue = (value: React.ReactNode) => {
   if (typeof value === 'number') return value;

@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { CalendarDays, Clock3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../lib/auth';
+import { useAuth } from '../../../lib/useAuth';
 import { supabase } from '../../../lib/supabase';
 import { createPortal } from 'react-dom';
 import { renderRemainingViews } from '../StudentPortalViewRouter';
@@ -10,7 +10,7 @@ import { StudentTourOverlay } from '../components/StudentTourOverlay';
 import { useStudentCompactPortalLayout } from '../hooks/useStudentCompactPortalLayout';
 import { useStudentEventActions } from '../features/events/hooks/useStudentEventActions';
 import { useStudentOfficeVisitActions } from '../features/logbook/hooks/useStudentOfficeVisitActions';
-import { Icons } from '../components/StudentPortalIcons';
+import * as Icons from '../components/StudentPortalIcons';
 import { StudentHero } from '../components/StudentHero';
 import { YEAR_LEVEL_OPTIONS } from '../features/profile/profileFormUtils';
 import { useStudentPortalNavigation } from '../hooks/useStudentPortalNavigation';

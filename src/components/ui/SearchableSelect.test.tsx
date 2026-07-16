@@ -18,7 +18,7 @@ describe('SearchableSelect accessibility', () => {
 
         const option = screen.getByRole('button', { name: 'Computer Science' });
         expect(option.tagName).toBe('BUTTON');
-        expect(screen.getByRole('button', { name: 'Close options' })).toBeInTheDocument();
+        expect(screen.getAllByRole('button', { name: 'Close options' })).toHaveLength(2);
 
         fireEvent.click(option);
         expect(onChange).toHaveBeenCalledWith('cs');

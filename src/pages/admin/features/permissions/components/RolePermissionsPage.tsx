@@ -17,7 +17,7 @@ import {
     ShieldCheck,
     Workflow
 } from 'lucide-react';
-import { useAuth } from '../../../../../lib/auth';
+import { useAuth } from '../../../../../lib/useAuth';
 import { permissionService } from '../../../../../services/permissionService';
 import {
     getKnownPermissionKeysByType,

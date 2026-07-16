@@ -120,11 +120,12 @@ const DatePicker: React.FC<DatePickerProps> = ({
                         >
                             {/* Month/Year header */}
                             <div className="flex items-center justify-between gap-2 mb-3">
-                                <button type="button" onClick={() => navigateMonth(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                <button type="button" aria-label="Previous month" onClick={() => navigateMonth(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                                     <ChevronLeft size={16} className="text-slate-600" />
                                 </button>
                                 <div className="flex items-center gap-1.5">
                                     <select
+                                        aria-label="Month"
                                         value={viewMonth}
                                         onChange={e => setViewMonth(Number(e.target.value))}
                                         className="px-2 py-1 bg-indigo-50 text-indigo-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-indigo-100 transition-colors appearance-auto"
@@ -132,6 +133,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                         {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
                                     </select>
                                     <select
+                                        aria-label="Year"
                                         value={viewYear}
                                         onChange={e => setViewYear(Number(e.target.value))}
                                         className="px-2 py-1 bg-slate-100 text-slate-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-slate-200 transition-colors appearance-auto"
@@ -139,7 +141,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                         {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                                     </select>
                                 </div>
-                                <button type="button" onClick={() => navigateMonth(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                <button type="button" aria-label="Next month" onClick={() => navigateMonth(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                                     <ChevronRight size={16} className="text-slate-600" />
                                 </button>
                             </div>

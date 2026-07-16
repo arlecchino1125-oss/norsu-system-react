@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../lib/auth';
+import { useAuth } from '../../lib/useAuth';
 import type { StaffLoginConfig } from '../../pages/auth/staffLoginConfigs';
 
 type ToastType = 'success' | 'error';

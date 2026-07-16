@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '../lib/useAuth';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 type ProtectedRouteProps = {

@@ -1,16 +1,7 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, Info, XCircle, X } from 'lucide-react';
-
-export type ToastType = 'success' | 'error' | 'info';
-
-export interface ToastOptions {
-    message: string;
-    type?: ToastType;
-    /** Auto-dismiss delay in ms. Pass 0 to keep it until dismissed. */
-    durationMs?: number;
-    action?: { label: string; onClick: () => void };
-}
+import { ToastContext, type ToastOptions, type ToastType } from './useToast';
 
 interface ToastEntry {
     id: number;
@@ -18,23 +9,6 @@ interface ToastEntry {
     type: ToastType;
     durationMs: number;
     action?: ToastOptions['action'];
-}
-
-interface ToastContextValue {
-    /** Back-compatible signature matching the per-portal showToast helpers. */
-    showToast: (message: string, type?: ToastType) => number;
-    toast: (options: ToastOptions) => number;
-    dismissToast: (id: number) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
-
-export function useToast(): ToastContextValue {
-    const ctx = useContext(ToastContext);
-    if (!ctx) {
-        throw new Error('useToast must be used within a <ToastProvider>');
-    }
-    return ctx;
 }
 
 const MAX_VISIBLE = 4;

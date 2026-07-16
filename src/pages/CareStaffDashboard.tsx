@@ -1,9 +1,9 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { useAuth } from '../lib/auth';
+import { useAuth } from '../lib/useAuth';
 import { usePortalTabRoute, readInitialTab } from '../hooks/usePortalTabRoute';
-import { useToast } from '../components/ui/toast/ToastProvider';
+import { useToast } from '../components/ui/toast/useToast';
 import { usePermissions } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';

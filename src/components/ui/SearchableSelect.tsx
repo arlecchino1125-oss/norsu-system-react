@@ -116,7 +116,7 @@ export default function SearchableSelect({
                                 {/* Modal Header */}
                                 <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
                                     <h3 className="font-bold text-slate-800">{placeholder}</h3>
-                                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+                                    <button type="button" aria-label="Close options" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
                                         <X size={20} />
                                     </button>
                                 </div>
