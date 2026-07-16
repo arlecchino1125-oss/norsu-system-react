@@ -12,6 +12,51 @@ import { SUPPORT_STATUS, isDeptSupportCompleted } from '../../../../../utils/wor
 import { getTextInputLimitProps, validateTextInput } from '../../../../../utils/inputSecurity';
 import { AsyncButton } from '../../../../../components/ui/Button';
 
+const renderDetailedDescription = (desc: any) => {
+    if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
+    const q1Index = desc.indexOf('[Q1 Description]:');
+    if (q1Index === -1) return <p className="text-sm text-gray-800 whitespace-pre-wrap">{desc}</p>;
+
+    const getPart = (key: string, nextKey: string | null) => {
+        const start = desc.indexOf(key);
+        if (start === -1) return null;
+        let end = nextKey ? desc.indexOf(nextKey) : -1;
+        if (end === -1) end = desc.length;
+        return desc.substring(start + key.length, end).trim();
+    };
+
+    const q1 = getPart('[Q1 Description]:', '[Q2 Previous Support]:');
+    const q2 = getPart('[Q2 Previous Support]:', '[Q3 Required Support]:');
+    const q3 = getPart('[Q3 Required Support]:', '[Q4 Other Needs]:');
+    const q4 = getPart('[Q4 Other Needs]:', null);
+
+    return (
+        <div className="space-y-4 mt-3">
+            {q1 && <div><p className="text-xs font-bold text-gray-600 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q1}</p></div>}
+            {q2 && <div><p className="text-xs font-bold text-gray-600 mb-1">2. What kind of support did you receive at your previous school?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q2}</p></div>}
+            {q3 && <div><p className="text-xs font-bold text-gray-600 mb-1">3. What support or assistance do you require from NORSU to fully participate in campus activities?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q3}</p></div>}
+            {q4 && <div><p className="text-xs font-bold text-gray-600 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q4}</p></div>}
+        </div>
+    );
+};
+
+const getScheduledDate = (req: any) => {
+    try {
+        if (req.scheduled_visit_date) return req.scheduled_visit_date;
+        const parsed = JSON.parse(req.dept_notes);
+        return parsed?.scheduled_date || null;
+    } catch { return null; }
+};
+
+const parseDeptNotes = (notes: string | null | undefined) => {
+    if (!notes) return null;
+    try {
+        return JSON.parse(notes);
+    } catch {
+        return null;
+    }
+};
+
 const DeptSupportApprovalsPage = ({
     data,
     supportRequests,
@@ -66,51 +111,6 @@ const DeptSupportApprovalsPage = ({
         filteredData.students.find((student: any) =>
             String(student.student_id || student.id || '') === String(req.student_id || '')
         );
-
-    const renderDetailedDescription = (desc: any) => {
-        if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
-        const q1Index = desc.indexOf('[Q1 Description]:');
-        if (q1Index === -1) return <p className="text-sm text-gray-800 whitespace-pre-wrap">{desc}</p>;
-
-        const getPart = (key: string, nextKey: string | null) => {
-            const start = desc.indexOf(key);
-            if (start === -1) return null;
-            let end = nextKey ? desc.indexOf(nextKey) : -1;
-            if (end === -1) end = desc.length;
-            return desc.substring(start + key.length, end).trim();
-        };
-
-        const q1 = getPart('[Q1 Description]:', '[Q2 Previous Support]:');
-        const q2 = getPart('[Q2 Previous Support]:', '[Q3 Required Support]:');
-        const q3 = getPart('[Q3 Required Support]:', '[Q4 Other Needs]:');
-        const q4 = getPart('[Q4 Other Needs]:', null);
-
-        return (
-            <div className="space-y-4 mt-3">
-                {q1 && <div><p className="text-xs font-bold text-gray-600 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q1}</p></div>}
-                {q2 && <div><p className="text-xs font-bold text-gray-600 mb-1">2. What kind of support did you receive at your previous school?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q2}</p></div>}
-                {q3 && <div><p className="text-xs font-bold text-gray-600 mb-1">3. What support or assistance do you require from NORSU to fully participate in campus activities?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q3}</p></div>}
-                {q4 && <div><p className="text-xs font-bold text-gray-600 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q4}</p></div>}
-            </div>
-        );
-    };
-
-    const getScheduledDate = (req: any) => {
-        try {
-            if (req.scheduled_visit_date) return req.scheduled_visit_date;
-            const parsed = JSON.parse(req.dept_notes);
-            return parsed?.scheduled_date || null;
-        } catch { return null; }
-    };
-
-    const parseDeptNotes = (notes: string | null | undefined) => {
-        if (!notes) return null;
-        try {
-            return JSON.parse(notes);
-        } catch {
-            return null;
-        }
-    };
 
     const renderDeptArchiveDetails = (req: any) => {
         if (req.status === SUPPORT_STATUS.REFERRED_TO_CARE) {

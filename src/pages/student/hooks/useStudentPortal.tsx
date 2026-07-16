@@ -39,6 +39,47 @@ import {
     buildProfileCompletionFormSnapshot
 } from '../features/profile/profileFormUtils';
 
+const formatFullDate = (date: any) => date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+const TOUR_STEPS = [
+    {
+        title: "Welcome to your Student Portal! 👋",
+        description: "This is your central hub for all student services, assessments, and essential information. Let's take a quick look around.",
+        icon: <Icons.Star filled />,
+        highlightId: null
+    },
+    {
+        title: "Needs Assessment",
+        description: "Complete available needs assessment forms and submit your responses here.",
+        icon: <Icons.Assessment />,
+        highlightId: "nav-assessment"
+    },
+    {
+        title: "Counseling Services",
+        description: "Need someone to talk to? Request an appointment with our counseling staff easily through this tab.",
+        icon: <Icons.Counseling />,
+        highlightId: "nav-counseling"
+    },
+    {
+        title: "Events & Announcements",
+        description: "Stay updated with the latest workshops, seminars, and important school announcements.",
+        icon: <Icons.Events />,
+        highlightId: "nav-events"
+    },
+    {
+        title: "Your Profile",
+        description: "Keep your personal information up to date so we can serve you better. Click here to edit your details.",
+        icon: <Icons.Profile />,
+        highlightId: "nav-profile"
+    },
+    {
+        title: "You're All Set! 🚀",
+        description: "Feel free to explore the portal at your own pace. If you ever need help, the Support tab is right there.",
+        icon: <Icons.CheckCircle />,
+        highlightId: null
+    }
+];
+
 export function useStudentPortal() {
     const { session, loading, updateSession, logout } = useAuth() as any;
     const {
@@ -352,7 +393,6 @@ export function useStudentPortal() {
         }
     }, [loading, session, profileCompletionGateActive, hasSeenTourState, isSidebarOpen]);
 
-    const formatFullDate = (date: any) => date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const {
         attendanceMap,
         registrationMap,
@@ -470,14 +510,14 @@ export function useStudentPortal() {
         }
     }, [refreshCurrentView, showToast]);
 
-    const openAssessmentForm = async (form: any) => {
+    const openAssessmentForm = useCallback(async (form: any) => {
         if (completedForms.has(form.id)) {
             showToast('You have already completed this assessment.', 'error');
             return;
         }
         setActiveForm(form);
         setShowAssessmentModal(true);
-    };
+    }, [completedForms, showToast]);
 
     const openAssessmentFormWithProfileGate = React.useCallback(async (form: any) => {
         if (!requireStudentFeatureAccess(
@@ -649,45 +689,6 @@ export function useStudentPortal() {
         && !(activeViewAccessState.isAllowed && activeViewAccessState.status === 'enabled');
 
     // --- ONBOARDING TOUR DATA ---
-    const TOUR_STEPS = [
-        {
-            title: "Welcome to your Student Portal! 👋",
-            description: "This is your central hub for all student services, assessments, and essential information. Let's take a quick look around.",
-            icon: <Icons.Star filled />,
-            highlightId: null
-        },
-        {
-            title: "Needs Assessment",
-            description: "Complete available needs assessment forms and submit your responses here.",
-            icon: <Icons.Assessment />,
-            highlightId: "nav-assessment"
-        },
-        {
-            title: "Counseling Services",
-            description: "Need someone to talk to? Request an appointment with our counseling staff easily through this tab.",
-            icon: <Icons.Counseling />,
-            highlightId: "nav-counseling"
-        },
-        {
-            title: "Events & Announcements",
-            description: "Stay updated with the latest workshops, seminars, and important school announcements.",
-            icon: <Icons.Events />,
-            highlightId: "nav-events"
-        },
-        {
-            title: "Your Profile",
-            description: "Keep your personal information up to date so we can serve you better. Click here to edit your details.",
-            icon: <Icons.Profile />,
-            highlightId: "nav-profile"
-        },
-        {
-            title: "You're All Set! 🚀",
-            description: "Feel free to explore the portal at your own pace. If you ever need help, the Support tab is right there.",
-            icon: <Icons.CheckCircle />,
-            highlightId: null
-        }
-    ];
-
     const currentTourStep = TOUR_STEPS[tourStep];
     const highlightedElement = currentTourStep?.highlightId ? document.getElementById(currentTourStep.highlightId) : null;
     const highlightRect = highlightedElement ? highlightedElement.getBoundingClientRect() : null;

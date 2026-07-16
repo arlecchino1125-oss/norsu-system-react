@@ -54,6 +54,8 @@ const getStudentDbId = (student: any) => {
     return Number.isFinite(value) && value > 0 ? value : null;
 };
 
+const DEPT_STUDENT_YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+
 const DeptStudentsPage = ({
     filteredData,
     studentsState,
@@ -64,8 +66,8 @@ const DeptStudentsPage = ({
     showToast
 }: any) => {
     // Server-paged rows — the dept can have far more students than one page holds
-    const students = Array.isArray(studentsState?.rows) ? studentsState.rows : [];
-    const counselingRequests = Array.isArray(filteredData?.requests) ? filteredData.requests : [];
+    const students = useMemo(() => Array.isArray(studentsState?.rows) ? studentsState.rows : [], [studentsState?.rows]);
+    const counselingRequests = useMemo(() => Array.isArray(filteredData?.requests) ? filteredData.requests : [], [filteredData?.requests]);
 
     const [courseFilter, setCourseFilter] = useState('All');
     const [yearFilter, setYearFilter] = useState('All');
@@ -194,8 +196,6 @@ const DeptStudentsPage = ({
         }
         return Array.from(new Set<string>(students.map((student: any) => String(student?.course || '').trim()).filter(Boolean))).sort();
     }, [filteredData?.courseOptions, students]);
-
-    const uniqueYears = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 
     // Search/course/year/status are applied server-side; debounce so typing doesn't fire a query per keystroke
     useEffect(() => {
@@ -428,7 +428,7 @@ const DeptStudentsPage = ({
                         className={`w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 transition-all focus:bg-white focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
                     >
                         <option value="All">All Year Levels</option>
-                        {uniqueYears.map((year) => (
+                        {DEPT_STUDENT_YEAR_OPTIONS.map((year) => (
                             <option key={year} value={year}>{year}</option>
                         ))}
                     </select>

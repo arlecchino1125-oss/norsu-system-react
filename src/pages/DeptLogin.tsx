@@ -4,6 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRoleLogin } from '../hooks/auth/useRoleLogin';
 import { STAFF_LOGIN_CONFIGS } from './auth/staffLoginConfigs';
 
+const PAGE_VARIANTS = {
+    initial: { opacity: 0, y: 15 },
+    in: { opacity: 1, y: 0 },
+    out: { opacity: 0, y: -15 }
+};
+
 export default function DeptLogin() {
     const {
         username,
@@ -17,12 +23,6 @@ export default function DeptLogin() {
         toast,
         handleSubmit
     } = useRoleLogin(STAFF_LOGIN_CONFIGS.department);
-
-    const pageVariants = {
-        initial: { opacity: 0, y: 15 },
-        in: { opacity: 1, y: 0 },
-        out: { opacity: 0, y: -15 }
-    };
 
     return (
         <div className="relative flex min-h-screen w-full overflow-hidden bg-[#edf7fb] font-inter selection:bg-teal-500/25">
@@ -51,7 +51,7 @@ export default function DeptLogin() {
                         <motion.div
                             initial="initial"
                             animate="in"
-                            variants={pageVariants}
+                            variants={PAGE_VARIANTS}
                             transition={{ duration: 0.8 }}
                             className="mx-auto w-full max-w-2xl lg:mx-0 lg:max-w-xl"
                         >

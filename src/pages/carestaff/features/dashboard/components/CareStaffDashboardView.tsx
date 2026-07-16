@@ -25,64 +25,64 @@ interface CareStaffDashboardViewProps {
     refreshSignal?: number;
 }
 
-const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab, refreshSignal = 0 }) => {
-    const PROFILE_ACTIVITY_ACTIONS = [
-        'Student Profile Updated',
-        'Student Profile Completed',
-        'Student Profile Picture Updated'
-    ];
+const PROFILE_ACTIVITY_ACTIONS = [
+    'Student Profile Updated',
+    'Student Profile Completed',
+    'Student Profile Picture Updated'
+];
 
-    const queryClient = useQueryClient();
+const mapProfileLogToActivity = (log: any) => ({
+    id: `profile-${log.id}`,
+    type: 'Profile',
+    icon: <Users size={16} />,
+    color: 'from-fuchsia-400 to-purple-500',
+    title:
+        log.action === 'Student Profile Completed'
+            ? 'Student profile completed'
+            : log.action === 'Student Profile Picture Updated'
+                ? 'Student profile picture updated'
+                : 'Student profile updated',
+    detail: log.details || log.user_name || 'Student modified profile information',
+    date: new Date(log.created_at)
+});
 
-    const mapProfileLogToActivity = (log: any) => ({
-        id: `profile-${log.id}`,
+const mapProfileNotificationToActivity = (notification: any) => {
+    const rawMessage = String(notification?.message || '');
+    const cleanedMessage = rawMessage.replace(/^\[PROFILE UPDATE\]\s*/i, '');
+    return {
+        id: `profile-notif-${notification.id}`,
         type: 'Profile',
         icon: <Users size={16} />,
         color: 'from-fuchsia-400 to-purple-500',
-        title:
-            log.action === 'Student Profile Completed'
-                ? 'Student profile completed'
-                : log.action === 'Student Profile Picture Updated'
-                    ? 'Student profile picture updated'
-                    : 'Student profile updated',
-        detail: log.details || log.user_name || 'Student modified profile information',
-        date: new Date(log.created_at)
+        title: 'Student profile updated',
+        detail: cleanedMessage || 'Student modified profile information',
+        date: new Date(notification.created_at)
+    };
+};
+
+const buildStudentNameMap = async (studentIds: string[]) => {
+    if (studentIds.length === 0) return new Map<string, string>();
+    const { data, error } = await supabase
+        .from('students')
+        .select('student_id, first_name, middle_name, last_name, suffix')
+        .in('student_id', studentIds);
+    if (error) throw error;
+
+    const nameMap = new Map<string, string>();
+    (data || []).forEach((student: any) => {
+        const fullName = [
+            student.first_name,
+            student.middle_name,
+            student.last_name,
+            student.suffix
+        ].filter(Boolean).join(' ');
+        nameMap.set(student.student_id, fullName || student.student_id);
     });
+    return nameMap;
+};
 
-    const mapProfileNotificationToActivity = (notification: any) => {
-        const rawMessage = String(notification?.message || '');
-        const cleanedMessage = rawMessage.replace(/^\[PROFILE UPDATE\]\s*/i, '');
-        return {
-            id: `profile-notif-${notification.id}`,
-            type: 'Profile',
-            icon: <Users size={16} />,
-            color: 'from-fuchsia-400 to-purple-500',
-            title: 'Student profile updated',
-            detail: cleanedMessage || 'Student modified profile information',
-            date: new Date(notification.created_at)
-        };
-    };
-
-    const buildStudentNameMap = async (studentIds: string[]) => {
-        if (studentIds.length === 0) return new Map<string, string>();
-        const { data, error } = await supabase
-            .from('students')
-            .select('student_id, first_name, middle_name, last_name, suffix')
-            .in('student_id', studentIds);
-        if (error) throw error;
-
-        const nameMap = new Map<string, string>();
-        (data || []).forEach((student: any) => {
-            const fullName = [
-                student.first_name,
-                student.middle_name,
-                student.last_name,
-                student.suffix
-            ].filter(Boolean).join(' ');
-            nameMap.set(student.student_id, fullName || student.student_id);
-        });
-        return nameMap;
-    };
+const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab, refreshSignal = 0 }) => {
+    const queryClient = useQueryClient();
 
     // Refactor fetching to React Query to enable client-side caching & request deduplication
     const { data: dashboardData, isLoading: qLoading } = useQuery({
@@ -259,7 +259,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
             removeProfileActivityChannel();
             removeProfileNotificationChannel();
         };
-    }, []);
+    }, [queryClient]);
 
     if (loading) {
         return (

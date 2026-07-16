@@ -55,6 +55,84 @@ export interface CareStaffScholarshipPageProps {
     functions?: Pick<CareStaffDashboardFunctions, 'showToast'>;
 }
 
+const fetchApplicantsByScholarship = async (scholarshipId: string) => {
+    const { data, error } = await supabase
+        .from('scholarship_applications')
+        .select('id, created_at, scholarship_id, student_id, status')
+        .eq('scholarship_id', Number(scholarshipId))
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    const applications = (data || []) as ScholarshipApplicantRecord[];
+    const studentIds = [...new Set(applications.map((row) => row.student_id).filter(Boolean))];
+    if (studentIds.length === 0) return applications;
+
+    const { data: students, error: studentsError } = await supabase
+        .from('students')
+        .select('student_id, first_name, last_name, middle_name, suffix, sex, dob, course, year_level, father_name, father_last_name, father_given_name, father_middle_name, mother_name, mother_last_name, mother_given_name, mother_middle_name, street, address, zip_code, mobile, email, is_pwd, pwd_type, indigenous_group')
+        .in('student_id', studentIds);
+    if (studentsError) throw studentsError;
+
+    const studentMap = new Map<string, ScholarshipApplicantStudent>();
+    ((students || []) as ScholarshipApplicantStudent[]).forEach((student) => {
+        studentMap.set(student.student_id, student);
+    });
+
+    return applications.map((application) => ({
+        ...application,
+        student: studentMap.get(application.student_id) || null
+    }));
+};
+
+const toYearLevelCode = (value: any) => {
+    const match = String(value || '').match(/\d+/);
+    if (!match) return '';
+    const parsed = parseInt(match[0], 10);
+    return Number.isFinite(parsed) ? parsed : '';
+};
+
+const toSexCode = (value: any) => {
+    if (value === 0 || value === 1) return value;
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized.startsWith('m')) return 0;
+    if (normalized.startsWith('f')) return 1;
+    return '';
+};
+
+const formatIsoDate = (value: any) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toISOString().slice(0, 10);
+};
+
+const getStudentLastName = (row: ScholarshipApplicantRecord) => row.student?.last_name || '';
+const getStudentGivenName = (row: ScholarshipApplicantRecord) => row.student?.first_name || '';
+const getStudentMiddleName = (row: ScholarshipApplicantRecord) => row.student?.middle_name || '';
+const getStudentFullName = (row: ScholarshipApplicantRecord) => {
+    const student = row.student;
+    if (student) {
+        return [student.first_name, student.middle_name, student.last_name, student.suffix].filter(Boolean).join(' ');
+    }
+    return row.student_id;
+};
+const getParentParts = (student: ScholarshipApplicantStudent | null | undefined, prefix: 'father' | 'mother') => {
+    const last = student?.[`${prefix}_last_name` as keyof ScholarshipApplicantStudent] as string | null | undefined;
+    const given = student?.[`${prefix}_given_name` as keyof ScholarshipApplicantStudent] as string | null | undefined;
+    const middle = student?.[`${prefix}_middle_name` as keyof ScholarshipApplicantStudent] as string | null | undefined;
+
+    if (last || given || middle) {
+        return {
+            last: last || '',
+            given: given || '',
+            middle: middle || ''
+        };
+    }
+
+    return splitFullName(student?.[`${prefix}_name` as keyof ScholarshipApplicantStudent] as string | null | undefined);
+};
+
 export function useCareStaffScholarship({ functions }: any) {
     const { showToast } = functions || {};
     const { canPerformAction } = usePermissions();
@@ -158,35 +236,6 @@ export function useCareStaffScholarship({ functions }: any) {
         }
     };
 
-    const fetchApplicantsByScholarship = async (scholarshipId: string) => {
-        const { data, error } = await supabase
-            .from('scholarship_applications')
-            .select('id, created_at, scholarship_id, student_id, status')
-            .eq('scholarship_id', Number(scholarshipId))
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-
-        const applications = (data || []) as ScholarshipApplicantRecord[];
-        const studentIds = [...new Set(applications.map((row) => row.student_id).filter(Boolean))];
-        if (studentIds.length === 0) return applications;
-
-        const { data: students, error: studentsError } = await supabase
-            .from('students')
-            .select('student_id, first_name, last_name, middle_name, suffix, sex, dob, course, year_level, father_name, father_last_name, father_given_name, father_middle_name, mother_name, mother_last_name, mother_given_name, mother_middle_name, street, address, zip_code, mobile, email, is_pwd, pwd_type, indigenous_group')
-            .in('student_id', studentIds);
-        if (studentsError) throw studentsError;
-
-        const studentMap = new Map<string, ScholarshipApplicantStudent>();
-        ((students || []) as ScholarshipApplicantStudent[]).forEach((student) => {
-            studentMap.set(student.student_id, student);
-        });
-
-        return applications.map((application) => ({
-            ...application,
-            student: studentMap.get(application.student_id) || null
-        }));
-    };
-
     const handleViewApplicants = async (scholarship: Scholarship) => {
         if (!scholarship?.id) {
             if (showToast) showToast("Invalid scholarship record.", "error");
@@ -216,55 +265,6 @@ export function useCareStaffScholarship({ functions }: any) {
         } finally {
             setIsRefreshingData(false);
         }
-    };
-
-    const toYearLevelCode = (value: any) => {
-        const match = String(value || '').match(/\d+/);
-        if (!match) return '';
-        const parsed = parseInt(match[0], 10);
-        return Number.isFinite(parsed) ? parsed : '';
-    };
-
-    const toSexCode = (value: any) => {
-        if (value === 0 || value === 1) return value;
-        const normalized = String(value || '').trim().toLowerCase();
-        if (!normalized) return '';
-        if (normalized.startsWith('m')) return 0;
-        if (normalized.startsWith('f')) return 1;
-        return '';
-    };
-
-    const formatIsoDate = (value: any) => {
-        if (!value) return '';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return String(value);
-        return date.toISOString().slice(0, 10);
-    };
-
-    const getStudentLastName = (row: ScholarshipApplicantRecord) => row.student?.last_name || '';
-    const getStudentGivenName = (row: ScholarshipApplicantRecord) => row.student?.first_name || '';
-    const getStudentMiddleName = (row: ScholarshipApplicantRecord) => row.student?.middle_name || '';
-    const getStudentFullName = (row: ScholarshipApplicantRecord) => {
-        const student = row.student;
-        if (student) {
-            return [student.first_name, student.middle_name, student.last_name, student.suffix].filter(Boolean).join(' ');
-        }
-        return row.student_id;
-    };
-    const getParentParts = (student: ScholarshipApplicantStudent | null | undefined, prefix: 'father' | 'mother') => {
-        const last = student?.[`${prefix}_last_name` as keyof ScholarshipApplicantStudent] as string | null | undefined;
-        const given = student?.[`${prefix}_given_name` as keyof ScholarshipApplicantStudent] as string | null | undefined;
-        const middle = student?.[`${prefix}_middle_name` as keyof ScholarshipApplicantStudent] as string | null | undefined;
-
-        if (last || given || middle) {
-            return {
-                last: last || '',
-                given: given || '',
-                middle: middle || ''
-            };
-        }
-
-        return splitFullName(student?.[`${prefix}_name` as keyof ScholarshipApplicantStudent] as string | null | undefined);
     };
 
     const exportApplicantRows = (rowsSource: ScholarshipApplicantRecord[], filenameBase: string) => {

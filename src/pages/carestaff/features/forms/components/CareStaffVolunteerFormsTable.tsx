@@ -13,6 +13,12 @@ interface CareStaffVolunteerFormsTableProps {
     refreshSignal?: number;
 }
 
+const getStatusStyle = (status: string) => {
+    if (status === 'approved') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    if (status === 'rejected') return 'bg-rose-100 text-rose-700 border-rose-200';
+    return 'bg-amber-100 text-amber-700 border-amber-200';
+};
+
 export default function CareStaffVolunteerFormsTable({ functions, refreshSignal = 0 }: CareStaffVolunteerFormsTableProps) {
     const queryClient = useQueryClient();
     const lastExternalRefreshSignalRef = useRef(refreshSignal);
@@ -129,12 +135,6 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         const matchesYear = !selectedYear || app.school_year === selectedYear;
         return matchesSearch && matchesStatus && matchesYear;
     });
-
-    const getStatusStyle = (status: string) => {
-        if (status === 'approved') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-        if (status === 'rejected') return 'bg-rose-100 text-rose-700 border-rose-200';
-        return 'bg-amber-100 text-amber-700 border-amber-200';
-    };
 
     const openApplication = (app: any) => {
         setSelectedApplication(app);

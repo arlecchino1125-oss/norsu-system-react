@@ -98,7 +98,7 @@ export function ServiceIntroModal({ serviceKey }: { serviceKey: string }) {
 
     React.useEffect(() => {
         if (!localStorage.getItem(storageKey)) setShow(true);
-    }, []);
+    }, [storageKey]);
 
     if (!show || !guide) return null;
 

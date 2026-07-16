@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer } from 'react';
 import Modal from './ui/Modal';
 import {
     DOCUMENT_PREVIEW_EVENT,
@@ -18,28 +18,74 @@ const getExtension = (request: DocumentPreviewRequest) => {
     return '';
 };
 
+type PreviewState = {
+    request: DocumentPreviewRequest | null;
+    convertedUrl: string;
+    isPreparing: boolean;
+    isContentLoading: boolean;
+    error: string;
+};
+
+const INITIAL_PREVIEW_STATE: PreviewState = {
+    request: null,
+    convertedUrl: '',
+    isPreparing: false,
+    isContentLoading: false,
+    error: ''
+};
+
+type PreviewAction =
+    | { type: 'requested'; request: DocumentPreviewRequest; isPreparing: boolean; isContentLoading: boolean }
+    | { type: 'converted'; url: string }
+    | { type: 'conversionFailed'; message: string }
+    | { type: 'preparingDone' }
+    | { type: 'contentLoaded' }
+    | { type: 'contentFailed'; message: string }
+    | { type: 'closed' };
+
+function previewReducer(state: PreviewState, action: PreviewAction): PreviewState {
+    switch (action.type) {
+        case 'requested':
+            return {
+                ...INITIAL_PREVIEW_STATE,
+                request: action.request,
+                isPreparing: action.isPreparing,
+                isContentLoading: action.isContentLoading
+            };
+        case 'converted':
+            return { ...state, convertedUrl: action.url };
+        case 'conversionFailed':
+            return { ...state, error: action.message, isContentLoading: false };
+        case 'preparingDone':
+            return { ...state, isPreparing: false };
+        case 'contentLoaded':
+            return { ...state, isContentLoading: false };
+        case 'contentFailed':
+            return { ...state, isContentLoading: false, error: action.message };
+        case 'closed':
+            return { ...state, request: null };
+        default:
+            return state;
+    }
+}
+
 export default function DocumentPreviewModal() {
-    const [request, setRequest] = useState<DocumentPreviewRequest | null>(null);
-    const [convertedUrl, setConvertedUrl] = useState('');
-    const [isPreparing, setIsPreparing] = useState(false);
-    const [isContentLoading, setIsContentLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [{ request, convertedUrl, isPreparing, isContentLoading, error }, dispatch] = useReducer(previewReducer, INITIAL_PREVIEW_STATE);
     const extension = useMemo(() => request ? getExtension(request) : '', [request]);
 
     useEffect(() => {
         const handlePreview = (event: Event) => {
             const detail = (event as CustomEvent<DocumentPreviewRequest>).detail;
             if (!detail?.url) return;
-            setRequest(detail);
-            setConvertedUrl('');
-            setError('');
             const nextExtension = getExtension(detail);
-            setIsPreparing(CONVERTED_IMAGE_EXTENSIONS.has(nextExtension));
-            setIsContentLoading(
-                DIRECT_IMAGE_EXTENSIONS.has(nextExtension)
-                || CONVERTED_IMAGE_EXTENSIONS.has(nextExtension)
-                || nextExtension === 'pdf'
-            );
+            dispatch({
+                type: 'requested',
+                request: detail,
+                isPreparing: CONVERTED_IMAGE_EXTENSIONS.has(nextExtension),
+                isContentLoading: DIRECT_IMAGE_EXTENSIONS.has(nextExtension)
+                    || CONVERTED_IMAGE_EXTENSIONS.has(nextExtension)
+                    || nextExtension === 'pdf'
+            });
         };
         window.addEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
         return () => window.removeEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
@@ -63,14 +109,13 @@ export default function DocumentPreviewModal() {
                     URL.revokeObjectURL(objectUrl);
                     return;
                 }
-                setConvertedUrl(objectUrl);
+                dispatch({ type: 'converted', url: objectUrl });
             } catch {
                 if (!cancelled) {
-                    setError('This image could not be prepared for preview.');
-                    setIsContentLoading(false);
+                    dispatch({ type: 'conversionFailed', message: 'This image could not be prepared for preview.' });
                 }
             } finally {
-                if (!cancelled) setIsPreparing(false);
+                if (!cancelled) dispatch({ type: 'preparingDone' });
             }
         };
         void preparePreview();
@@ -81,15 +126,12 @@ export default function DocumentPreviewModal() {
         };
     }, [extension, request]);
 
-    const close = () => setRequest(null);
+    const close = () => dispatch({ type: 'closed' });
     const isDirectImage = DIRECT_IMAGE_EXTENSIONS.has(extension);
     const isConvertedImage = CONVERTED_IMAGE_EXTENSIONS.has(extension);
     const isPdf = extension === 'pdf';
-    const finishLoading = () => setIsContentLoading(false);
-    const failLoading = () => {
-        setIsContentLoading(false);
-        setError('This file could not be loaded for preview.');
-    };
+    const finishLoading = () => dispatch({ type: 'contentLoaded' });
+    const failLoading = () => dispatch({ type: 'contentFailed', message: 'This file could not be loaded for preview.' });
 
     return (
         <Modal

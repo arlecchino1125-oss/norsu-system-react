@@ -4,6 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRoleLogin } from '../../hooks/auth/useRoleLogin';
 import { STAFF_LOGIN_CONFIGS } from '../auth/staffLoginConfigs';
 
+const PAGE_VARIANTS = {
+    initial: { opacity: 0, scale: 0.98 },
+    in: { opacity: 1, scale: 1 },
+    out: { opacity: 0, scale: 1.02 }
+};
+
 export default function RegistrarLogin() {
     const {
         username,
@@ -17,12 +23,6 @@ export default function RegistrarLogin() {
         toast,
         handleSubmit
     } = useRoleLogin(STAFF_LOGIN_CONFIGS.registrar);
-
-    const pageVariants = {
-        initial: { opacity: 0, scale: 0.98 },
-        in: { opacity: 1, scale: 1 },
-        out: { opacity: 0, scale: 1.02 }
-    };
 
     return (
         <div className="flex min-h-screen w-full bg-slate-50 relative overflow-hidden font-sans selection:bg-teal-500/30">
@@ -52,7 +52,7 @@ export default function RegistrarLogin() {
                 {/* Left: Branding & Message (Hidden on mobile) */}
                 <div className="hidden lg:flex w-1/2 flex-col justify-center px-16 relative">
                     <motion.div
-                        initial="initial" animate="in" variants={pageVariants} transition={{ duration: 0.6 }}
+                        initial="initial" animate="in" variants={PAGE_VARIANTS} transition={{ duration: 0.6 }}
                         className="max-w-xl"
                     >
                         <div className="flex items-center gap-4 mb-8">

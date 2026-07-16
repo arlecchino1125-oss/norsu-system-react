@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, FileText, Pencil, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
@@ -45,26 +45,58 @@ import {
     canMarkNatPassed
 } from '../utils';
 
+// Redundant state setter to maintain backwards-compatibility with destructuring components (shared, since all are no-ops)
+const noop = (_val?: any) => { };
+
+const normalizeTimeSlots = (rawSlots: any[] = []) => {
+    return rawSlots
+        .map((slot: any) => ({
+            start: String(slot?.start || '').trim(),
+            end: String(slot?.end || '').trim(),
+            slots: parseInt(String(slot?.slots ?? '0'), 10)
+        }))
+        .filter((slot: any) => slot.start && slot.end && Number.isFinite(slot.slots) && slot.slots > 0);
+};
+
+const parseTimeToMinutes = (value: string) => {
+    const [hour, minute] = String(value || '').split(':').map(Number);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return -1;
+    return (hour * 60) + minute;
+};
+
+const getNatCompletedDateLabel = (app: any) => formatDate(app?.completed_at || app?.archived_at || app?.created_at);
+
+const formatTime12h = (value: string) => {
+    if (!value) return value;
+    const [hour, minute] = value.split(':').map(Number);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = ((hour + 11) % 12) + 1;
+    return `${displayHour}:${String(minute).padStart(2, '0')} ${suffix}`;
+};
+
+const formatAssignedSlot = (value: string) => {
+    if (!value) return 'Not assigned';
+    if (!String(value).includes('-')) return formatTime12h(value);
+    const [start, end] = String(value).split('-').map((part) => part.trim());
+    if (!start || !end) return value;
+    return `${formatTime12h(start)} - ${formatTime12h(end)}`;
+};
+
+const handleDownloadBulkPassTemplate = async () => {
+    const XLSX = await loadXlsx();
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([BULK_PASS_TEMPLATE_HEADERS]);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'bulk_pass');
+    XLSX.writeFile(workbook, generateExportFilename('nat_bulk_pass_template', 'xlsx'));
+};
+
 export function useCareStaffNat({ showToast }: any) {
     const { canPerformAction } = usePermissions();
     const canArchiveRecords = canPerformAction('archive_records');
     const [activeTab, setActiveTab] = useState('applications');
     const queryClient = useQueryClient();
-
-    // Redundant state setters defined to maintain backwards-compatibility with destructuring components
-    const setApplications = (val?: any) => { };
-    const setCompletedApplications = (val?: any) => { };
-    const setTestTakers = (val?: any) => { };
-    const setSummaryApplications = (val?: any) => { };
-    const setSchedules = (val?: any) => { };
-    const setCourseLimits = (val?: any) => { };
-    const setNatRequirements = (val?: any) => { };
-    const setInactiveNatRequirements = (val?: any) => { };
-    const setSupportsAttendance = (val?: any) => { };
-    const setLoading = (val?: any) => { };
-    const setApplicationsTotal = (val?: any) => { };
-    const setCompletedTotal = (val?: any) => { };
-    const setTestTakersTotal = (val?: any) => { };
+    const setLoading = noop;
 
     const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [newRequirementName, setNewRequirementName] = useState('');
@@ -95,22 +127,6 @@ export function useCareStaffNat({ showToast }: any) {
     const [statusBoardFilter, setStatusBoardFilter] = useState('awaiting_results');
     const [scheduleForm, setScheduleForm] = useState(createEmptyScheduleForm);
     const bulkPassInputRef = useRef<HTMLInputElement | null>(null);
-
-    const normalizeTimeSlots = (rawSlots: any[] = []) => {
-        return rawSlots
-            .map((slot: any) => ({
-                start: String(slot?.start || '').trim(),
-                end: String(slot?.end || '').trim(),
-                slots: parseInt(String(slot?.slots ?? '0'), 10)
-            }))
-            .filter((slot: any) => slot.start && slot.end && Number.isFinite(slot.slots) && slot.slots > 0);
-    };
-
-    const parseTimeToMinutes = (value: string) => {
-        const [hour, minute] = String(value || '').split(':').map(Number);
-        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return -1;
-        return (hour * 60) + minute;
-    };
 
     // React Query hooks for fetching data
     const { data: qApplicationsData, isLoading: qApplicationsLoading } = useQuery({
@@ -173,8 +189,8 @@ export function useCareStaffNat({ showToast }: any) {
     const testTakersTotal = qTestTakersData?.total || 0;
 
     const schedules = qLookupsData?.schedules || [];
-    const courseLimits = qLookupsData?.courseLimits || [];
-    const natRequirements = qLookupsData?.natRequirements || [];
+    const courseLimits = useMemo(() => qLookupsData?.courseLimits || [], [qLookupsData]);
+    const natRequirements = useMemo(() => qLookupsData?.natRequirements || [], [qLookupsData]);
     const inactiveNatRequirements = qLookupsData?.inactiveNatRequirements || [];
     const supportsAttendance = qLookupsData?.supportsAttendance ?? true;
     const summaryApplications = qLookupsData?.summaryApplications || [];
@@ -540,8 +556,7 @@ export function useCareStaffNat({ showToast }: any) {
 
     const filteredApplications = applications;
     const filteredResults = testTakers;
-    const isCompletedNatRecord = (app: any) => supportsAttendance ? canMarkNatPassed(app) : hasTakenNatStatus(app?.status);
-    const getNatCompletedDateLabel = (app: any) => formatDate(app?.completed_at || app?.archived_at || app?.created_at);
+    const isCompletedNatRecord = useCallback((app: any) => supportsAttendance ? canMarkNatPassed(app) : hasTakenNatStatus(app?.status), [supportsAttendance]);
 
     const dateApplicantCounts = summaryApplications.reduce((acc: Record<string, number>, app: any) => {
         if (app.test_date) acc[app.test_date] = (acc[app.test_date] || 0) + 1;
@@ -608,22 +623,6 @@ export function useCareStaffNat({ showToast }: any) {
         && normalizeTimeSlots(Array.isArray(editingSchedule.time_windows) ? editingSchedule.time_windows : []).length === 0
     );
 
-    const formatTime12h = (value: string) => {
-        if (!value) return value;
-        const [hour, minute] = value.split(':').map(Number);
-        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
-        const suffix = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = ((hour + 11) % 12) + 1;
-        return `${displayHour}:${String(minute).padStart(2, '0')} ${suffix}`;
-    };
-
-    const formatAssignedSlot = (value: string) => {
-        if (!value) return 'Not assigned';
-        if (!String(value).includes('-')) return formatTime12h(value);
-        const [start, end] = String(value).split('-').map((part) => part.trim());
-        if (!start || !end) return value;
-        return `${formatTime12h(start)} - ${formatTime12h(end)}`;
-    };
 
     const handleExportPDF = async () => {
         const { jsPDF, autoTable } = await loadJsPdfAutoTable();
@@ -678,14 +677,6 @@ export function useCareStaffNat({ showToast }: any) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    };
-
-    const handleDownloadBulkPassTemplate = async () => {
-        const XLSX = await loadXlsx();
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.aoa_to_sheet([BULK_PASS_TEMPLATE_HEADERS]);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'bulk_pass');
-        XLSX.writeFile(workbook, generateExportFilename('nat_bulk_pass_template', 'xlsx'));
     };
 
     const closeBulkPassModal = () => {
@@ -934,10 +925,10 @@ export function useCareStaffNat({ showToast }: any) {
                 rows: rows.filter((app: any) => isNatRejectedStatus(app.status))
             }
         ];
-    }, [summaryApplications, supportsAttendance]);
+    }, [summaryApplications, supportsAttendance, isCompletedNatRecord]);
 
     const activeStatusSection = statusSections.find((section) => section.id === statusBoardFilter) || statusSections[0];
-    const activeStatusRows = activeStatusSection?.rows || [];
+    const activeStatusRows = useMemo(() => activeStatusSection?.rows || [], [activeStatusSection]);
     const paginatedStatusRows = useMemo(
         () => paginateLocalRows(activeStatusRows, statusBoardPage),
         [activeStatusRows, statusBoardPage]
@@ -969,23 +960,23 @@ export function useCareStaffNat({ showToast }: any) {
         activeTab,
         setActiveTab,
         applications,
-        setApplications,
+        setApplications: noop,
         completedApplications,
-        setCompletedApplications,
+        setCompletedApplications: noop,
         testTakers,
-        setTestTakers,
+        setTestTakers: noop,
         summaryApplications,
-        setSummaryApplications,
+        setSummaryApplications: noop,
         schedules,
-        setSchedules,
+        setSchedules: noop,
         courseLimits,
-        setCourseLimits,
+        setCourseLimits: noop,
         natRequirements,
-        setNatRequirements,
+        setNatRequirements: noop,
         inactiveNatRequirements,
-        setInactiveNatRequirements,
+        setInactiveNatRequirements: noop,
         supportsAttendance,
-        setSupportsAttendance,
+        setSupportsAttendance: noop,
         loading,
         setLoading,
         isRefreshingData,
@@ -1015,11 +1006,11 @@ export function useCareStaffNat({ showToast }: any) {
         limitsPage,
         setLimitsPage,
         applicationsTotal,
-        setApplicationsTotal,
+        setApplicationsTotal: noop,
         completedTotal,
-        setCompletedTotal,
+        setCompletedTotal: noop,
         testTakersTotal,
-        setTestTakersTotal,
+        setTestTakersTotal: noop,
         showModal,
         setShowModal,
         selectedApp,

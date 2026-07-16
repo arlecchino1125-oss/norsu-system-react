@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     AlertTriangle,
     ArrowRight,
@@ -261,11 +261,13 @@ const DeptAdmissionsPage = ({
     const [exportError, setExportError] = useState('');
     const [departmentCourseOptions, setDepartmentCourseOptions] = useState<string[]>([]);
 
-    const pageApplicants = Array.isArray(admissionsState?.rows)
-        ? admissionsState.rows
-        : Array.isArray(applicants)
-            ? applicants
-            : [];
+    const pageApplicants = useMemo(() => (
+        Array.isArray(admissionsState?.rows)
+            ? admissionsState.rows
+            : Array.isArray(applicants)
+                ? applicants
+                : []
+    ), [admissionsState?.rows, applicants]);
     const setAdmissionsFilters = admissionsState?.setFilters;
     const setAdmissionsPage = admissionsState?.setPage;
     const setAdmissionsPageSize = admissionsState?.setPageSize;

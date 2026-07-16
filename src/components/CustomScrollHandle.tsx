@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 
 export const CustomScrollHandle = ({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement> }) => {
     const [scrollRatio, setScrollRatio] = useState(0);
@@ -8,7 +8,7 @@ export const CustomScrollHandle = ({ scrollRef }: { scrollRef: React.RefObject<H
     const trackRef = useRef<HTMLDivElement>(null);
     const hideTimeoutRef = useRef<number | null>(null);
 
-    const updateScrollState = () => {
+    const updateScrollState = useCallback(() => {
         if (!scrollRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
         
@@ -33,7 +33,7 @@ export const CustomScrollHandle = ({ scrollRef }: { scrollRef: React.RefObject<H
                 setShowHandle(false);
             }, 2000);
         }
-    };
+    }, [scrollRef, isDragging]);
 
     useEffect(() => {
         const el = scrollRef.current;
@@ -41,17 +41,17 @@ export const CustomScrollHandle = ({ scrollRef }: { scrollRef: React.RefObject<H
             el.addEventListener('scroll', updateScrollState, { passive: true });
             // Initial check
             updateScrollState();
-            
+
             // Re-check after images load or content changes
             const resizeObserver = new ResizeObserver(() => updateScrollState());
             resizeObserver.observe(el);
-            
+
             return () => {
                 el.removeEventListener('scroll', updateScrollState);
                 resizeObserver.disconnect();
             };
         }
-    }, [scrollRef]);
+    }, [scrollRef, updateScrollState]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
         setIsDragging(true);
@@ -112,22 +112,26 @@ export const CustomScrollHandle = ({ scrollRef }: { scrollRef: React.RefObject<H
             
             {/* Action Buttons for explicit tap scrolling */}
             <div className="absolute right-0 top-0 -translate-y-full pb-2 pointer-events-auto opacity-70 hover:opacity-100 transition-opacity">
-                <button 
+                <button
+                    type="button"
                     onClick={() => {
                         if (scrollRef.current) scrollRef.current.scrollBy({ top: -300, behavior: 'smooth' });
                         updateScrollState();
                     }}
+                    aria-label="Scroll up"
                     className="w-10 h-10 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                 </button>
             </div>
             <div className="absolute right-0 bottom-0 translate-y-full pt-2 pointer-events-auto opacity-70 hover:opacity-100 transition-opacity">
-                <button 
+                <button
+                    type="button"
                     onClick={() => {
                         if (scrollRef.current) scrollRef.current.scrollBy({ top: 300, behavior: 'smooth' });
                         updateScrollState();
                     }}
+                    aria-label="Scroll down"
                     className="w-10 h-10 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>

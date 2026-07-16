@@ -18,6 +18,19 @@ interface CareStaffFormsPageProps {
 const FORM_COLUMNS = 'id, title, description, is_active, created_at';
 const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, scale_min, scale_max, order_index, created_at';
 
+const handleDownloadTemplate = () => {
+    const content = "I feel stressed often\nI have trouble sleeping\nI need financial assistance";
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "questions_template.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+};
+
 const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPageProps) => {
     const { canPerformAction } = usePermissions();
     const lastExternalRefreshSignalRef = useRef(refreshSignal);
@@ -195,19 +208,6 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
             e.target.value = '';
         };
         reader.readAsText(file);
-    };
-
-    const handleDownloadTemplate = () => {
-        const content = "I feel stressed often\nI have trouble sleeping\nI need financial assistance";
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "questions_template.txt";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
     };
 
     const handleDeleteForm = async () => {

@@ -3,6 +3,24 @@ import { supabase } from '../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../lib/invokeEdgeFunction';
 import { recordStaffAuditAction } from '../../../lib/staffAudit';
 
+const syncStaffSession = (patch: Record<string, unknown>) => {
+    // Simple session sync to mimic `updateSession` if it's missing in AuthContext
+    // though `updateSession` is now standard in `useAuth()` hook for all portals.
+};
+
+const requestStaffSecurityOtp = async (purpose: 'password_change' | 'email_change', nextEmailValue?: string) => {
+    return invokeEdgeFunction('manage-staff-accounts', {
+        body: {
+            mode: 'request-security-otp',
+            purpose,
+            email: purpose === 'email_change' ? String(nextEmailValue || '').trim().toLowerCase() : undefined
+        },
+        requireAuth: true,
+        non2xxMessage: 'Your Department session could not be verified. Sign in again.',
+        fallbackMessage: 'Failed to send the security OTP.'
+    });
+};
+
 export function useDeptAccount({ session, data, setData, showToastMessage }: any) {
     const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
     const [profileForm, setProfileForm] = useState<any>({ name: '' });
@@ -46,24 +64,6 @@ export function useDeptAccount({ session, data, setData, showToastMessage }: any
         } finally {
             setIsUpdatingProfile(false);
         }
-    };
-
-    const syncStaffSession = (patch: Record<string, unknown>) => {
-        // Simple session sync to mimic `updateSession` if it's missing in AuthContext
-        // though `updateSession` is now standard in `useAuth()` hook for all portals.
-    };
-
-    const requestStaffSecurityOtp = async (purpose: 'password_change' | 'email_change', nextEmailValue?: string) => {
-        return invokeEdgeFunction('manage-staff-accounts', {
-            body: {
-                mode: 'request-security-otp',
-                purpose,
-                email: purpose === 'email_change' ? String(nextEmailValue || '').trim().toLowerCase() : undefined
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your Department session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to send the security OTP.'
-        });
     };
 
     const confirmStaffSecurityEmailChange = async (nextEmailValue: string, otp: string) => {

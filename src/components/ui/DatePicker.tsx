@@ -36,10 +36,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
     // Sync view when value changes externally
     useEffect(() => {
-        if (parsed) {
-            setViewMonth(parsed.getMonth());
-            setViewYear(parsed.getFullYear());
-        }
+        if (!value) return;
+        const nextParsed = new Date(value + 'T00:00:00');
+        setViewMonth(nextParsed.getMonth());
+        setViewYear(nextParsed.getFullYear());
     }, [value]);
 
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();

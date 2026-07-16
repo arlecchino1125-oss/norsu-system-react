@@ -4,6 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRoleLogin } from '../hooks/auth/useRoleLogin';
 import { STAFF_LOGIN_CONFIGS } from './auth/staffLoginConfigs';
 
+const PAGE_VARIANTS = {
+    initial: { opacity: 0, scale: 0.98 },
+    in: { opacity: 1, scale: 1 },
+    out: { opacity: 0, scale: 1.02 }
+};
+
 export default function AdminLogin() {
     const {
         username,
@@ -17,12 +23,6 @@ export default function AdminLogin() {
         toast,
         handleSubmit
     } = useRoleLogin(STAFF_LOGIN_CONFIGS.admin);
-
-    const pageVariants = {
-        initial: { opacity: 0, scale: 0.98 },
-        in: { opacity: 1, scale: 1 },
-        out: { opacity: 0, scale: 1.02 }
-    };
 
     return (
         <div className="flex min-h-screen w-full bg-[#030712] relative overflow-hidden font-mono selection:bg-red-500/30">
@@ -58,7 +58,7 @@ export default function AdminLogin() {
                 {/* Left: Branding & Message (Hidden on mobile) */}
                 <div className="hidden lg:flex w-1/2 flex-col justify-center px-16 relative">
                     <motion.div
-                        initial="initial" animate="in" variants={pageVariants} transition={{ duration: 0.6 }}
+                        initial="initial" animate="in" variants={PAGE_VARIANTS} transition={{ duration: 0.6 }}
                         className="max-w-xl"
                     >
                         <div className="flex items-center gap-4 mb-8">
@@ -156,6 +156,7 @@ export default function AdminLogin() {
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
                                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-red-500 transition-colors focus:outline-none"
                                             >
                                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

@@ -2,17 +2,17 @@ import { useState } from 'react';
 import { Calendar, ChevronRight } from 'lucide-react';
 import { getCounselingScheduledDate, isCounselingCalendarVisible } from '../utils/workflow';
 
+const getDaysInMonth = (date: any) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+const getFirstDayOfMonth = (date: any) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 // Helper Component for Counseling Calendar
 const CalendarView = ({ requests }: any) => {
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    const getDaysInMonth = (date: any) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-    const getFirstDayOfMonth = (date: any) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
-
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
@@ -29,11 +29,11 @@ const CalendarView = ({ requests }: any) => {
     return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-fade-in">
             <div className="p-4 flex justify-between items-center border-b border-gray-100 bg-gray-50">
-                <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Calendar size={20} className="text-purple-600" /> {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
+                <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Calendar size={20} className="text-purple-600" /> {MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
                 <div className="flex gap-2">
-                    <button onClick={handlePrevMonth} className="p-2 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition"><ChevronRight className="rotate-180" size={16} /></button>
-                    <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1 text-xs font-bold bg-white border border-gray-200 rounded-lg hover:bg-gray-50">Today</button>
-                    <button onClick={handleNextMonth} className="p-2 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition"><ChevronRight size={16} /></button>
+                    <button type="button" onClick={handlePrevMonth} aria-label="Previous month" className="p-2 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition"><ChevronRight className="rotate-180" size={16} /></button>
+                    <button type="button" onClick={() => setCurrentDate(new Date())} className="px-3 py-1 text-xs font-bold bg-white border border-gray-200 rounded-lg hover:bg-gray-50">Today</button>
+                    <button type="button" onClick={handleNextMonth} aria-label="Next month" className="p-2 hover:bg-white rounded-lg border border-transparent hover:border-gray-200 transition"><ChevronRight size={16} /></button>
                 </div>
             </div>
             <div className="grid grid-cols-7 text-center bg-white border-b border-gray-100">
