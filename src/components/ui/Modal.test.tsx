@@ -40,4 +40,18 @@ describe('Modal accessibility', () => {
         fireEvent.keyDown(document, { key: 'Escape' });
         expect(onClose).toHaveBeenCalledTimes(1);
     });
+
+    it('uses a named button for a dismissible backdrop', () => {
+        const onClose = vi.fn();
+        render(
+            <Modal open onClose={onClose} title="Edit student">
+                <button>Save</button>
+            </Modal>,
+        );
+
+        const backdrop = screen.getByRole('button', { name: 'Close modal' });
+        fireEvent.click(backdrop);
+
+        expect(onClose).toHaveBeenCalledOnce();
+    });
 });

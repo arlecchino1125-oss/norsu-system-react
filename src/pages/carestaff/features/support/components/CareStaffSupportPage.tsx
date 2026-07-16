@@ -263,7 +263,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
             <AnimatePresence>
                 {showSupportModal && selectedSupportReq && (
                     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-sm">
-                        <div className="absolute inset-0 bg-transparent" onClick={() => setShowSupportModal(false)}></div>
+                        <button type="button" aria-label="Close support application" className="absolute inset-0 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-400" onClick={() => setShowSupportModal(false)} />
                         <motion.div
                             variants={modalVariants}
                             initial="hidden"

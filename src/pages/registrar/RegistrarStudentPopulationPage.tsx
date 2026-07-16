@@ -284,16 +284,17 @@ export default function RegistrarStudentPopulationPage() {
                                     <th className="px-6 py-4">ID</th>
                                     <th className="px-6 py-4">Course & Year</th>
                                     <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {loading ? (
-                                    <tr><td colSpan={4} className="h-[360px] p-12 text-center text-slate-500">Loading students...</td></tr>
+                                    <tr><td colSpan={5} className="h-[360px] p-12 text-center text-slate-500">Loading students...</td></tr>
                                 ) : students.length === 0 ? (
-                                    <tr><td colSpan={4} className="h-[360px] p-12 text-center text-slate-500">No students found.</td></tr>
+                                    <tr><td colSpan={5} className="h-[360px] p-12 text-center text-slate-500">No students found.</td></tr>
                                 ) : (
                                     students.map(student => (
-                                        <tr key={student.id} onClick={() => openProfileModal(student)} className="hover:bg-slate-50 cursor-pointer transition-colors">
+                                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.last_name}, {student.first_name} {student.middle_name || ''}</span></td>
                                             <td className="px-6 py-4 font-mono text-slate-600">{student.student_id}</td>
                                             <td className="px-6 py-4">
@@ -306,6 +307,9 @@ export default function RegistrarStudentPopulationPage() {
                                                 ) : (
                                                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{student.status}</span>
                                                 )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button type="button" onClick={() => openProfileModal(student)} className="cursor-pointer rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500">View profile</button>
                                             </td>
                                         </tr>
                                     ))
@@ -329,8 +333,9 @@ export default function RegistrarStudentPopulationPage() {
             {/* Profile Modal */}
             {profileViewStudent && typeof document !== 'undefined' && createPortal(
                 <>
-                    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setProfileViewStudent(null)}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                    <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <button type="button" aria-label="Close student profile" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-400" onClick={() => setProfileViewStudent(null)} />
+                        <div className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
                             <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-teal-50 flex items-center justify-between shrink-0">
                                 <div className="flex items-center gap-4">
                                     <button type="button"
@@ -436,11 +441,11 @@ export default function RegistrarStudentPopulationPage() {
                     {/* Full Size Photo Modal */}
                     <div
                         className={`fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-                        onClick={() => setShowPhotoModal(false)}
+                        inert={!showPhotoModal}
                     >
+                        <button type="button" aria-label="Close profile photo" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-400" onClick={() => setShowPhotoModal(false)} />
                         <div
-                            className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
-                            onClick={(e) => e.stopPropagation()}
+                            className={`z-10 bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
                         >
                             <button type="button"
                                 onClick={() => setShowPhotoModal(false)}

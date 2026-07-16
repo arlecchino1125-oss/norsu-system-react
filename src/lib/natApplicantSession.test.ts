@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
     clearNatApplicantSession,
+    didNatApplicantStatusChange,
     getOrCreateNatBrowserId,
     loadNatApplicantSession,
     saveNatApplicantSession
@@ -37,5 +38,11 @@ describe('NAT applicant browser session storage', () => {
         expect(loadNatApplicantSession()).toBeNull();
         clearNatApplicantSession();
         expect(getOrCreateNatBrowserId()).toBe(id);
+    });
+
+    it('recognizes only a real applicant status transition', () => {
+        expect(didNatApplicantStatusChange('Submitted', 'Ongoing')).toBe(true);
+        expect(didNatApplicantStatusChange('Submitted', 'Submitted')).toBe(false);
+        expect(didNatApplicantStatusChange('', 'Submitted')).toBe(false);
     });
 });

@@ -85,8 +85,11 @@ export default function Modal({
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.2 }}
-            onClick={closeOnBackdrop ? onClose : undefined}
-          />
+          >
+            {closeOnBackdrop && (
+              <button type="button" aria-label="Close modal" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400" onClick={onClose} />
+            )}
+          </motion.div>
 
           {/* Panel */}
           <motion.div

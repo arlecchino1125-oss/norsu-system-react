@@ -598,10 +598,10 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         <table className="w-full text-left text-sm border-collapse">
                             <thead className="bg-slate-50/80 border-b border-slate-200/60 text-[10px] uppercase text-slate-500 font-bold tracking-widest backdrop-blur-sm">
                                 <tr>
-                                    <th className="px-6 py-5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('name')}>Student <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></th>
-                                    <th className="px-6 py-5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('student_id')}>ID <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></th>
-                                    <th className="px-6 py-5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('course')}>Course & Year <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></th>
-                                    <th className="px-6 py-5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('status')}>Status <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></th>
+                                    <th scope="col" aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('name')}>Student <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
+                                    <th scope="col" aria-sort={sortConfig.key === 'student_id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('student_id')}>ID <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
+                                    <th scope="col" aria-sort={sortConfig.key === 'course' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('course')}>Course & Year <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
+                                    <th scope="col" aria-sort={sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('status')}>Status <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
                                     <th className="px-6 py-5 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -628,11 +628,9 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                                                 animate={{ opacity: 1, x: 0 }}
                                                 exit={{ opacity: 0, x: -10 }}
                                                 transition={{ delay: idx * 0.02, type: 'spring', stiffness: 400, damping: 25 }}
-                                                whileHover={{ scale: 1.005, backgroundColor: 'rgba(250, 245, 255, 0.6)' }}
-                                                onClick={(e) => { e.stopPropagation(); openProfileModal(student); }}
-                                                className="border-b border-transparent hover:border-purple-200 cursor-pointer group transition-colors"
+                                                className="border-b border-transparent hover:border-purple-200 transition-colors"
                                             >
-                                                <td className="px-6 py-4"><span className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors">{student.first_name} {student.last_name}</span></td>
+                                                <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.first_name} {student.last_name}</span></td>
                                                 <td className="px-6 py-4 font-mono font-medium text-slate-500">{student.student_id}</td>
                                                 <td className="px-6 py-4">
                                                     {(() => {
@@ -674,6 +672,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
+                                                    <button type="button" aria-label={`View profile for ${student.first_name} ${student.last_name}`} onClick={() => openProfileModal(student)} className="text-purple-500 hover:text-purple-700 p-2 bg-purple-50 rounded-lg mr-2 transition-colors"><Eye size={16} /></button>
                                                     <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-500 hover:text-blue-700 p-2 bg-blue-50 rounded-lg mr-2 transition-colors"><Edit size={16} /></motion.button>
                                                     {canArchiveRecords && (
                                                         <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-amber-600 hover:text-amber-800 p-2 bg-amber-50 rounded-lg transition-colors" title="Archive Student"><Archive size={16} /></motion.button>

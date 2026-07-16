@@ -16,6 +16,7 @@ import ApplicationWizard from './public/nat/components/ApplicationWizard';
 import { getSafeErrorMessage } from '../utils/errorMasking';
 import {
     clearNatApplicantSession,
+    didNatApplicantStatusChange,
     getOrCreateNatBrowserId,
     loadNatApplicantSession,
     saveNatApplicantSession,
@@ -688,6 +689,7 @@ const NATPortal = () => {
 
     // Auth & User State
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const currentUserStatusRef = React.useRef<string | null>(null);
     const [credentials, setCredentials] = useState<any>(null);
     const [natSession, setNatSession] = useState<NatApplicantSession | null>(null);
     const [natBrowserId] = useState(() => getOrCreateNatBrowserId());
@@ -773,6 +775,10 @@ const NATPortal = () => {
 
     const natPortalAccessState = getFeatureAccessState('nat_portal');
     const showNatPortalAvailability = !(natPortalAccessState.isAllowed && natPortalAccessState.status === 'enabled');
+
+    useEffect(() => {
+        currentUserStatusRef.current = currentUser?.status || null;
+    }, [currentUser?.status]);
 
     useEffect(() => {
         const storedSession = loadNatApplicantSession();
@@ -955,20 +961,15 @@ const NATPortal = () => {
                     return;
                 }
 
-                setCurrentUser((prev: any) => {
-                    const nextApplication = data.application;
-
-                    if (
-                        hasCompletedInitialRefresh
-                        && prev?.status
-                        && nextApplication?.status
-                        && prev.status !== nextApplication.status
-                    ) {
-                        showToast(`Application marked as ${nextApplication.status}.`, 'info');
-                    }
-
-                    return prev ? { ...prev, ...nextApplication } : nextApplication;
-                });
+                const nextApplication = data.application;
+                if (
+                    hasCompletedInitialRefresh
+                    && didNatApplicantStatusChange(currentUserStatusRef.current, nextApplication.status)
+                ) {
+                    showToast(`Application marked as ${nextApplication.status}.`, 'info');
+                }
+                currentUserStatusRef.current = nextApplication.status || null;
+                setCurrentUser((previous: any) => previous ? { ...previous, ...nextApplication } : nextApplication);
 
                 hasCompletedInitialRefresh = true;
                 setLastSessionSyncAt(new Date().toISOString());
@@ -2224,7 +2225,7 @@ const NATPortal = () => {
             {/* Success Modal */}
             {showSuccessModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-transparent" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }}></div>
+                    <button type="button" aria-label="Continue to application status" className="absolute inset-0 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-400" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}

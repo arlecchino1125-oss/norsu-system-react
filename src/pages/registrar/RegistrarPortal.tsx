@@ -52,8 +52,10 @@ export default function RegistrarPortal() {
         <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-teal-500/30">
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm"
+                <button
+                    type="button"
+                    aria-label="Close registrar navigation"
+                    className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-400"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}

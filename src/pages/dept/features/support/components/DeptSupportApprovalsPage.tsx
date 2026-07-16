@@ -509,7 +509,7 @@ const DeptSupportApprovalsPage = ({
             {/* View Detail Modal — same layout as before */}
             {showViewModal && viewReq && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-transparent" onClick={() => setShowViewModal(false)}></div>
+                    <button type="button" aria-label="Close support application" className="absolute inset-0 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400" onClick={() => setShowViewModal(false)} />
                     <div className="relative bg-white w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col animate-fade-in-up rounded-2xl overflow-hidden">
                         <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                             <div>

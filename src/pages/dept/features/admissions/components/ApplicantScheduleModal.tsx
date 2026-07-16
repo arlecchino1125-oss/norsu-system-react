@@ -18,7 +18,7 @@ export function ApplicantScheduleModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={closeApplicantScheduleModal} />
+            <button type="button" aria-label="Close interview scheduling dialog" className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400" onClick={closeApplicantScheduleModal} />
             <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
                 <div className="flex px-6 py-5 border-b border-slate-100 items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md rounded-t-3xl z-10">
                     <h3 className="text-xl font-bold text-slate-800">

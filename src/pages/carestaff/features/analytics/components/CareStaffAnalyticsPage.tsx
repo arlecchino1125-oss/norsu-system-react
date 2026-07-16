@@ -516,14 +516,20 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                 <table className="w-full text-left text-sm border-collapse">
                                     <thead className="bg-slate-50/80 border-b border-slate-200/60 text-[10px] uppercase text-slate-500 font-black tracking-widest">
                                         <tr>
-                                            <th className="px-7 py-5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('name')}>
-                                                Student Name <ArrowUpDown size={11} className="inline ml-1 text-purple-400" />
+                                            <th scope="col" aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0">
+                                                <button type="button" className="w-full cursor-pointer px-7 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('name')}>
+                                                    Student Name <ArrowUpDown size={11} className="inline ml-1 text-purple-400" />
+                                                </button>
                                             </th>
-                                            <th className="px-7 py-5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('course')}>
-                                                Course & Year <ArrowUpDown size={11} className="inline ml-1 text-purple-400" />
+                                            <th scope="col" aria-sort={sortConfig.key === 'course' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0">
+                                                <button type="button" className="w-full cursor-pointer px-7 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('course')}>
+                                                    Course & Year <ArrowUpDown size={11} className="inline ml-1 text-purple-400" />
+                                                </button>
                                             </th>
-                                            <th className="px-7 py-5 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => handleSort('date')}>
-                                                Date Submitted <ArrowUpDown size={11} className="inline ml-1 text-purple-400" />
+                                            <th scope="col" aria-sort={sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0">
+                                                <button type="button" className="w-full cursor-pointer px-7 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('date')}>
+                                                    Date Submitted <ArrowUpDown size={11} className="inline ml-1 text-purple-400" />
+                                                </button>
                                             </th>
                                             <th className="px-7 py-5 text-right">Action</th>
                                         </tr>
@@ -593,15 +599,14 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-                        onClick={() => setViewingStudent(null)}
                     >
+                        <button type="button" aria-label="Close response details" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-400" onClick={() => setViewingStudent(null)} />
                         <motion.div
                             initial={{ scale: 0.92, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.92, opacity: 0, y: 20 }}
                             transition={{ type: 'spring', stiffness: 420, damping: 30 }}
-                            onClick={e => e.stopPropagation()}
-                            className="bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-purple-900/20 w-full max-w-2xl max-h-[85vh] flex flex-col ring-1 ring-slate-200/60 overflow-hidden"
+                            className="relative z-10 bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-purple-900/20 w-full max-w-2xl max-h-[85vh] flex flex-col ring-1 ring-slate-200/60 overflow-hidden"
                         >
                             {/* Modal Header */}
                             <div className="px-8 py-7 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-violet-50/50">

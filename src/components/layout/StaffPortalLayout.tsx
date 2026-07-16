@@ -111,8 +111,10 @@ export default function StaffPortalLayout({
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50/30 font-sans text-gray-800">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/20 backdrop-blur-sm lg:hidden"
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-20 bg-black/20 backdrop-blur-sm lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500"
           onClick={() => setSidebarOpen(false)}
         />
       )}

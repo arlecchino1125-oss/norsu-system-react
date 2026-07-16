@@ -73,7 +73,7 @@ describe('DocumentPreviewModal', () => {
         expect(await screen.findByRole('img', { name: 'drive-document.heic' })).toHaveAttribute('src', 'blob:converted-preview');
         expect(heicTo).toHaveBeenCalledWith({ blob: original, type: 'image/jpeg', quality: 0.9 });
 
-        fireEvent.click(screen.getByRole('button'));
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }));
         await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:converted-preview'));
     });
 

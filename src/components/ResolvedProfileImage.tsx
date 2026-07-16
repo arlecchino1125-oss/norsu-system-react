@@ -3,13 +3,13 @@ import { useResolvedDocumentUrl } from '../hooks/useResolvedDocumentUrl';
 import { getValidProfileImageUrl } from '../utils/formatters';
 import { openStoredAsset } from '../utils/storageAssets';
 
-type ResolvedProfileImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
+type ResolvedProfileImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onClick' | 'onKeyDown' | 'tabIndex'> & {
     storedValue: string;
     studentId: string;
     previewOnClick?: boolean;
 };
 
-export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = true, className = '', onClick, onKeyDown, onLoad, onError, ...imageProps }: ResolvedProfileImageProps) => {
+export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = true, className = '', onLoad, onError, ...imageProps }: ResolvedProfileImageProps) => {
     const { url, isLoading, error } = useResolvedDocumentUrl('profile-pictures', storedValue, {
         category: 'profile-photo',
         studentId
@@ -35,32 +35,21 @@ export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = 
                 </span>
             )}
             {url && previewOnClick && (
-                <img
-                    {...imageProps}
-                    src={getValidProfileImageUrl(url)}
-                    role="button"
-                    tabIndex={imageProps.tabIndex ?? 0}
-                    className="h-full w-full cursor-zoom-in object-cover"
-                    onLoad={(event) => {
-                        setLoadedUrl(url);
-                        onLoad?.(event);
-                    }}
-                    onError={(event) => {
-                        setLoadedUrl(url);
-                        onError?.(event);
-                    }}
-                    onClick={(event) => {
-                        onClick?.(event);
-                        if (!event.defaultPrevented) openPreview();
-                    }}
-                    onKeyDown={(event) => {
-                        onKeyDown?.(event);
-                        if (!event.defaultPrevented && (event.key === 'Enter' || event.key === ' ')) {
-                            event.preventDefault();
-                            openPreview();
-                        }
-                    }}
-                />
+                <button type="button" className="h-full w-full cursor-zoom-in p-0" onClick={openPreview}>
+                    <img
+                        {...imageProps}
+                        src={getValidProfileImageUrl(url)}
+                        className="h-full w-full object-cover"
+                        onLoad={(event) => {
+                            setLoadedUrl(url);
+                            onLoad?.(event);
+                        }}
+                        onError={(event) => {
+                            setLoadedUrl(url);
+                            onError?.(event);
+                        }}
+                    />
+                </button>
             )}
             {url && !previewOnClick && (
                 <img

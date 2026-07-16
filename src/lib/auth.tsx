@@ -269,6 +269,7 @@ export function AuthProvider({ children }: any) {
     const sessionRef = React.useRef<any>(null);
 
     const persistSession = useCallback((nextSession: any) => {
+        sessionRef.current = nextSession;
         setSession(nextSession);
         if (nextSession) {
             localStorage.setItem('norsu_session', JSON.stringify(nextSession));
@@ -380,31 +381,22 @@ export function AuthProvider({ children }: any) {
     }, [getStudentProfileByAuthUser, persistSession]);
 
     const updateSession = useCallback((updates: any) => {
-        setSession((prev: any) => {
-            const nextSession = typeof updates === 'function'
-                ? updates(prev)
-                : { ...(prev || {}), ...(updates || {}) };
+        const previousSession = sessionRef.current;
+        const nextSession = typeof updates === 'function'
+            ? updates(previousSession)
+            : { ...(previousSession || {}), ...(updates || {}) };
 
-            if (prev && nextSession) {
-                const prevKeys = Object.keys(prev);
-                const nextKeys = Object.keys(nextSession);
-                const unchanged = prevKeys.length === nextKeys.length
-                    && nextKeys.every((key) => Object.is(prev[key], nextSession[key]));
+        if (previousSession && nextSession) {
+            const previousKeys = Object.keys(previousSession);
+            const nextKeys = Object.keys(nextSession);
+            const unchanged = previousKeys.length === nextKeys.length
+                && nextKeys.every((key) => Object.is(previousSession[key], nextSession[key]));
 
-                if (unchanged) {
-                    return prev;
-                }
-            }
+            if (unchanged) return;
+        }
 
-            if (nextSession) {
-                localStorage.setItem('norsu_session', JSON.stringify(nextSession));
-            } else {
-                localStorage.removeItem('norsu_session');
-            }
-
-            return nextSession;
-        });
-    }, []);
+        persistSession(nextSession);
+    }, [persistSession]);
 
     /**
      * Login for Staff (Admin, Department Head, Care Staff)

@@ -34,9 +34,12 @@ export function DeptSidebar({
             {/* Logo Area */}
             <div className="p-6 border-b border-white/10">
                 <div className="flex items-center justify-between">
-                    <div onClick={() => setActiveModule('settings')} className="cursor-pointer group">
-                        <NorsuBrand title={data?.profile?.name || 'Department'} subtitle={data?.profile?.department || 'Unassigned'} accent="emerald" size="sm" className="min-w-0" />
-                        <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/50 transition-colors group-hover:text-emerald-100/80">Open Profile & Settings</p>
+                    <div className="relative min-w-0 flex-1 group">
+                        <button type="button" aria-label="Open profile and settings" onClick={() => setActiveModule('settings')} className="absolute inset-0 z-10 cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300" />
+                        <div className="pointer-events-none">
+                            <NorsuBrand title={data?.profile?.name || 'Department'} subtitle={data?.profile?.department || 'Unassigned'} accent="emerald" size="sm" className="min-w-0" />
+                            <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/50 transition-colors group-hover:text-emerald-100/80">Open Profile & Settings</p>
+                        </div>
                     </div>
                     <button type="button" onClick={() => setIsSidebarOpen(false)} className="text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                 </div>
