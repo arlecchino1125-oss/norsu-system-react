@@ -207,6 +207,7 @@ const NotificationBell = ({
     return (
         <div className={`relative ${className}`}>
             <button
+                type="button"
                 ref={buttonRef}
                 onClick={handleToggleOpen}
                 className={`notification-bell-button w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center text-gray-500 ${colors.hover} hover:shadow-md transition-all relative border border-gray-100`}
@@ -236,7 +237,7 @@ const NotificationBell = ({
                                 </span>
                             )}
                         </div>
-                        <button onClick={() => setIsOpen(false)} aria-label="Close notifications" className="text-white/60 hover:text-white transition-colors">
+                        <button type="button" onClick={() => setIsOpen(false)} aria-label="Close notifications" className="text-white/60 hover:text-white transition-colors">
                             <X size={16} />
                         </button>
                     </div>

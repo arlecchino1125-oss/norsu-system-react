@@ -58,7 +58,7 @@ const DeptCounseledPage = ({
                                     <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">{r.request_type || 'Counseling request'}</span></td>
                                     <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${r.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}`}>{r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : r.status}</span></td>
                                     <td className="p-4">
-                                        <button onClick={() => { setSelectedHistoryStudent(r); setShowHistoryModal(true); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium dark:text-blue-400 dark:hover:text-blue-300">View History</button>
+                                        <button type="button" onClick={() => { setSelectedHistoryStudent(r); setShowHistoryModal(true); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium dark:text-blue-400 dark:hover:text-blue-300">View History</button>
                                     </td>
                                 </tr>
                             ))}

@@ -77,7 +77,7 @@ const StudentEditModal = ({
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
                         <div className="px-6 py-4 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg">Edit Student</h3>
-                            <button onClick={() => setShowEditModal(false)}>
+                            <button type="button" onClick={() => setShowEditModal(false)}>
                                 <XCircle size={24} className="text-slate-400" />
                             </button>
                         </div>

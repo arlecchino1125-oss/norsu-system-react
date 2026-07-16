@@ -278,7 +278,7 @@ export default function DeptDashboard() {
                 <div className="w-full max-w-2xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-xl">
                     <h1 className="text-2xl font-bold text-slate-900">Unable to load department permissions</h1>
                     <p className="mt-3 text-sm leading-6 text-slate-500">{permissionsError}</p>
-                    <button
+                    <button type="button"
                         onClick={() => window.location.reload()}
                         className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >

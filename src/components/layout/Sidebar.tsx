@@ -103,6 +103,7 @@ export default function Sidebar({
 
           return (
             <button
+              type="button"
               key={item.id}
               onClick={() => onTabChange(item.id)}
               className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 ${isActive
@@ -141,6 +142,7 @@ export default function Sidebar({
 
       {/* Floating collapse toggle — right edge, vertically centered, 3D pill */}
       <button
+        type="button"
         onClick={onToggleCollapse}
         title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         style={{
@@ -181,6 +183,7 @@ export default function Sidebar({
       {/* Logout */}
       <div className="border-t border-white/5 p-3 relative z-10 bg-[#060A10]/50 backdrop-blur-md">
         <button
+          type="button"
           onClick={onLogout}
           className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-400/70 transition-all hover:bg-rose-500/10 hover:text-rose-300 focus:outline-none ${isCollapsed ? 'justify-center' : ''}`}
           title={isCollapsed ? 'Logout' : undefined}

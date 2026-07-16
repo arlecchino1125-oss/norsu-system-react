@@ -95,18 +95,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                 { count: eventsCount },
                 { count: counselingForCareCount },
                 { count: supportForCareCount },
-                { count: profileUpdateCount }
-            ] = await Promise.all([
-                supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
-                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
-                supabase.from('events').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
-                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
-                supabase.from('notifications').select('id', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%')
-            ]);
-
-            const [
+                { count: profileUpdateCount },
                 { data: recentEvents },
                 { data: recentCounseling },
                 { data: recentSupport },
@@ -114,6 +103,13 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                 { data: recentProfileUpdates },
                 { data: recentProfileNotifications }
             ] = await Promise.all([
+                supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
+                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
+                supabase.from('events').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
+                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
+                supabase.from('notifications').select('id', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%'),
                 supabase.from('events').select('id, title, type, created_at').eq('is_archived', false).order('created_at', { ascending: false }).limit(10),
                 supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', [...CARE_STAFF_COUNSELING_ACTIVITY_STATUSES]).order('created_at', { ascending: false }).limit(10),
                 supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),

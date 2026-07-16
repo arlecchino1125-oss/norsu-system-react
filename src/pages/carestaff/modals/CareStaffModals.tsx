@@ -13,7 +13,7 @@ export function renderCareStaffModals(p: any) {
     return (
         <>
             {/* COMMAND HUB FAB */}
-            <button
+            <button type="button"
                 onClick={() => setShowCommandHub(true)}
                 className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-full shadow-xl shadow-purple-300/40 hover:shadow-2xl hover:shadow-purple-400/50 hover:scale-110 transition-all duration-300 flex items-center justify-center animate-float"
                 title="Command Hub"
@@ -52,7 +52,7 @@ export function renderCareStaffModals(p: any) {
                         { key: 'help', label: 'Help', icon: <Info size={14} /> },
                         { key: 'notes', label: 'Notes', icon: <FileText size={14} /> },
                     ].map(t => (
-                        <button key={t.key} onClick={() => setCommandHubTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-all ${commandHubTab === t.key ? 'text-purple-700 border-b-2 border-purple-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>
+                        <button type="button" key={t.key} onClick={() => setCommandHubTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-all ${commandHubTab === t.key ? 'text-purple-700 border-b-2 border-purple-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>
                             {t.icon} {t.label}
                         </button>
                     ))}
@@ -70,7 +70,7 @@ export function renderCareStaffModals(p: any) {
                                 { label: 'Analytics', icon: <BarChart2 size={18} />, color: 'from-emerald-400 to-green-500', action: () => { setActiveTab('analytics'); setShowCommandHub(false); } },
                                 { label: 'NAT Mgmt', icon: <FileText size={18} />, color: 'from-rose-400 to-pink-500', action: () => { setActiveTab('nat'); setShowCommandHub(false); } },
                             ].map((item, idx) => (
-                                <button key={idx} onClick={item.action} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group">
+                                <button type="button" key={idx} onClick={item.action} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group">
                                     <div className={`w-10 h-10 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform`}>
                                         {item.icon}
                                     </div>
@@ -128,7 +128,7 @@ export function renderCareStaffModals(p: any) {
                                                 <p className="text-xs text-gray-800 leading-relaxed">{note.text}</p>
                                                 <p className="text-[10px] text-gray-400 mt-1">{note.time}</p>
                                             </div>
-                                            <button onClick={() => {
+                                            <button type="button" onClick={() => {
                                                 const updated = staffNotes.filter(n => n.id !== note.id);
                                                 setStaffNotes(updated);
                                                 localStorage.setItem('care_staff_notes', JSON.stringify(updated));

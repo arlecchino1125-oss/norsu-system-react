@@ -58,6 +58,10 @@ export function useAdminData(): AdminStats & {
         }
     });
 
+    // False positive: cleanup below does call supabase.removeChannel(channel) —
+    // the detector doesn't recognize Supabase's client.removeChannel() cleanup
+    // convention (it looks for .unsubscribe() on the subscribed object itself).
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         const channel = supabase
             .channel('admin_applications_count')

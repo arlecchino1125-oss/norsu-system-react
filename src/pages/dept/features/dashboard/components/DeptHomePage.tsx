@@ -87,10 +87,12 @@ const DEPT_HOME_ALERT_ICONS: Record<string, React.ReactNode> = {
     'support-forwarded': <Bell size={16} />
 };
 
+const EMPTY_ROWS: readonly any[] = [];
+
 const DeptHomePage = ({
     filteredData,
     dashboardStats,
-    todayCounselingSessions = [],
+    todayCounselingSessions = EMPTY_ROWS,
     counselingRequests,
     admissionsDashboardCounts,
     departmentAlertItems,
@@ -100,8 +102,8 @@ const DeptHomePage = ({
     setShowReferralModal,
     setSelectedCounselingReq,
     setShowCounselingViewModal,
-    interviewQueueRows = [],
-    eventsList = []
+    interviewQueueRows = EMPTY_ROWS,
+    eventsList = EMPTY_ROWS
 }: any) => {
     const clock = useLiveClock();
     const [secondaryView, setSecondaryView] = useState<'population' | 'actions'>('population');
@@ -158,14 +160,14 @@ const DeptHomePage = ({
                             Prioritize today&apos;s interviews and counseling workload, then drill into secondary student and referral tools only when you need them.
                         </p>
                         <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
-                            <button
+                            <button type="button"
                                 onClick={() => setActiveModule('admissions')}
                                 className={`inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-400 hover:scale-[1.02] transition-all duration-200 shadow-lg shadow-emerald-500/20 ${FOCUS_RING}`}
                             >
                                 <CalendarClock size={18} />
                                 Today&apos;s Interviews
                             </button>
-                            <button
+                            <button type="button"
                                 onClick={() => setActiveModule('counseling_queue')}
                                 className={`inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-xl font-semibold hover:bg-white/20 hover:scale-[1.02] transition-all duration-200 ${FOCUS_RING}`}
                             >
@@ -376,7 +378,7 @@ const DeptHomePage = ({
                             (departmentAlertItems || [])
                                 .filter((item: any) => Number(item?.count || 0) > 0)
                                 .map((item: any) => (
-                                    <button
+                                    <button type="button"
                                         key={item.key}
                                         onClick={() => setActiveModule(item.module)}
                                         className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-white ${item.tone} ${FOCUS_RING}`}
@@ -407,7 +409,7 @@ const DeptHomePage = ({
                             <h3 className="font-bold text-gray-900 flex items-center gap-2"><BarChart3 size={18} className="text-emerald-500" /> Admissions Snapshot</h3>
                             <p className="text-sm text-gray-500 mt-1">Keep interview and decision counts visible without letting secondary widgets take over the page.</p>
                         </div>
-                        <button onClick={() => setActiveModule('admissions')} className={`inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 ${FOCUS_RING}`}>
+                        <button type="button" onClick={() => setActiveModule('admissions')} className={`inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 ${FOCUS_RING}`}>
                             Open Admissions
                             <ArrowRight size={14} />
                         </button>
@@ -460,14 +462,14 @@ const DeptHomePage = ({
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            <button onClick={() => setActiveModule('counseling_queue')} className={`card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 flex items-start gap-4 group ${FOCUS_RING}`}>
+                            <button type="button" onClick={() => setActiveModule('counseling_queue')} className={`card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 flex items-start gap-4 group ${FOCUS_RING}`}>
                                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200/50 group-hover:scale-105 transition-transform"><ClipboardList size={18} /></div>
                                 <div>
                                     <h4 className="font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors">Counseling Queue</h4>
                                     <p className="text-xs text-gray-500">{pendingReviewCount} pending review</p>
                                 </div>
                             </button>
-                            <button
+                            <button type="button"
                                 onClick={() => {
                                     setForwardingToStaff(false);
                                     setReferralForm({ student: '', type: '', notes: '', referrer_contact_number: '', relationship_with_student: '', reason_for_referral: '', actions_made: '', date_duration_of_observations: '' });
@@ -481,7 +483,7 @@ const DeptHomePage = ({
                                     <p className="text-xs text-gray-500">Open the faculty referral workflow</p>
                                 </div>
                             </button>
-                            <button onClick={() => setActiveModule('reports')} className={`card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-blue-200 flex items-start gap-4 group ${FOCUS_RING}`}>
+                            <button type="button" onClick={() => setActiveModule('reports')} className={`card-hover w-full text-left p-4 rounded-xl bg-white border border-gray-100 hover:border-blue-200 flex items-start gap-4 group ${FOCUS_RING}`}>
                                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-200/50 group-hover:scale-105 transition-transform"><BarChart3 size={18} /></div>
                                 <div>
                                     <h4 className="font-bold text-gray-900 text-sm group-hover:text-blue-700 transition-colors">View Reports</h4>

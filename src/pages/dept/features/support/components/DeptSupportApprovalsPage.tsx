@@ -238,7 +238,7 @@ const DeptSupportApprovalsPage = ({
             {/* Tabs */}
             <div className="flex gap-2">
                 {tabs.map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                    <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id
                             ? tab.color === 'yellow' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-200'
                                 : tab.color === 'green' ? 'bg-green-500 text-white shadow-lg shadow-green-200'
@@ -288,9 +288,9 @@ const DeptSupportApprovalsPage = ({
                                         })()}
                                     </td>
                                     <td className="p-4 flex gap-2" onClick={e => e.stopPropagation()}>
-                                        <button onClick={() => openViewModal(req)} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200"><Eye size={12} className="inline mr-1" />View</button>
-                                        <button onClick={() => { setApproveScheduleData({ id: req.id, student_id: req.student_id, date: '', time: '', notes: '' }); setShowApproveScheduleModal(true); }} className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-200"><Calendar size={12} className="inline mr-1" />Approve & Schedule</button>
-                                        <button onClick={() => { setRejectingId(req.id); setRejectNotes(''); }} className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200">Reject</button>
+                                        <button type="button" onClick={() => openViewModal(req)} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200"><Eye size={12} className="inline mr-1" />View</button>
+                                        <button type="button" onClick={() => { setApproveScheduleData({ id: req.id, student_id: req.student_id, date: '', time: '', notes: '' }); setShowApproveScheduleModal(true); }} className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-200"><Calendar size={12} className="inline mr-1" />Approve & Schedule</button>
+                                        <button type="button" onClick={() => { setRejectingId(req.id); setRejectNotes(''); }} className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200">Reject</button>
                                     </td>
                                 </tr>
                             ))}
@@ -327,9 +327,9 @@ const DeptSupportApprovalsPage = ({
                                     )}
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => openViewModal(req)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-200 transition"><Eye size={14} className="inline mr-1" />View Details</button>
-                                    <button onClick={() => { setResolveData({ id: req.id, student_id: req.student_id, notes: '' }); setShowResolveModal(true); }} className="px-4 py-2 bg-green-100 text-green-700 rounded-xl text-sm font-bold hover:bg-green-200 transition"><CheckCircle size={14} className="inline mr-1" />Mark Resolved</button>
-                                    <button onClick={() => { setReferCareForm({ id: req.id, student_id: req.student_id, student_name: req.student_name, date_acted: '', actions_taken: '', comments: '' }); setShowReferCareModal(true); }} className="px-4 py-2 bg-orange-100 text-orange-700 rounded-xl text-sm font-bold hover:bg-orange-200 transition"><Send size={14} className="inline mr-1" />Refer to CARE</button>
+                                    <button type="button" onClick={() => openViewModal(req)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-200 transition"><Eye size={14} className="inline mr-1" />View Details</button>
+                                    <button type="button" onClick={() => { setResolveData({ id: req.id, student_id: req.student_id, notes: '' }); setShowResolveModal(true); }} className="px-4 py-2 bg-green-100 text-green-700 rounded-xl text-sm font-bold hover:bg-green-200 transition"><CheckCircle size={14} className="inline mr-1" />Mark Resolved</button>
+                                    <button type="button" onClick={() => { setReferCareForm({ id: req.id, student_id: req.student_id, student_name: req.student_name, date_acted: '', actions_taken: '', comments: '' }); setShowReferCareModal(true); }} className="px-4 py-2 bg-orange-100 text-orange-700 rounded-xl text-sm font-bold hover:bg-orange-200 transition"><Send size={14} className="inline mr-1" />Refer to CARE</button>
                                 </div>
                             </div>
                         );
@@ -367,12 +367,12 @@ const DeptSupportApprovalsPage = ({
                                             </span>
                                         </div>
                                     </div>
-                                    <button onClick={() => { setMessageNotice(null); setMessageData({ student_id: req.student_id, student_name: req.student_name, message: '' }); setShowMessageModal(true); }} className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition flex items-center gap-2">
+                                    <button type="button" onClick={() => { setMessageNotice(null); setMessageData({ student_id: req.student_id, student_name: req.student_name, message: '' }); setShowMessageModal(true); }} className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 transition flex items-center gap-2">
                                         <MessageSquare size={14} /> Contact Student
                                     </button>
                                 </div>
                                 <div className="flex gap-2 border-t border-gray-100 mt-4 pt-4">
-                                    <button onClick={() => openViewModal(req)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-200 transition"><Eye size={14} className="inline mr-1" />View Archive Details</button>
+                                    <button type="button" onClick={() => openViewModal(req)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-200 transition"><Eye size={14} className="inline mr-1" />View Archive Details</button>
                                 </div>
                             </div>
                         );
@@ -393,11 +393,11 @@ const DeptSupportApprovalsPage = ({
                         <h3 className="text-lg font-bold mb-4">Reject Support Request</h3>
                         <textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm mb-4" placeholder="Reason for rejection..." required />
                         <div className="flex gap-2">
-                            <button onClick={async () => {
+                            <button type="button" onClick={async () => {
                                 await handleRejectSupport(rejectingId, rejectNotes);
                                 setRejectingId(null);
                             }} disabled={pendingSupportRejectId === String(rejectingId)} className="flex-1 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">{pendingSupportRejectId === String(rejectingId) ? 'Rejecting...' : 'Confirm Reject'}</button>
-                            <button onClick={() => setRejectingId(null)} className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-300">Cancel</button>
+                            <button type="button" onClick={() => setRejectingId(null)} className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-300">Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -409,7 +409,7 @@ const DeptSupportApprovalsPage = ({
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Approve & Schedule Visit</h3>
-                            <button onClick={() => setShowApproveScheduleModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
+                            <button type="button" onClick={() => setShowApproveScheduleModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
                         </div>
                         <div className="space-y-4">
                             <div>
@@ -424,7 +424,7 @@ const DeptSupportApprovalsPage = ({
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Notes (Optional)</label>
                                 <textarea value={approveScheduleData.notes} onChange={(e) => setApproveScheduleData({ ...approveScheduleData, notes: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Additional notes..." />
                             </div>
-                            <button disabled={isSubmittingSupportSchedule} onClick={handleSupportApproveAndSchedule} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingSupportSchedule ? 'Scheduling...' : 'Approve & Schedule Visit'}</button>
+                            <button type="button" disabled={isSubmittingSupportSchedule} onClick={handleSupportApproveAndSchedule} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingSupportSchedule ? 'Scheduling...' : 'Approve & Schedule Visit'}</button>
                         </div>
                     </div>
                 </div>
@@ -436,7 +436,7 @@ const DeptSupportApprovalsPage = ({
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Mark as Resolved</h3>
-                            <button onClick={() => setShowResolveModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
+                            <button type="button" onClick={() => setShowResolveModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
                         </div>
                         <p className="text-sm text-gray-500 mb-4">This will mark the request as resolved and notify CARE Staff.</p>
                         <div className="space-y-4">
@@ -444,7 +444,7 @@ const DeptSupportApprovalsPage = ({
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Resolution Notes <span className="text-red-400">*</span></label>
                                 <textarea value={resolveData.notes} onChange={(e) => setResolveData({ ...resolveData, notes: e.target.value })} rows={4} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Describe how the issue was resolved..." required />
                             </div>
-                            <button disabled={isSubmittingSupportResolve} onClick={handleResolveSupport} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-60"><CheckCircle size={16} className={`inline mr-1 ${isSubmittingSupportResolve ? 'animate-spin' : ''}`} /> {isSubmittingSupportResolve ? 'Sending...' : 'Mark Resolved & Send to CARE'}</button>
+                            <button type="button" disabled={isSubmittingSupportResolve} onClick={handleResolveSupport} className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition disabled:cursor-not-allowed disabled:opacity-60"><CheckCircle size={16} className={`inline mr-1 ${isSubmittingSupportResolve ? 'animate-spin' : ''}`} /> {isSubmittingSupportResolve ? 'Sending...' : 'Mark Resolved & Send to CARE'}</button>
                         </div>
                     </div>
                 </div>
@@ -459,7 +459,7 @@ const DeptSupportApprovalsPage = ({
                                 <h3 className="text-lg font-bold">Refer to CARE Staff</h3>
                                 <p className="text-xs text-gray-400 mt-1">Student: {referCareForm.student_name}</p>
                             </div>
-                            <button onClick={() => setShowReferCareModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
+                            <button type="button" onClick={() => setShowReferCareModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
                         </div>
                         <div className="space-y-5">
                             {/* Auto-filled referrer */}
@@ -500,7 +500,7 @@ const DeptSupportApprovalsPage = ({
                                 </div>
                             </div>
 
-                            <button disabled={isSubmittingSupportRefer} onClick={handleReferToCare} className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:shadow-lg shadow-orange-200/50 transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-none"><Send size={16} className={`inline mr-1 ${isSubmittingSupportRefer ? 'animate-spin' : ''}`} /> {isSubmittingSupportRefer ? 'Submitting...' : 'Submit Referral to CARE Staff'}</button>
+                            <button type="button" disabled={isSubmittingSupportRefer} onClick={handleReferToCare} className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:shadow-lg shadow-orange-200/50 transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-none"><Send size={16} className={`inline mr-1 ${isSubmittingSupportRefer ? 'animate-spin' : ''}`} /> {isSubmittingSupportRefer ? 'Submitting...' : 'Submit Referral to CARE Staff'}</button>
                         </div>
                     </div>
                 </div>
@@ -528,13 +528,13 @@ const DeptSupportApprovalsPage = ({
                                                         : 'Finalized support record'}
                                 </p>
                             </div>
-                            <button onClick={() => setShowViewModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"><XCircle size={18} /></button>
+                            <button type="button" onClick={() => setShowViewModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"><XCircle size={18} /></button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-8 space-y-8">
                             {/* Endorsement Letter Button */}
                             {viewReq.care_notes && (
-                                <button onClick={() => setShowLetterModal(true)} className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 text-yellow-800 rounded-xl font-bold text-sm hover:from-yellow-100 hover:to-amber-100 hover:border-yellow-300 transition-all shadow-sm">
+                                <button type="button" onClick={() => setShowLetterModal(true)} className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 text-yellow-800 rounded-xl font-bold text-sm hover:from-yellow-100 hover:to-amber-100 hover:border-yellow-300 transition-all shadow-sm">
                                     <FileText size={16} /> View CARE Staff Endorsement Letter
                                 </button>
                             )}
@@ -617,17 +617,17 @@ const DeptSupportApprovalsPage = ({
                         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex gap-3">
                             {viewReq.status === SUPPORT_STATUS.FORWARDED_TO_DEPT && (
                                 <>
-                                    <button onClick={() => { setShowViewModal(false); setApproveScheduleData({ id: viewReq.id, student_id: viewReq.student_id, date: '', time: '', notes: '' }); setShowApproveScheduleModal(true); }} className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition">Approve & Schedule</button>
-                                    <button onClick={() => { setShowViewModal(false); setRejectingId(viewReq.id); setRejectNotes(''); }} className="flex-1 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 transition">Reject</button>
+                                    <button type="button" onClick={() => { setShowViewModal(false); setApproveScheduleData({ id: viewReq.id, student_id: viewReq.student_id, date: '', time: '', notes: '' }); setShowApproveScheduleModal(true); }} className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition">Approve & Schedule</button>
+                                    <button type="button" onClick={() => { setShowViewModal(false); setRejectingId(viewReq.id); setRejectNotes(''); }} className="flex-1 py-2.5 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 transition">Reject</button>
                                 </>
                             )}
                             {viewReq.status === SUPPORT_STATUS.VISIT_SCHEDULED && (
                                 <>
-                                    <button onClick={() => { setShowViewModal(false); setResolveData({ id: viewReq.id, student_id: viewReq.student_id, notes: '' }); setShowResolveModal(true); }} className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition"><CheckCircle size={14} className="inline mr-1" /> Mark Resolved</button>
-                                    <button onClick={() => { setShowViewModal(false); setReferCareForm({ id: viewReq.id, student_id: viewReq.student_id, student_name: viewReq.student_name, date_acted: '', actions_taken: '', comments: '' }); setShowReferCareModal(true); }} className="flex-1 py-2.5 bg-orange-500 text-white font-bold text-sm rounded-xl hover:bg-orange-600 transition"><Send size={14} className="inline mr-1" /> Refer to CARE</button>
+                                    <button type="button" onClick={() => { setShowViewModal(false); setResolveData({ id: viewReq.id, student_id: viewReq.student_id, notes: '' }); setShowResolveModal(true); }} className="flex-1 py-2.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition"><CheckCircle size={14} className="inline mr-1" /> Mark Resolved</button>
+                                    <button type="button" onClick={() => { setShowViewModal(false); setReferCareForm({ id: viewReq.id, student_id: viewReq.student_id, student_name: viewReq.student_name, date_acted: '', actions_taken: '', comments: '' }); setShowReferCareModal(true); }} className="flex-1 py-2.5 bg-orange-500 text-white font-bold text-sm rounded-xl hover:bg-orange-600 transition"><Send size={14} className="inline mr-1" /> Refer to CARE</button>
                                 </>
                             )}
-                            <button onClick={() => setShowViewModal(false)} className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-300 transition">Close</button>
+                            <button type="button" onClick={() => setShowViewModal(false)} className="px-6 py-2.5 bg-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-300 transition">Close</button>
                         </div>
                     </div>
                 </div>
@@ -639,7 +639,7 @@ const DeptSupportApprovalsPage = ({
                     <div className="bg-white rounded-2xl w-full max-w-md p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold">Message Student</h3>
-                            <button onClick={() => setShowMessageModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
+                            <button type="button" onClick={() => setShowMessageModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
                         </div>
                         <p className="text-xs text-gray-500 mb-4">Sending a message to <strong>{messageData.student_name}</strong>. They will receive this in their portal notifications.</p>
                         <div className="space-y-4">
@@ -666,7 +666,7 @@ const DeptSupportApprovalsPage = ({
                                     <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2"><FileText size={18} className="text-yellow-600" /> Endorsement Letter</h3>
                                     <p className="text-xs text-gray-500">From CARE Staff</p>
                                 </div>
-                                <button onClick={() => setShowLetterModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"><XCircle size={18} /></button>
+                                <button type="button" onClick={() => setShowLetterModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"><XCircle size={18} /></button>
                             </div>
                             <div className="flex-1 overflow-y-auto p-6">
                                 {/* Formal Letter Preview */}

@@ -49,7 +49,7 @@ const NatApplicationDetailsModal = ({
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
                                 <StatusBadge status={selectedApp.status} />
-                                <button
+                                <button type="button"
                                     onClick={closeSelectedAppModal}
                                     className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white/40"
                                 >
@@ -194,6 +194,7 @@ const NatApplicationDetailsModal = ({
                         {!isNatFinalizedStatus(selectedApp.status) && !isLoadingSelectedApp && (
                             <div className="flex-1 flex gap-3">
                                 <button
+                                    type="button"
                                     disabled={!canMarkNatPassed(selectedApp)}
                                     onClick={() => updateStatus(selectedApp, PASS_STATUS)}
                                     className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all focus:outline-none focus:ring-2 ${canMarkNatPassed(selectedApp) ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/20 hover:from-emerald-600 hover:to-green-700 active:scale-[0.98] focus:ring-emerald-500/50' : 'cursor-not-allowed bg-slate-200 text-slate-400 focus:ring-slate-300'}`}
@@ -201,7 +202,7 @@ const NatApplicationDetailsModal = ({
                                 >
                                     Pass
                                 </button>
-                                <button
+                                <button type="button"
                                     onClick={() => updateStatus(selectedApp, FAIL_STATUS)}
                                     className="flex-1 py-3 bg-gradient-to-r from-rose-500 to-red-650 hover:from-rose-600 hover:to-red-750 text-white rounded-2xl font-bold text-sm shadow-lg shadow-rose-500/20 active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/50"
                                 >
@@ -209,7 +210,7 @@ const NatApplicationDetailsModal = ({
                                 </button>
                             </div>
                         )}
-                        <button
+                        <button type="button"
                             onClick={closeSelectedAppModal}
                             className={`${(!isNatFinalizedStatus(selectedApp.status) && !isLoadingSelectedApp) ? 'sm:w-32' : 'w-full'} py-3 bg-slate-200 hover:bg-slate-350/80 text-slate-700 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-slate-300`}
                         >

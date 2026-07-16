@@ -171,7 +171,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                         { id: COUNSELING_STATUS.REJECTED, label: `Rejected (${counselingCounts[COUNSELING_STATUS.REJECTED] || 0})` },
                         { id: 'Calendar', label: 'Calendar View' },
                     ].map(tab => (
-                        <button
+                        <button type="button"
                             key={tab.id}
                             onClick={() => setCounselingTab(tab.id)}
                             className={`relative px-5 py-2.5 text-sm font-bold rounded-full transition-colors z-10 ${counselingTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-700'}`}

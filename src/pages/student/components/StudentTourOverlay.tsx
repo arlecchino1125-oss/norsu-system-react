@@ -93,7 +93,7 @@ export function StudentTourOverlay({
                             <div key={index} className={`h-1.5 rounded-full transition-all ${index === tourStep ? 'w-4 bg-indigo-600' : 'w-1.5 bg-slate-200'}`} />
                         ))}
                     </div>
-                    <button onClick={onNext} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg transition-colors shadow-md shadow-indigo-500/20">
+                    <button type="button" onClick={onNext} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg transition-colors shadow-md shadow-indigo-500/20">
                         {tourStep === totalSteps - 1 ? "Let's Go!" : "Next"}
                     </button>
                 </div>

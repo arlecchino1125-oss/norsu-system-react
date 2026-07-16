@@ -39,6 +39,7 @@ const TurnstileWidget = ({ onToken, resetKey }: { onToken: (token: string) => vo
     useEffect(() => {
         let widgetId: string | null = null;
         let cancelled = false;
+        let scriptEl: HTMLScriptElement | null = null;
 
         const render = () => {
             const turnstile = (window as any).turnstile;
@@ -55,19 +56,20 @@ const TurnstileWidget = ({ onToken, resetKey }: { onToken: (token: string) => vo
         if ((window as any).turnstile) {
             render();
         } else {
-            let script = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null;
-            if (!script) {
-                script = document.createElement('script');
-                script.id = TURNSTILE_SCRIPT_ID;
-                script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-                script.async = true;
-                document.head.appendChild(script);
+            scriptEl = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null;
+            if (!scriptEl) {
+                scriptEl = document.createElement('script');
+                scriptEl.id = TURNSTILE_SCRIPT_ID;
+                scriptEl.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+                scriptEl.async = true;
+                document.head.appendChild(scriptEl);
             }
-            script.addEventListener('load', render);
+            scriptEl.addEventListener('load', render);
         }
 
         return () => {
             cancelled = true;
+            scriptEl?.removeEventListener('load', render);
             if (widgetId !== null) (window as any).turnstile?.remove(widgetId);
             widgetIdRef.current = null;
         };
@@ -438,13 +440,13 @@ const NatStatusSummaryScreen = ({
             </motion.div>
 
             <motion.div variants={itemVariants} className="nat-action-row nat-print-hidden flex flex-col md:flex-row gap-4">
-                <button
+                <button type="button"
                     onClick={onPrintSummary}
                     className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
                 >
                     <Printer className="w-5 h-5" /> Print / Save Summary
                 </button>
-                <button
+                <button type="button"
                     onClick={onGoToLogin}
                     className="nat-primary-action flex-1 bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 px-6 rounded-2xl font-black text-lg hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 group relative overflow-hidden"
                 >
@@ -452,7 +454,7 @@ const NatStatusSummaryScreen = ({
                     <LogOut className="w-5 h-5 relative z-10" /> <span className="relative z-10">Go to Login Portal</span>
                     <ArrowRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform relative z-10" />
                 </button>
-                <button
+                <button type="button"
                     onClick={onBackToWelcome}
                     className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
                 >
@@ -465,7 +467,7 @@ const NatStatusSummaryScreen = ({
 
 let natSecureTimeCache: { datetime: string; fetchedAt: number } | null = null;
 
-const getTrustedNatTime = async () => {
+const getTrustedNatTime = async ({ signal }: { signal?: AbortSignal } = {}) => {
     const nowTimestamp = Date.now();
 
     if (natSecureTimeCache && (nowTimestamp - natSecureTimeCache.fetchedAt) < NAT_SECURE_TIME_CACHE_TTL_MS) {
@@ -473,7 +475,7 @@ const getTrustedNatTime = async () => {
         return new Date(cachedBaseTimestamp + (nowTimestamp - natSecureTimeCache.fetchedAt));
     }
 
-    const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Manila');
+    const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Manila', { signal });
     if (!response.ok) {
         throw new Error('Time API failed');
     }
@@ -536,7 +538,7 @@ const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false,
                         )}
                         {rightAction}
                         {showBack && (
-                            <button
+                            <button type="button"
                                 onClick={onBack}
                                 className="group flex items-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-medium text-gray-600 transition-all duration-200 hover:border-gray-200 hover:bg-white/50 hover:text-gray-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800/70 dark:hover:text-white"
                             >
@@ -704,16 +706,17 @@ const NATPortal = () => {
                 console.error('Failed to load NAT applicant counts.', error);
             }
 
-            const { data: coursesData } = await supabase
-                .from('courses')
-                .select('id, name, application_limit, status')
-                .order('name');
-
-            const { data: datesData } = await supabase
-                .from('admission_schedules')
-                .select('id, date, venue, slots, is_active, time_windows')
-                .eq('is_active', true)
-                .order('date');
+            const [{ data: coursesData }, { data: datesData }] = await Promise.all([
+                supabase
+                    .from('courses')
+                    .select('id, name, application_limit, status')
+                    .order('name'),
+                supabase
+                    .from('admission_schedules')
+                    .select('id, date, venue, slots, is_active, time_windows')
+                    .eq('is_active', true)
+                    .order('date')
+            ]);
 
             const courseCounts = statsData?.courseCounts || {};
             const dateCounts = statsData?.dateCounts || {};
@@ -750,8 +753,6 @@ const NATPortal = () => {
     // Form State
     const [formData, setFormData] = useState<any>(draftSnapshot?.formData || INITIAL_NAT_FORM_DATA);
 
-    // Time State for Test Day
-    const [timeState, setTimeState] = useState<any>({ isTestDate: false, isOpen: false });
     const [showTimeInConfirm, setShowTimeInConfirm] = useState(false);
     const [showTimeOutConfirm, setShowTimeOutConfirm] = useState(false);
     const [elapsedTime, setElapsedTime] = useState('00:00:00');
@@ -901,51 +902,30 @@ const NATPortal = () => {
     }, [supportsNatAttendance, currentUser?.time_in, currentUser?.time_out]);
 
     // Check Time Logic (Secure Server Time)
-    useEffect(() => {
-        if (currentScreen !== 'dashboard' || !currentUser || activationSuccess.visible) return;
-        const checkTime = async () => {
-            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-                return;
-            }
-
-            try {
-                const now = await getTrustedNatTime();
-                const todayDate = now.toISOString().split('T')[0];
-
-                const isTestDate = currentUser.test_date === todayDate;
-                const assignedWindowOpen = isWithinAssignedTimeWindow(currentUser.test_time, now);
-                const fallbackHour = now.getHours();
-                const fallbackOpen = (fallbackHour >= 8 && fallbackHour < 12) || (fallbackHour >= 13 && fallbackHour < 17);
-                const isOpen = assignedWindowOpen === null ? fallbackOpen : assignedWindowOpen;
-                setTimeState({ isTestDate, isOpen });
-            } catch (err) {
-                // Fallback to local time if API is down
-                const now = new Date();
-                const todayDate = now.toISOString().split('T')[0];
-
-                const isTestDate = currentUser.test_date === todayDate;
-                const assignedWindowOpen = isWithinAssignedTimeWindow(currentUser.test_time, now);
-                const fallbackHour = now.getHours();
-                const fallbackOpen = (fallbackHour >= 8 && fallbackHour < 12) || (fallbackHour >= 13 && fallbackHour < 17);
-                const isOpen = assignedWindowOpen === null ? fallbackOpen : assignedWindowOpen;
-                setTimeState({ isTestDate, isOpen });
-            }
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                void checkTime();
-            }
-        };
-
-        void checkTime();
-        const interval = setInterval(() => { void checkTime(); }, NAT_TIME_CHECK_INTERVAL_MS);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            clearInterval(interval);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [currentScreen, currentUser, activationSuccess.visible]);
+    // getTrustedNatTime() owns its own 5-minute fetch cache (natSecureTimeCache);
+    // this just decides how often to call it and pauses/resumes with tab visibility
+    // (React Query's refetchIntervalInBackground/refetchOnWindowFocus defaults).
+    const shouldCheckNatTime = currentScreen === 'dashboard' && Boolean(currentUser) && !activationSuccess.visible;
+    const trustedNatTimeQuery = useQuery({
+        queryKey: ['nat-trusted-time'],
+        queryFn: getTrustedNatTime,
+        enabled: shouldCheckNatTime,
+        refetchInterval: NAT_TIME_CHECK_INTERVAL_MS,
+        retry: false
+    });
+    const timeState = useMemo(() => {
+        if (!shouldCheckNatTime || !currentUser) return { isTestDate: false, isOpen: false };
+        // Fall back to local time only when the trusted-time check itself failed,
+        // never to a stale successful reading from an earlier poll.
+        const now = trustedNatTimeQuery.isSuccess && trustedNatTimeQuery.data ? trustedNatTimeQuery.data : new Date();
+        const todayDate = now.toISOString().split('T')[0];
+        const isTestDate = currentUser.test_date === todayDate;
+        const assignedWindowOpen = isWithinAssignedTimeWindow(currentUser.test_time, now);
+        const fallbackHour = now.getHours();
+        const fallbackOpen = (fallbackHour >= 8 && fallbackHour < 12) || (fallbackHour >= 13 && fallbackHour < 17);
+        const isOpen = assignedWindowOpen === null ? fallbackOpen : assignedWindowOpen;
+        return { isTestDate, isOpen };
+    }, [shouldCheckNatTime, currentUser, trustedNatTimeQuery.isSuccess, trustedNatTimeQuery.data]);
 
     useEffect(() => {
         if (currentScreen !== 'dashboard' || activationSuccess.visible || !natSession?.token) {
@@ -1435,7 +1415,7 @@ const NATPortal = () => {
                 isDark={isDark}
                 onToggleTheme={toggleTheme}
                 rightAction={(
-                    <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
+                    <button type="button" onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
                         Back to Main
                     </button>
                 )}
@@ -1457,7 +1437,7 @@ const NATPortal = () => {
                 isDark={isDark}
                 onToggleTheme={toggleTheme}
                 rightAction={(
-                    <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
+                    <button type="button" onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
                         Back to Main
                     </button>
                 )}
@@ -1488,7 +1468,7 @@ const NATPortal = () => {
                 isDark={isDark}
                 onToggleTheme={toggleTheme}
                 rightAction={(
-                    <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
+                    <button type="button" onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
                         Back to Main
                     </button>
                 )}
@@ -1513,7 +1493,7 @@ const NATPortal = () => {
             isDark={isDark}
             onToggleTheme={toggleTheme}
             rightAction={
-                <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
+                <button type="button" onClick={() => navigate('/')} className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-slate-300 dark:hover:text-white">
                     Back to Main
                 </button>
             }
@@ -1569,14 +1549,14 @@ const NATPortal = () => {
                         </motion.div>
 
                         <motion.div variants={NAT_ITEM_VARIANTS} className="nat-action-row flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
-                            <button
+                            <button type="button"
                                 onClick={() => setCurrentScreen('form')}
                                 className="nat-primary-action flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
                             >
                                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
                                 <span className="relative z-10 flex items-center gap-2">Apply Now <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover/btn:translate-x-1 transition-transform" /></span>
                             </button>
-                            <button
+                            <button type="button"
                                 onClick={() => setCurrentScreen('login')}
                                 className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95"
                             >
@@ -1677,7 +1657,7 @@ const NATPortal = () => {
                             </div>
                         )}
 
-                        <button
+                        <button type="submit"
                             disabled={loading || (captchaRequired && !captchaToken)}
                             className="nat-primary-action w-full bg-gradient-to-r from-slate-900 to-slate-800 text-white py-4 rounded-2xl font-black mt-4 hover:shadow-xl hover:shadow-slate-900/20 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70 group relative overflow-hidden"
                         >
@@ -1710,7 +1690,7 @@ const NATPortal = () => {
                 isDark={isDark}
                 onToggleTheme={toggleTheme}
                 rightAction={
-                    <button
+                    <button type="button"
                         onClick={handleNatLogout}
                         className="flex items-center gap-2 rounded-lg border border-white/50 bg-white/50 px-4 py-2 text-sm font-bold text-red-600 shadow-sm transition-all hover:bg-white/80 hover:shadow active:scale-95 dark:border-slate-700 dark:bg-slate-800/80 dark:text-rose-300 dark:hover:bg-slate-800"
                     >
@@ -1760,7 +1740,7 @@ const NATPortal = () => {
                             {/* Action Button */}
                             <div>
                                 {canTimeInCurrentNat ? (
-                                    <button
+                                    <button type="button"
                                         onClick={() => setShowTimeInConfirm(true)}
                                         disabled={!(timeState.isTestDate && timeState.isOpen)}
                                         className={`px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2 ${(timeState.isTestDate && timeState.isOpen) ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-105 hover:shadow-green-500/30' : 'bg-gray-500/50 cursor-not-allowed grayscale'}`}
@@ -1768,14 +1748,14 @@ const NATPortal = () => {
                                         <Clock className="w-5 h-5" /> TIME IN
                                     </button>
                                 ) : canTimeOutCurrentNat ? (
-                                    <button
+                                    <button type="button"
                                         onClick={() => setShowTimeOutConfirm(true)}
                                         className="px-6 py-3 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2 bg-gradient-to-r from-red-500 to-rose-600 hover:scale-105 hover:shadow-red-500/30"
                                     >
                                         <LogOut className="w-5 h-5" /> TIME OUT
                                     </button>
                                 ) : (
-                                    <button disabled className="px-6 py-3 rounded-xl font-bold text-white/50 bg-white/10 cursor-not-allowed flex items-center gap-2">
+                                    <button type="button" disabled className="px-6 py-3 rounded-xl font-bold text-white/50 bg-white/10 cursor-not-allowed flex items-center gap-2">
                                         <Check className="w-5 h-5" /> DONE
                                     </button>
                                 )}
@@ -1807,8 +1787,8 @@ const NATPortal = () => {
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={() => setShowTimeInConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
-                                        <button disabled={loading} onClick={executeTimeIn} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Processing...' : 'Confirm Time In'}</button>
+                                        <button type="button" onClick={() => setShowTimeInConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
+                                        <button type="button" disabled={loading} onClick={executeTimeIn} className="py-3 rounded-xl font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Processing...' : 'Confirm Time In'}</button>
                                     </div>
                                 </div>
                             </div>
@@ -1832,8 +1812,8 @@ const NATPortal = () => {
                                         {supportsNatAttendance ? 'Are you sure you want to clock out? This action cannot be undone.' : 'Are you sure you want to finish the NAT? This action cannot be undone.'}
                                     </p>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={() => setShowTimeOutConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
-                                        <button disabled={loading} onClick={executeTimeOut} className="py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Processing...' : 'Confirm Time Out'}</button>
+                                        <button type="button" onClick={() => setShowTimeOutConfirm(false)} className="py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
+                                        <button type="button" disabled={loading} onClick={executeTimeOut} className="py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 hover:-translate-y-1 transition-all disabled:cursor-not-allowed disabled:opacity-60">{loading ? 'Processing...' : 'Confirm Time Out'}</button>
                                     </div>
                                 </div>
                             </div>
@@ -1851,7 +1831,7 @@ const NATPortal = () => {
                                             <h3 className="text-xl font-bold text-gray-900">Activate Student Account</h3>
                                             <p className="text-sm text-gray-500 mt-1">Enter your details to sync with Student Portal</p>
                                         </div>
-                                        <button onClick={() => setShowActivationModal(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
+                                        <button type="button" onClick={() => setShowActivationModal(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
                                     </div>
                                 </div>
 
@@ -1867,7 +1847,7 @@ const NATPortal = () => {
                                             {availableCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                         </select>
                                     </div>
-                                    <button disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:-translate-y-1">
+                                    <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:-translate-y-1">
                                         {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Activate Account'}
                                     </button>
                                 </form>
@@ -2012,7 +1992,7 @@ const NATPortal = () => {
 
                                 {/* Activation Status */}
                                 <div className="mb-5 md:mb-6">
-                                    <button
+                                    <button type="button"
                                         onClick={() => setShowActivationModal(true)}
                                         disabled={currentUser?.status !== 'Approved for Enrollment'}
                                         className={`w-full py-3 md:py-4 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm md:text-base ${currentUser?.status === 'Approved for Enrollment' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-blue-500/30 hover:-translate-y-1' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
@@ -2277,7 +2257,7 @@ const NATPortal = () => {
                                     <div className="border border-indigo-200/50 bg-indigo-50 p-4 rounded-xl relative overflow-hidden group/card"><div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div><h3 className="font-bold text-indigo-900 flex gap-2 items-center text-sm mb-1 relative z-10"><MapPin className="w-4 h-4" /> Venue</h3><p className="text-sm font-bold text-indigo-700 leading-tight relative z-10">NORSU Main Campus, Dumaguete City</p></div>
                                 </div>
                             </div>
-                            <button onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="nat-primary-action w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
+                            <button type="button" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} className="nat-primary-action w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-1 active:scale-95 group relative overflow-hidden">
                                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
                                 <span className="relative z-10 flex items-center justify-center gap-2">Continue to Status <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
                             </button>

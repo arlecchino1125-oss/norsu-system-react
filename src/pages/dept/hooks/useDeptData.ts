@@ -123,14 +123,14 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         queryKey: ['dept_students', department, studentsPage, studentsPageSize, studentFilters],
         enabled: Boolean(department),
         queryFn: async () => {
-            const [map, courseOptions] = await Promise.all([
+            const [map, courseOptions, result] = await Promise.all([
                 getCourseDepartmentMap(),
-                getDepartmentCourseNames(department!)
+                getDepartmentCourseNames(department!),
+                getStudentsPage(
+                    { ...studentFilters, department },
+                    { page: studentsPage, pageSize: studentsPageSize }
+                )
             ]);
-            const result = await getStudentsPage(
-                { ...studentFilters, department },
-                { page: studentsPage, pageSize: studentsPageSize }
-            );
             const rows = result.rows.map((student: any) => ({
                 ...student,
                 row_id: student.id,
@@ -308,6 +308,10 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
     }, [data?.settings?.darkMode]);
 
     // ── Realtime → invalidate queries ─────────────────────────────────────────
+    // False positive: cleanup below does call supabase.removeChannel(channel) —
+    // the detector doesn't recognize Supabase's client.removeChannel() cleanup
+    // convention (it looks for .unsubscribe() on the subscribed object itself).
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (!department) return;
         const channel = supabase.channel('dept_students_realtime')
@@ -319,6 +323,8 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
     }, [department, queryClient]);
 
+    // False positive: same Supabase removeChannel() cleanup pattern as above.
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         const channel = supabase.channel('dept_events_realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
@@ -328,6 +334,8 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
     }, [queryClient]);
 
+    // False positive: same Supabase removeChannel() cleanup pattern as above.
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (!department) return;
         const channel = supabase.channel('dept_counseling_realtime')
@@ -340,6 +348,8 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
     }, [department, queryClient, showToastMessage]);
 
+    // False positive: same Supabase removeChannel() cleanup pattern as above.
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (!department) return;
         const channel = supabase.channel('dept_support_realtime')

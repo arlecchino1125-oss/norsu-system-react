@@ -247,7 +247,7 @@ const StaffCalendarPage = ({
                         Simple upcoming list for interviews, counseling schedules, and events.
                     </p>
                 </div>
-                <button
+                <button type="button"
                     onClick={() => void loadCalendarItems()}
                     disabled={isLoading}
                     className={`inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border shadow-sm disabled:opacity-50 ${styles.button}`}
@@ -289,7 +289,7 @@ const StaffCalendarPage = ({
                         className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700"
                     />
                     {(selectedType !== 'All' || selectedDate) && (
-                        <button
+                        <button type="button"
                             onClick={() => {
                                 setSelectedType('All');
                                 setSelectedDate('');

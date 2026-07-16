@@ -225,7 +225,7 @@ const StudentEventsView = ({
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                     {canRegister && (
-                        <button
+                        <button type="button"
                             onClick={() => handleRegisterEvent(item)}
                             disabled={isRegistering}
                             className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -234,7 +234,7 @@ const StudentEventsView = ({
                         </button>
                     )}
                     {canCancel && (
-                        <button
+                        <button type="button"
                             onClick={() => handleCancelRegistration(item)}
                             disabled={isCancelling}
                             className="flex-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 font-black text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -421,7 +421,7 @@ const StudentEventsView = ({
                                                 )}
 
                                                 <div className="flex flex-col gap-2 sm:flex-row">
-                                                    <button
+                                                    <button type="button"
                                                         disabled={!canUseTimeIn || isTimingIn || isTimedIn}
                                                         onClick={() => handleTimeIn(item)}
                                                         className={`flex-1 rounded-xl px-3 py-2.5 text-[11px] font-black transition-all sm:text-xs ${isTimedIn
@@ -433,7 +433,7 @@ const StudentEventsView = ({
                                                     >
                                                         {timeInLabel}
                                                     </button>
-                                                    <button
+                                                    <button type="button"
                                                         disabled={!canTimeOut || isTimingOut}
                                                         onClick={() => handleTimeOut(item)}
                                                         className={`flex-1 rounded-xl px-3 py-2.5 text-[11px] font-black transition-all sm:text-xs ${isTimedOut
@@ -448,7 +448,7 @@ const StudentEventsView = ({
                                                 </div>
 
                                                 {isTimedOut && !ratedEvents.includes(item.id) && (
-                                                    <button
+                                                    <button type="button"
                                                         onClick={() => handleRateEvent(item)}
                                                         className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-[11px] font-black text-amber-700 shadow-sm transition-all hover:bg-amber-100 sm:text-xs"
                                                     >

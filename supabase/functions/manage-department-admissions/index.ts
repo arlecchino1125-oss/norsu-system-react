@@ -281,8 +281,10 @@ const getBulkDecisionReadyApplications = async (
     applicationIds: string[],
     actionLabel: string
 ) => {
-    const courseNames: DepartmentCourseNames = await getDepartmentCourseNames(adminClient, department);
-    const applications: DepartmentApplicationRow[] = await getApplicationsByIds(adminClient, applicationIds);
+    const [courseNames, applications]: [DepartmentCourseNames, DepartmentApplicationRow[]] = await Promise.all([
+        getDepartmentCourseNames(adminClient, department),
+        getApplicationsByIds(adminClient, applicationIds)
+    ]);
     const applicationsById = new Map<string, DepartmentApplicationRow>(
         applications.map((application) => [String(application.id), application])
     );
@@ -339,8 +341,10 @@ const scheduleDepartmentApplications = async (
     panel: string | null
 ) => {
     const interviewDate = `${date} ${time}`;
-    const courseNames: DepartmentCourseNames = await getDepartmentCourseNames(adminClient, department);
-    const applications: DepartmentApplicationRow[] = await getApplicationsByIds(adminClient, applicationIds);
+    const [courseNames, applications]: [DepartmentCourseNames, DepartmentApplicationRow[]] = await Promise.all([
+        getDepartmentCourseNames(adminClient, department),
+        getApplicationsByIds(adminClient, applicationIds)
+    ]);
     const applicationsById = new Map<string, DepartmentApplicationRow>(
         applications.map((application) => [String(application.id), application])
     );

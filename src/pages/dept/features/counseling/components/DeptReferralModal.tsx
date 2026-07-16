@@ -16,7 +16,7 @@ export function DeptReferralModal(props: any) {
                                     <h3 className="font-bold text-lg">{forwardingToStaff ? 'Forward to CARE Staff — Referral Form' : 'NORSU Counseling Referral Form'}</h3>
                                     <p className="text-xs text-gray-400">Office of the Director, Counseling, Assessment, Resources, and Enhancement Center</p>
                                 </div>
-                                <button onClick={() => { setShowReferralModal(false); setForwardingToStaff(false); }} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                                <button type="button" onClick={() => { setShowReferralModal(false); setForwardingToStaff(false); }} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                             </div>
                             <form onSubmit={handleReferralSubmit} className="p-6 space-y-5">
                                 {/* Student Selection (only for direct referrals) */}

@@ -758,19 +758,20 @@ const countTableRows = async (
 };
 
 const getStudentResetImpact = async (adminClient: any) => {
-    const scopeCounts = await Promise.all(
-        STUDENT_RESET_SCOPE.map(async (entry) => {
-            const count = await countTableRows(adminClient, entry.table, entry.countColumn);
-            return [entry.key, count] as const;
-        })
-    );
-
-    const linkedAuthUsers = await countTableRows(
-        adminClient,
-        'students',
-        'id',
-        (query) => query.not('auth_user_id', 'is', null)
-    );
+    const [scopeCounts, linkedAuthUsers] = await Promise.all([
+        Promise.all(
+            STUDENT_RESET_SCOPE.map(async (entry) => {
+                const count = await countTableRows(adminClient, entry.table, entry.countColumn);
+                return [entry.key, count] as const;
+            })
+        ),
+        countTableRows(
+            adminClient,
+            'students',
+            'id',
+            (query) => query.not('auth_user_id', 'is', null)
+        )
+    ]);
 
     const impact = Object.fromEntries(scopeCounts) as Record<string, number>;
     const scopedRecordCount = Object.values(impact).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -1414,10 +1415,16 @@ const confirmStudentPasswordChange = async (
     }
 
     const otpRecord = await consumeStudentSecurityOtp(adminClient, authUser.id, 'password_change', String(otp || ''), null, false);
-    
+
+    // Ordered on purpose: the OTP must be validated and consumed before the password is
+    // changed; parallelizing would update the password even when the OTP is invalid.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { data, error } = await adminClient.auth.admin.updateUserById(authUser.id, { password: nextPassword });
     if (error || !data?.user) throw formatPasswordUpdateError(error || new Error('Failed to update the student password.'));
     
+    // Ordered on purpose: the OTP is only marked consumed after the password update
+    // succeeds, so a failed update doesn't burn the student's verification code.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     await markStudentSecurityOtpConsumed(adminClient, otpRecord.id);
     return { success: true, passwordUpdated: true };
 };

@@ -118,11 +118,12 @@ export function ActivationWizard({
                                     <span key={label} className={activationStep >= index + 1 ? 'text-indigo-600' : ''}>{label}</span>
                                 ))}
                             </div>
-                            <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                            <div className="relative w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                                <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-indigo-500 to-sky-400" />
                                 <motion.div
-                                    className="h-full bg-gradient-to-r from-indigo-500 to-sky-400"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${(activationStep / TOTAL_STEPS) * 100}%` }}
+                                    className="absolute inset-0 h-full w-full origin-right bg-slate-200"
+                                    initial={{ scaleX: 1 }}
+                                    animate={{ scaleX: 1 - activationStep / TOTAL_STEPS }}
                                     transition={{ duration: 0.3 }}
                                 />
                             </div>

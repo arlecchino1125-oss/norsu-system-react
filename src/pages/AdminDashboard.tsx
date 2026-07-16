@@ -246,7 +246,7 @@ export default function AdminDashboard() {
                                 <div className="rounded-[22px] border border-white/10 bg-white/10 p-3.5 backdrop-blur">
                                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">Operational Controls</p>
                                     <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                                        <button
+                                        <button type="button"
                                             onClick={handleRefreshData}
                                             disabled={isRefreshingData}
                                             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -254,14 +254,14 @@ export default function AdminDashboard() {
                                             <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
                                             <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
                                         </button>
-                                        <button
+                                        <button type="button"
                                             onClick={() => navigate('/admin/permissions')}
                                             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
                                         >
                                             <KeyRound size={16} />
                                             <span>Role Permissions</span>
                                         </button>
-                                        <button
+                                        <button type="button"
                                             onClick={handleLogout}
                                             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10 sm:col-span-2 xl:col-span-1"
                                         >

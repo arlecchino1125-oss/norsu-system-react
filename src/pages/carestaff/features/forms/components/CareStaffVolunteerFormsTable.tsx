@@ -194,7 +194,7 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                 </div>
                 <div className="flex gap-2">
                     {['all', 'pending', 'approved', 'rejected'].map(status => (
-                        <button
+                        <button type="button"
                             key={status}
                             onClick={() => setStatusFilter(status)}
                             className={`px-4 py-2 text-xs font-bold rounded-lg border capitalize transition-all ${statusFilter === status

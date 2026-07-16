@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { heicTo } from 'heic-to/csp';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import DocumentPreviewModal from './DocumentPreviewModal';
 import { DOCUMENT_PREVIEW_EVENT, type DocumentPreviewRequest } from '../utils/storageAssets';
 
@@ -10,6 +11,15 @@ const openPreview = (detail: DocumentPreviewRequest) => {
     act(() => {
         window.dispatchEvent(new CustomEvent<DocumentPreviewRequest>(DOCUMENT_PREVIEW_EVENT, { detail }));
     });
+};
+
+const renderModal = () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+        <QueryClientProvider client={queryClient}>
+            <DocumentPreviewModal />
+        </QueryClientProvider>
+    );
 };
 
 describe('DocumentPreviewModal', () => {
@@ -27,7 +37,7 @@ describe('DocumentPreviewModal', () => {
     });
 
     it('shows an ordinary image in the portal without a download control', () => {
-        render(<DocumentPreviewModal />);
+        renderModal();
 
         openPreview({
             url: 'https://r2.example/photo.jpg?signature=test',
@@ -52,7 +62,7 @@ describe('DocumentPreviewModal', () => {
         const converted = new Blob(['preview'], { type: 'image/jpeg' });
         vi.mocked(fetch).mockResolvedValue(new Response(original));
         vi.mocked(heicTo).mockResolvedValue(converted);
-        render(<DocumentPreviewModal />);
+        renderModal();
 
         openPreview({
             url: 'https://r2.example/document.heic?signature=test',
@@ -68,7 +78,7 @@ describe('DocumentPreviewModal', () => {
     });
 
     it('shows PDFs in an iframe inside the modal', () => {
-        render(<DocumentPreviewModal />);
+        renderModal();
 
         openPreview({
             url: 'https://r2.example/document.pdf?signature=test',
@@ -89,7 +99,7 @@ describe('DocumentPreviewModal', () => {
     it('shows a useful error when HEIC conversion fails', async () => {
         vi.mocked(fetch).mockResolvedValue(new Response(new Blob(['original'], { type: 'image/heic' })));
         vi.mocked(heicTo).mockRejectedValue(new Error('decoder failed'));
-        render(<DocumentPreviewModal />);
+        renderModal();
 
         openPreview({
             url: 'https://r2.example/document.heic?signature=test',

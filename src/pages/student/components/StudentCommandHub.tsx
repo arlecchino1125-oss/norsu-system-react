@@ -61,7 +61,7 @@ export function StudentCommandHub({
                         <div className="space-y-3 p-3 sm:p-4">
                             <p className="px-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Services</p>
                             {isStudentViewVisible('assessment') && (
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('assessment'); }} className={tileClass}>
+                                <button type="button" onClick={() => { setShowCommandHub(false); setActiveView('assessment'); }} className={tileClass}>
                                     <div className={iconClass}><Icons.Assessment /></div>
                                     <span className="min-w-0">
                                         <span className="block text-sm font-black text-slate-900">Needs Assessment</span>
@@ -70,7 +70,7 @@ export function StudentCommandHub({
                                 </button>
                             )}
                             {isStudentViewVisible('counseling') && (
-                                <button onClick={() => {
+                                <button type="button" onClick={() => {
                                     setShowCommandHub(false);
                                     const didNavigate = setActiveView('counseling');
                                     if (didNavigate && isStudentViewEnabled('counseling')) {
@@ -85,7 +85,7 @@ export function StudentCommandHub({
                                 </button>
                             )}
                             {isStudentViewVisible('support') && (
-                                <button onClick={() => {
+                                <button type="button" onClick={() => {
                                     setShowCommandHub(false);
                                     const didNavigate = setActiveView('support');
                                     if (didNavigate && isStudentViewEnabled('support')) {
@@ -100,7 +100,7 @@ export function StudentCommandHub({
                                 </button>
                             )}
                             {isStudentViewVisible('scholarship') && (
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('scholarship'); }} className={tileClass}>
+                                <button type="button" onClick={() => { setShowCommandHub(false); setActiveView('scholarship'); }} className={tileClass}>
                                     <div className={iconClass}><Icons.Scholarship /></div>
                                     <span className="min-w-0">
                                         <span className="block text-sm font-black text-slate-900">Scholarships</span>
@@ -111,12 +111,12 @@ export function StudentCommandHub({
                         </div>
                         <div className="grid grid-cols-1 gap-2 border-t border-slate-100 bg-slate-50/80 p-3 sm:grid-cols-2 sm:p-4">
                             {isStudentViewVisible('feedback') && (
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('feedback'); }} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-700 shadow-sm transition-all hover:border-blue-200 hover:bg-white hover:text-blue-600">
+                                <button type="button" onClick={() => { setShowCommandHub(false); setActiveView('feedback'); }} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-700 shadow-sm transition-all hover:border-blue-200 hover:bg-white hover:text-blue-600">
                                     <Icons.Feedback /> Feedback
                                 </button>
                             )}
                             {isStudentViewVisible('profile') && (
-                                <button onClick={() => { setShowCommandHub(false); setActiveView('profile'); }} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-700 shadow-sm transition-all hover:border-blue-200 hover:bg-white hover:text-blue-600">
+                                <button type="button" onClick={() => { setShowCommandHub(false); setActiveView('profile'); }} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-700 shadow-sm transition-all hover:border-blue-200 hover:bg-white hover:text-blue-600">
                                     <Icons.Profile /> Profile
                                 </button>
                             )}

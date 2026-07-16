@@ -360,7 +360,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                         {tabs.map(tab => {
                             const isActive = activeTab === tab.id;
                             return (
-                                <button
+                                <button type="button"
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`relative flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-colors z-10 ${isActive
@@ -761,11 +761,11 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     <td className={`${TD_CLASS} text-xs text-gray-500`}>{getNatCompletedDateLabel(app)}</td>
                                                     <td className={TD_CLASS}>
                                                         <div className="flex gap-1.5">
-                                                            <button onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className={`${ROW_ACTION_CLASS} text-blue-600 hover:bg-blue-50`}>View</button>
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); void openApplicantDetails(app); }} className={`${ROW_ACTION_CLASS} text-blue-600 hover:bg-blue-50`}>View</button>
                                                             {app.isArchivedRecord ? (
                                                                 <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-500">Archived</span>
                                                             ) : canArchiveRecords && (
-                                                                <button onClick={(e) => { e.stopPropagation(); archiveApplication(app.id); }} className={`${ROW_ACTION_CLASS} text-amber-600 hover:bg-amber-50`}>Archive</button>
+                                                                <button type="button" onClick={(e) => { e.stopPropagation(); archiveApplication(app.id); }} className={`${ROW_ACTION_CLASS} text-amber-600 hover:bg-amber-50`}>Archive</button>
                                                             )}
                                                         </div>
                                                     </td>
@@ -840,7 +840,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     </div>
                                                 </div>
                                                 {canArchiveRecords ? (
-                                                    <button onClick={() => toggleSchedule(sch)} className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition ${sch.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>{sch.is_active ? 'Active' : 'Closed'}</button>
+                                                    <button type="button" onClick={() => toggleSchedule(sch)} className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition ${sch.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>{sch.is_active ? 'Active' : 'Closed'}</button>
                                                 ) : (
                                                     <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${sch.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{sch.is_active ? 'Active' : 'Closed'}</span>
                                                 )}
