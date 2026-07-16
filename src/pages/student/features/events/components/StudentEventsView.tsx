@@ -405,12 +405,15 @@ const StudentEventsView = ({
                                         {isAttendanceActivity && (
                                             <div className="mt-3 flex flex-col gap-2" onClick={(event: any) => event.stopPropagation()}>
                                                 {!isTimedIn && canUseTimeIn && (
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={(event: any) => setProofFile(event.target.files?.[0] || null)}
-                                                        className="block w-full text-[11px] text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-[11px] file:font-black file:text-blue-700 hover:file:bg-blue-100"
-                                                    />
+                                                    <>
+                                                        <p className="text-[10px] font-bold text-amber-600">Photo must be taken at the venue.</p>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={(event: any) => setProofFile(event.target.files?.[0] || null)}
+                                                            className="block w-full text-[11px] text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-[11px] file:font-black file:text-blue-700 hover:file:bg-blue-100"
+                                                        />
+                                                    </>
                                                 )}
 
                                                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -656,12 +659,15 @@ const StudentEventsView = ({
                                             ) : (
                                                 <div className="space-y-2">
                                                     {canUseTimeIn && (
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            onChange={(event: any) => setProofFile(event.target.files?.[0] || null)}
-                                                            className="block w-full text-[11px] text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-[11px] file:font-black file:text-blue-700 hover:file:bg-blue-100"
-                                                        />
+                                                        <>
+                                                            <p className="text-[11px] font-bold text-amber-600">Photo must be taken at the venue.</p>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={(event: any) => setProofFile(event.target.files?.[0] || null)}
+                                                                className="block w-full text-[11px] text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-[11px] file:font-black file:text-blue-700 hover:file:bg-blue-100"
+                                                            />
+                                                        </>
                                                     )}
                                                     <button
                                                         type="button"

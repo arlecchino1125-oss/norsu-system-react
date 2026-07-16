@@ -56,6 +56,9 @@ const getGeolocationErrorMessage = (error: any) => {
     return "Location check failed.";
 };
 
+// ponytail: geofence temporarily unwired per request (photo proof only). Flip to true to restore the 200m location gate.
+const GEOFENCE_ENFORCED = false;
+
 export function useStudentEventActions({
     personalInfo,
     runDatasetRefresh,
@@ -309,27 +312,13 @@ export function useStudentEventActions({
             return;
         }
 
-        if (!navigator.geolocation) {
+        if (GEOFENCE_ENFORCED && !navigator.geolocation) {
             showToast("Your browser doesn't support location services. by your browser.", 'error');
             return;
         }
         setIsTimingIn(true);
 
-        const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
-        navigator.geolocation.getCurrentPosition(async (position: any) => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            const targetLat = event.latitude || 9.306;
-            const targetLng = event.longitude || 123.306;
-            const maxDistanceMeters = 200;
-            const distance = calculateDistanceMeters(userLat, userLng, targetLat, targetLng);
-
-            if (distance > maxDistanceMeters) {
-                showToast(`You are too far from campus (${Math.round(distance)}m).`, 'error');
-                setIsTimingIn(false);
-                return;
-            }
-
+        const completeTimeIn = async (userLat: number | null, userLng: number | null) => {
             try {
                 const { data: existingAttendance } = await supabaseClient
                     .from('event_attendance')
@@ -395,6 +384,29 @@ export function useStudentEventActions({
             } finally {
                 setIsTimingIn(false);
             }
+        };
+
+        if (!GEOFENCE_ENFORCED) {
+            await completeTimeIn(null, null);
+            return;
+        }
+
+        const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+        navigator.geolocation.getCurrentPosition(async (position: any) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            const targetLat = event.latitude || 9.306;
+            const targetLng = event.longitude || 123.306;
+            const maxDistanceMeters = 200;
+            const distance = calculateDistanceMeters(userLat, userLng, targetLat, targetLng);
+
+            if (distance > maxDistanceMeters) {
+                showToast(`You are too far from campus (${Math.round(distance)}m).`, 'error');
+                setIsTimingIn(false);
+                return;
+            }
+
+            await completeTimeIn(userLat, userLng);
         }, (error: any) => {
             setIsTimingIn(false);
             showToast(getGeolocationErrorMessage(error), 'error');
@@ -417,7 +429,7 @@ export function useStudentEventActions({
             showToast("This event is not available for your student group.", 'error');
             return;
         }
-        if (!navigator.geolocation) {
+        if (GEOFENCE_ENFORCED && !navigator.geolocation) {
             showToast("Your browser doesn't support location services.", 'error');
             return;
         }
@@ -425,21 +437,7 @@ export function useStudentEventActions({
             setTimingOutEventId(eventId);
         }
 
-        const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
-        navigator.geolocation.getCurrentPosition(async (position: any) => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            const targetLat = event.latitude || 9.306;
-            const targetLng = event.longitude || 123.306;
-            const maxDistanceMeters = 200;
-            const distance = calculateDistanceMeters(userLat, userLng, targetLat, targetLng);
-
-            if (distance > maxDistanceMeters) {
-                showToast(`You are too far from the venue (${Math.round(distance)}m).`, 'error');
-                if (eventId) setTimingOutEventId(null);
-                return;
-            }
-
+        const completeTimeOut = async () => {
             try {
                 const now = new Date().toISOString();
                 const { data, error } = await supabaseClient.from('event_attendance')
@@ -462,6 +460,29 @@ export function useStudentEventActions({
             } finally {
                 if (eventId) setTimingOutEventId(null);
             }
+        };
+
+        if (!GEOFENCE_ENFORCED) {
+            await completeTimeOut();
+            return;
+        }
+
+        const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+        navigator.geolocation.getCurrentPosition(async (position: any) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            const targetLat = event.latitude || 9.306;
+            const targetLng = event.longitude || 123.306;
+            const maxDistanceMeters = 200;
+            const distance = calculateDistanceMeters(userLat, userLng, targetLat, targetLng);
+
+            if (distance > maxDistanceMeters) {
+                showToast(`You are too far from the venue (${Math.round(distance)}m).`, 'error');
+                if (eventId) setTimingOutEventId(null);
+                return;
+            }
+
+            await completeTimeOut();
         }, () => {
             if (eventId) setTimingOutEventId(null);
             showToast("Location check failed. Enable location services.", 'error');
