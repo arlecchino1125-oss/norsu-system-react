@@ -62,6 +62,7 @@ function ToastViewport({ toasts, onDismiss }: { toasts: ToastEntry[]; onDismiss:
                             <span className="flex-1 text-sm font-semibold">{t.message}</span>
                             {t.action && (
                                 <button
+                                    type="button"
                                     onClick={() => { t.action?.onClick(); onDismiss(t.id); }}
                                     className="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/30"
                                 >
@@ -69,6 +70,7 @@ function ToastViewport({ toasts, onDismiss }: { toasts: ToastEntry[]; onDismiss:
                                 </button>
                             )}
                             <button
+                                type="button"
                                 onClick={() => onDismiss(t.id)}
                                 aria-label="Dismiss notification"
                                 className="shrink-0 text-white/70 transition-colors hover:text-white"

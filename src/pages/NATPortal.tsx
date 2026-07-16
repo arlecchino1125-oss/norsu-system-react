@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -620,6 +620,46 @@ const hasNatAttendanceColumns = (record: any) => {
         || Object.prototype.hasOwnProperty.call(record, 'time_out');
 };
 
+const invokeNatManagementFunction = async (body: any, fallbackMessage: string) => {
+    return invokeEdgeFunction('manage-nat-applications', {
+        body,
+        fallbackMessage
+    });
+};
+
+const isWithinAssignedTimeWindow = (timeWindow: string, now: Date) => {
+    if (!timeWindow) return null;
+    const [start, end] = String(timeWindow).split('-').map((part) => part.trim());
+    const startMin = parseTimeToMinutes(start);
+    const endMin = parseTimeToMinutes(end);
+    if (startMin < 0 || endMin < 0 || startMin >= endMin) return null;
+    const nowMin = (now.getHours() * 60) + now.getMinutes();
+    return nowMin >= startMin && nowMin < endMin;
+};
+
+const handlePrintSummary = () => {
+    if (typeof window !== 'undefined') {
+        window.print();
+    }
+};
+
+const NAT_CONTAINER_VARIANTS: Variants = {
+    initial: { opacity: 0 },
+    in: {
+        opacity: 1,
+        transition: { staggerChildren: 0.1, delayChildren: 0.1 }
+    }
+};
+
+const NAT_ITEM_VARIANTS: Variants = {
+    initial: { opacity: 0, y: 20 },
+    in: {
+        opacity: 1,
+        y: 0,
+        transition: { type: "spring", stiffness: 300, damping: 24 }
+    }
+};
+
 const NATPortal = () => {
     const navigate = useNavigate();
     const { loginStudent } = useAuth() as any;
@@ -702,8 +742,8 @@ const NATPortal = () => {
         }
     });
 
-    const availableCourses = natOptionsQuery.data?.courses ?? [];
-    const availableDates = natOptionsQuery.data?.dates ?? [];
+    const availableCourses = useMemo(() => natOptionsQuery.data?.courses ?? [], [natOptionsQuery.data]);
+    const availableDates = useMemo(() => natOptionsQuery.data?.dates ?? [], [natOptionsQuery.data]);
     const natRequirements = natOptionsQuery.data?.requirements ?? [];
     const supportsTestTime = natOptionsQuery.data?.supportsTestTime ?? true;
 
@@ -732,13 +772,6 @@ const NATPortal = () => {
 
     const natPortalAccessState = getFeatureAccessState('nat_portal');
     const showNatPortalAvailability = !(natPortalAccessState.isAllowed && natPortalAccessState.status === 'enabled');
-
-    const invokeNatManagementFunction = async (body: any, fallbackMessage: string) => {
-        return invokeEdgeFunction('manage-nat-applications', {
-            body,
-            fallbackMessage
-        });
-    };
 
     useEffect(() => {
         const storedSession = loadNatApplicantSession();
@@ -786,7 +819,7 @@ const NATPortal = () => {
         : hasStartedCurrentNat && !hasFinishedCurrentNat;
 
     const selectedDateSchedule = availableDates.find((d: any) => d.date === formData.testDate);
-    const selectedDateTimeSlots = selectedDateSchedule?.timeSlots || [];
+    const selectedDateTimeSlots = useMemo(() => selectedDateSchedule?.timeSlots || [], [selectedDateSchedule]);
 
     const runFormValidation = (scope: NatValidationScope) => {
         const errors = validateNatFormData({
@@ -809,16 +842,6 @@ const NATPortal = () => {
 
     const updateFormDraft = (updater: (previous: any) => any) => {
         setFormData((previous: any) => updater(previous));
-    };
-
-    const isWithinAssignedTimeWindow = (timeWindow: string, now: Date) => {
-        if (!timeWindow) return null;
-        const [start, end] = String(timeWindow).split('-').map((part) => part.trim());
-        const startMin = parseTimeToMinutes(start);
-        const endMin = parseTimeToMinutes(end);
-        if (startMin < 0 || endMin < 0 || startMin >= endMin) return null;
-        const nowMin = (now.getHours() * 60) + now.getMinutes();
-        return nowMin >= startMin && nowMin < endMin;
     };
 
     // natOptionsQuery handles the options fetch above — no useEffect needed
@@ -1048,12 +1071,6 @@ const NATPortal = () => {
                 age: age || age === 0 ? (age >= 0 ? age : '') : ''
             };
         });
-    };
-
-    const handlePrintSummary = () => {
-        if (typeof window !== 'undefined') {
-            window.print();
-        }
     };
 
     const handleSubmit = async (e: any) => {
@@ -1410,27 +1427,6 @@ const NATPortal = () => {
 
 
 
-    // Render Views
-    // Page transition variants
-    // --- ANIMATION VARIANTS ---
-    const containerVariants: Variants = {
-        initial: { opacity: 0 },
-        in: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1, delayChildren: 0.1 }
-        }
-    };
-
-    const itemVariants: Variants = {
-        initial: { opacity: 0, y: 20 },
-        in: {
-            opacity: 1,
-            y: 0,
-            transition: { type: "spring", stiffness: 300, damping: 24 }
-        }
-    };
-
-
     // --- DATA FETCHING ---
     if (permissionsLoading) {
         return (
@@ -1532,24 +1528,24 @@ const NATPortal = () => {
                     <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none"></div>
 
                     <motion.div
-                        variants={containerVariants}
+                        variants={NAT_CONTAINER_VARIANTS}
                         initial="initial"
                         animate="in"
                         className="relative z-10"
                     >
-                        <motion.div variants={itemVariants} className="inline-flex p-4 md:p-5 bg-gradient-to-br from-white to-blue-50 border border-white rounded-[2rem] shadow-xl shadow-blue-200/50 mb-6 md:mb-8 transform hover:scale-110 transition-transform duration-500 relative">
+                        <motion.div variants={NAT_ITEM_VARIANTS} className="inline-flex p-4 md:p-5 bg-gradient-to-br from-white to-blue-50 border border-white rounded-[2rem] shadow-xl shadow-blue-200/50 mb-6 md:mb-8 transform hover:scale-110 transition-transform duration-500 relative">
                             <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
                             <FileText className="w-10 h-10 md:w-14 md:h-14 text-blue-600 relative z-10 drop-shadow-sm" />
                         </motion.div>
-                        <motion.h2 variants={itemVariants} className="nat-hero-title text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
+                        <motion.h2 variants={NAT_ITEM_VARIANTS} className="nat-hero-title text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
                             Welcome to NORSU
                         </motion.h2>
-                        <motion.p variants={itemVariants} className="nat-hero-lead text-lg md:text-2xl text-slate-600/90 font-medium mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
+                        <motion.p variants={NAT_ITEM_VARIANTS} className="nat-hero-lead text-lg md:text-2xl text-slate-600/90 font-medium mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                             Begin your academic journey with the Negros Oriental State University Admission Test.
                         </motion.p>
 
-                        <motion.div variants={containerVariants} className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12 text-left">
-                            <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/card hover:-translate-y-1 relative overflow-hidden">
+                        <motion.div variants={NAT_CONTAINER_VARIANTS} className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12 text-left">
+                            <motion.div variants={NAT_ITEM_VARIANTS} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/card hover:-translate-y-1 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300"></div>
                                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-3 text-base md:text-lg relative z-10">
                                     <div className="p-2 bg-blue-100/50 rounded-xl"><Info className="w-5 h-5 text-blue-600" /></div> About the Test
@@ -1558,7 +1554,7 @@ const NATPortal = () => {
                                     The NAT assesses your readiness for university-level education. It ensures you are prepared for the academic challenges ahead with a comprehensive evaluation.
                                 </p>
                             </motion.div>
-                            <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/steps hover:-translate-y-1 relative overflow-hidden">
+                            <motion.div variants={NAT_ITEM_VARIANTS} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/steps hover:-translate-y-1 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover/steps:opacity-100 transition-opacity duration-300"></div>
                                 <h3 className="font-bold text-slate-800 mb-5 text-base md:text-lg relative z-10">Application Steps</h3>
                                 <div className="space-y-3 md:space-y-4 relative z-10">
@@ -1572,7 +1568,7 @@ const NATPortal = () => {
                             </motion.div>
                         </motion.div>
 
-                        <motion.div variants={itemVariants} className="nat-action-row flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
+                        <motion.div variants={NAT_ITEM_VARIANTS} className="nat-action-row flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
                             <button
                                 onClick={() => setCurrentScreen('form')}
                                 className="nat-primary-action flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
@@ -1600,7 +1596,7 @@ const NATPortal = () => {
         <NATLayout title="Applicant Status" showBack={false} isDark={isDark} onToggleTheme={toggleTheme}>
             <NatStatusSummaryScreen
                 credentials={credentials}
-                itemVariants={itemVariants}
+                itemVariants={NAT_ITEM_VARIANTS}
                 onPrintSummary={handlePrintSummary}
                 onGoToLogin={() => setCurrentScreen('login')}
                 onBackToWelcome={() => setCurrentScreen('welcome')}

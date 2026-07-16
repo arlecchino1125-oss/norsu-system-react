@@ -304,7 +304,7 @@ function ProfileViewContent(p: any) {
         updateDepartment();
         
         return () => { isMounted = false; };
-    }, [activePersonalInfo.course, isEditing, personalInfo.course, personalInfo.department, personalInfo.course_year_profile_edited, setDraftPersonalInfo]);
+    }, [activePersonalInfo.course, activePersonalInfo.department, isEditing, personalInfo.course, personalInfo.department, personalInfo.course_year_profile_edited, setDraftPersonalInfo]);
 
     React.useEffect(() => {
         if (typeof window === 'undefined') return;

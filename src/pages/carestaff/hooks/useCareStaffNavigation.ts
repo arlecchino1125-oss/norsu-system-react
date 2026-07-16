@@ -71,7 +71,7 @@ export function useCareStaffNavigation({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [layoutNavSections]);
+    }, [layoutNavSections, setShowCommandHub, setActiveTab]);
 
     return {
         isCareStaffTabVisible,

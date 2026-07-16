@@ -12,6 +12,29 @@ import { ForgotPasswordModal } from '../features/auth/components/ForgotPasswordM
 import { LoginPanel } from '../features/auth/components/LoginPanel';
 import type { StudentLoginMethod } from '../types';
 
+const PROGRAM_OPTIONS = [
+    'Bachelor of Science in Agriculture - Major in Agronomy (BSA - Agronomy)',
+    'Bachelor of Science in Computer Science (BSCS)',
+    'Bachelor of Science in Business Administration - Major in Human Resource Management (BSBA - HRM)',
+    'Bachelor of Science in Hospitality Management (BSHM)',
+    'Bachelor of Science in Office Administration (BSOA)',
+    'Bachelor of Science in Criminology (BSCrim)',
+    'Bachelor of Industrial Technology - Major in Automotive Technology (BSIT - Automotive Technology)',
+    'Bachelor of Industrial Technology - Major in Computer Technology (BSIT - Computer Technology)',
+    'Bachelor of Industrial Technology - Major in Electrical Technology (BSIT - Electrical Tehnology)',
+    'Bachelor of Industrial Technology - Major in Electronics Technology (BSIT – Electronics Technology)',
+    'Bachelor of Science in Midwifery',
+    'Bachelor of Elementary Education',
+    'Bachelor of Secondary Education - Major in Mathematics (BSED - Math)',
+    'Bachelor of Secondary Education - Major in English (BSED - English)'
+];
+
+const PAGE_VARIANTS = {
+    initial: { opacity: 0, y: 20 },
+    in: { opacity: 1, y: 0 },
+    out: { opacity: 0, y: -20 }
+};
+
 export default function StudentLogin() {
     const navigate = useNavigate();
     const { loginStudent, loading: authLoading } = useAuth() as any;
@@ -27,23 +50,6 @@ export default function StudentLogin() {
     const [isMobileViewport, setIsMobileViewport] = useState(() => (
         typeof window !== 'undefined' ? window.innerWidth < 768 : false
     ));
-
-    const PROGRAM_OPTIONS = [
-        'Bachelor of Science in Agriculture - Major in Agronomy (BSA - Agronomy)',
-        'Bachelor of Science in Computer Science (BSCS)',
-        'Bachelor of Science in Business Administration - Major in Human Resource Management (BSBA - HRM)',
-        'Bachelor of Science in Hospitality Management (BSHM)',
-        'Bachelor of Science in Office Administration (BSOA)',
-        'Bachelor of Science in Criminology (BSCrim)',
-        'Bachelor of Industrial Technology - Major in Automotive Technology (BSIT - Automotive Technology)',
-        'Bachelor of Industrial Technology - Major in Computer Technology (BSIT - Computer Technology)',
-        'Bachelor of Industrial Technology - Major in Electrical Technology (BSIT - Electrical Tehnology)',
-        'Bachelor of Industrial Technology - Major in Electronics Technology (BSIT – Electronics Technology)',
-        'Bachelor of Science in Midwifery',
-        'Bachelor of Elementary Education',
-        'Bachelor of Secondary Education - Major in Mathematics (BSED - Math)',
-        'Bachelor of Secondary Education - Major in English (BSED - English)'
-    ];
 
     const loginFieldLabel = loginMethod === 'email' ? 'Email' : 'Student ID';
     const loginFieldHelpText = loginMethod === 'email'
@@ -168,13 +174,6 @@ export default function StudentLogin() {
         setLoginLoading(false);
     };
 
-    // Animation Variants
-    const pageVariants = {
-        initial: { opacity: 0, y: 20 },
-        in: { opacity: 1, y: 0 },
-        out: { opacity: 0, y: -20 }
-    };
-
     return (
         <div className="flex min-h-screen w-full bg-[#0a0f1c] relative overflow-hidden font-inter selection:bg-indigo-500/30">
             {/* Animated SVG Background (Academic / Network / Connected Node theme) */}
@@ -223,7 +222,7 @@ export default function StudentLogin() {
                 {/* Left: Branding & Message */}
                 <div className="hidden lg:flex w-1/2 flex-col justify-center pr-16 relative">
                     <motion.div
-                        initial="initial" animate="in" variants={pageVariants} transition={{ duration: 0.8 }}
+                        initial="initial" animate="in" variants={PAGE_VARIANTS} transition={{ duration: 0.8 }}
                     >
                         <motion.div
                             whileHover={{ scale: 1.05, rotate: 5 }}

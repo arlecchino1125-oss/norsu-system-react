@@ -206,7 +206,7 @@ export default function ProfileCompletionModal({
         const studentIdKey = String(formData?.studentId || initialData?.studentId || 'new').trim();
         const stepKey = `profile_completion_step_${studentIdKey}`;
         localStorage.setItem(stepKey, String(profileStep));
-    }, [profileStep, isOpen, initialData?.studentId]);
+    }, [profileStep, isOpen, initialData?.studentId, formData?.studentId]);
 
     useEffect(() => {
         if (scrollContainerRef.current) {
@@ -255,7 +255,7 @@ export default function ProfileCompletionModal({
         return () => {
             isMounted = false;
         };
-    }, [isOpen]);
+    }, [isOpen, initialData?.course]);
 
     useEffect(() => {
         return () => {

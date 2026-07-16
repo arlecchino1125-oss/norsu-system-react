@@ -32,6 +32,10 @@ const fadeUp = {
     show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 380, damping: 28 } }
 } as const;
 
+const processAnalyticsData = (subs: any[]) => ({ total: subs.length });
+
+const ANALYTICS_TABS = ['Overview', 'Respondents'];
+
 const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const queryClient = useQueryClient();
     const [forms, setForms] = useState<any[]>([]);
@@ -146,7 +150,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 });
             }
         }
-    }, [qForms]);
+    }, [qForms, selectedFormId]);
 
     useEffect(() => { if (qDepartments) setAllDepartments(qDepartments); }, [qDepartments]);
 
@@ -177,8 +181,6 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
             setIsRefreshingData(false);
         }
     };
-
-    const processAnalyticsData = (subs: any[]) => ({ total: subs.length });
 
     useEffect(() => {
         let subs = analyticsData.submissions || [];
@@ -244,8 +246,6 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     });
 
     const uniqueCourses = [...new Set(analyticsData.submissions.map((s: any) => s.students?.course).filter(Boolean))] as string[];
-
-    const TABS = ['Overview', 'Respondents'];
 
     return (
         <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-8 pb-10">
@@ -386,7 +386,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
 
             {/* ── TAB BAR ── */}
             <motion.div variants={fadeUp} className="flex gap-2 bg-slate-100/70 backdrop-blur-sm p-1.5 rounded-2xl w-fit">
-                {TABS.map(tab => (
+                {ANALYTICS_TABS.map(tab => (
                     <motion.button
                         key={tab}
                         onClick={() => setCurrentTab(tab)}

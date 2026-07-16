@@ -36,14 +36,14 @@ const ITEM_SPRING = {
     show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
-const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
-    const tools = [
-        { title: 'Student Analytics', module: 'Student Analytics', desc: 'Monitor trends & tracking data', icon: <Search size={22} />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30' },
-        { title: 'Form Management', module: 'Form Management', desc: 'Process and review user forms', icon: <ClipboardCheck size={22} />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-500/30' },
-        { title: 'Event Broadcaster', module: 'Event Broadcaster', desc: 'Manage system announcements', icon: <CalendarCheck size={22} />, color: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30' },
-        { title: 'Manage Scholarships', module: 'Manage Scholarships', desc: 'Manage scholarship programs and applications', icon: <Award size={22} />, color: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
-    ];
+const HOME_ADMIN_TOOLS = [
+    { title: 'Student Analytics', module: 'Student Analytics', desc: 'Monitor trends & tracking data', icon: <Search size={22} />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30' },
+    { title: 'Form Management', module: 'Form Management', desc: 'Process and review user forms', icon: <ClipboardCheck size={22} />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-500/30' },
+    { title: 'Event Broadcaster', module: 'Event Broadcaster', desc: 'Manage system announcements', icon: <CalendarCheck size={22} />, color: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30' },
+    { title: 'Manage Scholarships', module: 'Manage Scholarships', desc: 'Manage scholarship programs and applications', icon: <Award size={22} />, color: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
+];
 
+const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
     return (
         <div className="relative z-10 mt-10 border-t border-white/10 pt-8">
             <div className="mb-6 flex items-center justify-between px-2">
@@ -57,7 +57,7 @@ const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
                 initial="hidden"
                 animate="show"
             >
-                {tools.map((tool, idx) => (
+                {HOME_ADMIN_TOOLS.map((tool, idx) => (
                     <motion.button
                         key={idx}
                         variants={ITEM_SPRING}

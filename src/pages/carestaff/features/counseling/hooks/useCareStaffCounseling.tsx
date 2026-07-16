@@ -34,29 +34,38 @@ export interface CareStaffCounselingPageProps {
 
 export { COUNSELING_REQUESTS_PAGE_SIZE } from '../counselingData';
 
+const sortCounselingByCreatedAt = (rows: any[]) =>
+    [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+const getCounselingStatusTone = (status: string) => {
+    if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
+    if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
+    if (status === COUNSELING_STATUS.REFERRED) return 'bg-purple-100 text-purple-700';
+    if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'bg-indigo-100 text-indigo-700';
+    if (status === COUNSELING_STATUS.SCHEDULED) return 'bg-blue-100 text-blue-700';
+    if (status === COUNSELING_STATUS.COMPLETED) return 'bg-green-100 text-green-700';
+    return 'bg-gray-100 text-gray-600';
+};
+
+const getCounselingStatusLabel = (status: string) => {
+    if (isCounselingAwaitingDept(status)) return 'Pending Review';
+    if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'With CARE Staff';
+    if (status === COUNSELING_STATUS.REFERRED) return 'Forwarded';
+    return status;
+};
+
+const invokeManagedCareServicesFunction = async (body: any) => {
+    return invokeEdgeFunction('manage-care-services', {
+        body,
+        requireAuth: true,
+        non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
+        fallbackMessage: 'Failed to manage CARE services.'
+    });
+};
+
 export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
     const { handleViewProfile, showToastMessage } = functions;
     const lastExternalRefreshSignalRef = useRef(refreshSignal);
-
-    const sortCounselingByCreatedAt = (rows: any[]) =>
-        [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
-    const getCounselingStatusTone = (status: string) => {
-        if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
-        if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
-        if (status === COUNSELING_STATUS.REFERRED) return 'bg-purple-100 text-purple-700';
-        if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'bg-indigo-100 text-indigo-700';
-        if (status === COUNSELING_STATUS.SCHEDULED) return 'bg-blue-100 text-blue-700';
-        if (status === COUNSELING_STATUS.COMPLETED) return 'bg-green-100 text-green-700';
-        return 'bg-gray-100 text-gray-600';
-    };
-
-    const getCounselingStatusLabel = (status: string) => {
-        if (isCounselingAwaitingDept(status)) return 'Pending Review';
-        if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'With CARE Staff';
-        if (status === COUNSELING_STATUS.REFERRED) return 'Forwarded';
-        return status;
-    };
 
     // Data State
     const [counselingReqs, setCounselingReqs] = useState<any[]>([]);
@@ -80,15 +89,6 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
     const [showCompleteModal, setShowCompleteModal] = useState<boolean>(false);
     const [completionForm, setCompletionForm] = useState<any>({ id: null, student_id: null, publicNotes: '', privateNotes: '' });
     const [isCompletingSession, setIsCompletingSession] = useState(false);
-
-    const invokeManagedCareServicesFunction = async (body: any) => {
-        return invokeEdgeFunction('manage-care-services', {
-            body,
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to manage CARE services.'
-        });
-    };
 
     const queueProcessEmailNotification = (payload: any, context: string) => {
         void sendTransactionalEmailNotification(payload).then((emailResult) => {
@@ -149,7 +149,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         );
     }, []);
 
-    const handleRefreshData = async () => {
+    const handleRefreshData = useCallback(async () => {
         setIsRefreshingData(true);
         try {
             await refetchCounseling();
@@ -157,13 +157,13 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         } finally {
             setIsRefreshingData(false);
         }
-    };
+    }, [refetchCounseling, showToastMessage]);
 
     useEffect(() => {
         if (refreshSignal === lastExternalRefreshSignalRef.current) return;
         lastExternalRefreshSignalRef.current = refreshSignal;
         void handleRefreshData();
-    }, [refreshSignal]);
+    }, [refreshSignal, handleRefreshData]);
 
     // Handlers
     const handleScheduleSubmit = async (e: any) => {

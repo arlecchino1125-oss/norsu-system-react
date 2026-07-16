@@ -5,6 +5,36 @@ import { createGeneralFeedback } from '../../../../../services/studentPortalServ
 import { getTextInputLimitProps, validateTextInput } from '../../../../../utils/inputSecurity';
 import type { StudentRemainingFlatViewProps } from '../../../types';
 
+const SQD_KEYS = ['sqd0', 'sqd1', 'sqd2', 'sqd3', 'sqd4', 'sqd5', 'sqd6', 'sqd7', 'sqd8'];
+
+const SQD_LABELS = [
+    { key: 'sqd0', text: 'SQD0. I am satisfied with the service that I availed.' },
+    { key: 'sqd1', text: 'SQD1. I spent a reasonable amount of time for my transaction.' },
+    { key: 'sqd2', text: 'SQD2. The office followed the transaction\'s requirements and steps based on the information provided.' },
+    { key: 'sqd3', text: 'SQD3. The steps (including payment) I needed to do for my transaction were easy and simple.' },
+    { key: 'sqd4', text: 'SQD4. I easily found information about my transaction from the office\'s website.' },
+    { key: 'sqd5', text: 'SQD5. I paid a reasonable amount of fees for my transaction.' },
+    { key: 'sqd6', text: 'SQD6. I am confident my online transaction was secure.' },
+    { key: 'sqd7', text: 'SQD7. The office\'s online support was available, and (if asked questions) online support was quick to respond.' },
+    { key: 'sqd8', text: 'SQD8. I got what I needed from the government office, or (if denied) denial of request was sufficiently explained to me.' },
+];
+
+const SQD_COLUMNS = [
+    { value: '1', label: 'Strongly Disagree', shortLabel: 'SD', emoji: '😞' },
+    { value: '2', label: 'Disagree', shortLabel: 'D', emoji: '🙁' },
+    { value: '3', label: 'Neither Agree nor Disagree', shortLabel: 'N', emoji: '😐' },
+    { value: '4', label: 'Agree', shortLabel: 'A', emoji: '🙂' },
+    { value: '5', label: 'Strongly Agree', shortLabel: 'SA', emoji: '😊' },
+];
+
+const FEEDBACK_STEPS = [
+    { label: 'Client Information', shortLabel: 'Info' },
+    { label: "Citizen's Charter", shortLabel: 'CC' },
+    { label: 'Service Quality', shortLabel: 'SQD' },
+    { label: 'Comments', shortLabel: 'Notes' },
+    { label: 'Review & Submit', shortLabel: 'Submit' },
+];
+
 export function FeedbackView({
     personalInfo,
     feedbackPrefill,
@@ -40,8 +70,6 @@ export function FeedbackView({
         }
     }, [feedbackPrefill]);
 
-    const sqdKeys = ['sqd0', 'sqd1', 'sqd2', 'sqd3', 'sqd4', 'sqd5', 'sqd6', 'sqd7', 'sqd8'];
-
     const handleSubmit = async () => {
         // Validate required
         if (!form.client_type) {
@@ -59,7 +87,7 @@ export function FeedbackView({
             setFormNotice({ type: 'error', message: 'Please answer CC2 and CC3 before submitting.' });
             return;
         }
-        const allSqdFilled = sqdKeys.every(k => form[k] !== '');
+        const allSqdFilled = SQD_KEYS.every(k => form[k] !== '');
         if (!allSqdFilled) {
             setActiveStep(2);
             setFormNotice({ type: 'error', message: 'Please answer all SQD questions (0-8).' });
@@ -103,7 +131,7 @@ export function FeedbackView({
 
             // Link completed counseling requests to CSM feedback flow.
             if (feedbackPrefill?.source === 'counseling' && feedbackPrefill?.counselingRequestId) {
-                const sqdScores = sqdKeys
+                const sqdScores = SQD_KEYS
                     .map(k => parseInt(form[k]))
                     .filter(v => Number.isFinite(v) && v > 0);
                 const linkedRating = sqdScores.length > 0
@@ -130,26 +158,6 @@ export function FeedbackView({
         }
     };
 
-    const sqdLabels = [
-        { key: 'sqd0', text: 'SQD0. I am satisfied with the service that I availed.' },
-        { key: 'sqd1', text: 'SQD1. I spent a reasonable amount of time for my transaction.' },
-        { key: 'sqd2', text: 'SQD2. The office followed the transaction\'s requirements and steps based on the information provided.' },
-        { key: 'sqd3', text: 'SQD3. The steps (including payment) I needed to do for my transaction were easy and simple.' },
-        { key: 'sqd4', text: 'SQD4. I easily found information about my transaction from the office\'s website.' },
-        { key: 'sqd5', text: 'SQD5. I paid a reasonable amount of fees for my transaction.' },
-        { key: 'sqd6', text: 'SQD6. I am confident my online transaction was secure.' },
-        { key: 'sqd7', text: 'SQD7. The office\'s online support was available, and (if asked questions) online support was quick to respond.' },
-        { key: 'sqd8', text: 'SQD8. I got what I needed from the government office, or (if denied) denial of request was sufficiently explained to me.' },
-    ];
-
-    const sqdColumns = [
-        { value: '1', label: 'Strongly Disagree', shortLabel: 'SD', emoji: '😞' },
-        { value: '2', label: 'Disagree', shortLabel: 'D', emoji: '🙁' },
-        { value: '3', label: 'Neither Agree nor Disagree', shortLabel: 'N', emoji: '😐' },
-        { value: '4', label: 'Agree', shortLabel: 'A', emoji: '🙂' },
-        { value: '5', label: 'Strongly Agree', shortLabel: 'SA', emoji: '😊' },
-    ];
-
     const cc1IsAware = form.cc1 && ['1', '2', '3'].includes(form.cc1);
     const sectionCardClass = 'student-surface-card rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm animate-fade-in-up sm:rounded-2xl sm:p-5';
     const sectionTitleClass = 'flex items-center gap-2 text-[13px] font-black text-slate-950 sm:text-sm';
@@ -158,16 +166,9 @@ export function FeedbackView({
     const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:text-sm';
     const readonlyInputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-500 sm:text-sm';
     const radioCardBaseClass = 'flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 transition-all';
-    const feedbackSteps = [
-        { label: 'Client Information', shortLabel: 'Info' },
-        { label: "Citizen's Charter", shortLabel: 'CC' },
-        { label: 'Service Quality', shortLabel: 'SQD' },
-        { label: 'Comments', shortLabel: 'Notes' },
-        { label: 'Review & Submit', shortLabel: 'Submit' },
-    ];
-    const currentStep = feedbackSteps[activeStep];
-    const answeredSqdCount = sqdKeys.filter(key => form[key] !== '').length;
-    const progressPercent = ((activeStep + 1) / feedbackSteps.length) * 100;
+    const currentStep = FEEDBACK_STEPS[activeStep];
+    const answeredSqdCount = SQD_KEYS.filter(key => form[key] !== '').length;
+    const progressPercent = ((activeStep + 1) / FEEDBACK_STEPS.length) * 100;
     const ccStepComplete = Boolean(form.cc1) && (!cc1IsAware || Boolean(form.cc2 && form.cc3));
 
     const handleCc1Change = (value: string) => {
@@ -197,9 +198,9 @@ export function FeedbackView({
                 return false;
             }
         }
-        if (stepIndex === 2 && answeredSqdCount !== sqdKeys.length) {
+        if (stepIndex === 2 && answeredSqdCount !== SQD_KEYS.length) {
             setActiveStep(2);
-            setFormNotice({ type: 'error', message: `Answer all SQD questions to continue. ${answeredSqdCount}/${sqdKeys.length} answered.` });
+            setFormNotice({ type: 'error', message: `Answer all SQD questions to continue. ${answeredSqdCount}/${SQD_KEYS.length} answered.` });
             return false;
         }
         if (stepIndex === 3) {
@@ -238,7 +239,7 @@ export function FeedbackView({
     const goNextStep = () => {
         if (validateStep(activeStep)) {
             setFormNotice(null);
-            setActiveStep(step => Math.min(step + 1, feedbackSteps.length - 1));
+            setActiveStep(step => Math.min(step + 1, FEEDBACK_STEPS.length - 1));
         }
     };
 
@@ -285,24 +286,24 @@ export function FeedbackView({
             <div className="student-surface-card rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm animate-fade-in-up sm:rounded-2xl sm:p-4" style={{ animationDelay: '60ms' }}>
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-blue-600">Step {activeStep + 1} of {feedbackSteps.length}</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-blue-600">Step {activeStep + 1} of {FEEDBACK_STEPS.length}</p>
                         <h3 className="mt-0.5 truncate text-[13px] font-black text-slate-950 sm:text-sm">{currentStep.label}</h3>
                     </div>
                     <div className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700">
-                        {activeStep === 2 ? `${answeredSqdCount}/${sqdKeys.length} SQD` : `${Math.round(progressPercent)}%`}
+                        {activeStep === 2 ? `${answeredSqdCount}/${SQD_KEYS.length} SQD` : `${Math.round(progressPercent)}%`}
                     </div>
                 </div>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
                     <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${progressPercent}%` }} />
                 </div>
                 <div className="mt-3 grid grid-cols-5 gap-1.5">
-                    {feedbackSteps.map((step, index) => {
+                    {FEEDBACK_STEPS.map((step, index) => {
                         const isActive = activeStep === index;
                         const isComplete =
                             index < activeStep ||
                             (index === 0 && Boolean(form.client_type)) ||
                             (index === 1 && ccStepComplete) ||
-                            (index === 2 && answeredSqdCount === sqdKeys.length);
+                            (index === 2 && answeredSqdCount === SQD_KEYS.length);
                         return (
                             <button
                                 key={step.shortLabel}
@@ -432,11 +433,11 @@ export function FeedbackView({
                     </p>
                 </div>
                 <div className="space-y-2 border-t border-slate-100 p-3 sm:hidden">
-                    {sqdLabels.map((sqd: any) => (
+                    {SQD_LABELS.map((sqd: any) => (
                         <div key={sqd.key} className="rounded-xl border border-slate-200 bg-white p-3">
                             <p className="text-[11px] font-semibold leading-5 text-slate-700">{sqd.text}</p>
                             <div className="mt-2 grid grid-cols-3 gap-1.5">
-                                {sqdColumns.map((col: any) => {
+                                {SQD_COLUMNS.map((col: any) => {
                                     const isSelected = form[sqd.key] === col.value;
                                     return (
                                         <button
@@ -465,7 +466,7 @@ export function FeedbackView({
                         <thead>
                             <tr className="border-b border-slate-200 bg-slate-50">
                                 <th className="w-[42%] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.1em] text-slate-500"></th>
-                                {sqdColumns.map((col: any) => (
+                                {SQD_COLUMNS.map((col: any) => (
                                     <th key={col.value} className="w-[9.5%] px-2 py-3 text-center">
                                         {col.emoji && <div className="mb-1 text-lg leading-none">{col.emoji}</div>}
                                         <div className="text-[9px] font-black leading-tight text-slate-500">{col.label}</div>
@@ -474,10 +475,10 @@ export function FeedbackView({
                             </tr>
                         </thead>
                         <tbody>
-                            {sqdLabels.map((sqd: any, idx: number) => (
+                            {SQD_LABELS.map((sqd: any, idx: number) => (
                                 <tr key={sqd.key} className={`border-b border-slate-100 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/30`}>
                                     <td className="px-4 py-3 text-[12px] leading-5 text-slate-700">{sqd.text}</td>
-                                    {sqdColumns.map((col: any) => (
+                                    {SQD_COLUMNS.map((col: any) => (
                                         <td key={col.value} className="px-2 py-3 text-center">
                                             <label className="flex cursor-pointer items-center justify-center">
                                                 <input type="radio" name={sqd.key} value={col.value} checked={form[sqd.key] === col.value} onChange={() => updateForm(sqd.key, col.value)} className="h-4 w-4 cursor-pointer accent-blue-500" />
@@ -531,7 +532,7 @@ export function FeedbackView({
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                         <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">SQD Answers</p>
-                        <p className="mt-1 text-[12px] font-black text-slate-900">{answeredSqdCount}/{sqdKeys.length}</p>
+                        <p className="mt-1 text-[12px] font-black text-slate-900">{answeredSqdCount}/{SQD_KEYS.length}</p>
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                         <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Email</p>
@@ -558,7 +559,7 @@ export function FeedbackView({
                 >
                     Back
                 </button>
-                {activeStep < feedbackSteps.length - 1 ? (
+                {activeStep < FEEDBACK_STEPS.length - 1 ? (
                     <button
                         type="button"
                         onClick={goNextStep}

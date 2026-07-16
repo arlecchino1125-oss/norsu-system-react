@@ -41,6 +41,16 @@ const DeptReportsPage = lazy(() => import('./dept/features/reports/components/De
 const DEPT_BASE_PATH = '/department/dashboard';
 const DEPT_MODULES = Object.keys(moduleLabels);
 
+const renderDetailedDescription = (desc: any) => {
+    if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
+    const q1Index = desc.indexOf('[Q1 Description]:');
+    if (q1Index === -1) {
+        return <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{desc}</p>;
+    }
+    // Parsing logic simplified for brevity but functional
+    return <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{desc}</p>;
+};
+
 export default function DeptDashboard() {
     const navigate = useNavigate();
     const { session, isAuthenticated, updateSession, logout } = useAuth() as any;
@@ -233,18 +243,6 @@ export default function DeptDashboard() {
             settings: { ...prev.settings, referralReasons: prev.settings.referralReasons.filter((_: any, i: number) => i !== idx) }
         }));
     };
-
-    const renderDetailedDescription = (desc: any) => {
-        if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
-        const q1Index = desc.indexOf('[Q1 Description]:');
-        if (q1Index === -1) {
-            return <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{desc}</p>;
-        }
-        // Parsing logic simplified for brevity but functional
-        return <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{desc}</p>;
-    };
-
-
 
     const moduleLoadingFallback = (
         <div className="rounded-2xl border border-emerald-100 bg-white/80 p-10 text-center shadow-sm">

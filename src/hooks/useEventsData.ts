@@ -162,7 +162,7 @@ export function useEventsData() {
         }
     });
 
-    const allEvents = (qData as SystemEvent[]) || [];
+    const allEvents = useMemo(() => (qData as SystemEvent[]) || [], [qData]);
     const error = qError ? qError.message : null;
 
     // Split into active (upcoming/ongoing) and archived (expired)

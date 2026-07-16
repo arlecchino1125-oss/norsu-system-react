@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, UserPlus, XCircle } from 'lucide-react';
 import {
     COUNSELING_STATUS,
@@ -60,17 +60,17 @@ const DeptCounselingQueuePage = ({
         setShowReferralModal(true);
     };
 
-    const matchesCounselingTab = (request: any) => {
+    const matchesCounselingTab = useCallback((request: any) => {
         if (counselingTab === 'WithCare') return isWithCareStaffCounseling(request.status);
         if (counselingTab === COUNSELING_STATUS.SUBMITTED) return isCounselingAwaitingDept(request.status);
         return request.status === counselingTab;
-    };
+    }, [counselingTab]);
 
     const filteredRequests = useMemo(() => (
         counselingRequests
             .filter(matchesCounselingTab)
             .filter((request: any) => matchesCascadeFilters(getStudentForRequest(request)))
-    ), [counselingRequests, counselingTab, getStudentForRequest, matchesCascadeFilters]);
+    ), [counselingRequests, matchesCounselingTab, getStudentForRequest, matchesCascadeFilters]);
 
     const filteredRequestSignature = useMemo(
         () => filteredRequests.map((request: any) => String(request?.id || '')).join('|'),

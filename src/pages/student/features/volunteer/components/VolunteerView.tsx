@@ -16,6 +16,12 @@ const VolunteerGuidelines = [
     }
 ];
 
+const getStatusTone = (status: string) => {
+    if (status === 'approved') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
+    if (status === 'rejected') return 'border-rose-100 bg-rose-50 text-rose-700';
+    return 'border-amber-100 bg-amber-50 text-amber-700';
+};
+
 export default function VolunteerView({
     formatFullDate,
     personalInfo,
@@ -72,12 +78,6 @@ export default function VolunteerView({
     }, [fetchApplications]);
 
     const latestApplication = applications[0];
-
-    const getStatusTone = (status: string) => {
-        if (status === 'approved') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
-        if (status === 'rejected') return 'border-rose-100 bg-rose-50 text-rose-700';
-        return 'border-amber-100 bg-amber-50 text-amber-700';
-    };
 
     return (
         <div className="mx-auto max-w-6xl space-y-4 page-transition sm:space-y-5">

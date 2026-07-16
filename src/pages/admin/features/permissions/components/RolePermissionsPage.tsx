@@ -111,7 +111,7 @@ export default function RolePermissionsPage() {
         }
     });
 
-    const activeTypePermissions = permissionsData?.activeTypePermissions || [];
+    const activeTypePermissions = useMemo(() => permissionsData?.activeTypePermissions || [], [permissionsData]);
     const loading = qLoading;
     const error = qError ? (qError as any).message || 'Failed to load role permissions.' : null;
 

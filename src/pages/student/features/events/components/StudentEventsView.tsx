@@ -96,6 +96,35 @@ const getDisplayTime = (item: any) => {
 };
 const getDisplayLocation = (item: any) => item?.location || 'Location to be announced';
 
+const isRegistrationEvent = (item: any) => item?.participation_mode === 'registration_required';
+
+const isRegistrationDeadlinePassed = (item: any) => {
+    if (!item?.registration_deadline) return false;
+    const deadline = new Date(item.registration_deadline);
+    return !Number.isNaN(deadline.getTime()) && Date.now() > deadline.getTime();
+};
+
+const formatRegistrationDeadline = (value: string) => {
+    if (!value) return 'No deadline';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+};
+
+const getRegistrationStatusClass = (status: string) => {
+    if (status === 'Attended') return 'bg-emerald-100 text-emerald-700';
+    if (status === 'Registered') return 'bg-blue-100 text-blue-700';
+    if (status === 'Cancelled') return 'bg-slate-100 text-slate-500';
+    return 'bg-amber-100 text-amber-700';
+};
+
 const CloseIcon = () => (
     <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
         <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
@@ -160,36 +189,11 @@ const StudentEventsView = ({
     const safeEventsPage = Math.min(eventsPage, totalEventPages);
     const pagedEvents = filteredEvents.slice((safeEventsPage - 1) * EVENTS_PAGE_SIZE, safeEventsPage * EVENTS_PAGE_SIZE);
 
-    const isRegistrationEvent = (item: any) => item?.participation_mode === 'registration_required';
     const getRegistrationRecord = (item: any) => registrationMap?.[String(item?.id)] || registrationMap?.[item?.id];
-    const isRegistrationDeadlinePassed = (item: any) => {
-        if (!item?.registration_deadline) return false;
-        const deadline = new Date(item.registration_deadline);
-        return !Number.isNaN(deadline.getTime()) && Date.now() > deadline.getTime();
-    };
-    const formatRegistrationDeadline = (value: string) => {
-        if (!value) return 'No deadline';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return value;
-        return date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-    };
     const getRegistrationStatus = (item: any, isTimedIn = false) => {
         const registration = getRegistrationRecord(item);
         if (isTimedIn) return 'Attended';
         return registration?.status || 'Not registered';
-    };
-    const getRegistrationStatusClass = (status: string) => {
-        if (status === 'Attended') return 'bg-emerald-100 text-emerald-700';
-        if (status === 'Registered') return 'bg-blue-100 text-blue-700';
-        if (status === 'Cancelled') return 'bg-slate-100 text-slate-500';
-        return 'bg-amber-100 text-amber-700';
     };
     const hasActiveRegistration = (item: any, isTimedIn = false) => {
         const status = getRegistrationStatus(item, isTimedIn);

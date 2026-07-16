@@ -14,11 +14,55 @@ import {
 import NorsuBrand from '../components/NorsuBrand';
 import usePublicTheme from '../hooks/usePublicTheme';
 
+const getAnimationDelayStyle = (delayMs: number) => ({ animationDelay: `${delayMs}ms` });
+
+const PUBLIC_LANDING_PORTALS = [
+    {
+        title: 'NAT Portal',
+        description: 'Apply for admission testing, review schedules, and check application progress.',
+        audience: 'Applicants and prospective students',
+        bestFor: 'Choose this if you are applying for admission, checking a NAT schedule, or reviewing your application progress.',
+        cta: 'Apply now',
+        icon: FileText,
+        accent: 'orange',
+        route: '/nat'
+    },
+    {
+        title: 'Student Portal',
+        description: 'Manage your profile, counseling, scholarships, support requests, and activities.',
+        audience: 'Currently enrolled students',
+        bestFor: 'Choose this if you already have a student account and need services, forms, events, or support requests.',
+        cta: 'Open student space',
+        icon: GraduationCap,
+        accent: 'blue',
+        route: '/student/login'
+    },
+    {
+        title: 'Department Portal',
+        description: 'Review counseling and support cases, manage admissions interviews, and monitor students, events, and reports.',
+        audience: 'Department heads and academic reviewers',
+        bestFor: 'Choose this if you handle department-level reviews, admissions interviews, or student case decisions.',
+        cta: 'Open department space',
+        icon: Users,
+        accent: 'emerald',
+        route: '/department/login'
+    },
+    {
+        title: 'CARE Staff',
+        description: 'Coordinate interventions, counseling sessions, support services, and monitoring.',
+        audience: 'CARE staff members',
+        bestFor: 'Choose this if you manage counseling workflows, interventions, referrals, and operational follow-up.',
+        cta: 'Open care staff space',
+        icon: Briefcase,
+        accent: 'purple',
+        route: '/care-staff'
+    }
+] as const;
+
 export default function PublicLandingV2() {
     const navigate = useNavigate();
     const { isDark, toggleTheme } = usePublicTheme();
     const [isGuideOpen, setIsGuideOpen] = React.useState(false);
-    const getAnimationDelayStyle = (delayMs: number) => ({ animationDelay: `${delayMs}ms` });
 
     React.useEffect(() => {
         if (!isGuideOpen) return;
@@ -32,49 +76,6 @@ export default function PublicLandingV2() {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isGuideOpen]);
-
-    const portals = [
-        {
-            title: 'NAT Portal',
-            description: 'Apply for admission testing, review schedules, and check application progress.',
-            audience: 'Applicants and prospective students',
-            bestFor: 'Choose this if you are applying for admission, checking a NAT schedule, or reviewing your application progress.',
-            cta: 'Apply now',
-            icon: FileText,
-            accent: 'orange',
-            route: '/nat'
-        },
-        {
-            title: 'Student Portal',
-            description: 'Manage your profile, counseling, scholarships, support requests, and activities.',
-            audience: 'Currently enrolled students',
-            bestFor: 'Choose this if you already have a student account and need services, forms, events, or support requests.',
-            cta: 'Open student space',
-            icon: GraduationCap,
-            accent: 'blue',
-            route: '/student/login'
-        },
-        {
-            title: 'Department Portal',
-            description: 'Review counseling and support cases, manage admissions interviews, and monitor students, events, and reports.',
-            audience: 'Department heads and academic reviewers',
-            bestFor: 'Choose this if you handle department-level reviews, admissions interviews, or student case decisions.',
-            cta: 'Open department space',
-            icon: Users,
-            accent: 'emerald',
-            route: '/department/login'
-        },
-        {
-            title: 'CARE Staff',
-            description: 'Coordinate interventions, counseling sessions, support services, and monitoring.',
-            audience: 'CARE staff members',
-            bestFor: 'Choose this if you manage counseling workflows, interventions, referrals, and operational follow-up.',
-            cta: 'Open care staff space',
-            icon: Briefcase,
-            accent: 'purple',
-            route: '/care-staff'
-        }
-    ] as const;
 
     return (
         <div className={isDark ? 'dark' : ''}>
@@ -202,7 +203,7 @@ export default function PublicLandingV2() {
                             <div className="relative p-1 sm:p-3 md:p-6">
                                 <h2 id="portal-directory-heading" className="sr-only">Portal directory</h2>
                                 <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:gap-6">
-                                    {portals.map((portal, index) => {
+                                    {PUBLIC_LANDING_PORTALS.map((portal, index) => {
                                         const Icon = portal.icon;
                                         const accentClass = {
                                             orange: 'bg-orange-50 text-orange-600',
@@ -308,7 +309,7 @@ export default function PublicLandingV2() {
 
                         <div className="max-h-[calc(100dvh-11rem)] overflow-y-auto p-4 sm:p-6">
                             <div className="grid gap-3 sm:grid-cols-2" aria-label="Portal guidance">
-                                {portals.map((portal) => {
+                                {PUBLIC_LANDING_PORTALS.map((portal) => {
                                     const Icon = portal.icon;
                                     const accentClass = {
                                         orange: 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300',

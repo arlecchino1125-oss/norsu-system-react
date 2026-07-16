@@ -2,25 +2,25 @@ import { supabase } from '../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../lib/invokeEdgeFunction';
 import { getArchiveSchemaErrorMessage } from '../utils';
 
+const invokeManagedStaffFunction = async (body: any) => {
+    return invokeEdgeFunction('manage-staff-accounts', {
+        body,
+        requireAuth: true,
+        non2xxMessage: 'Your admin session could not be verified. Sign in again.',
+        fallbackMessage: 'Failed to manage staff account.'
+    });
+};
+
+const invokeManagedStudentFunction = async (body: any) => {
+    return invokeEdgeFunction('manage-student-accounts', {
+        body,
+        requireAuth: true,
+        non2xxMessage: 'Your admin session could not be verified. Sign in again.',
+        fallbackMessage: 'Failed to manage student accounts.'
+    });
+};
+
 export function useAdminActions({ showToast, session, refetchAccounts }: { showToast: (msg: string, type?: string) => void; session?: any; refetchAccounts?: () => void }) {
-
-    const invokeManagedStaffFunction = async (body: any) => {
-        return invokeEdgeFunction('manage-staff-accounts', {
-            body,
-            requireAuth: true,
-            non2xxMessage: 'Your admin session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to manage staff account.'
-        });
-    };
-
-    const invokeManagedStudentFunction = async (body: any) => {
-        return invokeEdgeFunction('manage-student-accounts', {
-            body,
-            requireAuth: true,
-            non2xxMessage: 'Your admin session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to manage student accounts.'
-        });
-    };
 
     const handleArchiveAccount = async (account: any, archivingAccountId: string | null, setArchivingAccountId: (id: string | null) => void) => {
         const nextAccountId = String(account?.id || '').trim();

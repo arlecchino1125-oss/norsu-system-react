@@ -236,7 +236,7 @@ const NotificationBell = ({
                                 </span>
                             )}
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="text-white/60 hover:text-white transition-colors">
+                        <button onClick={() => setIsOpen(false)} aria-label="Close notifications" className="text-white/60 hover:text-white transition-colors">
                             <X size={16} />
                         </button>
                     </div>

@@ -201,7 +201,6 @@ export function useStudentEventActions({
         }
     }, [
         fetchHistoryCached,
-        getStudentDisplayName,
         personalInfo,
         refreshEventsCached,
         registeringEventId,

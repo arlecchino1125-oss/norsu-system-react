@@ -80,6 +80,13 @@ const getRecentCounselingTone = (status: string) => {
     return { label: status || 'Recorded', tone: 'bg-slate-100 text-slate-700 border-slate-200', icon: <FileText size={12} /> };
 };
 
+const DEPT_HOME_ALERT_ICONS: Record<string, React.ReactNode> = {
+    'admissions-ready': <CalendarClock size={16} />,
+    'admissions-absent': <AlertTriangle size={16} />,
+    'counseling-review': <ClipboardList size={16} />,
+    'support-forwarded': <Bell size={16} />
+};
+
 const DeptHomePage = ({
     filteredData,
     dashboardStats,
@@ -134,13 +141,6 @@ const DeptHomePage = ({
         { label: 'With CARE Staff', value: withCareCount, icon: <CheckCircle2 size={20} />, gradient: 'from-emerald-400 to-teal-500' },
         { label: 'Total Students', value: totalStudents, icon: <Users size={20} />, gradient: 'from-violet-400 to-purple-500' }
     ];
-
-    const alertIcons: Record<string, React.ReactNode> = {
-        'admissions-ready': <CalendarClock size={16} />,
-        'admissions-absent': <AlertTriangle size={16} />,
-        'counseling-review': <ClipboardList size={16} />,
-        'support-forwarded': <Bell size={16} />
-    };
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -383,7 +383,7 @@ const DeptHomePage = ({
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex items-start gap-3">
-                                                <span className="mt-0.5">{alertIcons[item.key] || <Bell size={16} />}</span>
+                                                <span className="mt-0.5">{DEPT_HOME_ALERT_ICONS[item.key] || <Bell size={16} />}</span>
                                                 <div>
                                                     <p className="text-sm font-semibold text-gray-900">{item.label}</p>
                                                     <p className="mt-1 text-xs opacity-80">Open the related module</p>

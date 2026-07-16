@@ -17,6 +17,13 @@ interface StudentSidebarProps {
     onLogout: () => void;
 }
 
+const STUDENT_SIDEBAR_GROUP_LABELS: Record<string, string> = {
+    Core: 'Overview',
+    Academic: 'Academic',
+    Services: 'Services',
+    Activities: 'Activity'
+};
+
 export function StudentSidebar({
     isOpen,
     activeView,
@@ -26,16 +33,10 @@ export function StudentSidebar({
     onSelectView,
     onLogout
 }: StudentSidebarProps) {
-    const groupLabels: Record<string, string> = {
-        Core: 'Overview',
-        Academic: 'Academic',
-        Services: 'Services',
-        Activities: 'Activity'
-    };
     const groupedLinks = ['Core', 'Academic', 'Services', 'Activities']
         .map((group) => ({
             group,
-            label: groupLabels[group] || group,
+            label: STUDENT_SIDEBAR_GROUP_LABELS[group] || group,
             links: visibleSidebarLinks.filter((link) => link.group === group)
         }))
         .filter((group) => group.links.length > 0);

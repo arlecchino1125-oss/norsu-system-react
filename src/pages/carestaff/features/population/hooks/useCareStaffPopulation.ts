@@ -67,6 +67,41 @@ import {
     isProfileIncompleteStep1
 } from '../utils';
 
+const POPULATION_SORT_COLUMN_MAP: Record<string, string> = {
+    name: 'last_name',
+    student_id: 'student_id',
+    course: 'course',
+    status: 'status',
+    created_at: 'created_at'
+};
+
+const updateStudentsByIds = async (targetIds: Array<string | number>, payload: any) => {
+    let updatedCount = 0;
+    for (let i = 0; i < targetIds.length; i += 500) {
+        const batchIds = targetIds.slice(i, i + 500);
+        const { data, error } = await supabase
+            .from('students')
+            .update(payload)
+            .in('id', batchIds.map(Number))
+            .select('id');
+        if (error) throw error;
+        updatedCount += data?.length || 0;
+    }
+    return updatedCount;
+};
+
+const handleDownloadTemplate = () => {
+    const csvContent = "Student ID,Course,Year Level\n2026-1001,BS Information Technology,1st Year\n2026-1002,BS Civil Engineering,2nd Year\n2026-1003,BS Nursing,1st Year";
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "student_ids_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+};
+
 export function useCareStaffPopulation({
     functions,
     pendingProfileId,
@@ -668,13 +703,6 @@ export function useCareStaffPopulation({
         setCurrentPage(1);
     }, [departmentFilter, courseFilter, yearFilter, statusFilter, sectionFilter, schoolYearFilter, hasNoteFilter, atRiskFilter]);
 
-    const sortColumnMap: Record<string, string> = {
-        name: 'last_name',
-        student_id: 'student_id',
-        course: 'course',
-        status: 'status',
-        created_at: 'created_at'
-    };
     const annotationFilterActive = hasNoteFilter || atRiskFilter;
     const {
         data: qAnnotationStudentIds = [],
@@ -721,7 +749,7 @@ export function useCareStaffPopulation({
             },
             { page: currentPage, pageSize: itemsPerPage },
             {
-                column: sortColumnMap[sortConfig.key] || 'created_at',
+                column: POPULATION_SORT_COLUMN_MAP[sortConfig.key] || 'created_at',
                 ascending: sortConfig.direction === 'asc'
             }
         ),
@@ -790,21 +818,6 @@ export function useCareStaffPopulation({
             return filteredStudents;
         }
         return getCareStudentBulkTargets(getCurrentStudentFilters(searchTerm));
-    };
-
-    const updateStudentsByIds = async (targetIds: Array<string | number>, payload: any) => {
-        let updatedCount = 0;
-        for (let i = 0; i < targetIds.length; i += 500) {
-            const batchIds = targetIds.slice(i, i + 500);
-            const { data, error } = await supabase
-                .from('students')
-                .update(payload)
-                .in('id', batchIds.map(Number))
-                .select('id');
-            if (error) throw error;
-            updatedCount += data?.length || 0;
-        }
-        return updatedCount;
     };
 
     const applyBulkCourseYearWindow = async () => {
@@ -1087,18 +1100,6 @@ export function useCareStaffPopulation({
             };
             reader.readAsText(file);
         }
-    };
-
-    const handleDownloadTemplate = () => {
-        const csvContent = "Student ID,Course,Year Level\n2026-1001,BS Information Technology,1st Year\n2026-1002,BS Civil Engineering,2nd Year\n2026-1003,BS Nursing,1st Year";
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "student_ids_template.csv";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
     };
 
     // Derive unique departments from the departments table (always available)

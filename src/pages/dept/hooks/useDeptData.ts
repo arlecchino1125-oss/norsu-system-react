@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { DEFAULT_PAGE_SIZE } from '../../../types/pagination';
@@ -26,6 +26,7 @@ const localDateKey = (date = new Date()) =>
 
 const DEFAULT_REFERRAL_REASONS = ['Academic Performance', 'Attendance Issues', 'Behavioral Concern', 'Career Guidance', 'Personal/Emotional'];
 const REFERRAL_REASONS_STORAGE_KEY = 'dept-referral-reasons-v1';
+const POPULATION_YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 
 // ponytail: localStorage persistence — per-browser only; move to a settings table if reasons must roam
 const readStoredReferralReasons = (): string[] => {
@@ -84,6 +85,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             }));
         }
         // ponytail: session?.id as dep avoids object reference churn
+        // react-doctor-disable-next-line react-doctor/exhaustive-deps
     }, [isAuthenticated, session?.id]);
 
     const [lastSeenSupportCount, setLastSeenSupportCount] = useState<number>(0);
@@ -112,9 +114,9 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
     const { showToast: pushSharedToast } = useToast();
     // Display is owned by the app-wide <ToastProvider>; the returned `toast`
     // stays null so the legacy DeptModals toast render no-ops.
-    const showToastMessage = (msg: string, type: string = 'success') => {
+    const showToastMessage = useCallback((msg: string, type: string = 'success') => {
         pushSharedToast(msg, type as ToastType);
-    };
+    }, [pushSharedToast]);
 
     // ── Students ──────────────────────────────────────────────────────────────
     const studentsQuery = useQuery({
@@ -239,7 +241,6 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
     }, [admissionsQuery.data]);
 
     // ── Dashboard stats (department-wide counts; the paged lists above only hold one page) ──
-    const POPULATION_YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
     const statsQuery = useQuery({
         queryKey: ['dept_dashboard_stats', department],
         enabled: Boolean(department),
@@ -337,7 +338,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             })
             .subscribe();
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
-    }, [department, queryClient]);
+    }, [department, queryClient, showToastMessage]);
 
     useEffect(() => {
         if (!department) return;
@@ -351,7 +352,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             })
             .subscribe();
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
-    }, [department, queryClient]);
+    }, [department, queryClient, showToastMessage]);
 
     // ── Refresh all (used by header refresh button — must be awaitable) ────────
     const refreshAllData = async () => {
