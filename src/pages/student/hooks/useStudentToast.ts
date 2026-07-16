@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { getSafeErrorMessage } from '../../../utils/errorMasking';
-import { useToast, type ToastType } from '../../../components/ui/toast/ToastProvider';
+import { useToast, type ToastType } from '../../../components/ui/toast/useToast';
 import type { StudentToastState } from '../components/StudentToast';
 
 /**

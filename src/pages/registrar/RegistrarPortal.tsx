@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { LayoutDashboard, LogOut, Menu, Users, Download, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../lib/auth';
+import { useAuth } from '../../lib/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import NorsuBrand from '../../components/NorsuBrand';
 

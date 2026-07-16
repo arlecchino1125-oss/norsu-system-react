@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { ToastProvider, useToast } from './ToastProvider';
+import { ToastProvider } from './ToastProvider';
+import { useToast } from './useToast';
 
 function Controls() {
     const { showToast, toast, dismissToast } = useToast();

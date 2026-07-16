@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { supabase, SUPABASE_AUTH_STORAGE_KEY } from './supabase';
 import { signOutAndClearBrowserState } from './authLogout';
 import { buildEdgeFunctionHeaders } from './functionHeaders';
@@ -9,8 +9,8 @@ import { authenticateLogin } from './authLogin';
 import {
     recoverLocalSupabaseSession
 } from './supabaseSessionRecovery';
+import { AuthContext } from './useAuth';
 
-const AuthContext = createContext(null);
 type StaffProfileRecord = {
     id?: string | number | null;
     username?: string | null;
@@ -655,12 +655,4 @@ export function AuthProvider({ children }: any) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
 }

@@ -54,8 +54,9 @@ import {
     isCounselingAwaitingDept
 } from '../../../../../utils/workflow';
 import PaginationControls from '../../../../../components/PaginationControls';
-import { useCareStaffCounseling, COUNSELING_REQUESTS_PAGE_SIZE } from '../hooks/useCareStaffCounseling';
+import { useCareStaffCounseling } from '../hooks/useCareStaffCounseling';
 import type { CareStaffCounselingPageProps } from '../hooks/useCareStaffCounseling';
+import { COUNSELING_REQUESTS_PAGE_SIZE } from '../counselingData';
 
 const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCounselingPageProps) => {
     const {

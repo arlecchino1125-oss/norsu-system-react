@@ -37,8 +37,6 @@ export interface CareStaffSupportPageProps {
     refreshSignal?: number;
 }
 
-export { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
-export { SUPPORT_DOCUMENT_ACCEPT } from '../../../../../utils/inputSecurity';
 const SUPPORT_STUDENT_COLUMNS = [
     'student_id',
     'first_name',

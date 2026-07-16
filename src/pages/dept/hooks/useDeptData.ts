@@ -19,7 +19,7 @@ import {
     getStudentsPage,
     getSupportRequestsPage
 } from '../../../services/deptService';
-import { useToast, type ToastType } from '../../../components/ui/toast/ToastProvider';
+import { useToast, type ToastType } from '../../../components/ui/toast/useToast';
 
 const localDateKey = (date = new Date()) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;

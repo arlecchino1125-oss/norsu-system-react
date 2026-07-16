@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '../lib/useAuth';
 import { supabase } from '../lib/supabase';
 import { permissionService } from '../services/permissionService';
 import {

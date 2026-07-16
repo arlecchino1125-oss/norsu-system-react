@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useAuth } from '../../../lib/auth';
+import { useAuth } from '../../../lib/useAuth';
 import { supabase } from '../../../lib/supabase';
 import { STUDENT_VIEW_FEATURE_MAP, STUDENT_VIEW_LABELS } from '../StudentPortalRoutes';
 import { useStudentCompactPortalLayout } from '../hooks/useStudentCompactPortalLayout';
@@ -22,7 +22,7 @@ const supabaseClient = supabase;
 export const ProfileCompletionModal = lazy(() => import('../features/profile/components/ProfileCompletionModal'));
 export const StudentDashboardView = lazy(() => import('../features/dashboard/components/StudentDashboardView'));
 export const StudentEventsView = lazy(() => import('../features/events/components/StudentEventsView'));
-import { Icons } from '../components/StudentPortalIcons';
+import * as Icons from '../components/StudentPortalIcons';
 import { StudentHero } from '../components/StudentHero';
 import type { Event, Request, Scholarship, Student } from '../types';
 import {

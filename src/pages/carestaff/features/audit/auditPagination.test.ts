@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paginateRows } from '../../../../components/shared/tables/DataTable';
+import { paginateRows } from '../../../../components/shared/tables/paginateRows';
 
 describe('paginateRows', () => {
     it('returns the requested page and total page count', () => {

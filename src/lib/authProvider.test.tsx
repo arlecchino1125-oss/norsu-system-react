@@ -1,7 +1,8 @@
 import { StrictMode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider, useAuth } from './auth';
+import { AuthProvider } from './auth';
+import { useAuth } from './useAuth';
 
 const authMocks = vi.hoisted(() => ({
     getSession: vi.fn(),

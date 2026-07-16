@@ -7,7 +7,7 @@ import { useDeptCounseling } from './dept/features/counseling/hooks/useDeptCouns
 import { useDeptSupport } from './dept/features/support/hooks/useDeptSupport';
 import { useDeptAccount } from './dept/hooks/useDeptAccount';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '../lib/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { usePortalTabRoute, readInitialTab } from '../hooks/usePortalTabRoute';
 import { useDeptData } from './dept/hooks/useDeptData';

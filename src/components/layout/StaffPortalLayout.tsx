@@ -147,6 +147,7 @@ export default function StaffPortalLayout({
             {/* Mobile hamburger */}
             <button
               type="button"
+              aria-label="Open navigation"
               onClick={() => setSidebarOpen(true)}
               className="rounded-xl p-2.5 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800 lg:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/30"
             >

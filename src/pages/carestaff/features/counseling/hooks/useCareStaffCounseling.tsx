@@ -32,8 +32,6 @@ export interface CareStaffCounselingPageProps {
     refreshSignal?: number;
 }
 
-export { COUNSELING_REQUESTS_PAGE_SIZE } from '../counselingData';
-
 const sortCounselingByCreatedAt = (rows: any[]) =>
     [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 

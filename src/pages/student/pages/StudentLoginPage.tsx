@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../lib/auth';
+import { useAuth } from '../../../lib/useAuth';
 import { GraduationCap, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getSafeErrorMessage } from '../../../utils/errorMasking';
