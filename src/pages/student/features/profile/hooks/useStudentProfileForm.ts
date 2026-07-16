@@ -586,6 +586,9 @@ export function useStudentProfileForm({
 
         // Force a fresh auth token before calling a JWT-protected edge function.
         const { data: refreshedSessionData, error: refreshError } = await supabaseClient.auth.refreshSession();
+        // Ordered on purpose: getSession() reads the auth store refreshSession() just updated;
+        // running them in parallel could return a stale token.
+        // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
         const { data: authSessionData } = await supabaseClient.auth.getSession();
         const accessToken = refreshedSessionData.session?.access_token || authSessionData.session?.access_token;
         if (!accessToken) {

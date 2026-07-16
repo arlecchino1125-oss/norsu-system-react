@@ -24,7 +24,7 @@ export function ApplicantScheduleModal({
                     <h3 className="text-xl font-bold text-slate-800">
                         {isReschedule ? 'Reschedule Interview' : isBulk ? 'Bulk Schedule Interviews' : 'Schedule Interview'}
                     </h3>
-                    <button
+                    <button type="button"
                         onClick={closeApplicantScheduleModal}
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
                     >

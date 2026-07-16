@@ -251,7 +251,7 @@ export function FeedbackView({
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-3xl font-black text-white shadow-lg shadow-emerald-500/20">✓</div>
                     <h3 className="mb-2 text-base font-black text-slate-950 sm:text-lg">Thank you</h3>
                     <p className="mx-auto mb-5 max-w-md text-[12px] leading-5 text-slate-500 sm:text-sm sm:leading-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
-                    <button onClick={() => { setSubmitted(false); setActiveStep(0); if (setFeedbackPrefill) setFeedbackPrefill(null); }} className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 btn-press sm:w-auto">Submit Another Feedback</button>
+                    <button type="button" onClick={() => { setSubmitted(false); setActiveStep(0); if (setFeedbackPrefill) setFeedbackPrefill(null); }} className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 btn-press sm:w-auto">Submit Another Feedback</button>
                 </div>
             </div>
         );

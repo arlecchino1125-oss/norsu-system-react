@@ -645,13 +645,13 @@ export function useStudentPortal() {
                     <h1 className="text-2xl font-bold text-slate-900">Unable to load student permissions</h1>
                     <p className="mt-3 text-sm leading-6 text-slate-500">{permissionsError}</p>
                     <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                        <button
+                        <button type="button"
                             onClick={() => window.location.reload()}
                             className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                             Reload
                         </button>
-                        <button
+                        <button type="button"
                             onClick={handleLogout}
                             className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                         >
@@ -671,7 +671,7 @@ export function useStudentPortal() {
                     <p className="mt-3 text-sm leading-6 text-slate-500">
                         Your student role currently has no enabled portal features. Please contact an administrator or CARE staff for access.
                     </p>
-                    <button
+                    <button type="button"
                         onClick={handleLogout}
                         className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >

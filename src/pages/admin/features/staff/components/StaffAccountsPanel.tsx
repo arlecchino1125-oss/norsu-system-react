@@ -225,6 +225,7 @@ export function StaffAccountsPanel({
                         )}
                     </div>
                     <button
+                        type="submit"
                         disabled={isCreatingAccount}
                         className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -334,6 +335,7 @@ export function StaffAccountsPanel({
                                     )}
                                 </div>
                                 <button
+                                    type="button"
                                     disabled={archivingAccountId === String(acc.id)}
                                     onClick={() => handleArchiveAccount(acc, archivingAccountId, setArchivingAccountId)}
                                     className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-200 text-amber-600 transition hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"

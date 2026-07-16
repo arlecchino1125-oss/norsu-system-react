@@ -90,7 +90,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                     <div className="w-16 h-16 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
                     <h3 className="font-extrabold text-lg mb-2 text-gray-900">Thank You!</h3>
                     <p className="text-sm text-gray-500 mb-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
-                    <button onClick={onClose} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Done</button>
+                    <button type="button" onClick={onClose} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Done</button>
                 </div>
             </div>,
             document.body
@@ -110,7 +110,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                                 Visit reason: <span className="text-white font-bold">{timeOutVisitReason}</span>
                             </p>
                         </div>
-                        <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-all flex-shrink-0 text-lg">✕</button>
+                        <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-all flex-shrink-0 text-lg">✕</button>
                     </div>
                 </div>
 
@@ -234,10 +234,10 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
 
                 {/* Footer */}
                 <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50/50 px-4 py-4 flex-shrink-0 sm:flex-row sm:px-6">
-                    <button onClick={handleSubmit} disabled={submitting} className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all disabled:opacity-50">
+                    <button type="button" onClick={handleSubmit} disabled={submitting} className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all disabled:opacity-50">
                         {submitting ? 'Submitting...' : 'Submit Feedback'}
                     </button>
-                    <button onClick={onClose} className="w-full px-6 py-3.5 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all sm:w-auto">
+                    <button type="button" onClick={onClose} className="w-full px-6 py-3.5 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all sm:w-auto">
                         Skip
                     </button>
                 </div>
@@ -332,7 +332,7 @@ const StudentDashboardView = ({
                     </div>
 
                     {activeVisit ? (
-                        <button
+                        <button type="button"
                             disabled={isCompletingOfficeVisit}
                             onClick={handleOfficeTimeOut}
                             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
@@ -341,7 +341,7 @@ const StudentDashboardView = ({
                             <ArrowRight className="h-4 w-4" />
                         </button>
                     ) : (
-                        <button
+                        <button type="button"
                             onClick={handleOfficeTimeIn}
                             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
                         >
@@ -421,7 +421,7 @@ const StudentDashboardView = ({
                     <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel sm:p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-lg">Office Visit</h3>
-                            <button onClick={() => setShowTimeInModal(false)} className="text-gray-400 text-xl">✕</button>
+                            <button type="button" onClick={() => setShowTimeInModal(false)} className="text-gray-400 text-xl">✕</button>
                         </div>
                         <p className="text-sm text-gray-500 mb-4">Please select the reason for your visit:</p>
                         <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
@@ -432,7 +432,7 @@ const StudentDashboardView = ({
                                 </label>
                             ))}
                         </div>
-                        <button disabled={isSubmittingOfficeTimeIn} onClick={submitTimeIn} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingOfficeTimeIn ? 'Submitting...' : 'Confirm Time In'}</button>
+                        <button type="button" disabled={isSubmittingOfficeTimeIn} onClick={submitTimeIn} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingOfficeTimeIn ? 'Submitting...' : 'Confirm Time In'}</button>
                     </div>
                 </div>
             )}

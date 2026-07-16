@@ -161,14 +161,14 @@ const DeptCounselingQueuePage = ({
                                 <div className="flex gap-2 ml-4 flex-shrink-0">
                                     {isCounselingAwaitingDept(req.status) && (
                                         <>
-                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowScheduleModal(true); }} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors" title="Approve & Schedule">Approve</button>
-                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowRejectModal(true); }} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors" title="Reject">Reject</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowScheduleModal(true); }} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors" title="Approve & Schedule">Approve</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowRejectModal(true); }} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors" title="Reject">Reject</button>
                                         </>
                                     )}
                                     {req.status === COUNSELING_STATUS.SCHEDULED && (
                                         <>
-                                            <button disabled={isCompletingRequest} onClick={(e) => { e.stopPropagation(); handleCompleteRequest(req); }} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-green-50">{isCompletingRequest ? 'Completing...' : 'Complete'}</button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleStartForward(req); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors">Forward</button>
+                                            <button type="button" disabled={isCompletingRequest} onClick={(e) => { e.stopPropagation(); handleCompleteRequest(req); }} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-green-50">{isCompletingRequest ? 'Completing...' : 'Complete'}</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); handleStartForward(req); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors">Forward</button>
                                         </>
                                     )}
                                     {getCounselingScheduledDate(req) && <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-semibold">{new Date(getCounselingScheduledDate(req) as string).toLocaleDateString()}</span>}
@@ -259,7 +259,7 @@ const DeptCounselingQueuePage = ({
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isCounselingAwaitingDept(selectedCounselingReq.status) ? 'bg-amber-100 text-amber-700' : selectedCounselingReq.status === COUNSELING_STATUS.SCHEDULED ? 'bg-blue-100 text-blue-700' : selectedCounselingReq.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : selectedCounselingReq.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-700' : selectedCounselingReq.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : selectedCounselingReq.status === COUNSELING_STATUS.REJECTED ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{isCounselingAwaitingDept(selectedCounselingReq.status) ? 'Pending Review' : selectedCounselingReq.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : selectedCounselingReq.status}</span>
-                                    <button onClick={() => setShowCounselingViewModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                                    <button type="button" onClick={() => setShowCounselingViewModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                                 </div>
                             </div>
                             {/* Read-only form fields */}
@@ -304,17 +304,17 @@ const DeptCounselingQueuePage = ({
                         <div className="p-6 border-t border-gray-100 flex flex-wrap gap-3 sticky bottom-0 bg-white rounded-b-2xl">
                             {isCounselingAwaitingDept(selectedCounselingReq.status) && (
                                 <>
-                                    <button onClick={() => { setShowCounselingViewModal(false); setShowScheduleModal(true); }} className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200/50 hover:shadow-xl transition-all">Approve & Schedule</button>
-                                    <button onClick={() => { setShowCounselingViewModal(false); setShowRejectModal(true); }} className="flex-1 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-all">Reject</button>
+                                    <button type="button" onClick={() => { setShowCounselingViewModal(false); setShowScheduleModal(true); }} className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200/50 hover:shadow-xl transition-all">Approve & Schedule</button>
+                                    <button type="button" onClick={() => { setShowCounselingViewModal(false); setShowRejectModal(true); }} className="flex-1 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-all">Reject</button>
                                 </>
                             )}
                             {selectedCounselingReq.status === COUNSELING_STATUS.SCHEDULED && (
                                 <>
-                                    <button disabled={pendingCounselingCompletionId === String(selectedCounselingReq.id)} onClick={() => handleCompleteRequest(selectedCounselingReq)} className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200/50 hover:shadow-xl transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-lg">{pendingCounselingCompletionId === String(selectedCounselingReq.id) ? 'Completing...' : 'Mark as Completed'}</button>
-                                    <button onClick={() => handleStartForward(selectedCounselingReq)} className="flex-1 py-2.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all">Forward to CARE Staff</button>
+                                    <button type="button" disabled={pendingCounselingCompletionId === String(selectedCounselingReq.id)} onClick={() => handleCompleteRequest(selectedCounselingReq)} className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200/50 hover:shadow-xl transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-lg">{pendingCounselingCompletionId === String(selectedCounselingReq.id) ? 'Completing...' : 'Mark as Completed'}</button>
+                                    <button type="button" onClick={() => handleStartForward(selectedCounselingReq)} className="flex-1 py-2.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all">Forward to CARE Staff</button>
                                 </>
                             )}
-                            <button onClick={() => setShowCounselingViewModal(false)} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
+                            <button type="button" onClick={() => setShowCounselingViewModal(false)} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
                         </div>
                     </div>
                 </div>
@@ -326,7 +326,7 @@ const DeptCounselingQueuePage = ({
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Approve & Schedule Session</h3>
-                            <button onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                            <button type="button" onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                         </div>
                         <form onSubmit={handleApproveAndSchedule} className="p-6 space-y-4">
                             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
@@ -348,7 +348,7 @@ const DeptCounselingQueuePage = ({
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Reject Request</h3>
-                            <button onClick={() => setShowRejectModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                            <button type="button" onClick={() => setShowRejectModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                         </div>
                         <div className="p-6 space-y-4">
                             <div className="bg-red-50 p-4 rounded-xl border border-red-100">
@@ -357,8 +357,8 @@ const DeptCounselingQueuePage = ({
                             </div>
                             <div><label className="block text-xs font-bold text-gray-500 mb-1">Reason for Rejection (Optional)</label><textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} className="w-full px-4 py-2 border rounded-xl text-sm h-24" placeholder="Explain why this request is being rejected..."></textarea></div>
                             <div className="flex gap-3">
-                                <button disabled={isSubmittingCounselingReject} onClick={handleRejectRequest} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingCounselingReject ? 'Rejecting...' : 'Reject Request'}</button>
-                                <button onClick={() => setShowRejectModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all">Cancel</button>
+                                <button type="button" disabled={isSubmittingCounselingReject} onClick={handleRejectRequest} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingCounselingReject ? 'Rejecting...' : 'Reject Request'}</button>
+                                <button type="button" onClick={() => setShowRejectModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all">Cancel</button>
                             </div>
                         </div>
                     </div>

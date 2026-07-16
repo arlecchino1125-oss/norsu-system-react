@@ -158,7 +158,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                         {supportTabs.map((tab) => {
                             const isActive = supportTab === tab.id;
                             return (
-                                <button
+                                <button type="button"
                                     key={tab.id}
                                     onClick={() => setSupportTab(tab.id)}
                                     className={`relative px-6 py-2.5 rounded-full text-sm font-bold transition-colors z-10 ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800'}`}

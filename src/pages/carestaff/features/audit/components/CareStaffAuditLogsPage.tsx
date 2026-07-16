@@ -118,7 +118,7 @@ const CareStaffAuditLogsPage = ({ refreshSignal = 0 }: CareStaffAuditLogsPagePro
                     <h1 className="text-2xl font-bold text-gray-900">System Audit Logs</h1>
                     <p className="text-gray-500 text-sm mt-1">Track system activity and staff actions for accountability.</p>
                 </div>
-                <button onClick={() => {
+                <button type="button" onClick={() => {
                     if (logs.length === 0) return;
                     const headers = ['Timestamp', 'User', 'Role', 'Action', 'Details'];
                     const rows = logs.map(l => [new Date(l.created_at).toLocaleString(), l.user_name, l.actor_role || '', l.action, formatAuditDetails(l.details)]);

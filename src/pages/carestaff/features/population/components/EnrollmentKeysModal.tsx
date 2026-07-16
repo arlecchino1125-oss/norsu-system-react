@@ -107,23 +107,23 @@ const EnrollmentKeysModal = ({
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto animate-fade-in">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg text-slate-900">Manage System Settings</h3>
-                            <button onClick={() => setShowEnrollmentModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle size={24} /></button>
+                            <button type="button" onClick={() => setShowEnrollmentModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle size={24} /></button>
                         </div>
                         
                         <div className="flex border-b border-slate-200 px-6 pt-2 bg-slate-50/50">
-                            <button 
+                            <button type="button" 
                                 onClick={() => setSettingsTab('keys')} 
                                 className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${settingsTab === 'keys' ? 'border-purple-600 text-purple-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
                                 Enrollment Keys
                             </button>
-                            <button 
+                            <button type="button" 
                                 onClick={() => setSettingsTab('limits')} 
                                 className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${settingsTab === 'limits' ? 'border-purple-600 text-purple-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
                                 Course Limits
                             </button>
-                            <button 
+                            <button type="button" 
                                 onClick={() => setSettingsTab('global')} 
                                 className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${settingsTab === 'global' ? 'border-purple-600 text-purple-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
@@ -158,7 +158,7 @@ const EnrollmentKeysModal = ({
                                         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
                                             <div className="flex justify-between items-center mb-2">
                                                 <label className="block text-xs font-bold text-slate-700">Option 2: Bulk Upload</label>
-                                                <button onClick={handleDownloadTemplate} className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+                                                <button type="button" onClick={handleDownloadTemplate} className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
                                                     <Download size={12} /> Template
                                                 </button>
                                             </div>

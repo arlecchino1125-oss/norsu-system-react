@@ -132,7 +132,7 @@ export function ServiceIntroModal({ serviceKey }: { serviceKey: string }) {
                             <p className="text-xs text-blue-700"><span className="font-bold">💡 Tip:</span> {guide.tip}</p>
                         </div>
                     )}
-                    <button onClick={dismiss} className={`w-full py-3.5 bg-gradient-to-r ${guide.color} text-white rounded-xl font-bold text-sm shadow-lg transition-all hover:opacity-90`}>
+                    <button type="button" onClick={dismiss} className={`w-full py-3.5 bg-gradient-to-r ${guide.color} text-white rounded-xl font-bold text-sm shadow-lg transition-all hover:opacity-90`}>
                         Got it, let's go!
                     </button>
                 </div>

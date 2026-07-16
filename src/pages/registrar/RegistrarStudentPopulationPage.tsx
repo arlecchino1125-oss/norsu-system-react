@@ -199,7 +199,7 @@ export default function RegistrarStudentPopulationPage() {
             <div className="w-full lg:w-80 shrink-0 space-y-6">
                 {/* Actions card */}
                 <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-                    <button
+                    <button type="button"
                         onClick={() => studentsQuery.refetch()}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm"
                     >
@@ -263,7 +263,7 @@ export default function RegistrarStudentPopulationPage() {
                     </div>
 
                     {(searchTerm || departmentFilter !== 'All' || courseFilter !== 'All' || yearFilter !== 'All' || statusFilter !== 'All') && (
-                        <button
+                        <button type="button"
                             onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setCurrentPage(1); }}
                             className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium border border-red-100 mt-2"
                         >
@@ -318,9 +318,9 @@ export default function RegistrarStudentPopulationPage() {
                             {loading ? 'Loading...' : `Showing ${(currentPage - 1) * CARE_STUDENT_PAGE_SIZE + 1}-${Math.min(currentPage * CARE_STUDENT_PAGE_SIZE, totalStudents)} of ${totalStudents} students`}
                         </span>
                         <div className="flex items-center gap-1">
-                            <button disabled={currentPage === 1 || loading} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronLeft size={16} /></button>
+                            <button type="button" disabled={currentPage === 1 || loading} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronLeft size={16} /></button>
                             <span className="px-3 font-medium text-slate-700">Page {currentPage} of {totalPages}</span>
-                            <button disabled={currentPage === totalPages || loading} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronRight size={16} /></button>
+                            <button type="button" disabled={currentPage === totalPages || loading} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className="px-2 py-1 border rounded bg-white hover:bg-slate-50 disabled:opacity-50"><ChevronRight size={16} /></button>
                         </div>
                     </div>
                 </div>
@@ -333,7 +333,7 @@ export default function RegistrarStudentPopulationPage() {
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
                             <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-teal-50 flex items-center justify-between shrink-0">
                                 <div className="flex items-center gap-4">
-                                    <button
+                                    <button type="button"
                                         onClick={() => profileViewStudent?.profile_picture_url && setShowPhotoModal(true)}
                                         className={`w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg shadow-teal-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-teal-400 transition-all focus:outline-none' : 'cursor-default'}`}
                                     >
@@ -350,7 +350,7 @@ export default function RegistrarStudentPopulationPage() {
                                         <p className="text-sm text-slate-500 font-mono">{profileViewStudent.student_id} &bull; {profileViewStudent.course} &bull; {profileViewStudent.year_level}</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setProfileViewStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 bg-white rounded-full transition shadow-sm border border-slate-100">
+                                <button type="button" onClick={() => setProfileViewStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 bg-white rounded-full transition shadow-sm border border-slate-100">
                                     <XCircle size={24} />
                                 </button>
                             </div>
@@ -359,7 +359,7 @@ export default function RegistrarStudentPopulationPage() {
                                 <div className="sm:w-64 bg-slate-50 border-r border-slate-100 overflow-y-auto shrink-0 py-2">
                                     <div className="flex sm:flex-col gap-1 px-2">
                                         {PROFILE_CATEGORIES.map((cat, i) => (
-                                            <button
+                                            <button type="button"
                                                 key={cat.key}
                                                 onClick={() => setProfileCategoryIndex(i)}
                                                 className={`text-left px-4 py-3 flex items-center gap-3 text-sm transition-all rounded-lg ${profileCategoryIndex === i
@@ -442,7 +442,7 @@ export default function RegistrarStudentPopulationPage() {
                             className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <button
+                            <button type="button"
                                 onClick={() => setShowPhotoModal(false)}
                                 className="absolute top-4 right-4 w-8 h-8 bg-black/40 hover:bg-black/60 text-white backdrop-blur-md rounded-full flex items-center justify-center transition-colors z-10 border border-white/20"
                             >

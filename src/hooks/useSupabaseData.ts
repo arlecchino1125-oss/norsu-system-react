@@ -101,6 +101,10 @@ export function useSupabaseData<T = any>({
     const data = (qData as T[]) || [];
     const error = qError ? qError.message : null;
 
+    // False positive: cleanup below does call supabase.removeChannel(channel) —
+    // the detector doesn't recognize Supabase's client.removeChannel() cleanup
+    // convention (it looks for .unsubscribe() on the subscribed object itself).
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (subscribe) {
             const channel = supabase

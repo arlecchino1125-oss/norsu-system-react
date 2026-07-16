@@ -411,7 +411,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                             )}
                         </button>
                         {activeFilterCount > 0 && (
-                            <button
+                            <button type="button"
                                 onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setSchoolYearFilter('All'); setSectionFilter('All'); setHasNoteFilter(false); setAtRiskFilter(false); }}
                                 className="text-sm font-medium text-red-600 transition-colors hover:text-red-700"
                             >
@@ -428,49 +428,49 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         {departmentFilter !== 'All' && (
                             <span className="filter-chip">
                                 Dept: {departmentFilter}
-                                <button onClick={() => { setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
+                                <button type="button" onClick={() => { setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
                             </span>
                         )}
                         {courseFilter !== 'All' && (
                             <span className="filter-chip">
                                 Course: {courseFilter}
-                                <button onClick={() => { setCourseFilter('All'); setYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
+                                <button type="button" onClick={() => { setCourseFilter('All'); setYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
                             </span>
                         )}
                         {yearFilter !== 'All' && (
                             <span className="filter-chip">
                                 Year: {yearFilter}
-                                <button onClick={() => { setYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
+                                <button type="button" onClick={() => { setYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
                             </span>
                         )}
                         {statusFilter !== 'All' && (
                             <span className="filter-chip">
                                 Status: {statusFilter}
-                                <button onClick={() => setStatusFilter('All')}>&times;</button>
+                                <button type="button" onClick={() => setStatusFilter('All')}>&times;</button>
                             </span>
                         )}
                         {schoolYearFilter !== 'All' && (
                             <span className="filter-chip">
                                 SY: {schoolYearFilter}
-                                <button onClick={() => { setSchoolYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
+                                <button type="button" onClick={() => { setSchoolYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
                             </span>
                         )}
                         {sectionFilter !== 'All' && (
                             <span className="filter-chip">
                                 Section: {sectionFilter}
-                                <button onClick={() => setSectionFilter('All')}>&times;</button>
+                                <button type="button" onClick={() => setSectionFilter('All')}>&times;</button>
                             </span>
                         )}
                         {hasNoteFilter && (
                             <span className="filter-chip">
                                 Has Note
-                                <button onClick={() => setHasNoteFilter(false)}>&times;</button>
+                                <button type="button" onClick={() => setHasNoteFilter(false)}>&times;</button>
                             </span>
                         )}
                         {atRiskFilter && (
                             <span className="filter-chip">
                                 At-Risk
-                                <button onClick={() => setAtRiskFilter(false)}>&times;</button>
+                                <button type="button" onClick={() => setAtRiskFilter(false)}>&times;</button>
                             </span>
                         )}
                     </div>
@@ -777,7 +777,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                             <div className="px-6 py-4 border-b flex justify-between items-center">
                                 <h3 className="font-bold text-lg">Archive Student</h3>
-                                <button onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }}>
+                                <button type="button" onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }}>
                                     <XCircle size={24} className="text-slate-400" />
                                 </button>
                             </div>

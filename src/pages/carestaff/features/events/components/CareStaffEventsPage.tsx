@@ -494,7 +494,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                         }} disabled={filtered.length === 0 && expectedStudents.length === 0} leftIcon={<Download size={14} />}>
                                             Export Excel
                                         </Button>
-                                        <button onClick={() => { setShowAttendeesModal(false); setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setExpectedStudents([]); setSelectedAttendanceEvent(null); }}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                                        <button type="button" onClick={() => { setShowAttendeesModal(false); setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setExpectedStudents([]); setSelectedAttendanceEvent(null); }}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 text-xs mb-3">
@@ -511,40 +511,40 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                 {depts.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5 mb-2">
                                         <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Dept:</span>
-                                        <button onClick={() => setAttendeeFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeFilter === 'All' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All ({attendees.length})</button>
+                                        <button type="button" onClick={() => setAttendeeFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeFilter === 'All' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All ({attendees.length})</button>
                                         {depts.map(dept => {
                                             const count = attendees.filter(a => a.department === dept).length;
-                                            return <button key={dept} onClick={() => setAttendeeFilter(dept)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeFilter === dept ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{dept} ({count})</button>;
+                                            return <button type="button" key={dept} onClick={() => setAttendeeFilter(dept)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeFilter === dept ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{dept} ({count})</button>;
                                         })}
                                     </div>
                                 )}
                                 {yearLevels.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5">
                                         <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Year:</span>
-                                        <button onClick={() => setYearLevelFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === 'All' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
+                                        <button type="button" onClick={() => setYearLevelFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === 'All' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
                                         {yearLevels.map(yl => {
                                             const count = attendees.filter(a => a.year_level === yl).length;
-                                            return <button key={yl} onClick={() => setYearLevelFilter(yl)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === yl ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{yl} ({count})</button>;
+                                            return <button type="button" key={yl} onClick={() => setYearLevelFilter(yl)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === yl ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{yl} ({count})</button>;
                                         })}
                                     </div>
                                 )}
                                 {courses.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5 mb-2">
                                         <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Course:</span>
-                                        <button onClick={() => setAttendeeCourseFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeCourseFilter === 'All' ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
+                                        <button type="button" onClick={() => setAttendeeCourseFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeCourseFilter === 'All' ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
                                         {courses.map(c => {
                                             const count = attendees.filter(a => a.course === c).length;
-                                            return <button key={c} onClick={() => setAttendeeCourseFilter(c)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeCourseFilter === c ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{c} ({count})</button>;
+                                            return <button type="button" key={c} onClick={() => setAttendeeCourseFilter(c)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeCourseFilter === c ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{c} ({count})</button>;
                                         })}
                                     </div>
                                 )}
                                 {sections.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5">
                                         <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Section:</span>
-                                        <button onClick={() => setAttendeeSectionFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeSectionFilter === 'All' ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
+                                        <button type="button" onClick={() => setAttendeeSectionFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeSectionFilter === 'All' ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
                                         {sections.map(s => {
                                             const count = attendees.filter(a => a.section === s).length;
-                                            return <button key={s} onClick={() => setAttendeeSectionFilter(s)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeSectionFilter === s ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>Sec {s} ({count})</button>;
+                                            return <button type="button" key={s} onClick={() => setAttendeeSectionFilter(s)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeSectionFilter === s ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>Sec {s} ({count})</button>;
                                         })}
                                     </div>
                                 )}
@@ -657,7 +657,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                         >
                                             Export Excel
                                         </Button>
-                                        <button onClick={() => { setShowRegistrantsModal(false); setRegistrations([]); setSelectedRegistrationEvent(null); setRegistrantStatusFilter('All'); }}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                                        <button type="button" onClick={() => { setShowRegistrantsModal(false); setRegistrations([]); setSelectedRegistrationEvent(null); setRegistrantStatusFilter('All'); }}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2 text-xs mb-4">
@@ -675,7 +675,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                 )}
                                 <div className="flex flex-wrap gap-1.5">
                                     {statusOptions.map((status) => (
-                                        <button
+                                        <button type="button"
                                             key={status}
                                             onClick={() => setRegistrantStatusFilter(status)}
                                             className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${registrantStatusFilter === status ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
@@ -729,7 +729,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[80vh]">
                         <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
                             <div><h3 className="font-bold text-lg">Event Feedback</h3><p className="text-xs text-gray-500">{selectedEventTitle}</p></div>
-                            <button onClick={() => setShowFeedbackModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                            <button type="button" onClick={() => setShowFeedbackModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
                         <div className="p-6 overflow-y-auto flex-1 space-y-4">
                             {feedbackList.length === 0 ? <p className="text-center text-gray-500">No feedback submitted yet.</p> : feedbackList.map((fb, i) => {
@@ -778,7 +778,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                 )}
                                 <h3 className="mt-3 break-words text-2xl font-bold text-gray-900">{detailEvent.title}</h3>
                             </div>
-                            <button onClick={() => setDetailEvent(null)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                            <button type="button" onClick={() => setDetailEvent(null)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
                         <div className="p-6 sm:p-8 space-y-5 overflow-y-auto">
                             <section className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">

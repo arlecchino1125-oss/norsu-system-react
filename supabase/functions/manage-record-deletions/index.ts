@@ -235,6 +235,9 @@ const deleteNatApplication = async (adminClient: any, actor: any, body: Record<s
         'Application not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('applications')
         .delete()
@@ -360,6 +363,9 @@ const deleteNatRequirement = async (adminClient: any, actor: any, body: Record<s
         'NAT requirement not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('nat_requirements')
         .delete()
@@ -524,6 +530,9 @@ const deleteEnrollmentKey = async (adminClient: any, actor: any, body: Record<st
         'Enrollment key not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('enrolled_students')
         .delete()
@@ -559,6 +568,9 @@ const deleteForm = async (adminClient: any, actor: any, body: Record<string, unk
         'Form not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { data: submissions, error: submissionsError } = await adminClient
         .from('submissions')
         .select('id')
@@ -624,6 +636,9 @@ const deleteFormQuestion = async (adminClient: any, actor: any, body: Record<str
         'Question not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const answerCount = await countRowsByEquality(adminClient, 'answers', 'question_id', questionId);
     if (answerCount > 0) {
         throw withStatus(
@@ -665,6 +680,9 @@ const deleteScholarship = async (adminClient: any, actor: any, body: Record<stri
         'Scholarship not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const applicationCount = await countRowsByEquality(adminClient, 'scholarship_applications', 'scholarship_id', scholarshipId);
     if (applicationCount > 0) {
         throw withStatus(
@@ -705,6 +723,9 @@ const deleteEvent = async (adminClient: any, actor: any, body: Record<string, un
         'Event not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const attendanceCount = await countRowsByEquality(adminClient, 'event_attendance', 'event_id', eventId);
     const feedbackCount = await countRowsByEquality(adminClient, 'event_feedback', 'event_id', eventId);
     if (attendanceCount > 0 || feedbackCount > 0) {
