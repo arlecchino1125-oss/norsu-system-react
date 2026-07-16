@@ -8,6 +8,21 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../../../../compone
 import { useCareStaffFeedback, FEEDBACK_PAGE_SIZE } from '../hooks/useCareStaffFeedback';
 import type { CareStaffFeedbackPageProps } from '../hooks/useCareStaffFeedback';
 
+const formatEventTime = (value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(`1970-01-01T${value}`);
+    return isNaN(date.getTime()) ? null : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
+
+const formatEventSchedule = (event?: { event_date?: string | null; event_time?: string | null; end_time?: string | null } | null) => {
+    if (!event) return null;
+    const datePart = event.event_date ? formatDate(event.event_date) : null;
+    const startPart = formatEventTime(event.event_time);
+    const endPart = formatEventTime(event.end_time);
+    const timePart = startPart && endPart ? `${startPart} – ${endPart}` : startPart;
+    return [datePart, timePart].filter(Boolean).join(' · ') || null;
+};
+
 const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
     const {
         currentView,
@@ -252,7 +267,13 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                                 <div>
                                     <p className="text-[10px] uppercase tracking-widest text-blue-200 mb-1">Negros Oriental State University — CARE Center</p>
                                     <h3 className="text-lg font-extrabold tracking-tight">PARTICIPANT'S EVALUATION FORM</h3>
-                                    <p className="text-xs text-blue-200 mt-1 font-medium">{viewingEval.events?.title || 'Event'}</p>
+                                    <div className="mt-3 inline-flex flex-col gap-0.5 rounded-lg bg-white/10 px-3 py-2">
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-blue-300">Event</p>
+                                        <p className="text-base font-extrabold text-white">{viewingEval.events?.title || 'Untitled event'}</p>
+                                        {formatEventSchedule(viewingEval.events) && (
+                                            <p className="text-[11px] font-semibold text-blue-200">{formatEventSchedule(viewingEval.events)}</p>
+                                        )}
+                                    </div>
                                 </div>
                                 <Button variant="ghost" size="sm" onClick={() => setViewingEval(null)} className="!bg-white/15 hover:!bg-white/25 !text-white !rounded-lg flex-shrink-0">✕</Button>
                             </div>
@@ -260,7 +281,12 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
 
                         <div className="flex-1 overflow-y-auto p-5 space-y-5 lg:p-6" ref={printRef}>
                             <div style={{ display: 'none' }} className="eval-header">
-                                <div className="eval-header"><h1>PARTICIPANT'S EVALUATION FORM</h1><p>Negros Oriental State University — CARE Center</p><p>{viewingEval.events?.title || 'Event'}</p></div>
+                                <div className="eval-header">
+                                    <h1>PARTICIPANT'S EVALUATION FORM</h1>
+                                    <p>Negros Oriental State University — CARE Center</p>
+                                    <p style={{ fontWeight: 700 }}>{viewingEval.events?.title || 'Untitled event'}</p>
+                                    {formatEventSchedule(viewingEval.events) && <p>{formatEventSchedule(viewingEval.events)}</p>}
+                                </div>
                             </div>
                             <div className="info-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
                                 <div className="info-item"><label style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Name</label><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{viewingEval.student_name}</p></div>

@@ -35,9 +35,9 @@ const EVENT_FEEDBACK_COLUMNS = [
     'open_suggestions',
     'open_comments',
     'submitted_at',
-    'events(title)'
+    'events(title, event_date, event_time, end_time)'
 ].join(', ');
-const EVENT_FEEDBACK_FILTERED_COLUMNS = EVENT_FEEDBACK_COLUMNS.replace('events(title)', 'events!inner(title)');
+const EVENT_FEEDBACK_FILTERED_COLUMNS = EVENT_FEEDBACK_COLUMNS.replace('events(title, event_date, event_time, end_time)', 'events!inner(title, event_date, event_time, end_time)');
 const GENERAL_FEEDBACK_COLUMNS = [
     'id',
     'student_id',
