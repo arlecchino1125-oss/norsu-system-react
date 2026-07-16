@@ -21,6 +21,11 @@ type PermissionCacheEntry = {
 };
 
 export type PermissionUpdate = {
+    // `role` selects which role a permission row applies to, not the caller's own role.
+    // Writes to role_permissions are gated by the role_permissions_admin_manage RLS policy
+    // (WITH CHECK is_admin(), derived server-side from auth.uid()), so a non-admin caller's
+    // write is rejected regardless of the payload.
+    // react-doctor-disable-next-line react-doctor/supabase-client-owned-authz-field
     role: Role;
     permissionType: PermissionType;
     permissionKey: string;

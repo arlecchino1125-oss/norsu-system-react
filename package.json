@@ -18,7 +18,8 @@
     "sanitize:storage:dry-run": "node scripts/empty-production-storage.mjs --dry-run",
     "migrate:r2": "node --env-file-if-exists=.env.r2-migration.local scripts/migrate-documents-to-r2.mjs",
     "migrate:r2:dry-run": "node --env-file-if-exists=.env.r2-migration.local scripts/migrate-documents-to-r2.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "doctor": "npx react-doctor@latest"
   },
   "knip": {
     "ignore": [

@@ -117,4 +117,38 @@ describe('r2DocumentService', () => {
             .rejects.toThrow('Unsupported file type.');
         expect(invokeMock).not.toHaveBeenCalled();
     });
+
+    it('compresses an oversized photo under the 1 MB cap before uploading', async () => {
+        const compressedBlob = new Blob([new Uint8Array(500 * 1024)], { type: 'image/jpeg' });
+        vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 4000, height: 3000, close: vi.fn() }));
+        const getContext = vi.fn().mockReturnValue({ drawImage: vi.fn() });
+        const toBlob = vi.fn((callback: (blob: Blob | null) => void) => callback(compressedBlob));
+        HTMLCanvasElement.prototype.getContext = getContext as any;
+        HTMLCanvasElement.prototype.toBlob = toBlob as any;
+
+        invokeMock
+            .mockResolvedValueOnce({
+                success: true,
+                uploadUrl: 'https://r2.example/signed-put',
+                objectKey: 'events/2/attendance/photo.jpg',
+                contentType: 'image/jpeg'
+            })
+            .mockResolvedValueOnce({
+                success: true,
+                storedReference: 'r2:events/2/attendance/photo.jpg'
+            });
+        const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const oversizedFile = new File([new Uint8Array(2 * 1024 * 1024)], 'IMG_3982.jpeg', { type: 'image/jpeg' });
+
+        await uploadR2Document(oversizedFile, { category: 'attendance-proof', eventId: 2 });
+
+        const [uploadedFile] = fetchMock.mock.calls[0][1].body ? [fetchMock.mock.calls[0][1].body] : [];
+        expect(uploadedFile.size).toBeLessThanOrEqual(1024 * 1024);
+        expect(uploadedFile.type).toBe('image/jpeg');
+        expect(invokeMock).toHaveBeenNthCalledWith(1, 'manage-r2-documents', expect.objectContaining({
+            body: expect.objectContaining({ contentType: 'image/jpeg', size: compressedBlob.size })
+        }));
+    });
 });
