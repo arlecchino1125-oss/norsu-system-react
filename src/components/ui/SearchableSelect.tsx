@@ -96,8 +96,14 @@ export default function SearchableSelect({
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.15 }}
                                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }}
-                            />
+                            >
+                                <button
+                                    type="button"
+                                    aria-label="Close options"
+                                    className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }}
+                                />
+                            </motion.div>
                             
                             {/* Modal Box */}
                             <motion.div
@@ -135,10 +141,11 @@ export default function SearchableSelect({
                                     {filteredOptions.length > 0 ? (
                                         <div className="space-y-1">
                                             {filteredOptions.map((option) => (
-                                                <div
+                                                <button
+                                                    type="button"
                                                     key={option.value}
                                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(option.value); }}
-                                                    className={`px-4 py-2.5 rounded-xl text-sm sm:text-[13px] leading-tight cursor-pointer flex items-center justify-between transition-all ${
+                                                    className={`w-full px-4 py-2.5 rounded-xl text-left text-sm sm:text-[13px] leading-tight cursor-pointer flex items-center justify-between transition-all ${
                                                         value === option.value
                                                             ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200'
                                                             : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 font-medium'
@@ -146,7 +153,7 @@ export default function SearchableSelect({
                                                 >
                                                     <span className="pr-4">{option.label}</span>
                                                     {value === option.value && <Check className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />}
-                                                </div>
+                                                </button>
                                             ))}
                                         </div>
                                     ) : (

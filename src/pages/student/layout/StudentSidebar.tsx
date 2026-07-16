@@ -43,7 +43,7 @@ export function StudentSidebar({
 
     return (
         <>
-            {isOpen && <div className="student-sidebar-overlay fixed inset-0 z-20 bg-slate-950/10 backdrop-blur-[1px] animate-backdrop" onClick={onClose} />}
+            {isOpen && <button type="button" aria-label="Dismiss student navigation" className="student-sidebar-overlay fixed inset-0 z-20 bg-slate-950/10 backdrop-blur-[1px] animate-backdrop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400" onClick={onClose} />}
 
             <aside className={`student-portal-sidebar fixed inset-y-0 left-0 z-30 flex w-[18rem] max-w-[calc(100vw-0.75rem)] transform flex-col border-r border-slate-200 bg-white text-slate-900 shadow-2xl shadow-slate-950/20 transition-all duration-300 ease-out sm:w-72 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="border-b border-slate-200/80 p-4">

@@ -77,8 +77,9 @@ const StudentProfileModal = ({
     <>
             {profileViewStudent && typeof document !== 'undefined' && createPortal(
                 <>
-                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-2 sm:p-6" onClick={() => setProfileViewStudent(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-2 sm:p-6">
+                    <button type="button" aria-label="Close student profile" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400" onClick={() => setProfileViewStudent(null)} />
+                    <div className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
                         {/* Header */}
                         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 flex flex-col sm:flex-row items-start sm:items-center justify-between shrink-0 gap-3">
                             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -245,11 +246,11 @@ const StudentProfileModal = ({
                 {/* Full Size Photo Modal */}
                 <div
                     className={`fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-                    onClick={() => setShowPhotoModal(false)}
+                    inert={!showPhotoModal}
                 >
+                    <button type="button" aria-label="Close profile photo" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400" onClick={() => setShowPhotoModal(false)} />
                     <div
-                        className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
-                        onClick={(e) => e.stopPropagation()}
+                        className={`z-10 bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
                     >
                         <button type="button"
                             onClick={() => setShowPhotoModal(false)}

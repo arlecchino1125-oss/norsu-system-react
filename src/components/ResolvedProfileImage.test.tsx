@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useResolvedDocumentUrl } from '../hooks/useResolvedDocumentUrl';
 import { openStoredAsset } from '../utils/storageAssets';
@@ -18,12 +19,17 @@ describe('ResolvedProfileImage', () => {
         vi.mocked(openStoredAsset).mockResolvedValue('https://r2.example/profile.jpg');
     });
 
-    it('opens the authorized profile-photo preview by click and keyboard', () => {
+    it('uses a native button to open the authorized profile-photo preview', async () => {
+        const user = userEvent.setup();
         render(<ResolvedProfileImage storedValue="r2:students/1/profile/photo/profile.jpg" studentId="430130903" alt="Student profile" />);
-        const image = screen.getByRole('button', { name: 'Student profile' });
+        const previewButton = screen.getByRole('button', { name: 'Student profile' });
 
-        fireEvent.click(image);
-        fireEvent.keyDown(image, { key: 'Enter' });
+        expect(previewButton.tagName).toBe('BUTTON');
+        expect(screen.getByAltText('Student profile').tagName).toBe('IMG');
+
+        await user.click(previewButton);
+        previewButton.focus();
+        await user.keyboard('{Enter}');
 
         expect(openStoredAsset).toHaveBeenCalledTimes(2);
         expect(openStoredAsset).toHaveBeenCalledWith(
@@ -65,7 +71,7 @@ describe('ResolvedProfileImage', () => {
             />
         );
 
-        const image = screen.getByRole('button', { name: 'Student profile' });
+        const image = screen.getByAltText('Student profile');
         expect(screen.getByRole('status', { name: 'Loading Student profile' })).toBeInTheDocument();
 
         fireEvent.load(image);

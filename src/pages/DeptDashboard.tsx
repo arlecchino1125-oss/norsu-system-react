@@ -292,7 +292,7 @@ export default function DeptDashboard() {
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 text-gray-800 font-sans overflow-hidden">
             {/* Sidebar Overlay */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-transparent z-20 animate-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+            {isSidebarOpen && <button type="button" aria-label="Close department navigation" className="fixed inset-0 bg-transparent z-20 animate-backdrop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400" onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Premium Sidebar */}
 

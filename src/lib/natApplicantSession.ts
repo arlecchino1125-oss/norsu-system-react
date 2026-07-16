@@ -7,6 +7,9 @@ export type NatApplicantSession = {
     expiresAt: string;
 };
 
+export const didNatApplicantStatusChange = (previousStatus?: string | null, nextStatus?: string | null) =>
+    Boolean(previousStatus && nextStatus && previousStatus !== nextStatus);
+
 const createUuid = () => {
     if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
     const bytes = crypto.getRandomValues(new Uint8Array(16));

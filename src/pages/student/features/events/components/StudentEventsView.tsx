@@ -711,7 +711,7 @@ const StudentEventsView = ({
 
             {showRatingModal && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-transparent p-3 student-mobile-modal-overlay sm:items-center sm:p-4">
-                    <div className="absolute inset-0 bg-transparent" onClick={() => setShowRatingModal(false)} />
+                    <button type="button" aria-label="Close evaluation form" className="absolute inset-0 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400" onClick={() => setShowRatingModal(false)} />
                     <div className="student-rating-modal-panel relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-scale-in student-mobile-modal-panel">
                         <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white sm:px-5">
                             <div className="flex items-start justify-between gap-4">

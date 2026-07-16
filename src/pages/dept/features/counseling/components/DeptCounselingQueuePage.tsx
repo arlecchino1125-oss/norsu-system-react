@@ -148,16 +148,16 @@ const DeptCounselingQueuePage = ({
                         (() => {
                             const isCompletingRequest = pendingCounselingCompletionId === String(req.id);
                             return (
-                        <div key={req.id} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all animate-fade-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
+                        <div key={req.id} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all animate-fade-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
                             <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-4">
-                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">{req.student_name.charAt(0)}</div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-900">{req.student_name}</h4>
-                                        {req.course_year && <p className="text-xs text-gray-500">{req.course_year}</p>}
-                                        <p className="text-[10px] text-gray-400 mt-2">{new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                                    </div>
-                                </div>
+                                <button type="button" aria-label={`View counseling request for ${req.student_name}`} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="flex min-w-0 flex-1 cursor-pointer items-start gap-4 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                    <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">{req.student_name.charAt(0)}</span>
+                                    <span className="min-w-0">
+                                        <span className="block font-bold text-gray-900">{req.student_name}</span>
+                                        {req.course_year && <span className="block text-xs text-gray-500">{req.course_year}</span>}
+                                        <span className="mt-2 block text-[10px] text-gray-400">{new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    </span>
+                                </button>
                                 <div className="flex gap-2 ml-4 flex-shrink-0">
                                     {isCounselingAwaitingDept(req.status) && (
                                         <>

@@ -178,9 +178,10 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     {eventFilter !== 'Archived' && events
                         .filter(i => eventFilter === 'All Items' || isVisibleForStaffFilter(i, eventFilter))
                         .map(item => (
-                            <div key={item.id} onClick={() => setDetailEvent(item)} className="card-hover bg-white/80 backdrop-blur-sm border border-gray-100/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden group cursor-pointer">
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                <div className="min-w-0 flex-1">
+                            <div key={item.id} className="card-hover bg-white/80 backdrop-blur-sm border border-gray-100/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden group">
+                                <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <button type="button" aria-label={`View details for ${item.title}`} className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => setDetailEvent(item)} />
+                                <div className="pointer-events-none relative z-10 min-w-0 flex-1">
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className={`text-xs font-bold px-3 py-1 rounded-full ${getEventTypeBadgeClass(item.type)}`}>{item.type}</span>
                                         {isAttendanceActivityType(item.type) && item.attendance_required && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">Required</span>}
@@ -208,7 +209,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex shrink-0 flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+                                <div className="relative z-20 flex shrink-0 flex-wrap gap-2">
                                     {isAttendanceActivityType(item.type) && (
                                         <>
                                             <Button variant="secondary" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-500" />}>Reviews ({item.feedbackCount || 0})</Button>
@@ -226,9 +227,10 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
 
                     {/* Archived Events */}
                     {eventFilter === 'Archived' && archivedEvents.map(item => (
-                        <div key={item.id} onClick={() => setDetailEvent(item)} className="bg-gray-50/80 backdrop-blur-sm border border-gray-200/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden opacity-75 hover:opacity-100 transition-opacity cursor-pointer">
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-gray-300 to-gray-400" />
-                            <div className="min-w-0 flex-1">
+                        <div key={item.id} className="bg-gray-50/80 backdrop-blur-sm border border-gray-200/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
+                            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-gray-300 to-gray-400" />
+                            <button type="button" aria-label={`View details for ${item.title}`} className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500" onClick={() => setDetailEvent(item)} />
+                            <div className="pointer-events-none relative z-10 min-w-0 flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className={`text-xs font-bold px-3 py-1 rounded-full ${getArchivedEventTypeBadgeClass(item.type)}`}>{item.type}</span>
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1"><Archive size={10} /> Archived</span>
@@ -256,7 +258,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                     </div>
                                 )}
                             </div>
-                            <div className="flex shrink-0 flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+                            <div className="relative z-20 flex shrink-0 flex-wrap gap-2">
                                 {isAttendanceActivityType(item.type) && (
                                     <>
                                         <Button variant="ghost" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-400" />}>Reviews ({item.feedbackCount || 0})</Button>
