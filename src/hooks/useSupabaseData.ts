@@ -47,7 +47,7 @@ export function useSupabaseData<T = any>({
         if (!orderColumn) return rows;
 
         const direction = orderAscending === false ? -1 : 1;
-        return [...rows].sort((left: any, right: any) => {
+        return rows.toSorted((left: any, right: any) => {
             const leftValue = left?.[orderColumn];
             const rightValue = right?.[orderColumn];
 

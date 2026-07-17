@@ -4938,7 +4938,8 @@ CREATE POLICY "forms_care_admin_update" ON "public"."forms" FOR UPDATE TO "authe
 ALTER TABLE "public"."general_feedback" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "general_feedback_anon_insert" ON "public"."general_feedback" FOR INSERT TO "anon" WITH CHECK (true);
+-- Anonymous writes are intentionally omitted; authenticated students use the
+-- ownership-scoped general_feedback_student_insert_own policy below.
 
 
 

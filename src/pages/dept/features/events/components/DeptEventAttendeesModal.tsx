@@ -100,8 +100,8 @@ export function DeptEventAttendeesModal(props: any) {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {filtered.map((att: any, i: any) => (
-                                                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                {filtered.map((att: any) => (
+                                                    <tr key={att.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                                         <td className="px-6 py-3">
                                                             <p className="font-bold text-gray-900 dark:text-white">{att.student_name}</p>
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">{att.department}</p>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     getActiveOfficeVisit,
@@ -8,16 +8,10 @@ import {
 
 interface UseStudentProfileDataArgs {
     studentId: string;
-    setActiveVisit: (visit: any) => void;
-    setVisitReasons: (rows: any[]) => void;
-    setNotifications: (rows: any[]) => void;
 }
 
 export const useStudentProfileData = ({
-    studentId,
-    setActiveVisit,
-    setVisitReasons,
-    setNotifications
+    studentId
 }: UseStudentProfileDataArgs) => {
     // ponytail: Caching student visit state with React Query to suppress repeat hits on tab reload.
     const { data: activeVisit, refetch: refetchActiveVisit } = useQuery({
@@ -50,28 +44,6 @@ export const useStudentProfileData = ({
         enabled: Boolean(studentId)
     });
 
-    useEffect(() => {
-        if (!studentId) {
-            setActiveVisit(null);
-        } else if (activeVisit !== undefined) {
-            setActiveVisit(activeVisit);
-        }
-    }, [activeVisit, studentId, setActiveVisit]);
-
-    useEffect(() => {
-        if (visitReasons) {
-            setVisitReasons(visitReasons);
-        }
-    }, [visitReasons, setVisitReasons]);
-
-    useEffect(() => {
-        if (!studentId) {
-            setNotifications([]);
-        } else if (notifications) {
-            setNotifications(notifications);
-        }
-    }, [notifications, studentId, setNotifications]);
-
     const refreshActiveVisit = useCallback(async () => {
         await refetchActiveVisit();
     }, [refetchActiveVisit]);
@@ -85,6 +57,9 @@ export const useStudentProfileData = ({
     }, [refetchNotifications]);
 
     return {
+        activeVisit: studentId ? activeVisit ?? null : null,
+        visitReasons: visitReasons ?? [],
+        notifications: studentId ? notifications ?? [] : [],
         refreshActiveVisit,
         refreshVisitReasons,
         refreshNotifications

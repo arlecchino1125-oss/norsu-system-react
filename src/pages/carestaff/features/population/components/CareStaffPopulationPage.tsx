@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import {
     Users, Search, Download, XCircle, Edit, Trash2, Plus, Key, Archive,
@@ -302,7 +302,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                     </div>
                 </div>
             )}
-            <motion.div
+            <m.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4"
@@ -333,9 +333,9 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         {viewMode === 'list' ? 'View Stats' : 'View List'}
                     </Button>
                 </div>
-            </motion.div>
+            </m.div>
 
-            <motion.div
+            <m.div
                 initial="hidden"
                 animate="show"
                 variants={{
@@ -344,7 +344,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 }}
                 className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-3"
             >
-                <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+                <m.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
                     <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-inner">
                         <Users size={24} />
@@ -353,9 +353,9 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Total Population</p>
                         <p className="text-3xl font-black tracking-tight text-slate-900 group-hover:text-blue-700 mt-0.5 transition-colors">{overviewLoading ? '...' : populationOverview.totalPopulation}</p>
                     </div>
-                </motion.div>
+                </m.div>
 
-                <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300">
+                <m.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300">
                     <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shadow-inner">
                         <TrendingUp size={24} />
@@ -364,9 +364,9 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Active Students</p>
                         <p className="text-3xl font-black tracking-tight text-slate-900 group-hover:text-emerald-700 mt-0.5 transition-colors">{overviewLoading ? '...' : populationOverview.activeStudents}</p>
                     </div>
-                </motion.div>
+                </m.div>
 
-                <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
+                <m.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
                     <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 group-hover:scale-110 group-hover:bg-amber-600 group-hover:text-white transition-all duration-300 shadow-inner">
                         <Archive size={24} />
@@ -375,10 +375,10 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Archived Students</p>
                         <p className="text-3xl font-black tracking-tight text-slate-900 group-hover:text-amber-700 mt-0.5 transition-colors">{overviewLoading ? '...' : populationOverview.archivedStudents}</p>
                     </div>
-                </motion.div>
-            </motion.div>
+                </m.div>
+            </m.div>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} data-refresh-surface className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 p-5 mb-6 flex flex-col gap-3 shadow-lg shadow-purple-500/5 ring-1 ring-slate-200/50">
+            <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} data-refresh-surface className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 p-5 mb-6 flex flex-col gap-3 shadow-lg shadow-purple-500/5 ring-1 ring-slate-200/50">
                 {/* Search bar + filter toggle */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
                     <div className="relative w-full sm:w-96">
@@ -550,10 +550,10 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         </div>
                     </div>
                 </div>
-            </motion.div>
+            </m.div>
 
             {viewMode === 'stats' ? (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} data-refresh-surface className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden p-8 mb-6">
+                <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} data-refresh-surface className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden p-8 mb-6">
                     <h3 className="font-bold text-xl text-slate-900 mb-6 flex items-center gap-2"><PieChart size={20} className="text-purple-600" /> Live Student Population Counter</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm border-collapse">
@@ -578,22 +578,22 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                                     const y4 = courseCounts['4th Year'] || 0;
                                     const total = y1 + y2 + y3 + y4;
                                     return (
-                                        <motion.tr whileHover={{ scale: 1.005, backgroundColor: 'rgba(250, 245, 255, 0.4)' }} transition={{ type: 'spring', stiffness: 400 }} key={course.id} className="cursor-pointer group">
+                                        <m.tr whileHover={{ scale: 1.005, backgroundColor: 'rgba(250, 245, 255, 0.4)' }} transition={{ type: 'spring', stiffness: 400 }} key={course.id} className="cursor-pointer group">
                                             <td className="p-4 font-bold text-slate-800 group-hover:text-purple-700 transition-colors">{course.name}</td>
                                             <td className="p-4 text-center font-medium text-slate-600">{y1}</td>
                                             <td className="p-4 text-center font-medium text-slate-600">{y2}</td>
                                             <td className="p-4 text-center font-medium text-slate-600">{y3}</td>
                                             <td className="p-4 text-center font-medium text-slate-600">{y4}</td>
                                             <td className="p-4 text-center font-black text-blue-700 bg-blue-50/30">{total}</td>
-                                        </motion.tr>
+                                        </m.tr>
                                     );
                                 })}
                             </tbody>
                         </table>
                     </div>
-                </motion.div>
+                </m.div>
             ) : (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} data-refresh-surface className={`${CARE_STUDENT_TABLE_SHELL_CLASS.replace('border-slate-200', 'border-white/60 ring-1 ring-slate-200/50 shadow-xl shadow-purple-500/5 bg-white/80 backdrop-blur-xl rounded-[2rem]')} overflow-hidden flex flex-col min-h-[500px] mb-6`}>
+                <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} data-refresh-surface className={`${CARE_STUDENT_TABLE_SHELL_CLASS.replace('border-slate-200', 'border-white/60 ring-1 ring-slate-200/50 shadow-xl shadow-purple-500/5 bg-white/80 backdrop-blur-xl rounded-[2rem]')} overflow-hidden flex flex-col min-h-[500px] mb-6`}>
                     <div className="flex-1 overflow-x-auto">
                         <table className="w-full text-left text-sm border-collapse">
                             <thead className="bg-slate-50/80 border-b border-slate-200/60 text-[10px] uppercase text-slate-500 font-bold tracking-widest backdrop-blur-sm">
@@ -622,7 +622,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                                                 const hasDeptNote = annotations.some((annotation: any) => String(annotation.note || '').trim());
                                                 const isDeptFlagged = annotations.some((annotation: any) => annotation.is_at_risk);
                                                 return (
-                                            <motion.tr
+                                            <m.tr
                                                 key={student.id}
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
@@ -673,12 +673,12 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <button type="button" aria-label={`View profile for ${student.first_name} ${student.last_name}`} onClick={() => openProfileModal(student)} className="text-purple-500 hover:text-purple-700 p-2 bg-purple-50 rounded-lg mr-2 transition-colors"><Eye size={16} /></button>
-                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-500 hover:text-blue-700 p-2 bg-blue-50 rounded-lg mr-2 transition-colors"><Edit size={16} /></motion.button>
+                                                    <m.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-500 hover:text-blue-700 p-2 bg-blue-50 rounded-lg mr-2 transition-colors"><Edit size={16} /></m.button>
                                                     {canArchiveRecords && (
-                                                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-amber-600 hover:text-amber-800 p-2 bg-amber-50 rounded-lg transition-colors" title="Archive Student"><Archive size={16} /></motion.button>
+                                                        <m.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-amber-600 hover:text-amber-800 p-2 bg-amber-50 rounded-lg transition-colors" title="Archive Student"><Archive size={16} /></m.button>
                                                     )}
                                                 </td>
-                                            </motion.tr>
+                                            </m.tr>
                                                 );
                                             })()
                                         ))}
@@ -756,7 +756,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                             </button>
                         </div>
                     </div>
-                </motion.div>
+                </m.div>
             )
             }
 

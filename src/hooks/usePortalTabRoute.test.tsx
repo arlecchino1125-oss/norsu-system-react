@@ -1,22 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route, Navigate, useParams, useLocation, useNavigate } from 'react-router-dom';
-import { usePortalTabRoute, readInitialTab } from './usePortalTabRoute';
+import { MemoryRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { usePortalTabRoute } from './usePortalTabRoute';
 
 const TABS = ['home', 'population', 'analytics'] as const;
 type Tab = (typeof TABS)[number];
 
 function Harness() {
-    const { tab } = useParams<{ tab?: string }>();
-    const [activeTab, setActiveTab] = useState<Tab>(() => readInitialTab<Tab>(tab, TABS, 'home'));
-    const { goToTab } = usePortalTabRoute<Tab>({
+    const { activeTab, goToTab } = usePortalTabRoute<Tab>({
         basePath: '/p',
         tabs: TABS,
         defaultTab: 'home',
-        activeTab,
-        onTabResolved: setActiveTab,
     });
     const navigate = useNavigate();
     return (

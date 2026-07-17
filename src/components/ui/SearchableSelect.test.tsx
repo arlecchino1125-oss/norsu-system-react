@@ -14,7 +14,9 @@ describe('SearchableSelect accessibility', () => {
             />,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: /select an option/i }));
+        const trigger = screen.getByLabelText('Course');
+        expect(trigger).toHaveAttribute('type', 'button');
+        fireEvent.click(trigger);
 
         const option = screen.getByRole('button', { name: 'Computer Science' });
         expect(option.tagName).toBe('BUTTON');

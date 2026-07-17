@@ -335,7 +335,7 @@ export default function SupportFormModal({
                         {form.files.length > 0 && (
                             <div className="mt-2 space-y-1.5 sm:mt-3 sm:space-y-2">
                                 {form.files.map((file, index) => (
-                                    <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-blue-50 px-2.5 py-2 sm:gap-3 sm:px-3">
+                                    <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-blue-50 px-2.5 py-2 sm:gap-3 sm:px-3">
                                         <div className="min-w-0">
                                             <p className="truncate text-xs font-bold text-blue-900 sm:text-sm">{file.name}</p>
                                             <p className="text-[10px] font-semibold text-blue-500">{(file.size / 1024).toFixed(0)} KB</p>

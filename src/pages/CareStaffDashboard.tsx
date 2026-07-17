@@ -1,8 +1,8 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../lib/useAuth';
-import { usePortalTabRoute, readInitialTab } from '../hooks/usePortalTabRoute';
+import { usePortalTabRoute } from '../hooks/usePortalTabRoute';
 import { useToast } from '../components/ui/toast/useToast';
 import { usePermissions } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
@@ -58,16 +58,10 @@ const CareStaffDashboard = () => {
         getFeatureAccessState,
         isFeatureVisible
     } = usePermissions();
-    const { tab: urlTab } = useParams<{ tab?: string }>();
-    const [activeTab, setActiveTab] = useState<ActiveTab>(
-        () => readInitialTab<ActiveTab>(urlTab, ACTIVE_TABS, 'home'),
-    );
-    const { goToTab } = usePortalTabRoute<ActiveTab>({
+    const { activeTab, goToTab } = usePortalTabRoute<ActiveTab>({
         basePath: CARE_STAFF_BASE_PATH,
         tabs: ACTIVE_TABS,
         defaultTab: 'home',
-        activeTab,
-        onTabResolved: setActiveTab,
     });
     const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
 

@@ -22,7 +22,7 @@ const OFFICE_VISIT_COLUMNS = 'id, student_id, student_name, reason, time_in, tim
 const OFFICE_VISIT_REASON_COLUMNS = 'id, reason, is_active, created_at';
 
 const sortVisitsByTimeIn = (rows: any[]) =>
-    [...rows].sort((a: any, b: any) => new Date(b.time_in || 0).getTime() - new Date(a.time_in || 0).getTime());
+    rows.toSorted((a: any, b: any) => new Date(b.time_in || 0).getTime() - new Date(a.time_in || 0).getTime());
 
 const CareStaffLogbookPage = ({ functions }: CareStaffLogbookPageProps) => {
     const { canPerformAction } = usePermissions();

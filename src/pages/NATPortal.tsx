@@ -7,7 +7,7 @@ import {
     GraduationCap, ArrowLeft, FileText, Info, Check, User, Key,
     Calendar, MapPin, Loader2, Printer, X, Clock, HelpCircle, LogOut, Mail, Moon, Phone, ArrowRight, SunMedium, Menu
 } from 'lucide-react';
-import { motion, Variants } from 'framer-motion';
+import { m, Variants } from 'framer-motion';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
 import usePublicTheme from '../hooks/usePublicTheme';
 import { usePermissionsForRole } from '../hooks/usePermissions';
@@ -369,7 +369,7 @@ const NatStatusSummaryScreen = ({
     onBackToWelcome: () => void;
 }) => (
     <div className="nat-page-shell nat-page-shell-md max-w-4xl mx-auto w-full">
-        <motion.div
+        <m.div
             initial="initial"
             animate="in"
             variants={{
@@ -383,7 +383,7 @@ const NatStatusSummaryScreen = ({
         >
             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 nat-print-hidden"></div>
 
-            <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10 gap-4">
+            <m.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10 gap-4">
                 <div>
                     <h1 className="nat-panel-title text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Application Status</h1>
                     <p className="text-slate-500 text-sm font-semibold mt-2 flex items-center gap-2">Ref ID: <span className="font-mono text-xs md:text-sm text-slate-700 bg-white/60 border border-slate-200 px-2 md:px-3 py-1 rounded-lg shadow-sm">{credentials?.referenceId}</span></p>
@@ -395,20 +395,20 @@ const NatStatusSummaryScreen = ({
                     </span>
                     Submitted Successfully
                 </span>
-            </motion.div>
+            </m.div>
 
             <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-10">
-                <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-white shadow-sm">
+                <m.div variants={itemVariants} className="bg-white/60 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-white shadow-sm">
                     <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1 md:mb-2">Applicant Name</p>
                     <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{credentials?.firstName} {credentials?.lastName}</p>
-                </motion.div>
-                <motion.div variants={itemVariants} className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-blue-100/50 shadow-sm">
+                </m.div>
+                <m.div variants={itemVariants} className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 backdrop-blur-md rounded-[1.5rem] p-5 md:p-6 border border-blue-100/50 shadow-sm">
                     <p className="text-[10px] md:text-xs font-black text-blue-400 uppercase tracking-widest mb-1 md:mb-2">Priority Course</p>
                     <p className="text-xl md:text-2xl font-black text-blue-700 tracking-tight">{credentials?.priorityCourse}</p>
-                </motion.div>
+                </m.div>
             </div>
 
-            <motion.div variants={itemVariants} className="nat-callout bg-gradient-to-br from-blue-50/90 to-indigo-50/90 border border-blue-200/50 rounded-[1.5rem] p-8 mb-8 flex gap-5 shadow-inner">
+            <m.div variants={itemVariants} className="nat-callout bg-gradient-to-br from-blue-50/90 to-indigo-50/90 border border-blue-200/50 rounded-[1.5rem] p-8 mb-8 flex gap-5 shadow-inner">
                 <div className="bg-white p-3 rounded-2xl h-fit text-blue-600 shadow-md shadow-blue-500/10 nat-print-hidden"><Clock className="w-7 h-7" /></div>
                 <div>
                     <h3 className="font-extrabold text-slate-800 mb-2 text-lg">Next Steps</h3>
@@ -416,9 +416,9 @@ const NatStatusSummaryScreen = ({
                         Your application is being processed. Please prepare for your admission test on <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{credentials?.testDate}</span>{credentials?.testTime ? <> at <span className="font-black text-blue-700 bg-white/50 px-2 py-0.5 rounded-md border border-blue-100">{formatTimeWindowLabel(credentials?.testTime)}</span></> : ''}.
                     </p>
                 </div>
-            </motion.div>
+            </m.div>
 
-            <motion.div variants={itemVariants} className="nat-section-card bg-gradient-to-br from-amber-50/90 to-orange-50/90 border border-amber-200/50 rounded-[2rem] p-8 mb-10 relative overflow-hidden shadow-sm">
+            <m.div variants={itemVariants} className="nat-section-card bg-gradient-to-br from-amber-50/90 to-orange-50/90 border border-amber-200/50 rounded-[2rem] p-8 mb-10 relative overflow-hidden shadow-sm">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-10 -mt-10 nat-print-hidden"></div>
                 <div className="relative z-10">
                     <h3 className="text-lg font-black text-amber-900 mb-6 flex items-center gap-3">
@@ -438,9 +438,9 @@ const NatStatusSummaryScreen = ({
                         <Info className="w-4 h-4 nat-print-hidden" /> Please save these credentials. Use Print / Save Summary to keep a PDF copy. Password is hidden from printouts for safety.
                     </p>
                 </div>
-            </motion.div>
+            </m.div>
 
-            <motion.div variants={itemVariants} className="nat-action-row nat-print-hidden flex flex-col md:flex-row gap-4">
+            <m.div variants={itemVariants} className="nat-action-row nat-print-hidden flex flex-col md:flex-row gap-4">
                 <button type="button"
                     onClick={onPrintSummary}
                     className="nat-secondary-action flex-1 bg-white/80 backdrop-blur-sm border-2 border-slate-200/50 text-slate-700 py-4 px-6 rounded-2xl font-black text-lg hover:bg-white hover:border-slate-300 hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
@@ -461,8 +461,8 @@ const NatStatusSummaryScreen = ({
                 >
                     Back to Welcome
                 </button>
-            </motion.div>
-        </motion.div>
+            </m.div>
+        </m.div>
     </div>
 );
 
@@ -1500,7 +1500,7 @@ const NATPortal = () => {
             }
         >
             <div className="nat-page-shell nat-page-shell-lg max-w-5xl mx-auto w-full">
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -1508,25 +1508,25 @@ const NATPortal = () => {
                 >
                     <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none"></div>
 
-                    <motion.div
+                    <m.div
                         variants={NAT_CONTAINER_VARIANTS}
                         initial="initial"
                         animate="in"
                         className="relative z-10"
                     >
-                        <motion.div variants={NAT_ITEM_VARIANTS} className="inline-flex p-4 md:p-5 bg-gradient-to-br from-white to-blue-50 border border-white rounded-[2rem] shadow-xl shadow-blue-200/50 mb-6 md:mb-8 transform hover:scale-110 transition-transform duration-500 relative">
+                        <m.div variants={NAT_ITEM_VARIANTS} className="inline-flex p-4 md:p-5 bg-gradient-to-br from-white to-blue-50 border border-white rounded-[2rem] shadow-xl shadow-blue-200/50 mb-6 md:mb-8 transform hover:scale-110 transition-transform duration-500 relative">
                             <div className="absolute inset-0 bg-blue-400/20 blur-xl rounded-full"></div>
                             <FileText className="w-10 h-10 md:w-14 md:h-14 text-blue-600 relative z-10 drop-shadow-sm" />
-                        </motion.div>
-                        <motion.h2 variants={NAT_ITEM_VARIANTS} className="nat-hero-title text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
+                        </m.div>
+                        <m.h2 variants={NAT_ITEM_VARIANTS} className="nat-hero-title text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-900 via-blue-700 to-indigo-900 mb-4 tracking-tight">
                             Welcome to NORSU
-                        </motion.h2>
-                        <motion.p variants={NAT_ITEM_VARIANTS} className="nat-hero-lead text-lg md:text-2xl text-slate-600/90 font-medium mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
+                        </m.h2>
+                        <m.p variants={NAT_ITEM_VARIANTS} className="nat-hero-lead text-lg md:text-2xl text-slate-600/90 font-medium mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                             Begin your academic journey with the Negros Oriental State University Admission Test.
-                        </motion.p>
+                        </m.p>
 
-                        <motion.div variants={NAT_CONTAINER_VARIANTS} className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12 text-left">
-                            <motion.div variants={NAT_ITEM_VARIANTS} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/card hover:-translate-y-1 relative overflow-hidden">
+                        <m.div variants={NAT_CONTAINER_VARIANTS} className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12 text-left">
+                            <m.div variants={NAT_ITEM_VARIANTS} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/card hover:-translate-y-1 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300"></div>
                                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-3 text-base md:text-lg relative z-10">
                                     <div className="p-2 bg-blue-100/50 rounded-xl"><Info className="w-5 h-5 text-blue-600" /></div> About the Test
@@ -1534,22 +1534,22 @@ const NATPortal = () => {
                                 <p className="text-sm md:text-base text-slate-600/90 leading-relaxed font-medium relative z-10">
                                     The NAT assesses your readiness for university-level education. It ensures you are prepared for the academic challenges ahead with a comprehensive evaluation.
                                 </p>
-                            </motion.div>
-                            <motion.div variants={NAT_ITEM_VARIANTS} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/steps hover:-translate-y-1 relative overflow-hidden">
+                            </m.div>
+                            <m.div variants={NAT_ITEM_VARIANTS} className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white shadow-lg shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 transform group/steps hover:-translate-y-1 relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover/steps:opacity-100 transition-opacity duration-300"></div>
                                 <h3 className="font-bold text-slate-800 mb-5 text-base md:text-lg relative z-10">Application Steps</h3>
                                 <div className="space-y-3 md:space-y-4 relative z-10">
                                     {["Complete application form", "Choose test schedule", "Receive credentials", "Take the test"].map((text, i) => (
-                                        <div key={i} className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-700 font-bold group/step">
+                                        <div key={text} className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-700 font-bold group/step">
                                             <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center text-[10px] md:text-xs font-black border border-blue-200/50 shadow-sm group-hover/step:scale-110 transition-transform">{i + 1}</div>
                                             {text}
                                         </div>
                                     ))}
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                            </m.div>
+                        </m.div>
 
-                        <motion.div variants={NAT_ITEM_VARIANTS} className="nat-action-row flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
+                        <m.div variants={NAT_ITEM_VARIANTS} className="nat-action-row flex flex-col sm:flex-row gap-3 md:gap-4 justify-center max-w-lg mx-auto">
                             <button type="button"
                                 onClick={() => setCurrentScreen('form')}
                                 className="nat-primary-action flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 md:py-4 px-6 md:px-8 rounded-2xl font-bold text-base md:text-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
@@ -1563,9 +1563,9 @@ const NATPortal = () => {
                             >
                                 Login to Portal
                             </button>
-                        </motion.div>
-                    </motion.div>
-                </motion.div>
+                        </m.div>
+                    </m.div>
+                </m.div>
 
                 <p className="text-center text-slate-400/80 text-sm mt-8 font-semibold tracking-wide">Copyright {new Date().getFullYear()} NORSU Admission Office. All rights reserved.</p>
             </div>
@@ -1595,7 +1595,7 @@ const NATPortal = () => {
             onToggleTheme={toggleTheme}
         >
             <div className="nat-page-shell nat-page-shell-sm max-w-md mx-auto w-full">
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -1621,12 +1621,13 @@ const NATPortal = () => {
 
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Username</label>
+                            <label htmlFor="nat-portal-username" className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Username</label>
                             <div className="relative group/input">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <User className="h-5 w-5 text-slate-400 group-focus-within/input:text-blue-500 transition-colors" />
                                 </div>
                                 <input
+                                    id="nat-portal-username"
                                     name="username"
                                     required
                                     className="nat-auth-input w-full pl-12 pr-4 py-4 bg-white/60 border-2 border-slate-200/50 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400 font-bold text-slate-800 z-10 relative shadow-sm"
@@ -1636,12 +1637,13 @@ const NATPortal = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Password</label>
+                            <label htmlFor="nat-portal-password" className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Password</label>
                             <div className="relative group/input">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <Key className="h-5 w-5 text-slate-400 group-focus-within/input:text-indigo-500 transition-colors" />
                                 </div>
                                 <input
+                                    id="nat-portal-password"
                                     name="password"
                                     type="password"
                                     required
@@ -1653,7 +1655,7 @@ const NATPortal = () => {
 
                         {captchaRequired && (
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Security Check</label>
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Security Check</p>
                                 <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} />
                             </div>
                         )}
@@ -1667,7 +1669,7 @@ const NATPortal = () => {
                             <span className="relative z-10">{loading ? "Verifying..." : "Secure Login"}</span>
                         </button>
                     </form>
-                </motion.div>
+                </m.div>
 
                 {toast && (
                     <div className={`nat-print-hidden fixed top-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-[100] backdrop-blur-md ${toast.type === 'error' ? 'bg-red-500/90' : toast.type === 'info' ? 'bg-blue-500/90' : 'bg-green-500/90'}`}>
@@ -1838,12 +1840,12 @@ const NATPortal = () => {
 
                                 <form onSubmit={handleActivation} className="space-y-4 p-6 pt-2">
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-700 uppercase">Student ID</label>
-                                        <input required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="Ex: 202612345" />
+                                        <label htmlFor="nat-activation-student-id" className="text-xs font-bold text-gray-700 uppercase">Student ID</label>
+                                        <input id="nat-activation-student-id" required name="studentId" pattern="\d{9}" title="Student ID must be exactly 9 digits" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="Ex: 202612345" />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-700 uppercase">Enrolled Course</label>
-                                        <select required name="course" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                        <label htmlFor="nat-activation-course" className="text-xs font-bold text-gray-700 uppercase">Enrolled Course</label>
+                                        <select id="nat-activation-course" required name="course" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                                             <option value="">Select Course</option>
                                             {availableCourses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                         </select>
@@ -2226,7 +2228,7 @@ const NATPortal = () => {
             {showSuccessModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <button type="button" aria-label="Continue to application status" className="absolute inset-0 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-400" onClick={() => { setShowSuccessModal(false); setCurrentScreen('status'); }} />
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
@@ -2235,14 +2237,14 @@ const NATPortal = () => {
                         <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-10 text-center relative overflow-hidden">
                             <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E')] opacity-20 mix-blend-overlay"></div>
                             <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 blur-2xl rounded-full"></div>
-                            <motion.div
+                            <m.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 transition={{ delay: 0.2, type: "spring", stiffness: 400, damping: 20 }}
                                 className="w-24 h-24 bg-white text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl relative z-10"
                             >
                                 <Check className="w-12 h-12" />
-                            </motion.div>
+                            </m.div>
                             <h2 className="text-3xl font-black text-white tracking-tight relative z-10">Application Received!</h2>
                         </div>
                         <div className="p-8 md:p-10 text-center">
@@ -2263,7 +2265,7 @@ const NATPortal = () => {
                                 <span className="relative z-10 flex items-center justify-center gap-2">Continue to Status <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
                             </button>
                         </div>
-                    </motion.div>
+                    </m.div>
                 </div>
             )}
 

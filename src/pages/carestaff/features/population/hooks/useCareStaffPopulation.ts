@@ -1351,7 +1351,7 @@ export function useCareStaffPopulation({
 
     const shouldUseServiceSearchOrder = schoolYearFilter === 'All' && debouncedSearchTerm.trim().length > 0;
 
-    const sortedStudents = shouldUseServiceSearchOrder ? visibleTableStudents : [...visibleTableStudents].sort((a, b) => {
+    const sortedStudents = shouldUseServiceSearchOrder ? visibleTableStudents : visibleTableStudents.toSorted((a, b) => {
         let aVal = a[sortConfig.key];
         let bVal = b[sortConfig.key];
         if (sortConfig.key === 'name') {

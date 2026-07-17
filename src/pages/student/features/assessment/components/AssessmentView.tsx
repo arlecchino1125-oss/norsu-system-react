@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useCallback } from 'react';
 import { useStudentFormsData } from '../hooks/useStudentFormsData';
 import type { StudentRemainingFlatViewProps } from '../../../types';
 
@@ -23,22 +23,12 @@ export default function AssessmentView({
     Icons
 }: StudentRemainingFlatViewProps) {
     const [activeForm, setActiveForm] = useState<any>(null);
-    const [formsList, setFormsList] = useState<any[]>([]);
-    const [loadingForm, setLoadingForm] = useState(false);
     const [showAssessmentModal, setShowAssessmentModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [completedForms, setCompletedForms] = useState<Set<any>>(new Set());
 
-    const { refreshForms } = useStudentFormsData({
-        studentId: personalInfo.studentId,
-        setFormsList,
-        setCompletedForms,
-        setLoadingForm
+    const { formsList, completedForms, loadingForm, refreshForms } = useStudentFormsData({
+        studentId: personalInfo.studentId
     });
-
-    useEffect(() => {
-        refreshForms();
-    }, [refreshForms]);
 
     const openAssessmentForm = (form: any) => {
         setActiveForm(form);

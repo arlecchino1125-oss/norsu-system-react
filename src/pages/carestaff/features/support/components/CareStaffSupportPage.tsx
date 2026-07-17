@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../../../lib/supabase';
 import { createDeferredChannelCleanup } from '../../../../../lib/realtime';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
@@ -126,7 +126,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                 </div>
 
                 {/* Stats Row */}
-                <motion.div
+                <m.div
                     variants={containerVariants}
                     initial="hidden"
                     animate="show"
@@ -138,9 +138,9 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                         { label: 'Visit Scheduled', value: supportCounts[SUPPORT_STATUS.VISIT_SCHEDULED] || 0, icon: <AlertTriangle size={24} />, color: 'text-indigo-500', bg: 'bg-indigo-500/10', border: 'border-indigo-200/50' },
                         { label: 'Dept Updates', value: supportCounts.dept_updates || 0, icon: <ClipboardList size={24} />, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-200/50' },
                         { label: 'Completed', value: supportCounts[SUPPORT_STATUS.COMPLETED] || 0, icon: <CheckCircle size={24} />, color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-200/50' },
-                    ].map((stat, idx) => (
-                        <motion.div
-                            key={idx}
+                    ].map((stat) => (
+                        <m.div
+                            key={stat.label}
                             variants={itemVariants}
                             className={`bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 border ${stat.border} shadow-sm relative overflow-hidden`}
                         >
@@ -150,9 +150,9 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                             </div>
                             <p className="text-gray-500 text-sm font-medium mb-1">{stat.label}</p>
                             <p className="text-3xl font-black text-gray-900 tracking-tight">{stat.value}</p>
-                        </motion.div>
+                        </m.div>
                     ))}
-                </motion.div>
+                </m.div>
 
                 {/* Tabs */}
                 <div className="bg-white/60 backdrop-blur-xl border border-gray-200/60 rounded-full p-1.5 flex items-center justify-start gap-1 mb-8 overflow-x-auto max-w-fit shadow-sm relative z-10">
@@ -166,7 +166,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                     className={`relative px-6 py-2.5 rounded-full text-sm font-bold transition-colors z-10 ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800'}`}
                                 >
                                     {isActive && (
-                                        <motion.div
+                                        <m.div
                                             layoutId="supportTabBubble"
                                             className="absolute inset-0 bg-purple-600 rounded-full -z-10 shadow-md shadow-purple-200"
                                             transition={{ type: "spring", stiffness: 450, damping: 30 }}
@@ -190,7 +190,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                 {supportLoading ? (
                     <LoadingSkeleton type="card" count={4} />
                 ) : (
-                    <motion.div
+                    <m.div
                         variants={containerVariants}
                         initial="hidden"
                         animate="show"
@@ -198,7 +198,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                     >
                         <AnimatePresence>
                             {visibleSupportReqs.map(req => (
-                                <motion.div
+                                <m.div
                                     key={req.id}
                                     variants={itemVariants}
                                     layout
@@ -228,8 +228,8 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                         <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 mb-6">
                                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Support Categories</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {req.support_type ? req.support_type.split(', ').map((cat: string, i: number) => (
-                                                    <span key={i} className="bg-white shadow-sm border border-gray-200/60 px-3 py-1 rounded-lg text-xs font-semibold text-gray-700">{cat}</span>
+                                                {req.support_type ? req.support_type.split(', ').map((cat: string) => (
+                                                    <span key={cat} className="bg-white shadow-sm border border-gray-200/60 px-3 py-1 rounded-lg text-xs font-semibold text-gray-700">{cat}</span>
                                                 )) : <span className="text-sm text-gray-500">None specified</span>}
                                             </div>
                                         </div>
@@ -244,10 +244,10 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                             Manage Request
                                         </Button>
                                     </div>
-                                </motion.div>
+                                </m.div>
                             ))}
                         </AnimatePresence>
-                    </motion.div>
+                    </m.div>
                 )}
                 {!supportLoading && visibleSupportReqs.length === 0 && <p className="text-center text-gray-500 py-8">No requests found in this stage.</p>}
                 <div className="mt-6 rounded-xl border border-gray-100 shadow-sm">
@@ -266,7 +266,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                 {showSupportModal && selectedSupportReq && (
                     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-sm">
                         <button type="button" aria-label="Close support application" className="absolute inset-0 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-400" onClick={() => setShowSupportModal(false)} />
-                        <motion.div
+                        <m.div
                             variants={modalVariants}
                             initial="hidden"
                             animate="visible"
@@ -318,8 +318,8 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                     <div className="mb-4">
                                         <p className="text-xs font-bold text-gray-600 mb-1">Categories:</p>
                                         <div className="flex flex-wrap gap-1">
-                                            {selectedSupportReq.support_type ? selectedSupportReq.support_type.split(', ').map((cat: string, i: number) => (
-                                                <span key={i} className="bg-white border border-gray-200 px-2 py-1 rounded text-xs text-gray-700">{cat}</span>
+                                            {selectedSupportReq.support_type ? selectedSupportReq.support_type.split(', ').map((cat: string) => (
+                                                <span key={cat} className="bg-white border border-gray-200 px-2 py-1 rounded text-xs text-gray-700">{cat}</span>
                                             )) : <span className="text-xs text-gray-400">None</span>}
                                         </div>
                                     </div>
@@ -331,7 +331,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                                 <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1"><Paperclip size={12} /> Supporting Documents ({urls.length})</p>
                                                 {urls.map((url: string, idx: number) => (
                                                     <Button
-                                                        key={idx}
+                                                        key={url}
                                                         variant="ghost"
                                                         type="button"
                                                         onClick={async () => {
@@ -472,7 +472,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                     )}
                                 </section>
                             </div>
-                        </motion.div>
+                        </m.div>
                     </div>
                 )}
             </AnimatePresence>

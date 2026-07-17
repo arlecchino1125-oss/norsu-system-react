@@ -38,8 +38,8 @@ export function DeptEmailPreviewModal({
                 </div>
 
                 <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 py-5">
-                    {(emailPreviewState.previews || []).map((preview: any, index: number) => (
-                        <div key={`${preview.email || 'missing-email'}-${index}`} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    {(emailPreviewState.previews || []).map((preview: any) => (
+                        <div key={preview.recipientKey} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <p className="font-semibold text-gray-900">{preview.name || 'Applicant'}</p>
@@ -60,7 +60,7 @@ export function DeptEmailPreviewModal({
                             <div className="mt-4">
                                 <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Email Content</p>
                                 <iframe
-                                    title={`Email preview ${index + 1}`}
+                                    title={`Email preview for ${preview.name || preview.email || 'applicant'}`}
                                     sandbox=""
                                     srcDoc={preview.html || '<p>No preview available.</p>'}
                                     className="mt-1 h-72 w-full rounded-lg border border-gray-200 bg-white"

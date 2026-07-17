@@ -109,5 +109,5 @@ export const getSheetColumnValue = (row: Record<string, unknown>, aliases: strin
 export const createEmptyScheduleForm = () => ({
     date: '',
     venue: '',
-    timeSlots: [{ start: '08:00', end: '09:00', slots: '' }]
+    timeSlots: [{ clientId: crypto.randomUUID(), start: '08:00', end: '09:00', slots: '' }]
 });

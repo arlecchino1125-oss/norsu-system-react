@@ -105,12 +105,10 @@ export function useStudentPortal() {
     const [rating, setRating] = useState(0);
     const [counselingRequests, setCounselingRequests] = useState<any[]>([]);
     const [supportRequests, setSupportRequests] = useState<any[]>([]);
-    const [notifications, setNotifications] = useState<any[]>([]);
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
     const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
     const [sessionFeedback, setSessionFeedback] = useState<any>({ rating: 0, comment: '' });
     const [feedbackPrefill, setFeedbackPrefill] = useState<any>(null);
-    const [activeVisit, setActiveVisit] = useState<any>(null);
     const { toast, showToast, closeToast } = useStudentToast();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showCommandHub, setShowCommandHub] = useState(false);
@@ -179,7 +177,6 @@ export function useStudentPortal() {
     const [showSupportRequestsModal, setShowSupportRequestsModal] = useState(false);
 
     // Office Logbook Modal State
-    const [visitReasons, setVisitReasons] = useState<any[]>([]);
 
     const handleLogout = React.useCallback(async () => {
         await logout();
@@ -283,11 +280,15 @@ export function useStudentPortal() {
         supabaseClient
     });
 
-    const { refreshActiveVisit, refreshVisitReasons, refreshNotifications } = useStudentProfileData({
-        studentId: personalInfo.studentId,
-        setActiveVisit,
-        setVisitReasons,
-        setNotifications
+    const {
+        activeVisit,
+        visitReasons,
+        notifications,
+        refreshActiveVisit,
+        refreshVisitReasons,
+        refreshNotifications
+    } = useStudentProfileData({
+        studentId: personalInfo.studentId
     });
     // These refresh handles invalidate the leaf-hook React Query caches by key
     // prefix, so writes reconcile even when the leaf hook mounts elsewhere.
@@ -360,7 +361,6 @@ export function useStudentPortal() {
         handleOfficeTimeOut
     } = useStudentOfficeVisitActions({
         activeVisit,
-        setActiveVisit,
         personalInfo,
         showToast,
         invokeManagedStudentFunction,
@@ -862,7 +862,6 @@ export function useStudentPortal() {
         supportRequests,
         setSupportRequests,
         notifications,
-        setNotifications,
         selectedRequest,
         setSelectedRequest,
         selectedSupportRequest,
@@ -872,7 +871,6 @@ export function useStudentPortal() {
         feedbackPrefill,
         setFeedbackPrefill,
         activeVisit,
-        setActiveVisit,
         toast,
         showToast,
         closeToast,
@@ -904,7 +902,6 @@ export function useStudentPortal() {
         showSupportRequestsModal,
         setShowSupportRequestsModal,
         visitReasons,
-        setVisitReasons,
         handleLogout,
         isEditing,
         setIsEditing,

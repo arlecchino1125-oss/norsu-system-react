@@ -20,7 +20,6 @@ import type { Student } from '../../../types';
 import {
     isValidYearLevel,
     normalizeStudentEmail,
-    applyPendingProfileToProfileForm,
     toYesNoChoice,
     hasFilledProfileValue,
     isProfileCompletionFormComplete,
@@ -306,8 +305,7 @@ export function useStudentProfileForm({
         dismissProfileCompletionReminder
     } = useStudentProfileCompletionGate({
         session,
-        createInitialProfileFormData,
-        applyPendingProfileToProfileForm
+        createInitialProfileFormData
     });
     const [isSavingProfileChanges, setIsSavingProfileChanges] = useState(false);
 

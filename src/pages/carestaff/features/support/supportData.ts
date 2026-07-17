@@ -25,7 +25,7 @@ const SUPPORT_REQUEST_COLUMNS = [
 export type SupportCounts = Record<string, number>;
 
 const sortByCreatedAt = (rows: any[]) =>
-    [...rows].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    rows.toSorted((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
 // Single source of truth for how a tab maps to a status filter — shared by the
 // list query and the count fallback so the two can never drift apart.

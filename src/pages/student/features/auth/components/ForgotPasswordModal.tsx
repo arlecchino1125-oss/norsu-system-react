@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Lock, Mail, User, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import type { StudentLoginMethod } from '../../../types';
 
 type ForgotPasswordOtpInfo = {
@@ -61,13 +61,13 @@ export function ForgotPasswordModal({
     onConfirmReset
 }: ForgotPasswordModalProps) {
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-stretch justify-stretch bg-transparent p-0 md:items-center md:justify-center md:p-4"
         >
-            <motion.div
+            <m.div
                 initial={{ scale: 0.95, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -241,7 +241,7 @@ export function ForgotPasswordModal({
                         </button>
                     </div>
                 )}
-            </motion.div>
-        </motion.div>
+            </m.div>
+        </m.div>
     );
 }

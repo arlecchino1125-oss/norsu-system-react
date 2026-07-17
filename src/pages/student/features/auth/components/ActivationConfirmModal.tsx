@@ -1,5 +1,5 @@
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 type ActivationConfirmStatus = 'confirm' | 'loading' | 'error';
 
@@ -19,13 +19,13 @@ export function ActivationConfirmModal({
     onCloseError
 }: ActivationConfirmModalProps) {
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
         >
-            <motion.div
+            <m.div
                 initial={{ scale: 0.95, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -94,7 +94,7 @@ export function ActivationConfirmModal({
                         </div>
                     </div>
                 )}
-            </motion.div>
-        </motion.div>
+            </m.div>
+        </m.div>
     );
 }

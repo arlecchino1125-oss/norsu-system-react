@@ -11,7 +11,7 @@ import {
     Users, FileText, Clock, CheckCircle, Calendar,
     User, Eye, Send, Download, XCircle, RefreshCw, AlertCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../../../components/ui/Button';
 
 // --- Kinetic Motion Variants ---
@@ -133,7 +133,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                 </div>
 
                 {/* Stats Row */}
-                <motion.div
+                <m.div
                     variants={staggerContainer}
                     initial="hidden"
                     animate="show"
@@ -145,9 +145,9 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                         { label: 'Referred', value: counselingCounts[COUNSELING_STATUS.REFERRED] || 0, icon: <Send size={20} />, color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200/50' },
                         { label: 'Scheduled', value: counselingCounts.Calendar || 0, icon: <Calendar size={20} />, color: 'text-indigo-600', bg: 'bg-indigo-100', border: 'border-indigo-200/50' },
                         { label: 'Completed', value: counselingCounts[COUNSELING_STATUS.COMPLETED] || 0, icon: <CheckCircle size={20} />, color: 'text-emerald-600', bg: 'bg-emerald-100', border: 'border-emerald-200/50' },
-                    ].map((stat, idx) => (
-                        <motion.div
-                            key={idx}
+                    ].map((stat) => (
+                        <m.div
+                            key={stat.label}
                             variants={itemReveal}
                             className={`bg-white/70 backdrop-blur-xl rounded-[2rem] p-6 border ${stat.border} shadow-sm hover:shadow-md transition-shadow duration-300 relative overflow-hidden`}
                         >
@@ -157,9 +157,9 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                             </div>
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1.5 relative z-10">{stat.label}</p>
                             <p className="text-3xl font-black text-slate-900 relative z-10">{stat.value}</p>
-                        </motion.div>
+                        </m.div>
                     ))}
-                </motion.div>
+                </m.div>
 
                 {/* Tab Bar */}
                 <div className="flex flex-wrap items-center gap-2 mb-8 bg-slate-100/50 p-1.5 rounded-full inline-flex">
@@ -178,7 +178,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                             className={`relative px-5 py-2.5 text-sm font-bold rounded-full transition-colors z-10 ${counselingTab === tab.id ? 'text-white' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             {counselingTab === tab.id && (
-                                <motion.div
+                                <m.div
                                     layoutId="counselingActiveTab"
                                     className="absolute inset-0 bg-purple-600 rounded-full shadow-md shadow-purple-200 -z-10"
                                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -203,14 +203,14 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                         <p className="text-slate-500 font-medium tracking-wide">No requests found in this category.</p>
                     </div>
                 ) : (
-                    <motion.div
+                    <m.div
                         variants={staggerContainer}
                         initial="hidden"
                         animate="show"
                         className="grid grid-cols-1 xl:grid-cols-2 gap-5"
                     >
                         {visibleCounselingReqs.map(req => (
-                            <motion.div
+                            <m.div
                                 variants={itemReveal}
                                 key={req.id}
                                 className="bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-[2rem] p-6 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group"
@@ -259,9 +259,9 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                                         </Button>
                                     )}
                                 </div>
-                            </motion.div>
+                            </m.div>
                         ))}
-                    </motion.div>
+                    </m.div>
                 )}
                 <div className="mt-8 rounded-[2rem] border border-slate-200/60 shadow-sm bg-white/70 backdrop-blur-md overflow-hidden">
                     <PaginationControls
@@ -277,11 +277,11 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
             <AnimatePresence>
                 {/* Read-only Form Modal — Referral or Student Form */}
                 {showCounselingFormModal && viewFormReq && (
-                    <motion.div
+                    <m.div
                         variants={modalOverlay} initial="hidden" animate="show" exit="exit"
                         className="fixed inset-0 bg-slate-950/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm"
                     >
-                        <motion.div variants={modalContent} className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
+                        <m.div variants={modalContent} className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
                             <div className="p-8">
                                 {viewFormReq.referred_by && formModalView === 'referral' ? (
                                     <>
@@ -415,19 +415,19 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                                 )}
                                 <Button variant="secondary" size="md" onClick={() => { setShowCounselingFormModal(false); setFormModalView('referral'); }} className="flex-1 rounded-[1.5rem] bg-white border-slate-200 hover:bg-slate-100">Close Form</Button>
                             </div>
-                        </motion.div>
-                    </motion.div>
+                        </m.div>
+                    </m.div>
                 )}
             </AnimatePresence>
 
             <AnimatePresence>
                 {/* Schedule Counseling Modal */}
                 {showScheduleModal && (
-                    <motion.div
+                    <m.div
                         variants={modalOverlay} initial="hidden" animate="show" exit="exit"
                         className="fixed inset-0 bg-slate-950/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm"
                     >
-                        <motion.div variants={modalContent} className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl w-full max-w-md border border-purple-100/50">
+                        <m.div variants={modalContent} className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl w-full max-w-md border border-purple-100/50">
                             <div className="px-6 py-5 border-b border-slate-200/60 flex justify-between items-center">
                                 <h3 className="font-extrabold text-xl text-slate-900 tracking-tight">Schedule Session</h3>
                                 <Button variant="ghost" size="sm" onClick={() => setShowScheduleModal(false)} className="rounded-full w-8 h-8 p-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100"><XCircle size={20} /></Button>
@@ -442,19 +442,19 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                                     <Button type="submit" variant="primary" size="md" disabled={isSchedulingSession} className="flex-1 rounded-2xl shadow-md shadow-purple-500/20">{isSchedulingSession ? 'Scheduling...' : 'Confirm Schedule'}</Button>
                                 </div>
                             </form>
-                        </motion.div>
-                    </motion.div>
+                        </m.div>
+                    </m.div>
                 )}
             </AnimatePresence>
 
             <AnimatePresence>
                 {/* Complete Counseling Session Modal */}
                 {showCompleteModal && (
-                    <motion.div
+                    <m.div
                         variants={modalOverlay} initial="hidden" animate="show" exit="exit"
                         className="fixed inset-0 bg-slate-950/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm"
                     >
-                        <motion.div variants={modalContent} className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl w-full max-w-lg p-8 border border-emerald-100/50">
+                        <m.div variants={modalContent} className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl w-full max-w-lg p-8 border border-emerald-100/50">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                                     <CheckCircle size={24} />
@@ -481,8 +481,8 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                                     <Button type="submit" variant="primary" size="md" disabled={isCompletingSession} className="flex-1 rounded-2xl bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20 text-white border-transparent">{isCompletingSession ? 'Completing...' : 'Finalize Session'}</Button>
                                 </div>
                             </form>
-                        </motion.div>
-                    </motion.div>
+                        </m.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </>

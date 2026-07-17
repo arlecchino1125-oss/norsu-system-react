@@ -120,8 +120,8 @@ export function ServiceIntroModal({ serviceKey }: { serviceKey: string }) {
                 <div className="p-5 sm:p-8">
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">How it works</h4>
                     <div className="space-y-3 mb-6">
-                        {guide.steps.map((step: any, idx: number) => (
-                            <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                        {guide.steps.map((step: any) => (
+                            <div key={step.text} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
                                 <span className="text-lg flex-shrink-0">{step.icon}</span>
                                 <p className="text-sm text-gray-700">{step.text}</p>
                             </div>

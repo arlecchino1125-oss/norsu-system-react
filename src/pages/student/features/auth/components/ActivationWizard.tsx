@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type React from 'react';
 import { CheckCircle, Eye, EyeOff, Lock, UserPlus, X } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import DatePicker from '../../../../../components/ui/DatePicker';
 import SearchableSelect from '../../../../../components/ui/SearchableSelect';
 
@@ -82,13 +82,13 @@ export function ActivationWizard({
     );
 
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-stretch justify-stretch bg-transparent p-0 md:items-center md:justify-center md:p-4"
         >
-            <motion.div
+            <m.div
                 initial={{ scale: 0.95, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -120,7 +120,7 @@ export function ActivationWizard({
                             </div>
                             <div className="relative w-full bg-slate-200 h-1 rounded-full overflow-hidden">
                                 <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-indigo-500 to-sky-400" />
-                                <motion.div
+                                <m.div
                                     className="absolute inset-0 h-full w-full origin-right bg-slate-200"
                                     initial={{ scaleX: 1 }}
                                     animate={{ scaleX: 1 - activationStep / TOTAL_STEPS }}
@@ -133,7 +133,7 @@ export function ActivationWizard({
 
                 <div className="min-h-0 flex-1 overflow-y-auto bg-white p-5 pb-28 [scrollbar-width:none] sm:p-6 sm:pb-28 md:p-10 md:pb-10 [&::-webkit-scrollbar]:hidden">
                     {activatedCredentials ? (
-                        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
+                        <m.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
                             <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <CheckCircle className="w-12 h-12 text-emerald-600" />
                             </div>
@@ -177,12 +177,12 @@ export function ActivationWizard({
                                     Return to Login Form
                                 </button>
                             </div>
-                        </motion.div>
+                        </m.div>
                     ) : (
                         <form id="activationForm" onSubmit={(event) => event.preventDefault()} className="relative min-h-[300px]">
                             <AnimatePresence mode="wait">
                                 {activationStep === 1 && (
-                                    <motion.div key="step1" initial="initial" animate="in" exit="out" variants={wizardPageVariants} className="space-y-6 py-2">
+                                    <m.div key="step1" initial="initial" animate="in" exit="out" variants={wizardPageVariants} className="space-y-6 py-2">
                                         <div className="mb-2 px-1">
                                             <h3 className="text-base font-bold text-slate-800">Enrollment Details</h3>
                                             <p className="text-slate-400 text-[10px] mt-0.5 font-medium">Verify your student identity to begin activation.</p>
@@ -204,11 +204,11 @@ export function ActivationWizard({
                                                 />
                                             </div>
                                         </div>
-                                    </motion.div>
+                                    </m.div>
                                 )}
 
                                 {activationStep === 2 && (
-                                    <motion.div key="step2" initial="initial" animate="in" exit="out" variants={wizardPageVariants} className="space-y-6 py-2">
+                                    <m.div key="step2" initial="initial" animate="in" exit="out" variants={wizardPageVariants} className="space-y-6 py-2">
                                         <div className="mb-2 px-1">
                                             <h3 className="text-base font-bold text-slate-800">Personal Information</h3>
                                             <p className="text-slate-400 text-[10px] mt-0.5 font-medium">Basic details needed for your student profile.</p>
@@ -293,11 +293,11 @@ export function ActivationWizard({
                                                 />
                                             </div>
                                         </div>
-                                    </motion.div>
+                                    </m.div>
                                 )}
 
                                 {activationStep === 3 && (
-                                    <motion.div key="step3" initial="initial" animate="in" exit="out" variants={wizardPageVariants} className="space-y-6">
+                                    <m.div key="step3" initial="initial" animate="in" exit="out" variants={wizardPageVariants} className="space-y-6">
                                         <div className="mb-4 text-center">
                                             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-slate-200">
                                                 <Lock className="w-8 h-8 text-slate-400" />
@@ -366,7 +366,7 @@ export function ActivationWizard({
                                                 </div>
                                             </div>
                                         </div>
-                                    </motion.div>
+                                    </m.div>
                                 )}
                             </AnimatePresence>
                         </form>
@@ -412,7 +412,7 @@ export function ActivationWizard({
                         )}
                     </div>
                 )}
-            </motion.div>
-        </motion.div>
+            </m.div>
+        </m.div>
     );
 }

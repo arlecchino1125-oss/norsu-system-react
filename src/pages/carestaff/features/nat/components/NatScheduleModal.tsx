@@ -1,6 +1,6 @@
 import React from 'react';
 import { CalendarDays, Plus, Trash2, XCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../../../components/ui/Button';
 
 const FIELD_LABEL_CLASS = 'mb-1.5 block text-[10px] font-extrabold text-slate-450 uppercase tracking-wider';
@@ -24,13 +24,13 @@ const NatScheduleModal = ({
 }: any) => (
     <AnimatePresence>
         {showScheduleModal && (
-            <motion.div
+            <m.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm overflow-y-auto"
             >
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, scale: 0.95, y: 15 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -120,7 +120,7 @@ const NatScheduleModal = ({
                                 </div>
                                 <div className="space-y-3">
                                     {scheduleForm.timeSlots.map((slot: any, index: number) => (
-                                        <div key={index} className="grid grid-cols-12 items-center gap-2.5">
+                                        <div key={slot.clientId} className="grid grid-cols-12 items-center gap-2.5">
                                             <div className="col-span-4">
                                                 <input
                                                     type="time"
@@ -192,8 +192,8 @@ const NatScheduleModal = ({
                             </Button>
                         </div>
                     </form>
-                </motion.div>
-            </motion.div>
+                </m.div>
+            </m.div>
         )}
     </AnimatePresence>
 );

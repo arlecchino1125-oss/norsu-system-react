@@ -131,9 +131,10 @@ export function FeedbackView({
 
             // Link completed counseling requests to CSM feedback flow.
             if (feedbackPrefill?.source === 'counseling' && feedbackPrefill?.counselingRequestId) {
-                const sqdScores = SQD_KEYS
-                    .map(k => parseInt(form[k]))
-                    .filter(v => Number.isFinite(v) && v > 0);
+                const sqdScores = SQD_KEYS.flatMap(k => {
+                    const score = parseInt(form[k]);
+                    return Number.isFinite(score) && score > 0 ? [score] : [];
+                });
                 const linkedRating = sqdScores.length > 0
                     ? Math.round(sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length)
                     : null;

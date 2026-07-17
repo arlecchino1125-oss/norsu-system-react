@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
     Users, XCircle, Clock, Filter, ArrowUpDown,
     BarChart2, TrendingUp, RefreshCw, ChevronDown,
@@ -38,15 +38,17 @@ const ANALYTICS_TABS = ['Overview', 'Respondents'];
 
 const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const queryClient = useQueryClient();
-    const [forms, setForms] = useState<any[]>([]);
-    const [selectedFormId, setSelectedFormId] = useState<any>(null);
+    const [formSelection, setFormSelection] = useState<{
+        selectedFormId: number | null;
+        dateFilter: { start: string; end: string };
+    }>({ selectedFormId: null, dateFilter: { start: '', end: '' } });
+    const { selectedFormId, dateFilter } = formSelection;
     const [allDepartments, setAllDepartments] = useState<any[]>([]);
     const [questions, setQuestions] = useState<any[]>([]);
     const [currentTab, setCurrentTab] = useState('Overview');
     const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [analyticsData, setAnalyticsData] = useState<any>({ submissions: [], answers: [] });
     const [filteredData, setFilteredData] = useState<any>({ submissions: [], answers: [] });
-    const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
     const [departmentFilter, setDepartmentFilter] = useState('All');
     const [courseFilter, setCourseFilter] = useState('All');
     const [isComparisonMode, setIsComparisonMode] = useState(false);
@@ -64,6 +66,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
             return data || [];
         }
     });
+    const forms = qForms || [];
 
     const { data: qDepartments } = useQuery({
         queryKey: ['departments_list_analytics'],
@@ -138,29 +141,32 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
 
     useEffect(() => {
         if (qForms && qForms.length > 0) {
-            setForms(qForms);
-            setSelectedFormId((current: any) => {
-                const currentStillExists = qForms.some((form: any) => form.id === current);
-                return currentStillExists ? current : qForms[0].id;
+            setFormSelection(current => {
+                const currentStillExists = qForms.some((form: any) => form.id === current.selectedFormId);
+                if (currentStillExists) return current;
+
+                return {
+                    selectedFormId: qForms[0].id,
+                    dateFilter: current.selectedFormId ? current.dateFilter : {
+                        start: qForms[0].created_at ? qForms[0].created_at.split('T')[0] : '',
+                        end: ''
+                    }
+                };
             });
-            if (!selectedFormId) {
-                setDateFilter({
-                    start: qForms[0].created_at ? qForms[0].created_at.split('T')[0] : '',
-                    end: ''
-                });
-            }
         }
-    }, [qForms, selectedFormId]);
+    }, [qForms]);
 
     useEffect(() => { if (qDepartments) setAllDepartments(qDepartments); }, [qDepartments]);
 
-    const handleFormSelect = (id: string) => {
-        setSelectedFormId(id);
+    const handleFormSelect = (id: number) => {
         const form = forms.find(f => f.id === id);
         if (form) {
-            setDateFilter({
-                start: form.created_at ? form.created_at.split('T')[0] : '',
-                end: ''
+            setFormSelection({
+                selectedFormId: id,
+                dateFilter: {
+                    start: form.created_at ? form.created_at.split('T')[0] : '',
+                    end: ''
+                }
             });
         }
     };
@@ -227,7 +233,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
         setSortConfig({ key, direction });
     };
 
-    const sortedRespondents = [...filteredData.submissions].sort((a, b) => {
+    const sortedRespondents = filteredData.submissions.toSorted((a, b) => {
         const { key, direction } = sortConfig;
         let aVal: any = '', bVal: any = '';
         if (key === 'name') {
@@ -248,10 +254,10 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const uniqueCourses = [...new Set(analyticsData.submissions.map((s: any) => s.students?.course).filter(Boolean))] as string[];
 
     return (
-        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-8 pb-10">
+        <m.div variants={stagger} initial="hidden" animate="show" className="space-y-8 pb-10">
 
             {/* ── HEADER BENTO ── */}
-            <motion.div variants={fadeUp} className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 p-8">
+            <m.div variants={fadeUp} className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 p-8">
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -264,7 +270,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-                        <motion.button
+                        <m.button
                             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                             onClick={handleRefreshData}
                             disabled={isRefreshingData}
@@ -272,12 +278,12 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                         >
                             <RefreshCw size={15} className={isRefreshingData ? 'animate-spin text-purple-500' : ''} />
                             {isRefreshingData ? 'Refreshing…' : 'Refresh Data'}
-                        </motion.button>
+                        </m.button>
 
                         <div className="relative">
                             <select
                                 value={selectedFormId || ''}
-                                onChange={e => handleFormSelect(e.target.value)}
+                                onChange={e => handleFormSelect(Number(e.target.value))}
                                 className="appearance-none w-full sm:w-auto pl-4 pr-10 py-2.5 border border-purple-200 rounded-2xl font-bold text-purple-700 bg-purple-50 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 text-sm cursor-pointer shadow-sm"
                             >
                                 {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
@@ -295,7 +301,10 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                         <input
                             type="date"
                             value={dateFilter.start}
-                            onChange={e => setDateFilter({ ...dateFilter, start: e.target.value })}
+                            onChange={e => setFormSelection(current => ({
+                                ...current,
+                                dateFilter: { ...current.dateFilter, start: e.target.value }
+                            }))}
                             className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-40"
                         />
                     </div>
@@ -304,11 +313,14 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                         <input
                             type="date"
                             value={dateFilter.end}
-                            onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })}
+                            onChange={e => setFormSelection(current => ({
+                                ...current,
+                                dateFilter: { ...current.dateFilter, end: e.target.value }
+                            }))}
                             className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-40"
                         />
                     </div>
-                    <motion.button
+                    <m.button
                         whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                         onClick={handleComparisonToggle}
                         className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm border ${isComparisonMode
@@ -317,7 +329,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             }`}
                     >
                         <ArrowUpDown size={14} /> {isComparisonMode ? 'Exit Comparison' : 'Compare Period'}
-                    </motion.button>
+                    </m.button>
 
                     <div className="flex flex-col gap-1.5 ml-auto">
                         <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Department Filter</label>
@@ -334,12 +346,12 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                         </div>
                     </div>
                 </div>
-            </motion.div>
+            </m.div>
 
             {/* ── KPI BENTO CARDS ── */}
-            <motion.div variants={stagger} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <m.div variants={stagger} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Total Respondents */}
-                <motion.div
+                <m.div
                     variants={fadeUp}
                     whileHover={{ scale: 1.02, y: -3 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 22 }}
@@ -361,10 +373,10 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             )}
                         </div>
                     </div>
-                </motion.div>
+                </m.div>
 
                 {/* Avg Completion placeholder */}
-                <motion.div
+                <m.div
                     variants={fadeUp}
                     whileHover={{ scale: 1.02, y: -3 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 22 }}
@@ -381,13 +393,13 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             <p className="text-xs text-slate-400 mt-2 font-medium">Not tracked</p>
                         </div>
                     </div>
-                </motion.div>
-            </motion.div>
+                </m.div>
+            </m.div>
 
             {/* ── TAB BAR ── */}
-            <motion.div variants={fadeUp} className="flex gap-2 bg-slate-100/70 backdrop-blur-sm p-1.5 rounded-2xl w-fit">
+            <m.div variants={fadeUp} className="flex gap-2 bg-slate-100/70 backdrop-blur-sm p-1.5 rounded-2xl w-fit">
                 {ANALYTICS_TABS.map(tab => (
-                    <motion.button
+                    <m.button
                         key={tab}
                         onClick={() => setCurrentTab(tab)}
                         whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
@@ -398,21 +410,21 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                     >
                         {tab === 'Overview' ? <Activity size={13} className="inline mr-1.5 mb-0.5" /> : <FileBarChart size={13} className="inline mr-1.5 mb-0.5" />}
                         {tab}
-                    </motion.button>
+                    </m.button>
                 ))}
-            </motion.div>
+            </m.div>
 
             {/* ── CONTENT AREA ── */}
             {loading ? (
-                <motion.div variants={fadeUp} className="space-y-8">
+                <m.div variants={fadeUp} className="space-y-8">
                     <LoadingSkeleton type="stats" count={4} />
                     <LoadingSkeleton type="card" count={2} />
-                </motion.div>
+                </m.div>
             ) : (
                 <AnimatePresence mode="wait">
                     {/* OVERVIEW TAB */}
                     {currentTab === 'Overview' && (
-                        <motion.div
+                        <m.div
                             key="overview"
                             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
@@ -420,15 +432,15 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                         >
                             {/* Charts Row */}
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                                <motion.div
+                                <m.div
                                     whileHover={{ scale: 1.01 }}
                                     transition={{ type: 'spring', stiffness: 300 }}
                                     className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden"
                                 >
                                     <YearLevelChart submissions={filteredData.submissions} />
-                                </motion.div>
+                                </m.div>
 
-                                <motion.div
+                                <m.div
                                     whileHover={{ scale: 1.01 }}
                                     transition={{ type: 'spring', stiffness: 300 }}
                                     className="relative bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden"
@@ -446,11 +458,11 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                         </div>
                                     </div>
                                     <TopQuestionsChart questions={questions} answers={filteredData.answers} scoreFilter={topQuestionScoreFilter} />
-                                </motion.div>
+                                </m.div>
                             </div>
 
                             {/* Question Analysis Grid */}
-                            <motion.div
+                            <m.div
                                 whileHover={{ scale: 1.005 }}
                                 transition={{ type: 'spring', stiffness: 300 }}
                                 className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden"
@@ -473,13 +485,13 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                         </div>
                                     )}
                                 </div>
-                            </motion.div>
-                        </motion.div>
+                            </m.div>
+                        </m.div>
                     )}
 
                     {/* RESPONDENTS TAB */}
                     {currentTab === 'Respondents' && (
-                        <motion.div
+                        <m.div
                             key="respondents"
                             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
@@ -508,7 +520,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             </div>
 
                             {/* Respondents Table */}
-                            <motion.div
+                            <m.div
                                 whileHover={{ scale: 1.002 }}
                                 transition={{ type: 'spring', stiffness: 300 }}
                                 className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden"
@@ -537,7 +549,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                     <tbody className="divide-y divide-slate-100/60">
                                         <AnimatePresence>
                                             {sortedRespondents.map((sub, idx) => (
-                                                <motion.tr
+                                                <m.tr
                                                     key={sub.id}
                                                     initial={{ opacity: 0, x: -10 }}
                                                     animate={{ opacity: 1, x: 0 }}
@@ -567,15 +579,15 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                                         </div>
                                                     </td>
                                                     <td className="px-7 py-5 text-right">
-                                                        <motion.button
+                                                        <m.button
                                                             whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
                                                             onClick={() => setViewingStudent(sub)}
                                                             className="inline-flex items-center gap-1.5 text-purple-700 font-bold text-xs bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl transition-colors border border-purple-200/60"
                                                         >
                                                             <Eye size={13} /> View Answers
-                                                        </motion.button>
+                                                        </m.button>
                                                     </td>
-                                                </motion.tr>
+                                                </m.tr>
                                             ))}
                                             {sortedRespondents.length === 0 && (
                                                 <tr>
@@ -587,8 +599,8 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                         </AnimatePresence>
                                     </tbody>
                                 </table>
-                            </motion.div>
-                        </motion.div>
+                            </m.div>
+                        </m.div>
                     )}
                 </AnimatePresence>
             )}
@@ -596,12 +608,12 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
             {/* ── VIEW ANSWERS MODAL ── */}
             <AnimatePresence>
                 {viewingStudent && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-6"
                     >
                         <button type="button" aria-label="Close response details" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-400" onClick={() => setViewingStudent(null)} />
-                        <motion.div
+                        <m.div
                             initial={{ scale: 0.92, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.92, opacity: 0, y: 20 }}
@@ -618,13 +630,13 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                         {new Date(viewingStudent.submitted_at).toLocaleString()}
                                     </p>
                                 </div>
-                                <motion.button
+                                <m.button
                                     whileHover={{ scale: 1.1, rotate: 90 }} whileTap={{ scale: 0.9 }}
                                     onClick={() => setViewingStudent(null)}
                                     className="p-2.5 hover:bg-white rounded-2xl text-slate-400 hover:text-slate-700 transition-colors shadow-sm border border-transparent hover:border-slate-200"
                                 >
                                     <XCircle size={20} />
-                                </motion.button>
+                                </m.button>
                             </div>
 
                             {/* Modal Body */}
@@ -632,7 +644,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                 {questions.map((q, idx) => {
                                     const answer = filteredData.answers.find((a: any) => a.submission_id === viewingStudent.id && a.question_id === q.id);
                                     return (
-                                        <motion.div
+                                        <m.div
                                             key={q.id}
                                             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: idx * 0.04 }}
@@ -646,26 +658,26 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                                     : <span className="text-slate-400 italic font-normal">No answer provided</span>
                                                 }
                                             </div>
-                                        </motion.div>
+                                        </m.div>
                                     );
                                 })}
                             </div>
 
                             {/* Modal Footer */}
                             <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/60 flex justify-end rounded-b-[2rem]">
-                                <motion.button
+                                <m.button
                                     whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                                     onClick={() => setViewingStudent(null)}
                                     className="px-7 py-2.5 bg-white border border-slate-300 rounded-2xl text-sm font-bold text-slate-700 hover:bg-gray-50 hover:border-slate-400 shadow-sm transition-colors"
                                 >
                                     Close
-                                </motion.button>
+                                </m.button>
                             </div>
-                        </motion.div>
-                    </motion.div>
+                        </m.div>
+                    </m.div>
                 )}
             </AnimatePresence>
-        </motion.div>
+        </m.div>
     );
 };
 

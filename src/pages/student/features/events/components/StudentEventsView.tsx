@@ -161,13 +161,11 @@ const StudentEventsView = ({
     showToast,
     Icons
 }: any) => {
-    const [eventsList, setEventsList] = useState<any[]>([]);
     const [eventsPage, setEventsPage] = useState(1);
 
     // No mount-refetch: React Query fetches when the cache is empty and the
     // 2-minute staleness policy governs the rest. refetch() would bypass it.
-    useStudentEventsData({
-        setEventsList,
+    const { eventsList } = useStudentEventsData({
         personalInfo
     });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import { FieldErrorText, NAT_TEAL_INPUT_CLASS, ResolveNatInputClassName } from './shared';
 
@@ -17,7 +17,7 @@ export default function ContactDetailsStep({
   resolveInputClassName
 }: NatContactInfoStepProps) {
   return (
-    <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+    <m.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
       <div className="nat-section-card group relative overflow-hidden rounded-[2rem] border border-white bg-white/40 p-8 shadow-xl shadow-blue-900/5 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-900/10 backdrop-blur-2xl">
         <div className="absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b from-teal-400 to-teal-600" />
         <h3 className="mb-6 flex items-center gap-3 text-xl font-black text-slate-800">
@@ -117,6 +117,6 @@ export default function ContactDetailsStep({
           </div>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

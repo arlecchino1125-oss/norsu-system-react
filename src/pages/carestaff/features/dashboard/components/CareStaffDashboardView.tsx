@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createDeferredChannelCleanup } from '../../../../../lib/realtime';
 import { supabase } from '../../../../../lib/supabase';
@@ -267,14 +267,14 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
     }
 
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-8 pb-10 overflow-x-hidden"
         >
             {/* Stat Cards - Kinetic Upgrade */}
-            <motion.div
+            <m.div
                 initial="hidden"
                 animate="show"
                 variants={{
@@ -288,9 +288,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { label: 'Counselings (Active)', value: counts.counseling, icon: <Users size={22} />, gradient: 'from-blue-400 to-indigo-600', shadow: 'shadow-blue-500/30' },
                     { label: 'Support Cases (Active)', value: counts.support, icon: <CheckCircle size={22} />, gradient: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
                     { label: 'Total Events', value: counts.events, icon: <Calendar size={22} />, gradient: 'from-purple-400 to-violet-600', shadow: 'shadow-purple-500/30' },
-                ].map((card, idx) => (
-                    <motion.div
-                        key={idx}
+                ].map((card) => (
+                    <m.div
+                        key={card.label}
                         variants={{
                             hidden: { y: 20, opacity: 0, scale: 0.95 },
                             show: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
@@ -303,21 +303,21 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
 
                         <div className="flex items-center justify-between relative z-10 w-full mb-2">
                             <span className="text-slate-500 font-semibold text-[13px] uppercase tracking-wider">{card.label}</span>
-                            <motion.div
+                            <m.div
                                 whileHover={{ scale: 1.15, rotate: 5 }}
                                 className={`w-12 h-12 flex items-center justify-center bg-gradient-to-br ${card.gradient} rounded-2xl text-white shadow-lg ${card.shadow} transition-transform`}
                             >
                                 {card.icon}
-                            </motion.div>
+                            </m.div>
                         </div>
                         <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight relative z-10 group-hover:text-purple-900 transition-colors">{card.value}</h3>
-                    </motion.div>
+                    </m.div>
                 ))}
-            </motion.div>
+            </m.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity Feed - Floating Timeline UI */}
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.2 }}
@@ -338,7 +338,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                             </div>
                         ) : (
                             activities.map((act, idx) => (
-                                <motion.div
+                                <m.div
                                     key={act.id}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -365,15 +365,15 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                         </span>
                                         <p className="text-[11px] font-semibold text-slate-400">{act.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                                     </div>
-                                </motion.div>
+                                </m.div>
                             ))
                         )}
                     </div>
-                </motion.div>
+                </m.div>
 
                 <div className="space-y-8 flex flex-col">
                     {/* Role-Based Alerts Bento */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, x: 30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.3 }}
@@ -390,9 +390,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                 { label: 'Counseling Cases', desc: 'Assigned to CARE Staff', value: roleAlerts.counselingForCare, tab: 'counseling', tone: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20', bg: 'bg-blue-50 border-blue-100', text: 'text-blue-700' },
                                 { label: 'Support Cases', desc: 'Waiting for resolution', value: roleAlerts.supportForCare, tab: 'support', tone: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/20', bg: 'bg-amber-50 border-amber-100', text: 'text-amber-700' },
                                 { label: 'Profile Updates', desc: 'Pending system review', value: roleAlerts.profileUpdates, tab: 'population', tone: 'from-fuchsia-400 to-purple-500', shadow: 'shadow-fuchsia-500/20', bg: 'bg-fuchsia-50 border-fuchsia-100', text: 'text-fuchsia-700' }
-                            ].map((item, idx) => (
-                                <motion.button
-                                    key={idx}
+                            ].map((item) => (
+                                <m.button
+                                    key={item.tab}
                                     whileHover={{ scale: 1.02, x: 4 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => setActiveTab(item.tab)}
@@ -405,13 +405,13 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                     <div className={`px-4 py-1.5 rounded-xl bg-gradient-to-br ${item.tone} ${item.shadow} text-white font-bold text-sm shadow-md`}>
                                         {item.value}
                                     </div>
-                                </motion.button>
+                                </m.button>
                             ))}
                         </div>
-                    </motion.div>
+                    </m.div>
 
                     {/* Quick Actions Grid Bento */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, x: 30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.4 }}
@@ -425,7 +425,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 flex-1">
-                            <motion.button
+                            <m.button
                                 whileHover={{ scale: 1.05, y: -4 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setActiveTab('events')}
@@ -435,9 +435,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                     <Calendar size={22} />
                                 </div>
                                 <span className="text-[13px] font-bold text-slate-700 text-center tracking-tight group-hover:text-purple-800 transition-colors">Schedule<br />Event</span>
-                            </motion.button>
+                            </m.button>
 
-                            <motion.button
+                            <m.button
                                 whileHover={{ scale: 1.05, y: -4 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setActiveTab('events')}
@@ -447,10 +447,10 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                     <Send size={22} />
                                 </div>
                                 <span className="text-[13px] font-bold text-slate-700 text-center tracking-tight group-hover:text-purple-800 transition-colors">Send<br />Notice</span>
-                            </motion.button>
+                            </m.button>
                         </div>
 
-                        <motion.button
+                        <m.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setActiveTab('analytics')}
@@ -463,11 +463,11 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                 <span className="font-bold text-[15px] tracking-tight">Open System Analytics</span>
                             </div>
                             <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                        </motion.button>
-                    </motion.div>
+                        </m.button>
+                    </m.div>
                 </div>
             </div>
-        </motion.div>
+        </m.div>
     );
 };
 

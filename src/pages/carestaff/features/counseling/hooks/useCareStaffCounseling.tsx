@@ -33,7 +33,7 @@ export interface CareStaffCounselingPageProps {
 }
 
 const sortCounselingByCreatedAt = (rows: any[]) =>
-    [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    rows.toSorted((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
 const getCounselingStatusTone = (status: string) => {
     if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';

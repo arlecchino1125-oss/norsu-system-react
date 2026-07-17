@@ -235,6 +235,12 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         }
     });
 
+    useEffect(() => {
+        if (admissionsQuery.data?.total === undefined) return;
+        const totalPages = Math.max(1, Math.ceil(admissionsQuery.data.total / admissionsPageSize));
+        if (admissionsPage > totalPages) setAdmissionsPage(totalPages);
+    }, [admissionsPage, admissionsPageSize, admissionsQuery.data?.total]);
+
     const [admissionApplicants, setAdmissionApplicants] = useState<any[]>([]);
     useEffect(() => {
         if (admissionsQuery.data) setAdmissionApplicants(admissionsQuery.data.rows);

@@ -8,6 +8,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../../../../compone
 import { useCareStaffFeedback, FEEDBACK_PAGE_SIZE } from '../hooks/useCareStaffFeedback';
 import type { CareStaffFeedbackPageProps } from '../hooks/useCareStaffFeedback';
 
+const RATING_VALUES = [1, 2, 3, 4, 5] as const;
+
 const formatEventTime = (value?: string | null) => {
     if (!value) return null;
     const date = new Date(`1970-01-01T${value}`);
@@ -137,10 +139,11 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                 </Card>
                 <Card className="lg:col-span-3 !rounded-xl !border-gray-200 flex items-end gap-4 h-40">
                     <CardContent className="flex items-end gap-4 w-full h-full p-6">
-                        {stats.distribution.map((count, idx) => {
+                        {RATING_VALUES.map((rating, idx) => {
+                            const count = stats.distribution[idx];
                             const pct = stats.total ? (count / stats.total) * 100 : 0;
                             return (
-                                <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                                <div key={rating} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                                     <div className="w-full bg-blue-100 rounded-t-lg relative group transition-all duration-500" style={{ height: `${pct}%`, minHeight: '4px' }}>
                                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">{count} reviews</div>
                                     </div>
@@ -169,8 +172,8 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {eventCriteriaStats.map((row, idx) => (
-                                        <tr key={idx}>
+                                    {eventCriteriaStats.map((row) => (
+                                        <tr key={row.label}>
                                             <td className="px-3 py-2 text-xs text-gray-700">{row.label}</td>
                                             <td className="px-3 py-2 text-xs font-bold text-gray-900">{row.mean ?? '-'}</td>
                                             <td className="px-3 py-2 text-xs text-gray-600">{row.responses}</td>
@@ -306,7 +309,7 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                                         const score = viewingEval[`q${idx + 1}_score`];
                                         const scoreColor = score >= 4 ? '#16a34a' : score >= 3 ? '#ca8a04' : '#ef4444';
                                         return (
-                                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px', background: idx % 2 === 0 ? '#fff' : '#fafafa', borderBottom: idx < 6 ? '1px solid #f3f4f6' : 'none' }}>
+                                            <div key={label} style={{ display: 'grid', gridTemplateColumns: '1fr 60px', background: idx % 2 === 0 ? '#fff' : '#fafafa', borderBottom: idx < 6 ? '1px solid #f3f4f6' : 'none' }}>
                                                 <div style={{ padding: '10px 16px', fontSize: '12px', color: '#374151' }}><span style={{ fontWeight: 700, color: '#9ca3af', marginRight: '8px' }}>{idx + 1}.</span>{label}</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '15px', fontWeight: 700, color: scoreColor }}>{score || '—'}</span></div>
                                             </div>
@@ -420,7 +423,7 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                                                     const scoreLabel = score === 0 ? 'N/A' : score;
                                                     const scoreColor = score >= 4 ? '#16a34a' : score >= 3 ? '#ca8a04' : score > 0 ? '#ef4444' : '#9ca3af';
                                                     return (
-                                                        <div key={idx} className={`grid grid-cols-[1fr_4rem] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} border-b border-gray-100 last:border-0`}>
+                                                        <div key={label} className={`grid grid-cols-[1fr_4rem] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} border-b border-gray-100 last:border-0`}>
                                                             <div className="px-3 py-2 text-[11px] leading-snug text-gray-700">{label}</div>
                                                             <div className="flex items-center justify-center"><span style={{ fontSize: '15px', fontWeight: 700, color: scoreColor }}>{scoreLabel}</span></div>
                                                         </div>
@@ -482,7 +485,7 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                                             const scoreLabel = score === 0 ? 'N/A' : score;
                                             const scoreColor = score >= 4 ? '#16a34a' : score >= 3 ? '#ca8a04' : score > 0 ? '#ef4444' : '#9ca3af';
                                             return (
-                                                <div key={idx} className={`grid grid-cols-[1fr_80px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} border-b border-gray-100 last:border-0`}>
+                                                <div key={label} className={`grid grid-cols-[1fr_80px] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} border-b border-gray-100 last:border-0`}>
                                                     <div className="px-4 py-2.5 text-xs text-gray-700">{label}</div>
                                                     <div className="flex items-center justify-center"><span style={{ fontSize: '15px', fontWeight: 700, color: scoreColor }}>{scoreLabel}</span></div>
                                                 </div>

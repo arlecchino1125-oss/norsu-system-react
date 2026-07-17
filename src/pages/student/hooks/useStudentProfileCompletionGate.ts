@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     getPendingProfileCompletionProfile,
     shouldForceProfileCompletionPrompt
 } from '../../../lib/studentProfileCompletionPrompt';
+import { applyPendingProfileToProfileForm } from '../features/profile/profileFormUtils';
 
 type ProfileServiceGate = {
     visible: boolean;
@@ -13,10 +14,6 @@ type ProfileServiceGate = {
 type UseStudentProfileCompletionGateArgs = {
     session: any;
     createInitialProfileFormData: () => any;
-    applyPendingProfileToProfileForm: (
-        setProfileFormData: React.Dispatch<React.SetStateAction<any>>,
-        pendingProfile: Record<string, unknown> | null | undefined
-    ) => void;
 };
 
 const createClosedProfileServiceGate = (): ProfileServiceGate => ({
@@ -27,8 +24,7 @@ const createClosedProfileServiceGate = (): ProfileServiceGate => ({
 
 export const useStudentProfileCompletionGate = ({
     session,
-    createInitialProfileFormData,
-    applyPendingProfileToProfileForm
+    createInitialProfileFormData
 }: UseStudentProfileCompletionGateArgs) => {
     const [showProfileCompletion, setShowProfileCompletion] = useState(false);
     const [forceProfileCompletionPrompt, setForceProfileCompletionPrompt] = useState(false);
@@ -127,7 +123,7 @@ export const useStudentProfileCompletionGate = ({
         if (shouldForceProfileCompletionPrompt(session.student_id)) {
             setForceProfileCompletionPrompt(true);
         }
-    }, [applyPendingProfileToProfileForm, session?.student_id, session?.userType]);
+    }, [session?.student_id, session?.userType]);
 
     useEffect(() => {
         if (!profileCompletionReminderRequired) {
