@@ -60,7 +60,7 @@ const SUPPORT_STUDENT_COLUMNS = [
 ].join(', ');
 
 const sortSupportByCreatedAt = (rows: any[]) =>
-    [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    rows.toSorted((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
 const invokeManagedCareServicesFunction = async (body: any) => {
     return invokeEdgeFunction('manage-care-services', {

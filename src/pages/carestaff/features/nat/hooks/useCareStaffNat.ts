@@ -421,7 +421,7 @@ export function useCareStaffNat({ showToast }: any) {
     const addTimeSlotRow = () => {
         setScheduleForm((prev: any) => ({
             ...prev,
-            timeSlots: [...prev.timeSlots, { start: '', end: '', slots: '' }]
+            timeSlots: [...prev.timeSlots, { clientId: crypto.randomUUID(), start: '', end: '', slots: '' }]
         }));
     };
 
@@ -437,7 +437,7 @@ export function useCareStaffNat({ showToast }: any) {
             const next = prev.timeSlots.filter((_: any, i: number) => i !== index);
             return {
                 ...prev,
-                timeSlots: next.length > 0 ? next : [{ start: '', end: '', slots: '' }]
+                timeSlots: next.length > 0 ? next : [{ clientId: crypto.randomUUID(), start: '', end: '', slots: '' }]
             };
         });
     };
@@ -589,11 +589,12 @@ export function useCareStaffNat({ showToast }: any) {
             venue: sch.venue || '',
             timeSlots: existingTimeSlots.length > 0
                 ? existingTimeSlots.map((slot: any) => ({
+                    clientId: crypto.randomUUID(),
                     start: slot.start,
                     end: slot.end,
                     slots: String(slot.slots)
                 }))
-                : [{ start: '', end: '', slots: String(sch.slots || '') }]
+                : [{ clientId: crypto.randomUUID(), start: '', end: '', slots: String(sch.slots || '') }]
         });
         setShowScheduleModal(true);
     };

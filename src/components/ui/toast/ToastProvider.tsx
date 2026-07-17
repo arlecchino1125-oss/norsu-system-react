@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, Info, XCircle, X } from 'lucide-react';
 import { ToastContext, type ToastOptions, type ToastType } from './useToast';
@@ -101,9 +101,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         (message: string, type: ToastType = 'success') => toast({ message, type }),
         [toast],
     );
+    const contextValue = useMemo(
+        () => ({ showToast, toast, dismissToast }),
+        [showToast, toast, dismissToast],
+    );
 
     return (
-        <ToastContext.Provider value={{ showToast, toast, dismissToast }}>
+        <ToastContext.Provider value={contextValue}>
             {children}
             {typeof document !== 'undefined'
                 && createPortal(<ToastViewport toasts={toasts} onDismiss={dismissToast} />, document.body)}

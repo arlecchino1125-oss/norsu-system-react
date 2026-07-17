@@ -1,6 +1,6 @@
 import React from 'react';
 import { Shield, AlertCircle, CheckCircle, Terminal, EyeOff, Eye, Cpu } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useRoleLogin } from '../hooks/auth/useRoleLogin';
 import { STAFF_LOGIN_CONFIGS } from './auth/staffLoginConfigs';
 
@@ -36,19 +36,19 @@ export default function AdminLogin() {
                 }}
             />
 
-            <motion.div
+            <m.div
                 animate={{ opacity: [0.1, 0.3, 0.1] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                 className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_#030712_100%)] pointer-events-none"
             />
 
-            <motion.div
+            <m.div
                 animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
                 transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                 className="absolute -top-[20%] -right-[10%] w-[50vw] h-[50vw] rounded-full bg-red-900/20 blur-[120px] pointer-events-none"
             />
 
-            <motion.div
+            <m.div
                 animate={{ scale: [1, 1.5, 1], rotate: [0, -90, 0] }}
                 transition={{ duration: 25, repeat: Infinity, ease: "linear", delay: 5 }}
                 className="absolute -bottom-[20%] -left-[10%] w-[60vw] h-[60vw] rounded-full bg-orange-900/10 blur-[150px] pointer-events-none"
@@ -57,19 +57,19 @@ export default function AdminLogin() {
             <div className="flex w-full z-10 container mx-auto">
                 {/* Left: Branding & Message (Hidden on mobile) */}
                 <div className="hidden lg:flex w-1/2 flex-col justify-center px-16 relative">
-                    <motion.div
+                    <m.div
                         initial="initial" animate="in" variants={PAGE_VARIANTS} transition={{ duration: 0.6 }}
                         className="max-w-xl"
                     >
                         <div className="flex items-center gap-4 mb-8">
-                            <motion.div
+                            <m.div
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                                 className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 border border-red-500/30 relative"
                             >
                                 <div className="absolute inset-2 border border-red-500/20 rounded-xl" />
                                 <Cpu size={32} />
-                            </motion.div>
+                            </m.div>
                             <div className="h-[2px] w-24 bg-gradient-to-r from-red-500 to-transparent"></div>
                         </div>
 
@@ -84,12 +84,12 @@ export default function AdminLogin() {
                         <p className="text-slate-400 text-lg leading-relaxed font-sans max-w-md border-l-2 border-red-500/30 pl-4 py-2">
                             Restricted access area. Comprehensive system management, database configuration, and master user control.
                         </p>
-                    </motion.div>
+                    </m.div>
                 </div>
 
                 {/* Right: Login Terminal */}
                 <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative">
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.2 }}
@@ -121,12 +121,13 @@ export default function AdminLogin() {
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Username Input */}
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-red-400 uppercase tracking-[0.2em] block">Admin_ID</label>
+                                        <label htmlFor="admin-username" className="text-[10px] font-bold text-red-400 uppercase tracking-[0.2em] block">Admin_ID</label>
                                         <div className="relative group">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-red-500 transition-colors">
                                                 {'>'}
                                             </div>
                                             <input
+                                                id="admin-username"
                                                 required
                                                 className="w-full pl-10 pr-4 py-4 bg-[#030712] border border-slate-800 rounded-lg text-red-50 placeholder-slate-600 focus:bg-slate-900 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all outline-none"
                                                 placeholder="sysadmin"
@@ -139,13 +140,14 @@ export default function AdminLogin() {
                                     {/* Password Input */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <label className="text-[10px] font-bold text-red-400 uppercase tracking-[0.2em] block">Auth_Key</label>
+                                            <label htmlFor="admin-password" className="text-[10px] font-bold text-red-400 uppercase tracking-[0.2em] block">Auth_Key</label>
                                         </div>
                                         <div className="relative group">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-red-500 transition-colors">
                                                 {'>'}
                                             </div>
                                             <input
+                                                id="admin-password"
                                                 required
                                                 type={showPassword ? 'text' : 'password'}
                                                 className="w-full pl-10 pr-12 py-4 bg-[#030712] border border-slate-800 rounded-lg text-red-50 placeholder-slate-600 focus:bg-slate-900 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all outline-none"
@@ -166,7 +168,7 @@ export default function AdminLogin() {
 
                                     {/* Submit Button */}
                                     <div className="pt-6">
-                                        <motion.button
+                                        <m.button
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                             disabled={loading || authLoading}
@@ -176,7 +178,7 @@ export default function AdminLogin() {
                                             {loading ? (
                                                 <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Executing...</>
                                             ) : 'Execute Login'}
-                                        </motion.button>
+                                        </m.button>
                                     </div>
 
                                     <div className="text-center pt-4">
@@ -187,14 +189,14 @@ export default function AdminLogin() {
                                 </form>
                             </div>
                         </div>
-                    </motion.div>
+                    </m.div>
                 </div>
             </div>
 
             {/* Terminal Style Toast Notification */}
             <AnimatePresence>
                 {toast && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, x: 50 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 50, transition: { duration: 0.2 } }}
@@ -207,7 +209,7 @@ export default function AdminLogin() {
                             <h4 className="font-bold text-xs uppercase tracking-widest">{toast.type === 'error' ? 'ERR_AUTH_FAIL' : 'SYS_OK'}</h4>
                             <p className="text-xs font-medium opacity-80 mt-1">{toast.msg}</p>
                         </div>
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </div>

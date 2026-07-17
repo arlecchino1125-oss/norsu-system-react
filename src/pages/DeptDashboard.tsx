@@ -6,10 +6,10 @@ import { useDeptAdmissions } from './dept/features/admissions/hooks/useDeptAdmis
 import { useDeptCounseling } from './dept/features/counseling/hooks/useDeptCounseling';
 import { useDeptSupport } from './dept/features/support/hooks/useDeptSupport';
 import { useDeptAccount } from './dept/hooks/useDeptAccount';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
-import { usePortalTabRoute, readInitialTab } from '../hooks/usePortalTabRoute';
+import { usePortalTabRoute } from '../hooks/usePortalTabRoute';
 import { useDeptData } from './dept/hooks/useDeptData';
 import { useDeptFilters } from './dept/hooks/useDeptFilters';
 import { useDeptAdmissionsDashboard } from './dept/features/admissions/hooks/useDeptAdmissionsDashboard';
@@ -60,16 +60,10 @@ export default function DeptDashboard() {
         getFeatureAccessState,
         isFeatureVisible
     } = usePermissions();
-    const { tab: urlModule } = useParams<{ tab?: string }>();
-    const [activeModule, setActiveModule] = useState<string>(
-        () => readInitialTab(urlModule, DEPT_MODULES, 'dashboard'),
-    );
-    const { goToTab: goToModule } = usePortalTabRoute({
+    const { activeTab: activeModule, goToTab: goToModule } = usePortalTabRoute({
         basePath: DEPT_BASE_PATH,
         tabs: DEPT_MODULES,
         defaultTab: 'dashboard',
-        activeTab: activeModule,
-        onTabResolved: setActiveModule,
     });
     const {
         data, setData, dashboardStats, todayCounselingSessions, eventsList, counselingRequests, setCounselingRequests,
@@ -229,10 +223,16 @@ export default function DeptDashboard() {
     };
 
     const addReason = () => {
-        if (!newReason.trim()) return;
+        const reason = newReason.trim();
+        if (!reason) return;
         setData((prev: any) => ({
             ...prev,
-            settings: { ...prev.settings, referralReasons: [...prev.settings.referralReasons, newReason.trim()] }
+            settings: {
+                ...prev.settings,
+                referralReasons: prev.settings.referralReasons.includes(reason)
+                    ? prev.settings.referralReasons
+                    : [...prev.settings.referralReasons, reason]
+            }
         }));
         setNewReason('');
     };

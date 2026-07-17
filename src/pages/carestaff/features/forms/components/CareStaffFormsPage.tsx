@@ -176,7 +176,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
     };
 
     const addQuestion = () => {
-        setEditingQuestions([...editingQuestions, { question_text: '' }]);
+        setEditingQuestions([...editingQuestions, { clientId: crypto.randomUUID(), question_text: '' }]);
     };
 
     const removeQuestion = async (idx) => {
@@ -203,7 +203,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
 
             if (lines.length === 0) { functions.showToast("No questions found in file.", 'error'); return; }
 
-            const newQuestions = lines.map(line => ({ question_text: line.trim() }));
+            const newQuestions = lines.map(line => ({ clientId: crypto.randomUUID(), question_text: line.trim() }));
             setEditingQuestions(prev => [...prev, ...newQuestions]);
             e.target.value = '';
         };
@@ -311,7 +311,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                                         {editingQuestions.map((q, idx) => {
                                             const canRemoveQuestion = canDeleteRecords || !q.id;
                                             return (
-                                                <div key={idx} className="flex gap-2 items-center">
+                                                <div key={q.id ?? q.clientId} className="flex gap-2 items-center">
                                                     <div className="bg-gray-100 px-3 py-2 rounded-l-lg border border-r-0 border-gray-300 text-gray-500 text-xs flex items-center h-full">{idx + 1}</div>
                                                     <input value={q.question_text} onChange={e => handleQuestionChange(idx, e.target.value)} className={`flex-1 px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-blue-600 ${canRemoveQuestion ? 'rounded-r-none' : 'rounded-r-lg'}`} placeholder="Enter question text..." />
                                                     {canRemoveQuestion && (
@@ -345,7 +345,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                                         <p className="text-gray-500 mb-8">{previewForm.description}</p>
                                         <div className="space-y-6">
                                             {previewForm.questions && previewForm.questions.map((q, idx) => (
-                                                <div key={idx} className="border-b border-gray-100 pb-4 last:border-0">
+                                                <div key={q.id} className="border-b border-gray-100 pb-4 last:border-0">
                                                     <label className="block text-sm font-bold text-gray-700 mb-3">{idx + 1}. {q.question_text}</label>
                                                     <div className="flex justify-between px-2">
                                                         {[1, 2, 3, 4, 5].map(val => (

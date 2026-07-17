@@ -1,6 +1,6 @@
 import type React from 'react';
 import { Eye, EyeOff, Loader2, Mail, Sparkles, User, UserPlus } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import type { StudentLoginMethod } from '../../../types';
 
 type LoginPanelProps = {
@@ -40,7 +40,7 @@ export function LoginPanel({
 }: LoginPanelProps) {
     return (
         <div className="w-full lg:w-1/2 flex items-center justify-center lg:justify-end relative">
-            <motion.div
+            <m.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
@@ -166,7 +166,7 @@ export function LoginPanel({
                             </div>
 
                             <div className="pt-2 flex flex-col gap-3.5">
-                                <motion.button
+                                <m.button
                                     whileHover={{ y: -1 }}
                                     whileTap={{ scale: 0.99 }}
                                     disabled={loading || authLoading}
@@ -174,14 +174,14 @@ export function LoginPanel({
                                     className="w-full bg-gradient-to-r from-indigo-500 to-sky-500 text-white py-3.5 rounded-xl text-sm font-bold shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-70 border border-t-white/10"
                                 >
                                     {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Authenticating...</> : 'Log In'}
-                                </motion.button>
+                                </m.button>
 
                                 <div className="relative flex items-center justify-center py-1">
                                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-indigo-800/30"></div></div>
                                     <div className="relative px-3 bg-[#0d1527] text-[10px] text-indigo-300/30 font-bold uppercase tracking-[0.2em]">New Student?</div>
                                 </div>
 
-                                <motion.button
+                                <m.button
                                     type="button"
                                     whileHover={{ y: -1 }}
                                     whileTap={{ scale: 0.99 }}
@@ -189,12 +189,12 @@ export function LoginPanel({
                                     className="w-full bg-indigo-900/20 hover:bg-indigo-800/30 text-sky-400/90 py-3 rounded-xl text-sm font-bold border border-indigo-500/20 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <UserPlus size={16} /> Create Account
-                                </motion.button>
+                                </m.button>
                             </div>
                         </form>
                     </div>
                 </div>
-            </motion.div>
+            </m.div>
         </div>
     );
 }

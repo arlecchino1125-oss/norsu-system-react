@@ -215,7 +215,7 @@ const DeptStudentsPage = ({
 
     // Selection only spans visible rows; changing page or filters clears stale selections
     const filteredStudents = useMemo(() => (
-        [...students].sort((left: any, right: any) => {
+        students.toSorted((left: any, right: any) => {
             const leftFlagged = flaggedStudentIds.includes(getStudentKey(left)) ? 1 : 0;
             const rightFlagged = flaggedStudentIds.includes(getStudentKey(right)) ? 1 : 0;
 

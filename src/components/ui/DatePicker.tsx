@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface DatePickerProps {
@@ -102,7 +102,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                 <AnimatePresence>
                     {open && (
                         <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
-                            <motion.div
+                            <m.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
@@ -110,7 +110,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
                                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
                             />
-                        <motion.div
+                        <m.div
                             ref={modalRef}
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -130,7 +130,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                         onChange={e => setViewMonth(Number(e.target.value))}
                                         className="px-2 py-1 bg-indigo-50 text-indigo-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-indigo-100 transition-colors appearance-auto"
                                     >
-                                        {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                        {MONTHS.map((month, index) => <option key={month} value={index}>{month}</option>)}
                                     </select>
                                     <select
                                         aria-label="Year"
@@ -201,7 +201,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                     </button>
                                 </div>
                             )}
-                        </motion.div>
+                        </m.div>
                     </div>
                     )}
                 </AnimatePresence>,

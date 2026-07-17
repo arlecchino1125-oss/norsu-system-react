@@ -76,7 +76,7 @@ export const getArchivedSnapshotForSchoolYear = (student: any, schoolYear: strin
     const entries = parseArchiveEntries(student.course_year_archive);
     const matches = entries.filter((entry: any) => deriveSchoolYearLabel(entry) === schoolYear);
     if (matches.length === 0) return null;
-    const sorted = [...matches].sort((a: any, b: any) => {
+    const sorted = matches.toSorted((a: any, b: any) => {
         const aTime = a?.archived_at ? new Date(a.archived_at).getTime() : 0;
         const bTime = b?.archived_at ? new Date(b.archived_at).getTime() : 0;
         return bTime - aTime;

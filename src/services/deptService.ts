@@ -364,7 +364,7 @@ const sortRows = (rows: any[], sort?: SortParams) => {
     const activeSort = sort || { column: 'created_at', ascending: false };
     const direction = activeSort.ascending ? 1 : -1;
 
-    return [...rows].sort((left: any, right: any) => {
+    return rows.toSorted((left: any, right: any) => {
         const leftValue = left?.[activeSort.column];
         const rightValue = right?.[activeSort.column];
 

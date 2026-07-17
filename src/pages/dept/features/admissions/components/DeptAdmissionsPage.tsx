@@ -277,12 +277,12 @@ const DeptAdmissionsPage = ({
     const isAdmissionsLoading = Boolean(admissionsState?.isLoading);
     const admissionsError = admissionsState?.error ? String(admissionsState.error) : '';
     const activeFilters = buildAdmissionsFilters(searchTerm, statusFilter, courseFilter);
-    const activeCourseOptions = [...(departmentCourseOptions.length > 0
+    const activeCourseOptions = (departmentCourseOptions.length > 0
         ? departmentCourseOptions
         : Array.isArray(courseOptions) && courseOptions.length > 0
         ? courseOptions
         : [...new Set(pageApplicants.map((app: any) => getActiveCourseName(app)).filter(Boolean))]
-    )].sort();
+    ).toSorted();
 
     useEffect(() => {
         const selectableApplicantIds = new Set(
@@ -359,12 +359,6 @@ const DeptAdmissionsPage = ({
     const endIndex = Math.min(startIndex + filteredApplicants.length, totalApplicants);
     const paginatedApplicants = filteredApplicants;
     const currentPageSelectableApplicants = paginatedApplicants.filter((app: any) => isBulkSelectableApplicant(app));
-
-    useEffect(() => {
-        if (currentPage > totalPages && setAdmissionsPage) {
-            setAdmissionsPage(totalPages);
-        }
-    }, [currentPage, setAdmissionsPage, totalPages]);
 
     const selectedFilteredApplicants = filteredSchedulableApplicants.filter((app: any) =>
         selectedApplicantIds.includes(String(app.id))

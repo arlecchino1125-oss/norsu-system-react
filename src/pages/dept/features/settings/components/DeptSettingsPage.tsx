@@ -89,7 +89,7 @@ const DeptSettingsPage = ({
                 </div>
                 <div className="space-y-2">
                     {data.settings.referralReasons.map((r, i) => (
-                        <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border dark:bg-gray-700 dark:border-gray-600">
+                        <div key={r} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border dark:bg-gray-700 dark:border-gray-600">
                             <span className="text-sm dark:text-gray-200">{r}</span>
                             <button type="button" onClick={() => deleteReason(i)} className="text-gray-400 hover:text-red-600"><Trash2 size={16} /></button>
                         </div>

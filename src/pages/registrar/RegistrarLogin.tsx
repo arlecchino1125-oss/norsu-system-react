@@ -1,6 +1,6 @@
 import React from 'react';
 import { Shield, AlertCircle, CheckCircle, Terminal, EyeOff, Eye, Users } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useRoleLogin } from '../../hooks/auth/useRoleLogin';
 import { STAFF_LOGIN_CONFIGS } from '../auth/staffLoginConfigs';
 
@@ -36,13 +36,13 @@ export default function RegistrarLogin() {
                 }}
             />
 
-            <motion.div
+            <m.div
                 animate={{ scale: [1, 1.05, 1], rotate: [0, 5, 0] }}
                 transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute -top-[20%] -right-[10%] w-[50vw] h-[50vw] rounded-full bg-teal-500/10 blur-[120px] pointer-events-none"
             />
 
-            <motion.div
+            <m.div
                 animate={{ scale: [1, 1.1, 1], rotate: [0, -5, 0] }}
                 transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 5 }}
                 className="absolute -bottom-[20%] -left-[10%] w-[60vw] h-[60vw] rounded-full bg-cyan-500/10 blur-[150px] pointer-events-none"
@@ -51,18 +51,18 @@ export default function RegistrarLogin() {
             <div className="flex w-full z-10 container mx-auto">
                 {/* Left: Branding & Message (Hidden on mobile) */}
                 <div className="hidden lg:flex w-1/2 flex-col justify-center px-16 relative">
-                    <motion.div
+                    <m.div
                         initial="initial" animate="in" variants={PAGE_VARIANTS} transition={{ duration: 0.6 }}
                         className="max-w-xl"
                     >
                         <div className="flex items-center gap-4 mb-8">
-                            <motion.div
+                            <m.div
                                 animate={{ y: [0, -10, 0] }}
                                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                                 className="w-16 h-16 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-600 shadow-inner relative"
                             >
                                 <Users size={32} />
-                            </motion.div>
+                            </m.div>
                             <div className="h-[2px] w-24 bg-gradient-to-r from-teal-500 to-transparent"></div>
                         </div>
 
@@ -77,12 +77,12 @@ export default function RegistrarLogin() {
                         <p className="text-slate-600 text-lg leading-relaxed max-w-md border-l-4 border-teal-500 pl-4 py-2 bg-white/50 rounded-r-lg shadow-sm">
                             Restricted access area. Comprehensive student profile checking and directory management.
                         </p>
-                    </motion.div>
+                    </m.div>
                 </div>
 
                 {/* Right: Login Card */}
                 <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative">
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.2 }}
@@ -138,7 +138,7 @@ export default function RegistrarLogin() {
 
                                     {/* Submit Button */}
                                     <div className="pt-4">
-                                        <motion.button
+                                        <m.button
                                             whileHover={{ scale: 1.01 }}
                                             whileTap={{ scale: 0.98 }}
                                             disabled={loading || authLoading}
@@ -148,7 +148,7 @@ export default function RegistrarLogin() {
                                             {loading ? (
                                                 <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Signing In...</>
                                             ) : 'Sign In'}
-                                        </motion.button>
+                                        </m.button>
                                     </div>
 
                                     <div className="text-center pt-4">
@@ -159,14 +159,14 @@ export default function RegistrarLogin() {
                                 </form>
                             </div>
                         </div>
-                    </motion.div>
+                    </m.div>
                 </div>
             </div>
 
             {/* Toast Notification */}
             <AnimatePresence>
                 {toast && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: -50 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -50, transition: { duration: 0.2 } }}
@@ -178,7 +178,7 @@ export default function RegistrarLogin() {
                         <div>
                             <p className="text-sm font-semibold">{toast.msg}</p>
                         </div>
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </div>

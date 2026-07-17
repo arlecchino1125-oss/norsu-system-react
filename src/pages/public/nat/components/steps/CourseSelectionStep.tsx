@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Calendar, Info } from 'lucide-react';
 import { FieldErrorText, NAT_ORANGE_INPUT_CLASS, NAT_ORANGE_SELECT_CLASS, ResolveNatInputClassName } from './shared';
 
@@ -34,7 +34,7 @@ export default function CourseSelectionStep({
   getCourseCapacityMeta
 }: NatCourseSelectionStepProps) {
   return (
-    <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+    <m.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
       <div className="nat-section-card group relative overflow-hidden rounded-3xl border border-white/50 bg-white/60 p-8 shadow-xl shadow-blue-900/5 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-900/10 backdrop-blur-md">
         <div className="absolute left-0 top-0 h-full w-1.5 bg-orange-500" />
         <h3 className="mb-6 flex items-center gap-3 text-xl font-bold text-gray-900">
@@ -166,6 +166,6 @@ export default function CourseSelectionStep({
           ) : null}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

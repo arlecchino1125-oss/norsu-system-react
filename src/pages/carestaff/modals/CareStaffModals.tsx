@@ -69,8 +69,8 @@ export function renderCareStaffModals(p: any) {
                                 { label: 'Support', icon: <CheckCircle size={18} />, color: 'from-amber-400 to-orange-500', action: () => { setActiveTab('support'); setShowCommandHub(false); } },
                                 { label: 'Analytics', icon: <BarChart2 size={18} />, color: 'from-emerald-400 to-green-500', action: () => { setActiveTab('analytics'); setShowCommandHub(false); } },
                                 { label: 'NAT Mgmt', icon: <FileText size={18} />, color: 'from-rose-400 to-pink-500', action: () => { setActiveTab('nat'); setShowCommandHub(false); } },
-                            ].map((item, idx) => (
-                                <button type="button" key={idx} onClick={item.action} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group">
+                            ].map((item) => (
+                                <button type="button" key={item.label} onClick={item.action} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group">
                                     <div className={`w-10 h-10 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform`}>
                                         {item.icon}
                                     </div>
@@ -88,8 +88,8 @@ export function renderCareStaffModals(p: any) {
                                 { icon: '📝', title: 'NAT Management', desc: 'Track applicants, manage test schedules, and view test takers (students who timed in & out on exam day).' },
                                 { icon: '📊', title: 'Student Analytics', desc: 'Use form-based needs assessments to analyze student wellness trends across departments and year levels.' },
                                 { icon: '⚡', title: 'Real-time Updates', desc: 'All data syncs in real-time. You\'ll see toast notifications when students submit feedback or new requests arrive.' },
-                            ].map((tip, idx) => (
-                                <div key={idx} className="flex gap-3 p-3 rounded-xl bg-gray-50/80 hover:bg-purple-50/50 transition-colors">
+                            ].map((tip) => (
+                                <div key={tip.title} className="flex gap-3 p-3 rounded-xl bg-gray-50/80 hover:bg-purple-50/50 transition-colors">
                                     <span className="text-lg flex-shrink-0">{tip.icon}</span>
                                     <div>
                                         <p className="text-xs font-bold text-gray-800">{tip.title}</p>

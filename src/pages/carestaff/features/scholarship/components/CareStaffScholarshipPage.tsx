@@ -245,8 +245,8 @@ const CareStaffScholarshipPage = ({ functions }: CareStaffScholarshipPageProps) 
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0"><tr><th className="px-6 py-3">Student Name</th><th className="px-6 py-3">Course &amp; Year</th><th className="px-6 py-3">Contact</th><th className="px-6 py-3">Date Applied</th></tr></thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {applicantsList.map((app, i) => (
-                                            <tr key={i} className="hover:bg-gray-50">
+                                        {applicantsList.map((app) => (
+                                            <tr key={app.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-3"><p className="font-bold text-gray-900">{getStudentFullName(app)}</p><p className="text-xs text-gray-500">{app.student?.email || '-'}</p></td>
                                                 <td className="px-6 py-3 text-gray-600">{`${app.student?.course || ''}${app.student?.course && app.student?.year_level ? ' - ' : ''}${app.student?.year_level || ''}` || '-'}</td>
                                                 <td className="px-6 py-3 text-gray-600">{app.student?.mobile || '-'}</td>

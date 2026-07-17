@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 
 interface UseStudentOfficeVisitActionsArgs {
     activeVisit: any;
-    setActiveVisit: (value: any) => void;
     personalInfo: any;
     showToast: (message: string, type?: string) => void;
     invokeManagedStudentFunction: (body: any) => Promise<unknown>;
@@ -12,7 +11,6 @@ interface UseStudentOfficeVisitActionsArgs {
 
 export function useStudentOfficeVisitActions({
     activeVisit,
-    setActiveVisit,
     personalInfo,
     showToast,
     invokeManagedStudentFunction,
@@ -50,7 +48,7 @@ export function useStudentOfficeVisitActions({
                 .select()
                 .single();
             if (error) throw error;
-            setActiveVisit(data);
+            queryClient.setQueryData(['student_active_visit', personalInfo.studentId], data);
             void queryClient.invalidateQueries({ queryKey: ['student_active_visit'] });
             showToast("You have Timed In at the office.");
             setShowTimeInModal(false);
@@ -66,7 +64,6 @@ export function useStudentOfficeVisitActions({
         personalInfo.studentId,
         queryClient,
         selectedReason,
-        setActiveVisit,
         showToast,
         supabaseClient
     ]);
@@ -82,7 +79,7 @@ export function useStudentOfficeVisitActions({
                 mode: 'complete-office-visit',
                 officeVisitId: activeVisit.id
             });
-            setActiveVisit(null);
+            queryClient.setQueryData(['student_active_visit', personalInfo.studentId], null);
             void queryClient.invalidateQueries({ queryKey: ['student_active_visit'] });
             showToast("You have Timed Out. Thank you for visiting!");
             setTimeOutVisitReason(visitReason);
@@ -96,8 +93,8 @@ export function useStudentOfficeVisitActions({
         activeVisit,
         invokeManagedStudentFunction,
         isCompletingOfficeVisit,
+        personalInfo.studentId,
         queryClient,
-        setActiveVisit,
         showToast
     ]);
 

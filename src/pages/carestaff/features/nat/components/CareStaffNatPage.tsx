@@ -22,7 +22,7 @@ import {
     Users,
     XCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { formatDate, formatDateTime, formatTime } from '../../../../../utils/formatters';
 import StatusBadge from '../../../../../components/StatusBadge';
 import { AsyncButton, Button } from '../../../../../components/ui/Button';
@@ -64,29 +64,29 @@ const INPUT_CLASS = 'w-full rounded-xl border border-slate-200/80 bg-white px-3.
 const ROW_ACTION_CLASS = 'cursor-pointer rounded-xl px-3.5 py-2 text-xs font-bold transition-all duration-200 shadow-sm border border-slate-100 hover:scale-[1.03] active:scale-[0.97]';
 
 const StatCard = ({ icon, label, value, hint, gradient, shadow, delay }: any) => (
-    <motion.div
+    <m.div
         variants={fadeUp}
         whileHover={{ y: -3, scale: 1.01, transition: { type: "spring", stiffness: 450, damping: 24 } }}
         className="group relative flex items-center gap-4 bg-white rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-lg hover:border-purple-200/60 transition-all duration-300 overflow-hidden px-5 py-4 cursor-default"
         style={{ animationDelay: delay }}
     >
         <div className={`absolute -right-6 -top-6 w-20 h-20 bg-gradient-to-br ${gradient} rounded-full opacity-0 group-hover:opacity-10 group-hover:scale-[2.5] transition-all duration-700 ease-out`} />
-        <motion.div
+        <m.div
             whileHover={{ scale: 1.1, rotate: 5 }}
             className={`shrink-0 w-10 h-10 flex items-center justify-center bg-gradient-to-br ${gradient} rounded-xl text-white shadow-md ${shadow}`}
         >
             {React.cloneElement(icon, { size: 17 })}
-        </motion.div>
+        </m.div>
         <div className="relative z-10 min-w-0">
             <span className="text-slate-500 font-bold text-[10px] uppercase tracking-wider block">{label}</span>
             <h3 className="text-xl font-black text-slate-800 tracking-tight group-hover:text-purple-900 transition-colors tabular-nums leading-tight">{value}</h3>
             <p className="text-[10px] font-medium text-slate-400">{hint}</p>
         </div>
-    </motion.div>
+    </m.div>
 );
 
 const EmptyState = ({ icon, title, hint }: any) => (
-    <motion.div
+    <m.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="flex flex-col items-center justify-center gap-3 py-8 text-center"
@@ -98,7 +98,7 @@ const EmptyState = ({ icon, title, hint }: any) => (
             <h4 className="text-sm font-extrabold text-slate-800">{title}</h4>
             <p className="mx-auto max-w-xs text-xs font-semibold text-slate-400 leading-relaxed">{hint}</p>
         </div>
-    </motion.div>
+    </m.div>
 );
 
 const ApplicantAvatar = ({ name }: { name: string }) => {
@@ -310,7 +310,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                 onChange={handleBulkPassFileChange}
             />
 
-            <motion.div
+            <m.div
                 initial="hidden"
                 animate="show"
                 variants={stagger}
@@ -352,7 +352,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                     hint="Finalized admission outcomes"
                     delay="180ms"
                 />
-            </motion.div>
+            </m.div>
 
             <div className="w-fit max-w-full overflow-x-auto bg-slate-100/50 rounded-full p-1.5 shadow-sm">
                 <div className="flex items-center justify-start gap-1">
@@ -369,7 +369,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                         }`}
                                 >
                                     {isActive && (
-                                        <motion.div
+                                        <m.div
                                             layoutId="natActiveTab"
                                             className="absolute inset-0 bg-purple-600 rounded-full shadow-md shadow-purple-200 -z-10"
                                             transition={{ type: "spring", stiffness: 450, damping: 30 }}
@@ -590,7 +590,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                     </div>
                 ) : activeTab === 'status board' ? (
                     <div className="animate-fade-in space-y-6">
-                        <motion.div
+                        <m.div
                             initial="hidden"
                             animate="show"
                             variants={stagger}
@@ -599,7 +599,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                             {statusSections.map((section) => {
                                 const isActive = activeStatusSection?.id === section.id;
                                 return (
-                                    <motion.button
+                                    <m.button
                                         variants={fadeUp}
                                         whileHover={{ y: -4, scale: 1.015, transition: { type: "spring", stiffness: 450, damping: 24 } }}
                                         key={section.id}
@@ -619,10 +619,10 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                         </div>
                                         <p className="mt-4 text-3xl font-black tracking-tight tabular-nums text-slate-800 relative z-10">{section.rows.length}</p>
                                         <p className="mt-2 text-xs font-semibold text-slate-450 leading-relaxed relative z-10">{section.description}</p>
-                                    </motion.button>
+                                    </m.button>
                                 );
                             })}
-                        </motion.div>
+                        </m.div>
 
                         <div className={NAT_TABLE_SHELL_CLASS}>
                             <div className={TOOLBAR_CLASS}>
@@ -786,7 +786,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                         />
                     </div>
                 ) : activeTab === 'schedules' ? (
-                    <motion.div
+                    <m.div
                         key="schedules"
                         variants={fadeUp}
                         initial="hidden"
@@ -820,7 +820,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                     const remainingSlots = Math.max(totalSlots - usedSlots, 0);
                                     const usedPercent = totalSlots > 0 ? Math.min(100, Math.round((usedSlots / totalSlots) * 100)) : 0;
                                     return (
-                                        <motion.div
+                                        <m.div
                                             key={sch.id}
                                             whileHover={{ scale: 1.01, y: -2 }}
                                             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
@@ -862,12 +862,12 @@ const CareStaffNatPage = ({ showToast }: any) => {
 
                                             {Array.isArray(sch.time_windows) && sch.time_windows.length > 0 && (
                                                 <div className="mt-5 space-y-2 border-t border-slate-100/60 pt-4">
-                                                    {normalizeTimeSlots(sch.time_windows).map((slot: any, index: number) => {
+                                                    {normalizeTimeSlots(sch.time_windows).map((slot: any) => {
                                                         const key = `${sch.date}|${slot.start}-${slot.end}`;
                                                         const used = dateTimeApplicantCounts[key] || 0;
                                                         const remaining = Math.max(slot.slots - used, 0);
                                                         return (
-                                                            <div key={`${slot.start}-${slot.end}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs">
+                                                            <div key={key} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs">
                                                                 <span className="flex items-center gap-1.5 font-bold text-slate-600">
                                                                     <Clock size={12} className="shrink-0 text-slate-400" />
                                                                     {formatTime12h(slot.start)} - {formatTime12h(slot.end)}
@@ -897,14 +897,14 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     </AsyncButton>
                                                 )}
                                             </div>
-                                        </motion.div>
+                                        </m.div>
                                     );
                                 })}
                             </div>
                         )}
-                    </motion.div>
+                    </m.div>
                 ) : activeTab === 'requirements' ? (
-                    <motion.div
+                    <m.div
                         key="requirements"
                         variants={fadeUp}
                         initial="hidden"
@@ -954,7 +954,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {paginatedRequirements.map((requirement: any) => (
-                                        <motion.div
+                                        <m.div
                                             key={requirement.id}
                                             whileHover={{ scale: 1.01 }}
                                             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
@@ -977,7 +977,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     {pendingRequirementDeleteId === requirement.id ? 'Deactivating' : 'Deactivate'}
                                                 </button>
                                             )}
-                                        </motion.div>
+                                        </m.div>
                                     ))}
                                 </div>
                             )}
@@ -1016,9 +1016,9 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                 </div>
                             )}
                         </div>
-                    </motion.div>
+                    </m.div>
                 ) : (
-                    <motion.div
+                    <m.div
                         key="limits"
                         variants={fadeUp}
                         initial="hidden"
@@ -1050,7 +1050,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                     {paginatedCourseLimits.map(c => (
-                                        <motion.div
+                                        <m.div
                                             key={c.id}
                                             whileHover={{ scale: 1.01 }}
                                             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
@@ -1104,7 +1104,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                                     </AsyncButton>
                                                 )}
                                             </div>
-                                        </motion.div>
+                                        </m.div>
                                     ))}
                                 </div>
                             )}
@@ -1119,7 +1119,7 @@ const CareStaffNatPage = ({ showToast }: any) => {
                                 />
                             </div>
                         </div>
-                    </motion.div>
+                    </m.div>
                 )
             }
 

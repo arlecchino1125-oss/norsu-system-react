@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/useAuth';
 import { GraduationCap, CheckCircle, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { getSafeErrorMessage } from '../../../utils/errorMasking';
 import { useStudentActivation } from '../features/auth/hooks/useStudentActivation';
 import { useStudentForgotPassword } from '../features/auth/hooks/useStudentForgotPassword';
@@ -186,7 +186,7 @@ export default function StudentLogin() {
                         }}
                     />
                 ) : (
-                    <motion.div
+                    <m.div
                         animate={{ rotate: 360 }}
                         transition={{ duration: 150, repeat: Infinity, ease: "linear" }}
                         className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] opacity-[0.15]"
@@ -205,12 +205,12 @@ export default function StudentLogin() {
                 </>
             ) : (
                 <>
-                    <motion.div
+                    <m.div
                         animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
                         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
                         className="absolute top-1/4 left-1/4 w-[40rem] h-[40rem] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none"
                     />
-                    <motion.div
+                    <m.div
                         animate={{ scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] }}
                         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
                         className="absolute bottom-1/4 right-1/4 w-[30rem] h-[30rem] bg-sky-500/20 rounded-full blur-[100px] pointer-events-none"
@@ -221,16 +221,16 @@ export default function StudentLogin() {
             <div className="flex w-full z-10 container mx-auto px-4 max-w-7xl">
                 {/* Left: Branding & Message */}
                 <div className="hidden lg:flex w-1/2 flex-col justify-center pr-16 relative">
-                    <motion.div
+                    <m.div
                         initial="initial" animate="in" variants={PAGE_VARIANTS} transition={{ duration: 0.8 }}
                     >
-                        <motion.div
+                        <m.div
                             whileHover={{ scale: 1.05, rotate: 5 }}
                             className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-sky-400 rounded-2xl flex items-center justify-center text-white mb-8 shadow-2xl shadow-indigo-500/30 border border-indigo-400/30 relative overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/20 blur-xl rounded-full"></div>
                             <GraduationCap size={40} className="relative z-10" />
-                        </motion.div>
+                        </m.div>
 
                         <div className="mb-6 flex items-center gap-4">
                             <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-400/20 shadow-lg shadow-indigo-900/20 backdrop-blur-sm">
@@ -253,7 +253,7 @@ export default function StudentLogin() {
                         <div className="text-[10px] font-bold tracking-[0.2em] text-indigo-400/30 uppercase">
                             © {new Date().getFullYear()} NORSU-G CARE Center System
                         </div>
-                    </motion.div>
+                    </m.div>
                 </div>
 
                 <LoginPanel
@@ -349,13 +349,13 @@ export default function StudentLogin() {
             {/* --- CONGRATULATIONS SUCCESS MODAL --- */}
             <AnimatePresence>
                 {showSuccessModal && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
                     >
-                        <motion.div
+                        <m.div
                             initial={{ scale: 0.95, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -391,8 +391,8 @@ export default function StudentLogin() {
                             >
                                 Log In
                             </button>
-                        </motion.div>
-                    </motion.div>
+                        </m.div>
+                    </m.div>
                 )}
             </AnimatePresence>
 
@@ -400,7 +400,7 @@ export default function StudentLogin() {
             {/* Custom Toast Notification */}
             <AnimatePresence>
                 {toast && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: -20, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
@@ -411,7 +411,7 @@ export default function StudentLogin() {
                             <h4 className="font-extrabold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4>
                             <p className="text-xs font-medium opacity-90">{toast.msg}</p>
                         </div>
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </div>

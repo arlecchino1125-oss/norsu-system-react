@@ -1,3 +1,4 @@
+import { Profiler } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { ToastProvider } from './ToastProvider';
@@ -12,6 +13,11 @@ function Controls() {
             <button onClick={() => dismissToast(toast({ message: 'Manual', durationMs: 0 }))}>fire-and-dismiss</button>
         </div>
     );
+}
+
+function ContextConsumer() {
+    useToast();
+    return null;
 }
 
 const renderWithProvider = () =>
@@ -43,5 +49,21 @@ describe('ToastProvider', () => {
         expect(screen.getByText('Saved')).toBeInTheDocument();
         expect(screen.getByText('Broke')).toBeInTheDocument();
         expect(screen.getAllByRole('status')).toHaveLength(2);
+    });
+
+    it('does not redraw context consumers when only toast viewport state changes', () => {
+        const onRender = vi.fn();
+        render(
+            <ToastProvider>
+                <Controls />
+                <Profiler id="toast-consumer" onRender={onRender}>
+                    <ContextConsumer />
+                </Profiler>
+            </ToastProvider>,
+        );
+
+        expect(onRender).toHaveBeenCalledTimes(1);
+        act(() => { screen.getByText('fire-success').click(); });
+        expect(onRender).toHaveBeenCalledTimes(1);
     });
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { XCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { formatDate, formatDateTime, formatTime } from '../../../../../utils/formatters';
 import StatusBadge from '../../../../../components/StatusBadge';
 
@@ -18,13 +18,13 @@ const NatApplicationDetailsModal = ({
 }: any) => (
     <AnimatePresence>
         {showModal && selectedApp && (
-            <motion.div
+            <m.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 md:p-6 backdrop-blur-sm overflow-y-auto"
             >
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, scale: 0.95, y: 15 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -217,8 +217,8 @@ const NatApplicationDetailsModal = ({
                             Close
                         </button>
                     </div>
-                </motion.div>
-            </motion.div>
+                </m.div>
+            </m.div>
         )}
     </AnimatePresence>
 );

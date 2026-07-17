@@ -44,7 +44,7 @@ export default function DataTable<T>({
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-  const sortedRows = [...rows].sort((left, right) => {
+  const sortedRows = rows.toSorted((left, right) => {
     if (!sortKey) return 0;
 
     const column = columns.find((item) => item.key === sortKey);

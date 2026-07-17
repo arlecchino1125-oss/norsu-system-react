@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useId } from 'react';
 import { X } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 export interface ModalProps {
@@ -78,7 +78,7 @@ export default function Modal({
       {open && (
         <div className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4`}>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
             variants={backdropVariants}
             initial="hidden"
@@ -89,10 +89,10 @@ export default function Modal({
             {closeOnBackdrop && (
               <button type="button" aria-label="Close modal" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400" onClick={onClose} />
             )}
-          </motion.div>
+          </m.div>
 
           {/* Panel */}
-          <motion.div
+          <m.div
             ref={trapRef}
             role="dialog"
             aria-modal="true"
@@ -138,7 +138,7 @@ export default function Modal({
                 {footer}
               </div>
             )}
-          </motion.div>
+          </m.div>
         </div>
       )}
     </AnimatePresence>

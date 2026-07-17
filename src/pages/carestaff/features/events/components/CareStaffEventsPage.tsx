@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import {
     Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Archive, RefreshCw
 } from 'lucide-react';
@@ -153,7 +153,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                             className={`relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800'}`}
                                         >
                                             {isActive && (
-                                                <motion.div
+                                                <m.div
                                                     layoutId="eventFilterBubble"
                                                     className="absolute inset-0 -z-10 rounded-full bg-purple-600 shadow-md shadow-purple-200"
                                                     transition={{ type: 'spring', stiffness: 450, damping: 30 }}
@@ -556,8 +556,8 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                     <table className="w-full text-left text-sm">
                                         <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0"><tr><th className="px-6 py-3">Student</th><th className="px-6 py-3">Course</th><th className="px-6 py-3">Year / Sec</th><th className="px-6 py-3">Time In</th><th className="px-6 py-3">Time Out</th><th className="px-6 py-3">Location</th><th className="px-6 py-3">Proof</th></tr></thead>
                                         <tbody className="divide-y divide-gray-100">
-                                            {filtered.map((att, i) => (
-                                                <tr key={i} className="hover:bg-gray-50">
+                                            {filtered.map((att) => (
+                                                <tr key={att.id} className="hover:bg-gray-50">
                                                     <td className="px-6 py-3"><p className="font-bold text-gray-900">{att.student_name}</p><p className="text-xs text-gray-500">{att.department}</p></td>
                                                     <td className="px-6 py-3 text-gray-600 text-xs font-medium">{att.course || '-'}</td>
                                                     <td className="px-6 py-3 text-gray-600 text-xs font-medium">{att.year_level || '-'}{att.section ? ` — ${att.section}` : ''}</td>
@@ -734,7 +734,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                             <button type="button" onClick={() => setShowFeedbackModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
                         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                            {feedbackList.length === 0 ? <p className="text-center text-gray-500">No feedback submitted yet.</p> : feedbackList.map((fb, i) => {
+                            {feedbackList.length === 0 ? <p className="text-center text-gray-500">No feedback submitted yet.</p> : feedbackList.map((fb) => {
                                 const criteriaScores = [fb.q1_score, fb.q2_score, fb.q3_score, fb.q4_score, fb.q5_score, fb.q6_score, fb.q7_score]
                                     .map((value) => Number(value))
                                     .filter((score) => Number.isFinite(score) && score >= 1 && score <= 5);
@@ -745,7 +745,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                 const roundedRating = Math.round(displayRating);
                                 const mainComment = fb.open_comments || fb.feedback || fb.comments || '';
                                 return (
-                                    <div key={i} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                    <div key={fb.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <div className="flex items-center gap-1 text-yellow-500 mb-2">
                                             {[1, 2, 3, 4, 5].map((idx) => (
                                                 <Star key={idx} size={14} fill={idx <= roundedRating ? 'currentColor' : 'none'} className={idx <= roundedRating ? 'text-yellow-500' : 'text-gray-300'} />

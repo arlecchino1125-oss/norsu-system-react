@@ -566,8 +566,8 @@ const DeptSupportApprovalsPage = ({
                                 <div className="mb-4">
                                     <p className="text-xs font-bold text-gray-600 mb-1">Categories:</p>
                                     <div className="flex flex-wrap gap-1">
-                                        {viewReq.support_type ? viewReq.support_type.split(', ').map((cat: string, i: number) => (
-                                            <span key={i} className="bg-white border border-gray-200 px-2 py-1 rounded text-xs text-gray-700">{cat}</span>
+                                        {viewReq.support_type ? viewReq.support_type.split(', ').map((cat: string) => (
+                                            <span key={cat} className="bg-white border border-gray-200 px-2 py-1 rounded text-xs text-gray-700">{cat}</span>
                                         )) : <span className="text-xs text-gray-400">None</span>}
                                     </div>
                                 </div>
@@ -579,7 +579,7 @@ const DeptSupportApprovalsPage = ({
                                             <p className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1"><Paperclip size={12} /> Supporting Documents ({urls.length})</p>
                                             {urls.map((url: string, idx: number) => (
                                                 <button
-                                                    key={idx}
+                                                    key={url}
                                                     type="button"
                                                     onClick={async () => {
                                                         try {

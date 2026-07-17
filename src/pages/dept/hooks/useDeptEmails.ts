@@ -15,8 +15,10 @@ export function useDeptEmails(showToastMessage: (msg: string, type?: string) => 
     const previewAdmissionsEmails = useCallback(async (payloads: any[]) => {
         return Promise.all((Array.isArray(payloads) ? payloads : []).map(async (payload: any) => {
             const normalizedEmail = String(payload?.email || '').trim().toLowerCase();
+            const recipientKey = String(payload?.referenceId || normalizedEmail || crypto.randomUUID());
             if (!normalizedEmail) {
                 return {
+                    recipientKey,
                     type: String(payload?.type || '').trim(),
                     email: '',
                     name: String(payload?.name || 'Applicant').trim() || 'Applicant',
@@ -25,7 +27,8 @@ export function useDeptEmails(showToastMessage: (msg: string, type?: string) => 
                 };
             }
 
-            return previewTransactionalEmailNotification(payload, 'Failed to preview applicant email.');
+            const preview = await previewTransactionalEmailNotification(payload, 'Failed to preview applicant email.');
+            return { ...preview, recipientKey };
         }));
     }, []);
 
