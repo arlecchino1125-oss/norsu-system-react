@@ -37,26 +37,10 @@ const withStatus = (message: string, status: number) => {
     return error;
 };
 
-const CARE_RESET_CONFIRMATION_TEXT = 'RESET STUDENT DATA';
-const CARE_RESET_OTP_PURPOSE = 'destructive_reset' as const;
 const PUBLIC_FORGOT_PASSWORD_REQUEST_MESSAGE = 'If the account exists, a verification code has been sent to the registered email.';
 const PUBLIC_FORGOT_PASSWORD_CONFIRM_MESSAGE = 'The verification code is invalid or has expired. Request a new code and try again.';
 
 type StudentLoginLookupMode = 'studentId' | 'email';
-
-const STUDENT_RESET_SCOPE = [
-    { key: 'students', table: 'students', countColumn: 'id' },
-    { key: 'applications', table: 'applications', countColumn: 'id' },
-    { key: 'counselingRequests', table: 'counseling_requests', countColumn: 'id' },
-    { key: 'supportRequests', table: 'support_requests', countColumn: 'id' },
-    { key: 'notifications', table: 'notifications', countColumn: 'id' },
-    { key: 'officeVisits', table: 'office_visits', countColumn: 'id' },
-    { key: 'generalFeedback', table: 'general_feedback', countColumn: 'id' },
-    { key: 'eventAttendance', table: 'event_attendance', countColumn: 'id' },
-    { key: 'submissions', table: 'submissions', countColumn: 'id' },
-    { key: 'answers', table: 'answers', countColumn: 'id' },
-    { key: 'enrollmentKeys', table: 'enrolled_students', countColumn: 'student_id' },
-] as const;
 
 const getServiceRoleKey = () => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -738,51 +722,6 @@ const buildStaffAuditActor = (authUser: any, staffAccount: any) => ({
     department: String(staffAccount?.department || '').trim() || null
 });
 
-const countTableRows = async (
-    adminClient: any,
-    table: string,
-    countColumn: string,
-    applyFilters?: (query: any) => any
-) => {
-    let query = adminClient
-        .from(table)
-        .select(countColumn, { count: 'exact', head: true });
-
-    if (applyFilters) {
-        query = applyFilters(query);
-    }
-
-    const { count, error } = await query;
-    if (error) throw error;
-    return Number(count || 0);
-};
-
-const getStudentResetImpact = async (adminClient: any) => {
-    const [scopeCounts, linkedAuthUsers] = await Promise.all([
-        Promise.all(
-            STUDENT_RESET_SCOPE.map(async (entry) => {
-                const count = await countTableRows(adminClient, entry.table, entry.countColumn);
-                return [entry.key, count] as const;
-            })
-        ),
-        countTableRows(
-            adminClient,
-            'students',
-            'id',
-            (query) => query.not('auth_user_id', 'is', null)
-        )
-    ]);
-
-    const impact = Object.fromEntries(scopeCounts) as Record<string, number>;
-    const scopedRecordCount = Object.values(impact).reduce((sum, value) => sum + Number(value || 0), 0);
-
-    return {
-        ...impact,
-        linkedAuthUsers,
-        scopedRecordCount
-    };
-};
-
 const createStudentSecurityOtp = async (
     adminClient: any,
     authUserId: string,
@@ -879,99 +818,6 @@ const consumeStudentSecurityOtp = async (
     return record;
 };
 
-const createStaffSecurityOtp = async (
-    adminClient: any,
-    authUserId: string,
-    purpose: typeof CARE_RESET_OTP_PURPOSE,
-    targetEmail: string
-) => {
-    const otp = generateOtpCode();
-    const otpHash = await hashOtpCode(otp);
-
-    await adminClient
-        .from('security_change_otps')
-        .update({ consumed_at: new Date().toISOString() })
-        .eq('auth_user_id', authUserId)
-        .eq('account_type', 'staff')
-        .eq('purpose', purpose)
-        .is('consumed_at', null);
-
-    const { error } = await adminClient
-        .from('security_change_otps')
-        .insert({
-            auth_user_id: authUserId,
-            account_type: 'staff',
-            purpose,
-            target_email: targetEmail,
-            otp_hash: otpHash,
-            expires_at: buildOtpExpiryTimestamp(),
-        });
-
-    if (error) throw error;
-    return otp;
-};
-
-const consumeStaffSecurityOtp = async (
-    adminClient: any,
-    authUserId: string,
-    purpose: typeof CARE_RESET_OTP_PURPOSE,
-    otp: string,
-    targetEmail?: string | null
-) => {
-    const normalizedOtp = String(otp || '').trim();
-    if (!normalizedOtp) {
-        throw withStatus('OTP is required.', 400);
-    }
-
-    const { data: record, error } = await adminClient
-        .from('security_change_otps')
-        .select('id, otp_hash, expires_at, consumed_at, target_email, attempt_count')
-        .eq('auth_user_id', authUserId)
-        .eq('account_type', 'staff')
-        .eq('purpose', purpose)
-        .is('consumed_at', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-    if (error) throw error;
-    if (!record?.id) {
-        throw withStatus('Request a new OTP first.', 404);
-    }
-
-    if (targetEmail && normalizeEmail(record.target_email) !== normalizeEmail(targetEmail)) {
-        throw withStatus('This OTP was issued for a different email address.', 409);
-    }
-
-    if (new Date(record.expires_at).getTime() <= Date.now()) {
-        throw withStatus('This OTP has expired. Request a new code first.', 410);
-    }
-
-    const otpHash = await hashOtpCode(normalizedOtp);
-    if (otpHash !== String(record.otp_hash || '')) {
-        await adminClient
-            .from('security_change_otps')
-            .update({
-                attempt_count: Number(record.attempt_count || 0) + 1,
-                last_attempt_at: new Date().toISOString()
-            })
-            .eq('id', record.id);
-        throw withStatus('Invalid OTP.', 401);
-    }
-
-    const consumedAt = new Date().toISOString();
-    const { error: consumeError } = await adminClient
-        .from('security_change_otps')
-        .update({
-            consumed_at: consumedAt,
-            last_attempt_at: consumedAt
-        })
-        .eq('id', record.id);
-
-    if (consumeError) throw consumeError;
-    return record;
-};
-
 const assertAdminRequest = async (adminClient: any, request: Request) => {
     const { authUser } = await assertStaffRoleRequest(
         adminClient,
@@ -981,165 +827,6 @@ const assertAdminRequest = async (adminClient: any, request: Request) => {
     );
 
     return authUser;
-};
-
-const deleteAllStudentAccounts = async (adminClient: any) => {
-    const { data: students, error: studentsError } = await adminClient
-        .from('students')
-        .select('id, student_id, auth_user_id');
-
-    if (studentsError) throw studentsError;
-
-    let deletedLinkedAuthCount = 0;
-    let missingLinkedAuthCount = 0;
-
-    for (const student of students || []) {
-        if (!student.auth_user_id) continue;
-
-        const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(student.auth_user_id);
-        if (deleteAuthError) {
-            if (isMissingAuthUserError(deleteAuthError)) {
-                missingLinkedAuthCount += 1;
-                continue;
-            }
-
-            throw deleteAuthError;
-        }
-
-        deletedLinkedAuthCount += 1;
-    }
-
-    const { error: deleteStudentsError } = await adminClient
-        .from('students')
-        .delete()
-        .not('id', 'is', null);
-
-    if (deleteStudentsError) throw deleteStudentsError;
-
-    return {
-        deletedStudentCount: (students || []).length,
-        deletedLinkedAuthCount,
-        missingLinkedAuthCount
-    };
-};
-
-const requestCareStudentResetOtp = async (adminClient: any, request: Request) => {
-    const { authUser, staffAccount } = await assertStaffRoleRequest(
-        adminClient,
-        request,
-        ['Care Staff'],
-        'CARE Staff privileges are required for this action.'
-    );
-
-    const targetEmail = normalizeEmail(authUser.email) || normalizeEmail(staffAccount.email);
-    if (!isValidEmail(targetEmail)) {
-        throw withStatus('A valid CARE Staff email is required before requesting a reset OTP.', 400);
-    }
-
-    const otp = await createStaffSecurityOtp(adminClient, authUser.id, CARE_RESET_OTP_PURPOSE, targetEmail!);
-    await sendSecurityOtpEmail({
-        recipientEmail: targetEmail!,
-        recipientName: String(staffAccount.full_name || staffAccount.role || 'CARE Staff').trim() || 'CARE Staff',
-        otp,
-        purpose: CARE_RESET_OTP_PURPOSE
-    });
-
-    return {
-        success: true,
-        maskedEmail: maskEmailAddress(targetEmail),
-        expiresInMinutes: getOtpExpiryMinutes()
-    };
-};
-
-const previewCareStudentReset = async (adminClient: any, request: Request) => {
-    await assertStaffRoleRequest(
-        adminClient,
-        request,
-        ['Care Staff'],
-        'CARE Staff privileges are required for this action.'
-    );
-
-    return {
-        success: true,
-        impact: await getStudentResetImpact(adminClient),
-        confirmationText: CARE_RESET_CONFIRMATION_TEXT
-    };
-};
-
-const resetCareStudentData = async (adminClient: any, request: Request, body: Record<string, unknown>) => {
-    const { authUser, staffAccount } = await assertStaffRoleRequest(
-        adminClient,
-        request,
-        ['Care Staff'],
-        'CARE Staff privileges are required for this action.'
-    );
-
-    const reason = sanitizePlainText(body.reason, { maxLength: 500, multiline: true });
-    if (!reason) {
-        throw withStatus('A reset reason is required.', 400);
-    }
-
-    const confirmationText = String(body.confirmationText || '').trim().toUpperCase();
-    if (confirmationText !== CARE_RESET_CONFIRMATION_TEXT) {
-        throw withStatus(`Type "${CARE_RESET_CONFIRMATION_TEXT}" to continue.`, 400);
-    }
-
-    const targetEmail = normalizeEmail(authUser.email) || normalizeEmail(staffAccount.email);
-    if (!isValidEmail(targetEmail)) {
-        throw withStatus('A valid CARE Staff email is required before confirming the reset.', 400);
-    }
-
-    await consumeStaffSecurityOtp(
-        adminClient,
-        authUser.id,
-        CARE_RESET_OTP_PURPOSE,
-        String(body.otp || '').trim(),
-        targetEmail
-    );
-
-    const impact = await getStudentResetImpact(adminClient);
-    const studentTables = [
-        'answers',
-        'submissions',
-        'general_feedback',
-        'notifications',
-        'office_visits',
-        'support_requests',
-        'counseling_requests',
-        'event_attendance',
-        'applications'
-    ];
-
-    for (const table of studentTables) {
-        await adminClient.from(table).delete().not('id', 'is', null);
-    }
-
-    await adminClient.from('enrolled_students').delete().neq('student_id', '0');
-    const deletionResult = await deleteAllStudentAccounts(adminClient);
-
-    await writeStaffAuditLog(
-        adminClient,
-        buildStaffAuditActor(authUser, staffAccount),
-        {
-            action: 'Reset scoped student data',
-            entityTable: 'students',
-            details: {
-                summary: `${String(staffAccount.full_name || 'CARE Staff').trim() || 'CARE Staff'} reset scoped student-service data after OTP verification.`,
-                reason,
-                confirmation_text: CARE_RESET_CONFIRMATION_TEXT,
-                deleted_student_count: deletionResult.deletedStudentCount,
-                deleted_linked_auth_count: deletionResult.deletedLinkedAuthCount,
-                missing_linked_auth_count: deletionResult.missingLinkedAuthCount,
-                impact
-            }
-        }
-    );
-
-    return {
-        success: true,
-        impact,
-        ...deletionResult
-    };
 };
 
 const swapStudentIds = async (adminClient: any, request: Request, body: Record<string, unknown>) => {
@@ -1670,6 +1357,8 @@ const syncAllStudentAuthEmails = async (adminClient: any, request: Request) => {
             continue;
         }
 
+        // Keep Supabase Auth admin requests sequential to avoid account-sync rate limiting.
+        // oxlint-disable-next-line react-doctor/async-await-in-loop
         const { data: authLookup, error: authLookupError } = await adminClient.auth.admin.getUserById(student.auth_user_id);
         if (authLookupError || !authLookup?.user) {
             if (isMissingAuthUserError(authLookupError)) {
@@ -1742,29 +1431,6 @@ serve(async (request: Request) => {
 
         if (mode === 'ping') {
             return json({ success: true });
-        }
-
-        if (mode === 'preview-care-student-reset') {
-            return json(await previewCareStudentReset(adminClient, request));
-        }
-
-        if (mode === 'request-care-reset-otp') {
-            const otpRateLimit = await enforceRateLimit(request, {
-                endpoint: 'manage-student-accounts',
-                action: 'request-care-reset-otp',
-                identifier: body?.studentId || body?.email || null,
-                maxRequests: 3,
-                windowSeconds: 15 * 60,
-                message: 'You have requested too many OTPs. Please wait 15 minutes before trying again.',
-                corsHeaders
-            });
-            if (otpRateLimit) return otpRateLimit;
-
-            return json(await requestCareStudentResetOtp(adminClient, request));
-        }
-
-        if (mode === 'care-reset-student-data') {
-            return json(await resetCareStudentData(adminClient, request, body));
         }
 
         if (mode === 'request-forgot-password-otp') {

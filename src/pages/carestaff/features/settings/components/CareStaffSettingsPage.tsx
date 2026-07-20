@@ -1,5 +1,4 @@
 import StaffAccountSecurityPage from '../../../../shared/StaffAccountSecurityPage';
-import StudentDataDangerZoneCard, { type StudentResetImpact } from '../../../../shared/StudentDataDangerZoneCard';
 import type { AuthSession, ToastHandler } from '../../../types';
 
 interface CareStaffSettingsPageProps {
@@ -17,9 +16,6 @@ interface CareStaffSettingsPageProps {
     isLoadingStudentActivationPolicy: boolean;
     isSavingStudentActivationPolicy: boolean;
     toggleStudentActivationPolicy: () => Promise<void> | void;
-    loadStudentResetImpact: () => Promise<{ impact?: StudentResetImpact; confirmationText?: string }>;
-    requestStudentResetOtp: () => Promise<any>;
-    confirmStudentReset: (payload: { otp: string; reason: string; confirmationText: string }) => Promise<any>;
 }
 
 const CareStaffSettingsPage = ({
@@ -32,10 +28,7 @@ const CareStaffSettingsPage = ({
     studentActivationPolicy,
     isLoadingStudentActivationPolicy,
     isSavingStudentActivationPolicy,
-    toggleStudentActivationPolicy,
-    loadStudentResetImpact,
-    requestStudentResetOtp,
-    confirmStudentReset
+    toggleStudentActivationPolicy
 }: CareStaffSettingsPageProps) => (
     <div className="space-y-6">
         <StaffAccountSecurityPage
@@ -101,13 +94,6 @@ const CareStaffSettingsPage = ({
                 </p>
             </div>
         </div>
-        <StudentDataDangerZoneCard
-            portalLabel="CARE Staff"
-            loadImpact={loadStudentResetImpact}
-            requestOtp={requestStudentResetOtp}
-            confirmReset={confirmStudentReset}
-            showToast={showToastMessage}
-        />
     </div>
 );
 
