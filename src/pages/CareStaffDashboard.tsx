@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../lib/useAuth';
+import { CARE_STAFF_NOTES_STORAGE_KEY, migrateLegacyStorageKey } from '../lib/storageKeys';
 import { usePortalTabRoute } from '../hooks/usePortalTabRoute';
 import { useToast } from '../components/ui/toast/useToast';
 import { usePermissions } from '../hooks/usePermissions';
@@ -70,7 +71,8 @@ const CareStaffDashboard = () => {
     const [commandHubTab, setCommandHubTab] = useState<CommandHubTab>('actions');
     const [staffNotes, setStaffNotes] = useState<StaffNote[]>(() => {
         try {
-            const parsed = JSON.parse(localStorage.getItem('care_staff_notes') || '[]');
+            migrateLegacyStorageKey('care_staff_notes', CARE_STAFF_NOTES_STORAGE_KEY);
+            const parsed = JSON.parse(localStorage.getItem(CARE_STAFF_NOTES_STORAGE_KEY) || '[]');
             return Array.isArray(parsed) ? (parsed as StaffNote[]) : [];
         } catch {
             return [];
@@ -108,11 +110,8 @@ const CareStaffDashboard = () => {
         isLoadingStudentActivationPolicy,
         isSavingStudentActivationPolicy,
         loadStudentActivationPolicy,
-        toggleStudentActivationPolicy,
-        loadStudentResetImpact,
-        requestStudentResetOtp,
-        confirmStudentReset
-    } = useCareStaffGovernance({ session, showToastMessage, bumpViewRefreshSignal });
+        toggleStudentActivationPolicy
+    } = useCareStaffGovernance({ session, showToastMessage });
 
     useEffect(() => {
         if (activeTab === 'settings') {
@@ -222,9 +221,6 @@ const CareStaffDashboard = () => {
                         isLoadingStudentActivationPolicy={isLoadingStudentActivationPolicy}
                         isSavingStudentActivationPolicy={isSavingStudentActivationPolicy}
                         toggleStudentActivationPolicy={toggleStudentActivationPolicy}
-                        loadStudentResetImpact={loadStudentResetImpact}
-                        requestStudentResetOtp={requestStudentResetOtp}
-                        confirmStudentReset={confirmStudentReset}
                     />
                 );
             case 'audit':

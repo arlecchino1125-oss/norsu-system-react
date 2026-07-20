@@ -138,7 +138,7 @@ export const sendSecurityOtpEmail = async ({
     recipientEmail: string;
     recipientName: string;
     otp: string;
-    purpose: "password_change" | "email_change" | "destructive_reset" | "forgot_password";
+    purpose: "password_change" | "email_change" | "forgot_password";
     expiryMinutes?: number;
 }) => {
     let actionLabel = "password change";
@@ -148,9 +148,6 @@ export const sendSecurityOtpEmail = async ({
             break;
         case "forgot_password":
             actionLabel = "password reset";
-            break;
-        case "destructive_reset":
-            actionLabel = "student data reset";
             break;
         case "password_change":
         default:
