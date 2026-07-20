@@ -162,9 +162,8 @@ const StaffCalendarPage = ({
     const items = useMemo(() => {
         const todayStart = getTodayStart();
         const nextItems: CalendarItem[] = [
-            ...(Array.isArray(interviewRows) ? interviewRows : [])
-                .filter((application: any) => String(application?.status || '').trim() === 'Interview Scheduled')
-                .map((application: any) => ({
+            ...(Array.isArray(interviewRows) ? interviewRows : []).flatMap((application: any) => (
+                String(application?.status || '').trim() === 'Interview Scheduled' ? [{
                     id: `interview-${application.id}`,
                     type: 'Interview' as const,
                     sortAt: String(application?.interview_date || ''),
@@ -180,7 +179,8 @@ const StaffCalendarPage = ({
                         String(application?.interview_panel || '').trim() ? `Panel: ${application.interview_panel}` : null
                     ].filter(Boolean).join(' • '),
                     status: 'Interview Scheduled'
-                })),
+                }] : []
+            )),
             ...((counselingRows || []).map((request: any) => ({
                 id: `counseling-${request.id}`,
                 type: 'Counseling' as const,
@@ -273,6 +273,7 @@ const StaffCalendarPage = ({
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4 md:p-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center">
                     <select
+                        aria-label="Filter calendar items by type"
                         value={selectedType}
                         onChange={(event) => setSelectedType(event.target.value as 'All' | CalendarItemType)}
                         className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700"
@@ -283,6 +284,7 @@ const StaffCalendarPage = ({
                         <option value="Event">Events</option>
                     </select>
                     <input
+                        aria-label="Filter calendar items by date"
                         type="date"
                         value={selectedDate}
                         onChange={(event) => setSelectedDate(event.target.value)}

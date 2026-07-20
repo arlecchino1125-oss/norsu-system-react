@@ -32,7 +32,7 @@ const DeptCounseledPage = ({
             <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-100/80 shadow-sm flex flex-col gap-3 card-hover">
                 <div className="flex gap-4">
                     <input value={counseledSearch} onChange={(e) => setCounseledSearch(e.target.value)} className="flex-1 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" placeholder="Search by name..." />
-                    <input type="date" value={counseledDate} onChange={(e) => setCounseledDate(e.target.value)} className="w-48 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" />
+                    <input aria-label="Counseled date" type="date" value={counseledDate} onChange={(e) => setCounseledDate(e.target.value)} className="w-48 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" />
                 </div>
                 {cascadeFilterBar}
             </div>

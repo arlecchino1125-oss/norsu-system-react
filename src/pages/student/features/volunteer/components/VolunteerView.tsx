@@ -30,14 +30,12 @@ export default function VolunteerView({
 }: StudentRemainingFlatViewProps) {
     const [applications, setApplications] = useState<any[]>([]);
     const [schoolYear, setSchoolYear] = useState('');
-    const [loading, setLoading] = useState(true);
     const [showFormModal, setShowFormModal] = useState(false);
     const [showReadFirstGuide, setShowReadFirstGuide] = useState(false);
     const [hasReadFirstAcknowledged, setHasReadFirstAcknowledged] = useState(false);
 
     const fetchApplications = useCallback(async () => {
         try {
-            setLoading(true);
             const { data: settings } = await supabase
                 .from('peer_facilitator_settings')
                 .select('school_year')
@@ -61,8 +59,6 @@ export default function VolunteerView({
         } catch (error: any) {
             console.error('Error fetching applications:', error);
             showToast?.('Unable to load volunteer applications.', 'error');
-        } finally {
-            setLoading(false);
         }
     }, [personalInfo.studentId, showToast]);
 

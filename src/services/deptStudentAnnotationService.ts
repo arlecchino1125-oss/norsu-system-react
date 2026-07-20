@@ -25,9 +25,10 @@ const annotationTable = () => (supabase as any).from(TABLE_NAME);
 
 const normalizeStudentIds = (studentIds: Array<string | number | null | undefined>): number[] => (
     Array.from(new Set(
-        studentIds
-            .map((id) => Number(id))
-            .filter((id) => Number.isFinite(id) && id > 0)
+        studentIds.flatMap((value) => {
+            const id = Number(value);
+            return Number.isFinite(id) && id > 0 ? [id] : [];
+        })
     ))
 );
 

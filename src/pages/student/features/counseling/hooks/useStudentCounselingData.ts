@@ -1,18 +1,16 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getStudentCounselingRequestsPage } from '../../../../../services/studentPortalService';
 
 interface UseStudentCounselingDataArgs {
     studentId: string;
-    setCounselingRequests: (rows: any[]) => void;
 }
 
 export const useStudentCounselingData = ({
-    studentId,
-    setCounselingRequests
+    studentId
 }: UseStudentCounselingDataArgs) => {
     // ponytail: React Query manages cache key studentId, caching it globally so tab navigation is instant.
-    const { data, refetch } = useQuery({
+    const { data: counselingRequests = [], refetch } = useQuery({
         queryKey: ['student_counseling_data', studentId],
         queryFn: async () => {
             if (!studentId) return [];
@@ -27,19 +25,11 @@ export const useStudentCounselingData = ({
         staleTime: 2 * 60 * 1000
     });
 
-    useEffect(() => {
-        if (!studentId) {
-            setCounselingRequests([]);
-        } else if (data) {
-            setCounselingRequests(data);
-        }
-    }, [data, studentId, setCounselingRequests]);
-
     const refreshCounselingRequests = useCallback(async () => {
         await refetch();
     }, [refetch]);
 
-    return { refreshCounselingRequests };
+    return { counselingRequests, refreshCounselingRequests };
 };
 
 

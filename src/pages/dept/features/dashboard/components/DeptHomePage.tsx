@@ -89,6 +89,217 @@ const DEPT_HOME_ALERT_ICONS: Record<string, React.ReactNode> = {
 
 const EMPTY_ROWS: readonly any[] = [];
 
+/** Inline view of today's interviews, counseling sessions, and department events. */
+const TodaySchedulePanel = ({
+    todayInterviews, todayEvents, todayCounselingSessions, admissionsDashboardCounts,
+    setActiveModule, onOpenCounselingRequest
+}: any) => (
+        <div className="xl:col-span-2 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between mb-6">
+                <div className="flex items-start gap-4">
+                    <div className="rounded-2xl bg-emerald-50 p-4 text-emerald-700">
+                        <CalendarCheck2 size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">Today&apos;s Schedule</h3>
+                        <p className="text-sm text-gray-500 mt-1">A quick inline view of today&apos;s interviews, counseling sessions, and department events.</p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setActiveModule('calendar')}
+                    className={`inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition ${FOCUS_RING}`}
+                >
+                    <CalendarDays size={16} />
+                    Open Calendar
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <button
+                    type="button"
+                    onClick={() => setActiveModule('admissions')}
+                    className={`rounded-2xl border border-blue-100 bg-blue-50 p-4 text-left transition hover:border-blue-200 hover:bg-white ${FOCUS_RING}`}
+                >
+                    <div className="inline-flex rounded-xl bg-blue-500 p-2 text-white shadow-lg shadow-blue-200/60">
+                        <CalendarClock size={18} />
+                    </div>
+                    <p className="mt-4 text-xs font-bold uppercase tracking-wide text-blue-700">Interviews</p>
+                    <p className="mt-2 text-3xl font-extrabold text-gray-900">{todayInterviews.length}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                        {todayInterviews.length > 0 ? 'Scheduled for today' : `${admissionsDashboardCounts?.scheduled || 0} total scheduled`}
+                    </p>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setActiveModule('counseling_queue')}
+                    className={`rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-left transition hover:border-emerald-200 hover:bg-white ${FOCUS_RING}`}
+                >
+                    <div className="inline-flex rounded-xl bg-emerald-500 p-2 text-white shadow-lg shadow-emerald-200/60">
+                        <ClipboardList size={18} />
+                    </div>
+                    <p className="mt-4 text-xs font-bold uppercase tracking-wide text-emerald-700">Counseling</p>
+                    <p className="mt-2 text-3xl font-extrabold text-gray-900">{todayCounselingSessions.length}</p>
+                    <p className="mt-1 text-xs text-gray-500">Sessions visible on today&apos;s queue</p>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setActiveModule('events')}
+                    className={`rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left transition hover:border-amber-200 hover:bg-white ${FOCUS_RING}`}
+                >
+                    <div className="inline-flex rounded-xl bg-amber-500 p-2 text-white shadow-lg shadow-amber-200/60">
+                        <Bell size={18} />
+                    </div>
+                    <p className="mt-4 text-xs font-bold uppercase tracking-wide text-amber-700">Events</p>
+                    <p className="mt-2 text-3xl font-extrabold text-gray-900">{todayEvents.length}</p>
+                    <p className="mt-1 text-xs text-gray-500">Department activities for today</p>
+                </button>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Date</p>
+                    <p className="mt-3 text-lg font-extrabold text-gray-900">{new Date().toLocaleDateString([], { weekday: 'long' })}</p>
+                    <p className="mt-1 text-sm text-slate-500">{new Date().toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h4 className="font-bold text-blue-900 flex items-center gap-2"><CalendarClock size={16} /> Interviews</h4>
+                        <button type="button" onClick={() => setActiveModule('admissions')} className={`text-xs font-bold text-blue-700 hover:text-blue-800 ${FOCUS_RING}`}>
+                            View All
+                        </button>
+                    </div>
+                    {todayInterviews.length === 0 ? (
+                        <p className="text-sm text-blue-700/80">No interviews scheduled for today.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {todayInterviews.slice(0, 3).map((app: any) => (
+                                <button
+                                    key={String(app?.id || app?.reference_id)}
+                                    type="button"
+                                    onClick={() => setActiveModule('admissions')}
+                                    className={`w-full rounded-xl border border-blue-200 bg-white px-3 py-3 text-left hover:border-blue-300 transition ${FOCUS_RING}`}
+                                >
+                                    <p className="text-sm font-bold text-gray-900">{[app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Applicant'}</p>
+                                    <p className="mt-1 text-xs text-blue-700">{getTimeLabel(app?.interview_date)}</p>
+                                    <p className="mt-1 text-xs text-gray-500">{app?.interview_venue || app?.priority_course || 'Interview details available in admissions'}</p>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h4 className="font-bold text-emerald-900 flex items-center gap-2"><ClipboardList size={16} /> Counseling</h4>
+                        <button type="button" onClick={() => setActiveModule('counseling_queue')} className={`text-xs font-bold text-emerald-700 hover:text-emerald-800 ${FOCUS_RING}`}>
+                            View All
+                        </button>
+                    </div>
+                    {todayCounselingSessions.length === 0 ? (
+                        <p className="text-sm text-emerald-700/80">No counseling sessions scheduled today.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {todayCounselingSessions.slice(0, 3).map((request: any) => (
+                                <button
+                                    key={String(request?.id || request?.student_id)}
+                                    type="button"
+                                    onClick={() => onOpenCounselingRequest(request)}
+                                    className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-3 text-left hover:border-emerald-300 transition ${FOCUS_RING}`}
+                                >
+                                    <p className="text-sm font-bold text-gray-900">{request?.student_name || 'Student'}</p>
+                                    <p className="mt-1 text-xs text-emerald-700">{getTimeLabel(getCounselingScheduledDate(request))}</p>
+                                    <p className="mt-1 text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h4 className="font-bold text-amber-900 flex items-center gap-2"><Bell size={16} /> Events</h4>
+                        <button type="button" onClick={() => setActiveModule('events')} className={`text-xs font-bold text-amber-700 hover:text-amber-800 ${FOCUS_RING}`}>
+                            View All
+                        </button>
+                    </div>
+                    {todayEvents.length === 0 ? (
+                        <p className="text-sm text-amber-700/80">No department events scheduled today.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {todayEvents.slice(0, 3).map((event: any) => (
+                                <button
+                                    key={String(event?.id || event?.title)}
+                                    type="button"
+                                    onClick={() => setActiveModule('events')}
+                                    className={`w-full rounded-xl border border-amber-200 bg-white px-3 py-3 text-left hover:border-amber-300 transition ${FOCUS_RING}`}
+                                >
+                                    <p className="text-sm font-bold text-gray-900">{event?.title || 'Department event'}</p>
+                                    <p className="mt-1 text-xs text-amber-700">{event?.type || 'Event'}</p>
+                                    <p className="mt-1 text-xs text-gray-500 line-clamp-2">{event?.description || 'Open the events page for the full agenda.'}</p>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+);
+
+
+const RecentCounselingPanel = ({ requests, show, onToggle, onOpenCounselingRequest }: any) => (
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm card-hover">
+        <div className="flex flex-col gap-4 border-b border-gray-100 p-6 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileText size={18} className="text-emerald-500" /> Recent Counseling</h3>
+                <p className="text-sm text-gray-500 mt-1">Hidden by default to keep the home page focused on today&apos;s priorities.</p>
+            </div>
+            <button type="button" onClick={() => onToggle()} className={`inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition ${FOCUS_RING}`}>
+                {show ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                {show ? 'Hide Recent Counseling' : 'View More Recent Counseling'}
+            </button>
+        </div>
+
+        {show && (
+            <div className="p-4 space-y-3 max-h-[420px] overflow-y-auto">
+                {requests.length === 0 ? (
+                    <p className="text-center text-gray-400 py-4">No counseling requests found.</p>
+                ) : (
+                    requests.map((request: any) => {
+                        const tone = getRecentCounselingTone(String(request?.status || '').trim());
+
+                        return (
+                            <button
+                                key={request.id}
+                                type="button"
+                                onClick={() => onOpenCounselingRequest(request)}
+                                className={`w-full flex items-center justify-between gap-4 p-4 bg-gray-50/80 rounded-xl border border-gray-100 hover:bg-white transition text-left ${FOCUS_RING}`}
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-sm font-bold shadow-sm shrink-0">
+                                        {(request?.student_name || 'S').charAt(0)}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-gray-900 truncate">{request?.student_name || 'Student'}</p>
+                                        <p className="text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
+                                    </div>
+                                </div>
+                                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${tone.tone}`}>
+                                    {tone.icon}
+                                    {tone.label}
+                                </span>
+                            </button>
+                        );
+                    })
+                )}
+            </div>
+        )}
+    </div>
+);
+
 const DeptHomePage = ({
     filteredData,
     dashboardStats,
@@ -108,6 +319,12 @@ const DeptHomePage = ({
     const clock = useLiveClock();
     const [secondaryView, setSecondaryView] = useState<'population' | 'actions'>('population');
     const [showRecentCounseling, setShowRecentCounseling] = useState(false);
+
+    const openCounselingRequest = (request: any) => {
+        setActiveModule('counseling_queue');
+        setSelectedCounselingReq(request);
+        setShowCounselingViewModal(true);
+    };
 
     const todayKey = useMemo(() => getDateKey(new Date()), []);
 
@@ -143,6 +360,10 @@ const DeptHomePage = ({
         { label: 'With CARE Staff', value: withCareCount, icon: <CheckCircle2 size={20} />, gradient: 'from-emerald-400 to-teal-500' },
         { label: 'Total Students', value: totalStudents, icon: <Users size={20} />, gradient: 'from-violet-400 to-purple-500' }
     ];
+    const visibleDepartmentAlertItems = (departmentAlertItems || []).filter((item: any) => Number(item?.count || 0) > 0);
+    const visiblePopulationByYearEntries = Object.entries(populationByYear).filter(
+        ([year, count]) => year !== '5th Year' || Number(count || 0) > 0
+    );
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -209,175 +430,24 @@ const DeptHomePage = ({
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <div className="xl:col-span-2 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between mb-6">
-                        <div className="flex items-start gap-4">
-                            <div className="rounded-2xl bg-emerald-50 p-4 text-emerald-700">
-                                <CalendarCheck2 size={24} />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">Today&apos;s Schedule</h3>
-                                <p className="text-sm text-gray-500 mt-1">A quick inline view of today&apos;s interviews, counseling sessions, and department events.</p>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setActiveModule('calendar')}
-                            className={`inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition ${FOCUS_RING}`}
-                        >
-                            <CalendarDays size={16} />
-                            Open Calendar
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                        <button
-                            type="button"
-                            onClick={() => setActiveModule('admissions')}
-                            className={`rounded-2xl border border-blue-100 bg-blue-50 p-4 text-left transition hover:border-blue-200 hover:bg-white ${FOCUS_RING}`}
-                        >
-                            <div className="inline-flex rounded-xl bg-blue-500 p-2 text-white shadow-lg shadow-blue-200/60">
-                                <CalendarClock size={18} />
-                            </div>
-                            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-blue-700">Interviews</p>
-                            <p className="mt-2 text-3xl font-extrabold text-gray-900">{todayInterviews.length}</p>
-                            <p className="mt-1 text-xs text-gray-500">
-                                {todayInterviews.length > 0 ? 'Scheduled for today' : `${admissionsDashboardCounts?.scheduled || 0} total scheduled`}
-                            </p>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setActiveModule('counseling_queue')}
-                            className={`rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-left transition hover:border-emerald-200 hover:bg-white ${FOCUS_RING}`}
-                        >
-                            <div className="inline-flex rounded-xl bg-emerald-500 p-2 text-white shadow-lg shadow-emerald-200/60">
-                                <ClipboardList size={18} />
-                            </div>
-                            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-emerald-700">Counseling</p>
-                            <p className="mt-2 text-3xl font-extrabold text-gray-900">{todayCounselingSessions.length}</p>
-                            <p className="mt-1 text-xs text-gray-500">Sessions visible on today&apos;s queue</p>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setActiveModule('events')}
-                            className={`rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left transition hover:border-amber-200 hover:bg-white ${FOCUS_RING}`}
-                        >
-                            <div className="inline-flex rounded-xl bg-amber-500 p-2 text-white shadow-lg shadow-amber-200/60">
-                                <Bell size={18} />
-                            </div>
-                            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-amber-700">Events</p>
-                            <p className="mt-2 text-3xl font-extrabold text-gray-900">{todayEvents.length}</p>
-                            <p className="mt-1 text-xs text-gray-500">Department activities for today</p>
-                        </button>
-
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Date</p>
-                            <p className="mt-3 text-lg font-extrabold text-gray-900">{new Date().toLocaleDateString([], { weekday: 'long' })}</p>
-                            <p className="mt-1 text-sm text-slate-500">{new Date().toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                        <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <h4 className="font-bold text-blue-900 flex items-center gap-2"><CalendarClock size={16} /> Interviews</h4>
-                                <button type="button" onClick={() => setActiveModule('admissions')} className={`text-xs font-bold text-blue-700 hover:text-blue-800 ${FOCUS_RING}`}>
-                                    View All
-                                </button>
-                            </div>
-                            {todayInterviews.length === 0 ? (
-                                <p className="text-sm text-blue-700/80">No interviews scheduled for today.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {todayInterviews.slice(0, 3).map((app: any) => (
-                                        <button
-                                            key={String(app?.id || app?.reference_id)}
-                                            type="button"
-                                            onClick={() => setActiveModule('admissions')}
-                                            className={`w-full rounded-xl border border-blue-200 bg-white px-3 py-3 text-left hover:border-blue-300 transition ${FOCUS_RING}`}
-                                        >
-                                            <p className="text-sm font-bold text-gray-900">{[app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Applicant'}</p>
-                                            <p className="mt-1 text-xs text-blue-700">{getTimeLabel(app?.interview_date)}</p>
-                                            <p className="mt-1 text-xs text-gray-500">{app?.interview_venue || app?.priority_course || 'Interview details available in admissions'}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <h4 className="font-bold text-emerald-900 flex items-center gap-2"><ClipboardList size={16} /> Counseling</h4>
-                                <button type="button" onClick={() => setActiveModule('counseling_queue')} className={`text-xs font-bold text-emerald-700 hover:text-emerald-800 ${FOCUS_RING}`}>
-                                    View All
-                                </button>
-                            </div>
-                            {todayCounselingSessions.length === 0 ? (
-                                <p className="text-sm text-emerald-700/80">No counseling sessions scheduled today.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {todayCounselingSessions.slice(0, 3).map((request: any) => (
-                                        <button
-                                            key={String(request?.id || request?.student_id)}
-                                            type="button"
-                                            onClick={() => {
-                                                setActiveModule('counseling_queue');
-                                                setSelectedCounselingReq(request);
-                                                setShowCounselingViewModal(true);
-                                            }}
-                                            className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-3 text-left hover:border-emerald-300 transition ${FOCUS_RING}`}
-                                        >
-                                            <p className="text-sm font-bold text-gray-900">{request?.student_name || 'Student'}</p>
-                                            <p className="mt-1 text-xs text-emerald-700">{getTimeLabel(getCounselingScheduledDate(request))}</p>
-                                            <p className="mt-1 text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <h4 className="font-bold text-amber-900 flex items-center gap-2"><Bell size={16} /> Events</h4>
-                                <button type="button" onClick={() => setActiveModule('events')} className={`text-xs font-bold text-amber-700 hover:text-amber-800 ${FOCUS_RING}`}>
-                                    View All
-                                </button>
-                            </div>
-                            {todayEvents.length === 0 ? (
-                                <p className="text-sm text-amber-700/80">No department events scheduled today.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {todayEvents.slice(0, 3).map((event: any) => (
-                                        <button
-                                            key={String(event?.id || event?.title)}
-                                            type="button"
-                                            onClick={() => setActiveModule('events')}
-                                            className={`w-full rounded-xl border border-amber-200 bg-white px-3 py-3 text-left hover:border-amber-300 transition ${FOCUS_RING}`}
-                                        >
-                                            <p className="text-sm font-bold text-gray-900">{event?.title || 'Department event'}</p>
-                                            <p className="mt-1 text-xs text-amber-700">{event?.type || 'Event'}</p>
-                                            <p className="mt-1 text-xs text-gray-500 line-clamp-2">{event?.description || 'Open the events page for the full agenda.'}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                <TodaySchedulePanel
+                    todayInterviews={todayInterviews}
+                    todayEvents={todayEvents}
+                    todayCounselingSessions={todayCounselingSessions}
+                    admissionsDashboardCounts={admissionsDashboardCounts}
+                    setActiveModule={setActiveModule}
+                    onOpenCounselingRequest={openCounselingRequest}
+                />
 
                 <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
                     <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2"><Bell size={18} className="text-emerald-500" /> Role-Based Alerts</h3>
                     <div className="space-y-3">
-                        {(departmentAlertItems || []).filter((item: any) => Number(item?.count || 0) > 0).length === 0 ? (
+                        {visibleDepartmentAlertItems.length === 0 ? (
                             <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-5 text-sm text-emerald-700">
                                 No urgent department alerts right now.
                             </div>
                         ) : (
-                            (departmentAlertItems || [])
-                                .filter((item: any) => Number(item?.count || 0) > 0)
-                                .map((item: any) => (
+                            visibleDepartmentAlertItems.map((item: any) => (
                                     <button type="button"
                                         key={item.key}
                                         onClick={() => setActiveModule(item.module)}
@@ -451,9 +521,7 @@ const DeptHomePage = ({
 
                     {secondaryView === 'population' ? (
                         <div className="grid grid-cols-2 gap-3">
-                            {Object.entries(populationByYear)
-                                .filter(([year, count]) => year !== '5th Year' || Number(count || 0) > 0)
-                                .map(([year, count]) => (
+                            {visiblePopulationByYearEntries.map(([year, count]) => (
                                     <div key={year} className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
                                         <p className="text-[11px] text-gray-500 uppercase font-bold mb-1">{year}</p>
                                         <p className="text-2xl font-extrabold text-emerald-700">{Number(count || 0)}</p>
@@ -495,57 +563,12 @@ const DeptHomePage = ({
                 </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm card-hover">
-                <div className="flex flex-col gap-4 border-b border-gray-100 p-6 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileText size={18} className="text-emerald-500" /> Recent Counseling</h3>
-                        <p className="text-sm text-gray-500 mt-1">Hidden by default to keep the home page focused on today&apos;s priorities.</p>
-                    </div>
-                    <button type="button" onClick={() => setShowRecentCounseling((previous) => !previous)} className={`inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition ${FOCUS_RING}`}>
-                        {showRecentCounseling ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        {showRecentCounseling ? 'Hide Recent Counseling' : 'View More Recent Counseling'}
-                    </button>
-                </div>
-
-                {showRecentCounseling && (
-                    <div className="p-4 space-y-3 max-h-[420px] overflow-y-auto">
-                        {recentCounseling.length === 0 ? (
-                            <p className="text-center text-gray-400 py-4">No counseling requests found.</p>
-                        ) : (
-                            recentCounseling.map((request: any) => {
-                                const tone = getRecentCounselingTone(String(request?.status || '').trim());
-
-                                return (
-                                    <button
-                                        key={request.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedCounselingReq(request);
-                                            setShowCounselingViewModal(true);
-                                            setActiveModule('counseling_queue');
-                                        }}
-                                        className={`w-full flex items-center justify-between gap-4 p-4 bg-gray-50/80 rounded-xl border border-gray-100 hover:bg-white transition text-left ${FOCUS_RING}`}
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-sm font-bold shadow-sm shrink-0">
-                                                {(request?.student_name || 'S').charAt(0)}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-bold text-gray-900 truncate">{request?.student_name || 'Student'}</p>
-                                                <p className="text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
-                                            </div>
-                                        </div>
-                                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${tone.tone}`}>
-                                            {tone.icon}
-                                            {tone.label}
-                                        </span>
-                                    </button>
-                                );
-                            })
-                        )}
-                    </div>
-                )}
-            </div>
+            <RecentCounselingPanel
+                requests={recentCounseling}
+                show={showRecentCounseling}
+                onToggle={() => setShowRecentCounseling((previous) => !previous)}
+                onOpenCounselingRequest={openCounselingRequest}
+            />
         </div>
     );
 };

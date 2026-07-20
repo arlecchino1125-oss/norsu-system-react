@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
     getPendingProfileCompletionProfile,
     shouldForceProfileCompletionPrompt
 } from '../../../lib/studentProfileCompletionPrompt';
-import { applyPendingProfileToProfileForm } from '../features/profile/profileFormUtils';
+import { mergePendingProfileIntoProfileForm } from '../features/profile/profileFormUtils';
 
 type ProfileServiceGate = {
     visible: boolean;
@@ -27,15 +27,23 @@ export const useStudentProfileCompletionGate = ({
     createInitialProfileFormData
 }: UseStudentProfileCompletionGateArgs) => {
     const [showProfileCompletion, setShowProfileCompletion] = useState(false);
-    const [forceProfileCompletionPrompt, setForceProfileCompletionPrompt] = useState(false);
+    const [forceProfileCompletionPrompt, setForceProfileCompletionPrompt] = useState(() => (
+        session?.userType === 'student' && shouldForceProfileCompletionPrompt(session?.student_id)
+    ));
     const [hideProfileCompletionReminder, setHideProfileCompletionReminder] = useState(false);
     const [profileServiceGate, setProfileServiceGate] = useState<ProfileServiceGate>(createClosedProfileServiceGate);
-    const [profileCompletionInitialData, setProfileCompletionInitialData] = useState<any>(createInitialProfileFormData);
+    const [profileCompletionInitialData, setProfileCompletionInitialData] = useState<any>(() => {
+        const initialData = createInitialProfileFormData();
+        if (session?.userType !== 'student') return initialData;
+        const pendingProfile = getPendingProfileCompletionProfile(session.student_id)
+            || getPendingProfileCompletionProfile();
+        return mergePendingProfileIntoProfileForm(initialData, pendingProfile);
+    });
     const [profileCompletionStatusOverride, setProfileCompletionStatusOverride] = useState<boolean | null>(null);
     const [profileFieldsComplete, setProfileFieldsComplete] = useState<boolean | null>(null);
     const profileCompletionJustCompletedRef = useRef(false);
     const refreshStudentProfileRequestRef = useRef(0);
-    const portalMountTimeRef = useRef(Date.now());
+    const [portalMountTime] = useState(() => Date.now());
 
     const hasPendingForcedProfileCompletion = session?.userType === 'student'
         && shouldForceProfileCompletionPrompt(session?.student_id);
@@ -57,14 +65,17 @@ export const useStudentProfileCompletionGate = ({
     const profileCompletionReminderVisible = profileCompletionReminderRequired
         && !profileCompletionGateActive
         && !hideProfileCompletionReminder;
+    const effectiveProfileServiceGate = profileCompletionReminderRequired
+        ? profileServiceGate
+        : createClosedProfileServiceGate();
 
     const openProfileCompletionModal = useCallback(() => {
         // Prevent mobile ghost-clicks from the login screen triggering the modal.
-        if (Date.now() - portalMountTimeRef.current < 800) return;
+        if (Date.now() - portalMountTime < 800) return;
 
         setShowProfileCompletion(true);
         setHideProfileCompletionReminder(false);
-    }, []);
+    }, [portalMountTime]);
 
     const closeProfileCompletionModal = useCallback(() => {
         setShowProfileCompletion(false);
@@ -93,61 +104,12 @@ export const useStudentProfileCompletionGate = ({
         setHideProfileCompletionReminder(true);
     }, []);
 
-    useEffect(() => {
-        profileCompletionJustCompletedRef.current = false;
-        setProfileCompletionStatusOverride(null);
-        setProfileFieldsComplete(null);
-        setProfileCompletionInitialData(createInitialProfileFormData());
-    }, [createInitialProfileFormData, session?.student_id, session?.auth_user_id]);
-
-    useEffect(() => {
-        setHideProfileCompletionReminder(false);
-    }, [session?.student_id, session?.auth_user_id]);
-
-    useEffect(() => {
-        if (session?.userType !== 'student') {
-            profileCompletionJustCompletedRef.current = false;
-            setForceProfileCompletionPrompt(false);
-            setHideProfileCompletionReminder(false);
-            setShowProfileCompletion(false);
-            setProfileCompletionStatusOverride(null);
-            setProfileFieldsComplete(null);
-            return;
-        }
-
-        applyPendingProfileToProfileForm(
-            setProfileCompletionInitialData,
-            getPendingProfileCompletionProfile(session.student_id) || getPendingProfileCompletionProfile()
-        );
-
-        if (shouldForceProfileCompletionPrompt(session.student_id)) {
-            setForceProfileCompletionPrompt(true);
-        }
-    }, [session?.student_id, session?.userType]);
-
-    useEffect(() => {
-        if (!profileCompletionReminderRequired) {
-            setHideProfileCompletionReminder(false);
-            return;
-        }
-
-        if (hasPendingForcedProfileCompletion) {
-            setForceProfileCompletionPrompt(true);
-        }
-    }, [profileCompletionReminderRequired, hasPendingForcedProfileCompletion]);
-
-    useEffect(() => {
-        if (!profileCompletionReminderRequired) {
-            closeProfileServiceGate();
-        }
-    }, [closeProfileServiceGate, profileCompletionReminderRequired]);
-
     return {
         showProfileCompletion,
         setShowProfileCompletion,
         forceProfileCompletionPrompt,
         setForceProfileCompletionPrompt,
-        profileServiceGate,
+        profileServiceGate: effectiveProfileServiceGate,
         profileCompletionInitialData,
         setProfileCompletionInitialData,
         setProfileCompletionStatusOverride,

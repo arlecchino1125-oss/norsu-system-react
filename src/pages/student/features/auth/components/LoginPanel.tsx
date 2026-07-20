@@ -148,6 +148,7 @@ export function LoginPanel({
                                 </label>
                                 <button
                                     type="button"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                                     onClick={onTogglePassword}
                                     className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400/40 hover:text-sky-400 transition-colors focus:outline-none"
                                 >

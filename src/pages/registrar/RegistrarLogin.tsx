@@ -102,9 +102,10 @@ export default function RegistrarLogin() {
                                 <form onSubmit={handleSubmit} className="space-y-5">
                                     {/* Username Input */}
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-700 block">Username</label>
+                                        <label htmlFor="registrar-username" className="text-sm font-semibold text-slate-700 block">Username</label>
                                         <div className="relative group">
                                             <input
+                                                id="registrar-username"
                                                 required
                                                 className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none"
                                                 placeholder="Enter registrar ID"
@@ -116,9 +117,10 @@ export default function RegistrarLogin() {
 
                                     {/* Password Input */}
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-700 block">Password</label>
+                                        <label htmlFor="registrar-password" className="text-sm font-semibold text-slate-700 block">Password</label>
                                         <div className="relative group">
                                             <input
+                                                id="registrar-password"
                                                 required
                                                 type={showPassword ? 'text' : 'password'}
                                                 className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none"
@@ -128,6 +130,7 @@ export default function RegistrarLogin() {
                                             />
                                             <button
                                                 type="button"
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
                                                 onClick={() => setShowPassword(!showPassword)}
                                                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-teal-600 transition-colors focus:outline-none"
                                             >

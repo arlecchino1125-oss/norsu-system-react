@@ -7,45 +7,50 @@ const YearLevelChart = ({ submissions }: any) => {
     const chartRef = useRef(null);
 
     useEffect(() => {
-        const Chart = ensureBarChartSetup();
-        if (!canvasRef.current) return;
-        if (chartRef.current) chartRef.current.destroy();
+        let cancelled = false;
+        ensureBarChartSetup().then((Chart) => {
+            if (cancelled || !canvasRef.current) return;
+            if (chartRef.current) chartRef.current.destroy();
 
-        const counts = {};
-        submissions.forEach(s => {
-            const year = s.students?.year_level || 'Unknown';
-            counts[year] = (counts[year] || 0) + 1;
-        });
+            const counts = {};
+            submissions.forEach(s => {
+                const year = s.students?.year_level || 'Unknown';
+                counts[year] = (counts[year] || 0) + 1;
+            });
 
-        const labels = Object.keys(counts).sort();
-        const data = labels.map(l => counts[l]);
+            const labels = Object.keys(counts).sort();
+            const data = labels.map(l => counts[l]);
 
-        chartRef.current = new Chart(canvasRef.current, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Respondents',
-                    data: data,
-                    backgroundColor: '#6366f1',
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'Respondents by Year Level', font: { size: 14, weight: 'bold' } }
+            chartRef.current = new Chart(canvasRef.current, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Respondents',
+                        data: data,
+                        backgroundColor: '#6366f1',
+                        borderRadius: 4
+                    }]
                 },
-                scales: {
-                    y: { beginAtZero: true, ticks: { precision: 0 } },
-                    x: { grid: { display: false } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Respondents by Year Level', font: { size: 14, weight: 'bold' } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } },
+                        x: { grid: { display: false } }
+                    }
                 }
-            }
+            });
         });
 
-        return () => { if (chartRef.current) chartRef.current.destroy(); };
+        return () => {
+            cancelled = true;
+            if (chartRef.current) chartRef.current.destroy();
+        };
     }, [submissions]);
 
     return (

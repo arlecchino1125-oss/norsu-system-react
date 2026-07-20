@@ -55,9 +55,10 @@ const DeptSettingsPage = ({
                     Manage your department profile, account security, portal preferences, and referral configuration from one place.
                 </p>
                 <div className="mt-5 max-w-xl rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/70">Profile Name</label>
+                    <label htmlFor="dept-settings-profile-name" className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/70">Profile Name</label>
                     <div className="flex flex-col gap-3 sm:flex-row">
                         <input
+                            id="dept-settings-profile-name"
                             type="text"
                             value={profileName}
                             onChange={(event) => setProfileName(event.target.value)}
@@ -77,7 +78,7 @@ const DeptSettingsPage = ({
             </div>
             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-100/80 shadow-sm w-full card-hover flex justify-between items-center">
                 <div><h3 className="font-bold text-gray-900 dark:text-white">Dark Mode</h3><p className="text-sm text-gray-500">Toggle theme</p></div>
-                <button type="button" onClick={() => setData(prev => ({ ...prev, settings: { ...prev.settings, darkMode: !prev.settings.darkMode } }))} className={`w-12 h-6 rounded-full relative transition-colors ${data.settings.darkMode ? 'bg-green-600' : 'bg-gray-200'}`}>
+                <button type="button" aria-label={`Turn dark mode ${data.settings.darkMode ? 'off' : 'on'}`} onClick={() => setData(prev => ({ ...prev, settings: { ...prev.settings, darkMode: !prev.settings.darkMode } }))} className={`w-12 h-6 rounded-full relative transition-colors ${data.settings.darkMode ? 'bg-green-600' : 'bg-gray-200'}`}>
                     <div className={`w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform ${data.settings.darkMode ? 'translate-x-6' : ''}`}></div>
                 </button>
             </div>
@@ -91,7 +92,7 @@ const DeptSettingsPage = ({
                     {data.settings.referralReasons.map((r, i) => (
                         <div key={r} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border dark:bg-gray-700 dark:border-gray-600">
                             <span className="text-sm dark:text-gray-200">{r}</span>
-                            <button type="button" onClick={() => deleteReason(i)} className="text-gray-400 hover:text-red-600"><Trash2 size={16} /></button>
+                            <button type="button" aria-label={`Delete referral reason: ${r}`} onClick={() => deleteReason(i)} className="text-gray-400 hover:text-red-600"><Trash2 size={16} /></button>
                         </div>
                     ))}
                 </div>

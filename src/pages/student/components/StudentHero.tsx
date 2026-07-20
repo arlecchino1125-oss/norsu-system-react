@@ -5,13 +5,14 @@ const formatFullDate = (date: any) => {
     return new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 };
 
+const TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+});
+
 const formatTimeParts = (date: any) => {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    });
-    const parts = formatter.formatToParts(new Date(date));
+    const parts = TIME_FORMATTER.formatToParts(new Date(date));
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
     return {
         time: `${values.hour || '--'}:${values.minute || '--'}`,

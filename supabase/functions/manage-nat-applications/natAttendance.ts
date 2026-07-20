@@ -22,16 +22,18 @@ const parseTimeToMinutes = (value: unknown) => {
     return (hour * 60) + minute;
 };
 
+const MANILA_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+});
+
 const getManilaDateAndMinutes = (now: Date) => {
-    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Manila',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23'
-    }).formatToParts(now).map((part) => [part.type, part.value]));
+    const parts = Object.fromEntries(MANILA_DATE_TIME_FORMATTER.formatToParts(now).map((part) => [part.type, part.value]));
 
     return {
         date: `${parts.year}-${parts.month}-${parts.day}`,

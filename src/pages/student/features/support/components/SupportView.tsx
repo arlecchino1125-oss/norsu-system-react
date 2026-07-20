@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useStudentSupportData } from '../hooks/useStudentSupportData';
 import {
@@ -143,27 +143,200 @@ const CheckIcon = () => (
     </svg>
 );
 
+/** Slide-in drawer listing every support request the student has made. */
+const SupportRequestsDrawer = ({ requests, formatFullDate, onSelect, onClose }: any) => (
+        <div className="fixed inset-0 z-50 flex justify-end bg-transparent student-mobile-modal-overlay" onClick={onClose}>
+            <div className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl student-mobile-modal-drawer-panel" onClick={(event) => event.stopPropagation()}>
+                <div className="shrink-0 border-b border-slate-100 bg-slate-950 px-5 py-4 text-white">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Additional Support</p>
+                            <h3 className="mt-1 text-lg font-black">Your Requests</h3>
+                            <p className="mt-1 text-xs font-semibold text-slate-400">{requests.length} total request{requests.length !== 1 ? 's' : ''}</p>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label="Close support requests"
+                            onClick={onClose}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
+                        >
+                            <CloseIcon />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                    {requests.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                            <p className="text-sm font-black text-slate-800">No requests found</p>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">Once you submit a request, updates from the support team will appear here.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {requests.map((req: any) => (
+                                <button
+                                    key={req.id}
+                                    type="button"
+                                    onClick={() => onSelect(req)}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-black text-slate-950">{req.support_type || 'Additional Support'}</p>
+                                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{getSupportPreview(req)}</p>
+                                            <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{formatFullDate(new Date(req.created_at))}</p>
+                                        </div>
+                                        <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black uppercase ${getSupportStatusTone(req.status)}`}>{getSupportStatusLabel(req.status)}</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+);
+
+
+/** Read-only detail sheet for one support request. */
+const SupportRequestDetailsModal = ({ request, personalInfo, formatFullDate, showToast, onClose }: any) => (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-transparent p-3 student-mobile-modal-overlay sm:items-center sm:p-4" onClick={onClose}>
+            <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl student-mobile-modal-panel" onClick={(event) => event.stopPropagation()}>
+                <div className="shrink-0 border-b border-slate-100 p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Support Request</p>
+                            <h3 className="mt-1 text-lg font-black leading-tight text-slate-950">Request details</h3>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">Submitted {formatFullDate(new Date(request.created_at))}</p>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label="Close support request details"
+                            onClick={onClose}
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                        >
+                            <CloseIcon />
+                        </button>
+                    </div>
+                    <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase ${getSupportStatusTone(request.status)}`}>
+                        {getSupportStatusLabel(request.status)}
+                    </span>
+                </div>
+
+                <div className="flex-1 space-y-4 overflow-y-auto p-4 student-mobile-modal-scroll-panel sm:p-5">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        {[
+                            { label: 'Student', value: request.student_name || `${personalInfo.firstName} ${personalInfo.lastName}`.trim() || 'Not set' },
+                            { label: 'Program', value: `${personalInfo.course || ''} ${personalInfo.year ? `- ${personalInfo.year}` : ''}`.trim() || 'Not set' },
+                            { label: 'Contact', value: personalInfo.mobile || personalInfo.email || 'Not set' },
+                        ].map((item) => (
+                            <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+                                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
+                                <p className="mt-1 break-words text-sm font-bold leading-5 text-slate-800">{item.value}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {(() => {
+                        const answers = extractSupportAnswers(request.description || '');
+                        const resolution = getSupportResolution(request);
+                        const scheduledDate = getSupportScheduledDate(request);
+                        return (
+                            <>
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Selected Categories</p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {(request.support_type || 'Additional Support').split(',').map((item: string) => (
+                                            <span key={item.trim()} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase text-blue-700">{item.trim()}</span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {[
+                                    { label: 'Need or condition', value: answers.q1 },
+                                    { label: 'Previous support', value: answers.q2 },
+                                    { label: 'Required campus support', value: answers.q3 },
+                                    { label: 'Other needs', value: answers.q4 },
+                                ].map((item) => (
+                                    <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{item.label}</p>
+                                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{item.value || 'Not provided.'}</p>
+                                    </div>
+                                ))}
+
+                                {scheduledDate && (
+                                    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">Department Visit Schedule</p>
+                                        <p className="mt-1 text-sm font-bold text-blue-950">{scheduledDate}</p>
+                                    </div>
+                                )}
+
+                                {resolution && (
+                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Resolution Letter</p>
+                                        <p className="mt-1 text-xs font-bold text-emerald-800">From: {resolution.by}</p>
+                                        <p className="mt-3 whitespace-pre-wrap rounded-xl border border-emerald-100 bg-white p-3 text-sm leading-6 text-emerald-950">{resolution.text}</p>
+                                    </div>
+                                )}
+                            </>
+                        );
+                    })()}
+
+                    {request.documents_url && (() => {
+                        const urls = getStoredAssetEntries(request.documents_url);
+                        return urls.length > 0 ? (
+                            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+                                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Supporting Documents</p>
+                                <div className="mt-3 space-y-2">
+                                    {urls.map((url: string, idx: number) => (
+                                        <button
+                                            key={url}
+                                            type="button"
+                                            onClick={async () => {
+                                                try {
+                                                    await openStoredAsset('support_documents', url, 300, {
+                                                        category: 'support-student',
+                                                        requestId: Number(request.id),
+                                                        index: idx
+                                                    });
+                                                } catch (error: any) {
+                                                    showToast?.(error.message || 'Unable to open the selected document.', 'error');
+                                                }
+                                            }}
+                                            className="flex w-full items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-left transition hover:bg-blue-100"
+                                        >
+                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z" /></svg>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-black text-blue-800">Document {idx + 1}</p>
+                                                <p className="truncate text-xs text-blue-500">{getStoredAssetLabel(url)}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
+                        ) : null;
+                    })()}
+                </div>
+            </div>
+        </div>
+);
+
 export default function SupportView({
     formatFullDate,
     personalInfo,
     showToast,
     Icons
 }: StudentRemainingFlatViewProps) {
-    const [supportRequests, setSupportRequests] = useState<any[]>([]);
     const [showSupportRequestsModal, setShowSupportRequestsModal] = useState(false);
     const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [showReadFirstGuide, setShowReadFirstGuide] = useState(false);
     const [hasReadFirstAcknowledged, setHasReadFirstAcknowledged] = useState(false);
 
-    const { refreshSupportRequests } = useStudentSupportData({
-        studentId: personalInfo.studentId,
-        setSupportRequests
+    const { supportRequests, refreshSupportRequests } = useStudentSupportData({
+        studentId: personalInfo.studentId
     });
-
-    useEffect(() => {
-        refreshSupportRequests();
-    }, [refreshSupportRequests]);
 
     const openSupportForm = () => setShowSupportModal(true);
 
@@ -348,180 +521,23 @@ export default function SupportView({
             </section>
 
             {showSupportRequestsModal && createPortal(
-                <div className="fixed inset-0 z-50 flex justify-end bg-transparent student-mobile-modal-overlay" onClick={() => setShowSupportRequestsModal(false)}>
-                    <div className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl student-mobile-modal-drawer-panel" onClick={(event) => event.stopPropagation()}>
-                        <div className="shrink-0 border-b border-slate-100 bg-slate-950 px-5 py-4 text-white">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Additional Support</p>
-                                    <h3 className="mt-1 text-lg font-black">Your Requests</h3>
-                                    <p className="mt-1 text-xs font-semibold text-slate-400">{supportRequests.length} total request{supportRequests.length !== 1 ? 's' : ''}</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    aria-label="Close support requests"
-                                    onClick={() => setShowSupportRequestsModal(false)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
-                                >
-                                    <CloseIcon />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4">
-                            {supportRequests.length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                                    <p className="text-sm font-black text-slate-800">No requests found</p>
-                                    <p className="mt-2 text-xs leading-5 text-slate-500">Once you submit a request, updates from the support team will appear here.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {supportRequests.map((req: any) => (
-                                        <button
-                                            key={req.id}
-                                            type="button"
-                                            onClick={() => { setShowSupportRequestsModal(false); setSelectedSupportRequest(req); }}
-                                            className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-black text-slate-950">{req.support_type || 'Additional Support'}</p>
-                                                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{getSupportPreview(req)}</p>
-                                                    <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{formatFullDate(new Date(req.created_at))}</p>
-                                                </div>
-                                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black uppercase ${getSupportStatusTone(req.status)}`}>{getSupportStatusLabel(req.status)}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>,
+                <SupportRequestsDrawer
+                    requests={supportRequests}
+                    formatFullDate={formatFullDate}
+                    onSelect={(req: any) => { setShowSupportRequestsModal(false); setSelectedSupportRequest(req); }}
+                    onClose={() => setShowSupportRequestsModal(false)}
+                />,
                 document.body
             )}
 
             {selectedSupportRequest && createPortal(
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-transparent p-3 student-mobile-modal-overlay sm:items-center sm:p-4" onClick={() => setSelectedSupportRequest(null)}>
-                    <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl student-mobile-modal-panel" onClick={(event) => event.stopPropagation()}>
-                        <div className="shrink-0 border-b border-slate-100 p-4 sm:p-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Support Request</p>
-                                    <h3 className="mt-1 text-lg font-black leading-tight text-slate-950">Request details</h3>
-                                    <p className="mt-1 text-xs font-semibold text-slate-500">Submitted {formatFullDate(new Date(selectedSupportRequest.created_at))}</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    aria-label="Close support request details"
-                                    onClick={() => setSelectedSupportRequest(null)}
-                                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                                >
-                                    <CloseIcon />
-                                </button>
-                            </div>
-                            <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase ${getSupportStatusTone(selectedSupportRequest.status)}`}>
-                                {getSupportStatusLabel(selectedSupportRequest.status)}
-                            </span>
-                        </div>
-
-                        <div className="flex-1 space-y-4 overflow-y-auto p-4 student-mobile-modal-scroll-panel sm:p-5">
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                {[
-                                    { label: 'Student', value: selectedSupportRequest.student_name || `${personalInfo.firstName} ${personalInfo.lastName}`.trim() || 'Not set' },
-                                    { label: 'Program', value: `${personalInfo.course || ''} ${personalInfo.year ? `- ${personalInfo.year}` : ''}`.trim() || 'Not set' },
-                                    { label: 'Contact', value: personalInfo.mobile || personalInfo.email || 'Not set' },
-                                ].map((item) => (
-                                    <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
-                                        <p className="mt-1 break-words text-sm font-bold leading-5 text-slate-800">{item.value}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {(() => {
-                                const answers = extractSupportAnswers(selectedSupportRequest.description || '');
-                                const resolution = getSupportResolution(selectedSupportRequest);
-                                const scheduledDate = getSupportScheduledDate(selectedSupportRequest);
-                                return (
-                                    <>
-                                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Selected Categories</p>
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                                {(selectedSupportRequest.support_type || 'Additional Support').split(',').map((item: string) => (
-                                                    <span key={item.trim()} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase text-blue-700">{item.trim()}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {[
-                                            { label: 'Need or condition', value: answers.q1 },
-                                            { label: 'Previous support', value: answers.q2 },
-                                            { label: 'Required campus support', value: answers.q3 },
-                                            { label: 'Other needs', value: answers.q4 },
-                                        ].map((item) => (
-                                            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
-                                                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{item.label}</p>
-                                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{item.value || 'Not provided.'}</p>
-                                            </div>
-                                        ))}
-
-                                        {scheduledDate && (
-                                            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                                                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">Department Visit Schedule</p>
-                                                <p className="mt-1 text-sm font-bold text-blue-950">{scheduledDate}</p>
-                                            </div>
-                                        )}
-
-                                        {resolution && (
-                                            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                                                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Resolution Letter</p>
-                                                <p className="mt-1 text-xs font-bold text-emerald-800">From: {resolution.by}</p>
-                                                <p className="mt-3 whitespace-pre-wrap rounded-xl border border-emerald-100 bg-white p-3 text-sm leading-6 text-emerald-950">{resolution.text}</p>
-                                            </div>
-                                        )}
-                                    </>
-                                );
-                            })()}
-
-                            {selectedSupportRequest.documents_url && (() => {
-                                const urls = getStoredAssetEntries(selectedSupportRequest.documents_url);
-                                return urls.length > 0 ? (
-                                    <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Supporting Documents</p>
-                                        <div className="mt-3 space-y-2">
-                                            {urls.map((url: string, idx: number) => (
-                                                <button
-                                                    key={url}
-                                                    type="button"
-                                                    onClick={async () => {
-                                                        try {
-                                                            await openStoredAsset('support_documents', url, 300, {
-                                                                category: 'support-student',
-                                                                requestId: Number(selectedSupportRequest.id),
-                                                                index: idx
-                                                            });
-                                                        } catch (error: any) {
-                                                            showToast?.(error.message || 'Unable to open the selected document.', 'error');
-                                                        }
-                                                    }}
-                                                    className="flex w-full items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-left transition hover:bg-blue-100"
-                                                >
-                                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-                                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z" /></svg>
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="truncate text-sm font-black text-blue-800">Document {idx + 1}</p>
-                                                        <p className="truncate text-xs text-blue-500">{getStoredAssetLabel(url)}</p>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                ) : null;
-                            })()}
-                        </div>
-                    </div>
-                </div>,
+                <SupportRequestDetailsModal
+                    request={selectedSupportRequest}
+                    personalInfo={personalInfo}
+                    formatFullDate={formatFullDate}
+                    showToast={showToast}
+                    onClose={() => setSelectedSupportRequest(null)}
+                />,
                 document.body
             )}
 

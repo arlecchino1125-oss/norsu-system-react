@@ -10,9 +10,9 @@ export function DeptEventAttendeesModal(props: any) {
         {/* Attendees Modal - Enhanced */}
             {
                 showEventAttendees && (() => {
-                    const yearLevels = [...new Set(deptAttendees.map((a: any) => a.year_level).filter(Boolean))].sort();
-                    const attCourses = [...new Set(deptAttendees.map((a: any) => a.course).filter(Boolean))].sort();
-                    const attSections = [...new Set(deptAttendees.map((a: any) => a.section).filter(Boolean))].sort();
+                    const yearLevels = [...new Set(deptAttendees.flatMap((a: any) => a.year_level ? [a.year_level] : []))].sort();
+                    const attCourses = [...new Set(deptAttendees.flatMap((a: any) => a.course ? [a.course] : []))].sort();
+                    const attSections = [...new Set(deptAttendees.flatMap((a: any) => a.section ? [a.section] : []))].sort();
                     let filtered = deptAttendees;
                     if (yearLevelFilter !== 'All') filtered = filtered.filter((a: any) => a.year_level === yearLevelFilter);
                     if (deptCourseFilter !== 'All') filtered = filtered.filter((a: any) => a.course === deptCourseFilter);
@@ -46,7 +46,7 @@ export function DeptEventAttendeesModal(props: any) {
                                             }} disabled={filtered.length === 0} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-500">
                                                 Export Excel
                                             </button>
-                                            <button type="button" onClick={() => { setShowEventAttendees(null); setYearLevelFilter('All'); setDeptCourseFilter('All'); setDeptSectionFilter('All'); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>
+                                            <button type="button" aria-label="Close attendees list" onClick={() => { setShowEventAttendees(null); setYearLevelFilter('All'); setDeptCourseFilter('All'); setDeptSectionFilter('All'); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 text-xs mb-3">

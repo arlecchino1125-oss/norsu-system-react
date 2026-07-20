@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type ReactNode } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../../../lib/supabase';
 import { uploadStudentSupportDocuments } from '../supportDocumentStorage';
@@ -97,12 +97,6 @@ export default function SupportFormModal({
 }: SupportFormModalProps) {
     const [form, setForm] = useState(createInitialSupportForm);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setForm(createInitialSupportForm());
-        }
-    }, [isOpen]);
 
     const handleSupportDocumentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFiles = Array.from(event.target.files || []);

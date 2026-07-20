@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type ReactNode } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../../../../lib/supabase';
 import { getTextInputLimitProps, validateTextInput } from '../../../../../utils/inputSecurity';
@@ -66,12 +66,6 @@ export default function CounselingFormModal({
 }: CounselingFormModalProps) {
     const [form, setForm] = useState(createInitialCounselingForm);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setForm(createInitialCounselingForm());
-        }
-    }, [isOpen]);
 
     const handleSubmit = async () => {
         const reasonCheck = validateTextInput(form.reason_for_referral, 'notes', {

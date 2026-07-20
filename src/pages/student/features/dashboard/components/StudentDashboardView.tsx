@@ -126,7 +126,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                         <h4 className="font-bold text-sm text-gray-900 mb-4 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">1</span> Client Information</h4>
                         <div className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Client Type *</label>
+                                <p className="text-xs font-bold text-gray-500 uppercase mb-2 block">Client Type *</p>
                                 <div className="flex gap-2 flex-wrap">
                                     {['Citizen', 'Business', 'Government'].map(t => (
                                         <button key={t} type="button" onClick={() => updateForm('client_type', t)} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${form.client_type === t ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'}`}>
@@ -136,10 +136,10 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Sex</label><div className="flex gap-2">{['Male', 'Female'].map(s => (<button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all ${form.sex === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white border-gray-200 text-gray-600'}`}>{s}</button>))}</div></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Age</label><input type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Region</label><input type="text" {...getTextInputLimitProps('shortText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Service Availed</label><input type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition bg-blue-50 font-bold text-blue-700" /></div>
+                                <div><p className="text-xs font-bold text-gray-500 uppercase mb-1 block">Sex</p><div className="flex gap-2">{['Male', 'Female'].map(s => (<button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all ${form.sex === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white border-gray-200 text-gray-600'}`}>{s}</button>))}</div></div>
+                                <div><label htmlFor="dashboard-feedback-age" className="text-xs font-bold text-gray-500 uppercase mb-1 block">Age</label><input id="dashboard-feedback-age" type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" /></div>
+                                <div><label htmlFor="dashboard-feedback-region" className="text-xs font-bold text-gray-500 uppercase mb-1 block">Region</label><input id="dashboard-feedback-region" type="text" {...getTextInputLimitProps('shortText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region" /></div>
+                                <div><label htmlFor="dashboard-feedback-service" className="text-xs font-bold text-gray-500 uppercase mb-1 block">Service Availed</label><input id="dashboard-feedback-service" type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition bg-blue-50 font-bold text-blue-700" /></div>
                             </div>
                         </div>
                     </div>
@@ -213,9 +213,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                                             <td className="px-4 py-2.5 text-xs text-gray-700 leading-relaxed">{sqd.text}</td>
                                             {SQD_COLUMNS.map(col => (
                                                 <td key={col.value} className="text-center px-1 py-2.5">
-                                                    <label className="flex items-center justify-center cursor-pointer">
-                                                        <input type="radio" name={`to_${sqd.key}`} value={col.value} checked={form[sqd.key] === col.value} onChange={() => updateForm(sqd.key, col.value)} className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
-                                                    </label>
+                                                    <input aria-label={`${sqd.text}: ${col.label}`} type="radio" name={`to_${sqd.key}`} value={col.value} checked={form[sqd.key] === col.value} onChange={() => updateForm(sqd.key, col.value)} className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
                                                 </td>
                                             ))}
                                         </tr>
@@ -255,21 +253,18 @@ const StudentDashboardView = ({
     handleOfficeTimeOut,
     notifications,
     StudentHero,
-    showTimeInModal,
+    viewState,
     setShowTimeInModal,
     visitReasons,
     selectedReason,
     setSelectedReason,
     submitTimeIn,
-    isSubmittingOfficeTimeIn,
-    isCompletingOfficeVisit,
-    showTimeOutFeedback,
     setShowTimeOutFeedback,
     timeOutVisitReason,
-    showProfileCompletionBanner,
     openProfileCompletionModal,
     showToast,
 }: any) => {
+    const { showTimeInModal, isSubmittingOfficeTimeIn, isCompletingOfficeVisit, showTimeOutFeedback, showProfileCompletionBanner } = viewState;
     const [showTipGuide, setShowTipGuide] = useState(false);
 
     // No mount-refetch: React Query fetches when the cache is empty and the

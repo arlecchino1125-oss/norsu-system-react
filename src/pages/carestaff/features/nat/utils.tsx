@@ -97,7 +97,8 @@ export const getApplicantRouteLabel = (app: any) => {
 };
 
 export const getSheetColumnValue = (row: Record<string, unknown>, aliases: string[]) => {
-    const matchKey = Object.keys(row).find((key) => aliases.includes(
+    const aliasSet = new Set(aliases);
+    const matchKey = Object.keys(row).find((key) => aliasSet.has(
         String(key || '')
             .trim()
             .toLowerCase()

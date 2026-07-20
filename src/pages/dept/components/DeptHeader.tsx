@@ -13,7 +13,7 @@ export function DeptHeader({
     return (
         <header className="h-16 glass gradient-border-green flex items-center justify-between px-6 lg:px-10 relative z-10">
             <div className="flex items-center gap-4">
-                <button type="button" onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"><Menu /></button>
+                <button type="button" aria-label="Open navigation" onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"><Menu /></button>
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-500/70">NORSU-G CARE</p>
                     <h2 className="text-xl font-bold gradient-text-green capitalize">{moduleLabels[activeModule] || activeModule}</h2>

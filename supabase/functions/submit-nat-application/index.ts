@@ -73,9 +73,10 @@ const getNatRequirements = async (adminClient: any) => {
 
     if (error) throw error;
 
-    return (data || [])
-        .map((row: any) => String(row?.name || '').trim())
-        .filter(Boolean);
+    return (data || []).flatMap((row: any) => {
+        const name = String(row?.name || '').trim();
+        return name ? [name] : [];
+    });
 };
 
 // Sent server-side (not via the public send-email relay) so the recipient/credentials

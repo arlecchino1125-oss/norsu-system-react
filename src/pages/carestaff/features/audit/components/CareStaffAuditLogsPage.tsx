@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { createDeferredChannelCleanup } from '../../../../../lib/realtime';
@@ -70,13 +70,12 @@ const columns: DataTableColumn<AuditLog>[] = [
 
 const CareStaffAuditLogsPage = ({ refreshSignal = 0 }: CareStaffAuditLogsPageProps) => {
     const queryClient = useQueryClient();
-    const lastExternalRefreshSignalRef = useRef(refreshSignal);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
     // ponytail: cache audit logs to prevent redundant fetch on tab navigation
-    const { data: logs = [], isLoading: loading, refetch: fetchLogs } = useQuery({
-        queryKey: ['care-staff-audit-logs'],
+    const { data: logs = [], isLoading: loading } = useQuery({
+        queryKey: ['care-staff-audit-logs', refreshSignal],
         queryFn: async () => {
             const { data } = await supabase
                 .from('audit_logs')
@@ -104,12 +103,6 @@ const CareStaffAuditLogsPage = ({ refreshSignal = 0 }: CareStaffAuditLogsPagePro
             (channel) => supabase.removeChannel(channel)
         );
     }, [queryClient]);
-
-    useEffect(() => {
-        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
-        lastExternalRefreshSignalRef.current = refreshSignal;
-        void fetchLogs();
-    }, [refreshSignal, fetchLogs]);
 
     return (
         <div className="space-y-6">
