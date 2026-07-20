@@ -284,7 +284,10 @@ const ensureEnrollmentKey = async (
     }
 
     if (keyData.course && String(keyData.course).trim().toLowerCase() !== course.trim().toLowerCase()) {
-        throw new Error(`Course mismatch. This ID is enrolled in ${keyData.course}.`);
+        // Do not echo keyData.course: that lets anyone holding a student ID enumerate
+        // which course it is enrolled in. Keep "course"/"enrolled" wording so the
+        // frontend still highlights the course field (useStudentActivation.ts).
+        throw new Error('Course mismatch. This Student ID is enrolled in a different course.');
     }
 
     if (keyData.is_used && normalizeEmail(keyData.assigned_to_email) !== email) {
