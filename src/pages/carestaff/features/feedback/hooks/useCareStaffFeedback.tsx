@@ -157,7 +157,7 @@ export function useCareStaffFeedback({ functions }: any) {
                 .from('events')
                 .select('title')
                 .order('title', { ascending: true });
-            return [...(new Set((data || []).map((row: any) => row.title).filter(Boolean)))];
+            return [...(new Set((data || []).flatMap((row: any) => row.title ? [row.title] : [])))];
         },
         staleTime: 5 * 60 * 1000
     });
@@ -240,9 +240,10 @@ export function useCareStaffFeedback({ functions }: any) {
 
     const eventCriteriaStats = CRITERIA_LABELS.map((label, idx) => {
         const key = `q${idx + 1}_score`;
-        const scores = filteredEventRows
-            .map(row => Number(row?.[key]))
-            .filter(score => Number.isFinite(score) && score >= 1 && score <= 5);
+        const scores = filteredEventRows.flatMap(row => {
+            const score = Number(row?.[key]);
+            return Number.isFinite(score) && score >= 1 && score <= 5 ? [score] : [];
+        });
         const mean = scores.length > 0
             ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2))
             : null;
@@ -257,10 +258,11 @@ export function useCareStaffFeedback({ functions }: any) {
 
     const handlePrintEval = () => {
         if (!printRef.current) return;
-        const printContent = printRef.current.innerHTML;
         const printWindow = window.open('', '_blank', 'width=800,height=900');
         if (!printWindow) return;
-        printWindow.document.write(`<!DOCTYPE html><html><head><title>Participant's Evaluation Form</title><style>
+        const printDocument = printWindow.document;
+        const style = printDocument.createElement('style');
+        style.textContent = `
             body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; color: #1a1a1a; font-size: 14px; }
             .eval-header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; }
             .eval-header h1 { font-size: 18px; font-weight: 800; color: #1e40af; margin: 0; }
@@ -276,8 +278,11 @@ export function useCareStaffFeedback({ functions }: any) {
             .open-section label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
             .open-section p { background: #f0f9ff; padding: 8px 12px; border-radius: 6px; font-size: 12px; }
             @media print { body { padding: 20px; } }
-        </style></head><body>${printContent}</body></html>`);
-        printWindow.document.close();
+        `;
+        printDocument.title = "Participant's Evaluation Form";
+        printDocument.head.append(style);
+        printDocument.body.append(printRef.current.cloneNode(true));
+        printDocument.close();
         printWindow.focus();
         setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
     };

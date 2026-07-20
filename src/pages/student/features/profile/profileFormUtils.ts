@@ -21,28 +21,37 @@ export const resolveProfileFormValue = (currentValue: unknown, ...candidateValue
         (resolvedValue, candidateValue) => pickProfilePrefillValue(resolvedValue, candidateValue),
         currentValue
     );
+export const mergePendingProfileIntoProfileForm = (
+    profileFormData: any,
+    pendingProfile: Record<string, unknown> | null | undefined
+) => {
+    if (!pendingProfile) return profileFormData;
+
+    return {
+        ...profileFormData,
+        firstName: resolveProfileFormValue(profileFormData.firstName, pendingProfile.firstName) || '',
+        lastName: resolveProfileFormValue(profileFormData.lastName, pendingProfile.lastName) || '',
+        middleName: resolveProfileFormValue(profileFormData.middleName, pendingProfile.middleName) || '',
+        suffix: resolveProfileFormValue(profileFormData.suffix, pendingProfile.suffix) || '',
+        dob: resolveProfileFormValue(profileFormData.dob, pendingProfile.dob) || '',
+        age: resolveProfileFormValue(profileFormData.age, pendingProfile.age) || '',
+        sex: resolveProfileFormValue(profileFormData.sex, pendingProfile.sex) || '',
+        street: resolveProfileFormValue(profileFormData.street, pendingProfile.street) || '',
+        city: resolveProfileFormValue(profileFormData.city, pendingProfile.city) || '',
+        province: resolveProfileFormValue(profileFormData.province, pendingProfile.province) || '',
+        zipCode: resolveProfileFormValue(profileFormData.zipCode, pendingProfile.zipCode) || '',
+        mobile: resolveProfileFormValue(profileFormData.mobile, pendingProfile.mobile) || '',
+        email: resolveProfileFormValue(profileFormData.email, pendingProfile.email) || ''
+    };
+};
 export const applyPendingProfileToProfileForm = (
     setProfileFormData: React.Dispatch<React.SetStateAction<any>>,
     pendingProfile: Record<string, unknown> | null | undefined
 ) => {
     if (!pendingProfile) return;
-
-    setProfileFormData((prev: any) => ({
-        ...prev,
-        firstName: resolveProfileFormValue(prev.firstName, pendingProfile.firstName) || '',
-        lastName: resolveProfileFormValue(prev.lastName, pendingProfile.lastName) || '',
-        middleName: resolveProfileFormValue(prev.middleName, pendingProfile.middleName) || '',
-        suffix: resolveProfileFormValue(prev.suffix, pendingProfile.suffix) || '',
-        dob: resolveProfileFormValue(prev.dob, pendingProfile.dob) || '',
-        age: resolveProfileFormValue(prev.age, pendingProfile.age) || '',
-        sex: resolveProfileFormValue(prev.sex, pendingProfile.sex) || '',
-        street: resolveProfileFormValue(prev.street, pendingProfile.street) || '',
-        city: resolveProfileFormValue(prev.city, pendingProfile.city) || '',
-        province: resolveProfileFormValue(prev.province, pendingProfile.province) || '',
-        zipCode: resolveProfileFormValue(prev.zipCode, pendingProfile.zipCode) || '',
-        mobile: resolveProfileFormValue(prev.mobile, pendingProfile.mobile) || '',
-        email: resolveProfileFormValue(prev.email, pendingProfile.email) || ''
-    }));
+    setProfileFormData((profileFormData: any) => (
+        mergePendingProfileIntoProfileForm(profileFormData, pendingProfile)
+    ));
 };
 export const toYesNoChoice = (value: unknown) => {
     if (typeof value === 'string') {

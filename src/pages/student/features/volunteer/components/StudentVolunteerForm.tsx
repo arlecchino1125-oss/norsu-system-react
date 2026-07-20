@@ -109,8 +109,9 @@ export default function StudentVolunteerForm({ isOpen, onClose, personalInfo, sh
 
                     <form id="volunteer-form" onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="mb-1.5 block text-xs font-bold text-slate-700">Organizations Affiliated With (Optional)</label>
+                            <label htmlFor="volunteer-organizations" className="mb-1.5 block text-xs font-bold text-slate-700">Organizations Affiliated With (Optional)</label>
                             <input
+                                id="volunteer-organizations"
                                 type="text"
                                 value={organizations}
                                 onChange={(e) => setOrganizations(e.target.value)}
@@ -121,9 +122,10 @@ export default function StudentVolunteerForm({ isOpen, onClose, personalInfo, sh
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-bold text-slate-700">Motivation <span className="text-rose-500">*</span></label>
+                            <label htmlFor="volunteer-motivation" className="mb-1.5 block text-xs font-bold text-slate-700">Motivation <span className="text-rose-500">*</span></label>
                             <p className="mb-2 text-[10px] text-slate-500">Share about yourself, your experiences, and why you want to become a CARE Peer Facilitator.</p>
                             <textarea
+                                id="volunteer-motivation"
                                 value={motivation}
                                 onChange={(e) => setMotivation(e.target.value)}
                                 rows={4}
@@ -134,9 +136,10 @@ export default function StudentVolunteerForm({ isOpen, onClose, personalInfo, sh
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-bold text-slate-700">Relevant Skills (Optional)</label>
+                            <label htmlFor="volunteer-skills" className="mb-1.5 block text-xs font-bold text-slate-700">Relevant Skills (Optional)</label>
                             <p className="mb-2 text-[10px] text-slate-500">List any skills like active listening, empathy, communication, etc.</p>
                             <textarea
+                                id="volunteer-skills"
                                 value={skills}
                                 onChange={(e) => setSkills(e.target.value)}
                                 rows={2}
@@ -146,9 +149,10 @@ export default function StudentVolunteerForm({ isOpen, onClose, personalInfo, sh
                         </div>
 
                         <div>
-                            <label className="mb-1.5 block text-xs font-bold text-slate-700">Commitment <span className="text-rose-500">*</span></label>
+                            <label htmlFor="volunteer-commitment" className="mb-1.5 block text-xs font-bold text-slate-700">Commitment <span className="text-rose-500">*</span></label>
                             <p className="mb-2 text-[10px] text-slate-500">Indicate the duration and frequency of your commitment.</p>
                             <input
+                                id="volunteer-commitment"
                                 type="text"
                                 value={commitment}
                                 onChange={(e) => setCommitment(e.target.value)}

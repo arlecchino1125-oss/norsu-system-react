@@ -81,139 +81,141 @@ const buildStudentNameMap = async (studentIds: string[]) => {
     return nameMap;
 };
 
+const fetchCareStaffDashboardData = async () => {
+        const [
+            { count: studentsCount },
+            { count: counselingCount },
+            { count: supportCount },
+            { count: eventsCount },
+            { count: counselingForCareCount },
+            { count: supportForCareCount },
+            { count: profileUpdateCount },
+            { data: recentEvents },
+            { data: recentCounseling },
+            { data: recentSupport },
+            { data: recentApps },
+            { data: recentProfileUpdates },
+            { data: recentProfileNotifications }
+        ] = await Promise.all([
+            supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+            supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
+            supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
+            supabase.from('events').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+            supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
+            supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
+            supabase.from('notifications').select('id', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%'),
+            supabase.from('events').select('id, title, type, created_at').eq('is_archived', false).order('created_at', { ascending: false }).limit(10),
+            supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', [...CARE_STAFF_COUNSELING_ACTIVITY_STATUSES]).order('created_at', { ascending: false }).limit(10),
+            supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
+            supabase.from('scholarship_applications').select('id, student_id, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
+            supabase
+                .from('audit_logs')
+                .select('id, user_name, action, details, created_at')
+                .in('action', PROFILE_ACTIVITY_ACTIONS)
+                .order('created_at', { ascending: false })
+                .limit(15),
+            supabase
+                .from('notifications')
+                .select('id, message, created_at')
+                .like('message', '[PROFILE UPDATE]%')
+                .order('created_at', { ascending: false })
+                .limit(15)
+        ]);
+
+        const scholarshipApplicantNameMap = await buildStudentNameMap(
+            [...new Set((recentApps || []).flatMap((app: any) => app.student_id ? [app.student_id] : []))]
+        );
+
+        const combinedActivities = [
+            ...(recentEvents || []).map((e: any) => ({
+                id: `evt-${e.id}`,
+                type: e.type === 'Announcement' ? 'Announcement' : e.type,
+                icon: e.type === 'Announcement' ? <Bell size={16} /> : <Calendar size={16} />,
+                color: e.type === 'Announcement' ? 'from-purple-400 to-indigo-500' : 'from-blue-400 to-indigo-500',
+                title: e.type === 'Announcement' ? 'Announcement posted' : `${e.type || 'Event'} scheduled`,
+                detail: e.title,
+                date: new Date(e.created_at)
+            })),
+            ...(recentCounseling || []).map((c: any) => ({
+                id: `coun-${c.id}`,
+                type: 'Counseling',
+                icon: <Users size={16} />,
+                color:
+                    c.status === COUNSELING_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
+                        : c.status === COUNSELING_STATUS.REFERRED ? 'from-purple-400 to-violet-500'
+                            : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'from-indigo-400 to-blue-500'
+                                : c.status === COUNSELING_STATUS.REJECTED ? 'from-rose-400 to-red-500'
+                                    : 'from-blue-400 to-cyan-500',
+                title:
+                    c.status === COUNSELING_STATUS.COMPLETED ? 'Counseling completed'
+                        : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
+                            : c.status === COUNSELING_STATUS.SCHEDULED ? 'Department counseling scheduled'
+                                : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
+                                    : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
+                                        : isCounselingAwaitingDept(c.status) ? 'Counseling request submitted'
+                                            : 'Counseling updated',
+                detail: c.student_name,
+                date: new Date(c.created_at)
+            })),
+            ...(recentSupport || []).map((s: any) => ({
+                id: `sup-${s.id}`,
+                type: 'Support',
+                icon: <CheckCircle size={16} />,
+                color:
+                    s.status === SUPPORT_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
+                        : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'from-orange-400 to-amber-500'
+                            : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'from-blue-400 to-cyan-500'
+                                : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'from-emerald-400 to-teal-500'
+                                    : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'from-orange-400 to-yellow-500'
+                                        : s.status === SUPPORT_STATUS.REJECTED ? 'from-rose-400 to-red-500'
+                                            : 'from-amber-400 to-yellow-500',
+                title:
+                    s.status === SUPPORT_STATUS.COMPLETED ? 'Support resolved'
+                        : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'Support forwarded to department'
+                            : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'Department visit scheduled'
+                                : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'Department resolved support request'
+                                    : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'Support referred back to CARE Staff'
+                                        : s.status === SUPPORT_STATUS.REJECTED ? 'Support request rejected'
+                                            : 'Support request received',
+                detail: s.student_name,
+                date: new Date(s.created_at)
+            })),
+            ...(recentApps || []).map((a: any) => ({
+                id: `app-${a.id}`,
+                type: 'Application',
+                icon: <ClipboardList size={16} />,
+                color: a.status === 'Approved' ? 'from-green-400 to-emerald-500' : 'from-red-400 to-rose-500',
+                title: `Application ${a.status?.toLowerCase() || ''}`,
+                detail: scholarshipApplicantNameMap.get(a.student_id) || a.student_id || 'Unknown Applicant',
+                date: new Date(a.created_at)
+            })),
+            ...(recentProfileUpdates || []).map((log: any) => mapProfileLogToActivity(log)),
+            ...(recentProfileNotifications || []).map((notif: any) => mapProfileNotificationToActivity(notif))
+        ].sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 10);
+
+        return {
+            counts: {
+                students: studentsCount || 0,
+                counseling: counselingCount || 0,
+                support: supportCount || 0,
+                events: eventsCount || 0
+            },
+            roleAlerts: {
+                counselingForCare: counselingForCareCount || 0,
+                supportForCare: supportForCareCount || 0,
+                profileUpdates: profileUpdateCount || 0
+            },
+            activities: combinedActivities
+        };
+};
+
 const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab, refreshSignal = 0 }) => {
     const queryClient = useQueryClient();
 
     // Refactor fetching to React Query to enable client-side caching & request deduplication
     const { data: dashboardData, isLoading: qLoading } = useQuery({
         queryKey: ['care_staff_dashboard_data', refreshSignal],
-        queryFn: async () => {
-            const [
-                { count: studentsCount },
-                { count: counselingCount },
-                { count: supportCount },
-                { count: eventsCount },
-                { count: counselingForCareCount },
-                { count: supportForCareCount },
-                { count: profileUpdateCount },
-                { data: recentEvents },
-                { data: recentCounseling },
-                { data: recentSupport },
-                { data: recentApps },
-                { data: recentProfileUpdates },
-                { data: recentProfileNotifications }
-            ] = await Promise.all([
-                supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
-                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
-                supabase.from('events').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
-                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
-                supabase.from('notifications').select('id', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%'),
-                supabase.from('events').select('id, title, type, created_at').eq('is_archived', false).order('created_at', { ascending: false }).limit(10),
-                supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', [...CARE_STAFF_COUNSELING_ACTIVITY_STATUSES]).order('created_at', { ascending: false }).limit(10),
-                supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
-                supabase.from('scholarship_applications').select('id, student_id, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
-                supabase
-                    .from('audit_logs')
-                    .select('id, user_name, action, details, created_at')
-                    .in('action', PROFILE_ACTIVITY_ACTIONS)
-                    .order('created_at', { ascending: false })
-                    .limit(15),
-                supabase
-                    .from('notifications')
-                    .select('id, message, created_at')
-                    .like('message', '[PROFILE UPDATE]%')
-                    .order('created_at', { ascending: false })
-                    .limit(15)
-            ]);
-
-            const scholarshipApplicantNameMap = await buildStudentNameMap(
-                [...new Set((recentApps || []).map((app: any) => app.student_id).filter(Boolean))]
-            );
-
-            const combinedActivities = [
-                ...(recentEvents || []).map((e: any) => ({
-                    id: `evt-${e.id}`,
-                    type: e.type === 'Announcement' ? 'Announcement' : e.type,
-                    icon: e.type === 'Announcement' ? <Bell size={16} /> : <Calendar size={16} />,
-                    color: e.type === 'Announcement' ? 'from-purple-400 to-indigo-500' : 'from-blue-400 to-indigo-500',
-                    title: e.type === 'Announcement' ? 'Announcement posted' : `${e.type || 'Event'} scheduled`,
-                    detail: e.title,
-                    date: new Date(e.created_at)
-                })),
-                ...(recentCounseling || []).map((c: any) => ({
-                    id: `coun-${c.id}`,
-                    type: 'Counseling',
-                    icon: <Users size={16} />,
-                    color:
-                        c.status === COUNSELING_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
-                            : c.status === COUNSELING_STATUS.REFERRED ? 'from-purple-400 to-violet-500'
-                                : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'from-indigo-400 to-blue-500'
-                                    : c.status === COUNSELING_STATUS.REJECTED ? 'from-rose-400 to-red-500'
-                                        : 'from-blue-400 to-cyan-500',
-                    title:
-                        c.status === COUNSELING_STATUS.COMPLETED ? 'Counseling completed'
-                            : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
-                                : c.status === COUNSELING_STATUS.SCHEDULED ? 'Department counseling scheduled'
-                                    : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
-                                        : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
-                                            : isCounselingAwaitingDept(c.status) ? 'Counseling request submitted'
-                                                : 'Counseling updated',
-                    detail: c.student_name,
-                    date: new Date(c.created_at)
-                })),
-                ...(recentSupport || []).map((s: any) => ({
-                    id: `sup-${s.id}`,
-                    type: 'Support',
-                    icon: <CheckCircle size={16} />,
-                    color:
-                        s.status === SUPPORT_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
-                            : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'from-orange-400 to-amber-500'
-                                : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'from-blue-400 to-cyan-500'
-                                    : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'from-emerald-400 to-teal-500'
-                                        : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'from-orange-400 to-yellow-500'
-                                            : s.status === SUPPORT_STATUS.REJECTED ? 'from-rose-400 to-red-500'
-                                                : 'from-amber-400 to-yellow-500',
-                    title:
-                        s.status === SUPPORT_STATUS.COMPLETED ? 'Support resolved'
-                            : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'Support forwarded to department'
-                                : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'Department visit scheduled'
-                                    : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'Department resolved support request'
-                                        : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'Support referred back to CARE Staff'
-                                            : s.status === SUPPORT_STATUS.REJECTED ? 'Support request rejected'
-                                                : 'Support request received',
-                    detail: s.student_name,
-                    date: new Date(s.created_at)
-                })),
-                ...(recentApps || []).map((a: any) => ({
-                    id: `app-${a.id}`,
-                    type: 'Application',
-                    icon: <ClipboardList size={16} />,
-                    color: a.status === 'Approved' ? 'from-green-400 to-emerald-500' : 'from-red-400 to-rose-500',
-                    title: `Application ${a.status?.toLowerCase() || ''}`,
-                    detail: scholarshipApplicantNameMap.get(a.student_id) || a.student_id || 'Unknown Applicant',
-                    date: new Date(a.created_at)
-                })),
-                ...(recentProfileUpdates || []).map((log: any) => mapProfileLogToActivity(log)),
-                ...(recentProfileNotifications || []).map((notif: any) => mapProfileNotificationToActivity(notif))
-            ].sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 10);
-
-            return {
-                counts: {
-                    students: studentsCount || 0,
-                    counseling: counselingCount || 0,
-                    support: supportCount || 0,
-                    events: eventsCount || 0
-                },
-                roleAlerts: {
-                    counselingForCare: counselingForCareCount || 0,
-                    supportForCare: supportForCareCount || 0,
-                    profileUpdates: profileUpdateCount || 0
-                },
-                activities: combinedActivities
-            };
-        }
+        queryFn: fetchCareStaffDashboardData
     });
 
     const counts = dashboardData?.counts || { students: 0, counseling: 0, support: 0, events: 0 };

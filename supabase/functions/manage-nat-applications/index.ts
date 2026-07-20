@@ -210,7 +210,10 @@ const getNatPublicStats = async (adminClient: any) => {
         courseCounts,
         dateCounts,
         dateTimeCounts,
-        requirements: (requirementsResult.data || []).map((row: any) => String(row?.name || '').trim()).filter(Boolean)
+        requirements: (requirementsResult.data || []).flatMap((row: any) => {
+            const name = String(row?.name || '').trim();
+            return name ? [name] : [];
+        })
     });
 };
 

@@ -4,6 +4,7 @@ import {
     MessageCircle, Rocket
 } from 'lucide-react';
 import Modal from '../../../components/ui/Modal';
+import { CARE_STAFF_NOTES_STORAGE_KEY } from '../../../lib/storageKeys';
 
 export function renderCareStaffModals(p: any) {
     const {
@@ -37,6 +38,7 @@ export function renderCareStaffModals(p: any) {
                         </div>
                         <button
                             type="button"
+                            aria-label="Close command hub"
                             onClick={() => setShowCommandHub(false)}
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-purple-200 transition-colors hover:bg-white/10 hover:text-white"
                         >
@@ -109,11 +111,11 @@ export function renderCareStaffModals(p: any) {
                                 if (!text) return;
                                 const updated = [{ id: Date.now(), text, time: new Date().toLocaleString() }, ...staffNotes];
                                 setStaffNotes(updated);
-                                localStorage.setItem('care_staff_notes', JSON.stringify(updated));
+                                localStorage.setItem(CARE_STAFF_NOTES_STORAGE_KEY, JSON.stringify(updated));
                                 input.value = '';
                             }} className="flex gap-2">
                                 <input name="noteInput" placeholder="Quick note..." className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 transition-all" />
-                                <button type="submit" className="px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-purple-200 transition-all">
+                                <button type="submit" aria-label="Add note" className="px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-purple-200 transition-all">
                                     <Plus size={16} />
                                 </button>
                             </form>
@@ -128,10 +130,10 @@ export function renderCareStaffModals(p: any) {
                                                 <p className="text-xs text-gray-800 leading-relaxed">{note.text}</p>
                                                 <p className="text-[10px] text-gray-400 mt-1">{note.time}</p>
                                             </div>
-                                            <button type="button" onClick={() => {
+                                            <button type="button" aria-label="Delete note" onClick={() => {
                                                 const updated = staffNotes.filter(n => n.id !== note.id);
                                                 setStaffNotes(updated);
-                                                localStorage.setItem('care_staff_notes', JSON.stringify(updated));
+                                                localStorage.setItem(CARE_STAFF_NOTES_STORAGE_KEY, JSON.stringify(updated));
                                             }} className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all flex-shrink-0 self-start">
                                                 <Trash2 size={12} />
                                             </button>

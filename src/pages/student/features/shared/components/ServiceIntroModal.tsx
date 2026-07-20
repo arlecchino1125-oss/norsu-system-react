@@ -93,12 +93,8 @@ type ServiceGuideKey = keyof typeof SERVICE_GUIDES;
 // Reusable Service Intro Guide Modal
 export function ServiceIntroModal({ serviceKey }: { serviceKey: string }) {
     const storageKey = `norsu_intro_seen_${serviceKey}`;
-    const [show, setShow] = React.useState(false);
+    const [show, setShow] = React.useState(() => !localStorage.getItem(storageKey));
     const guide = SERVICE_GUIDES[serviceKey as ServiceGuideKey];
-
-    React.useEffect(() => {
-        if (!localStorage.getItem(storageKey)) setShow(true);
-    }, [storageKey]);
 
     if (!show || !guide) return null;
 

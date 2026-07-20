@@ -73,64 +73,64 @@ export function PersonalInformationStep({
                         )}
                     </div>
                     <div className="min-w-0 flex-1 space-y-2">
-                        <label className={labelClass}>Photo/Portrait *</label>
-                        <input type="file" accept="image/*" onChange={onPhotoChange} className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-indigo-700" />
+                    <label htmlFor="profilePhoto" className={labelClass}>Photo/Portrait *</label>
+                    <input id="profilePhoto" type="file" accept="image/*" onChange={onPhotoChange} className="block w-full text-sm text-indigo-900 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-indigo-700" />
                         <p className="text-xs text-slate-400">Upload a clear ID-style image under 1 MB.</p>
                     </div>
                 </div>
             </div>
             <div className={gridTwoClass}>
-                <div className="space-y-1.5"><label className={labelClass}>Student ID No. *</label><input name="studentId" value={formData.studentId || personalInfo?.studentId || ''} onChange={onChange} className={inputClass} /></div>
-                <div className="space-y-1.5"><label className={labelClass}>Last Name *</label><input name="lastName" value={formData.lastName} readOnly className={readOnlyClass} /></div>
-                <div className="space-y-1.5"><label className={labelClass}>Given Name *</label><input name="firstName" value={formData.firstName} readOnly className={readOnlyClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="studentId" className={labelClass}>Student ID No. *</label><input id="studentId" name="studentId" value={formData.studentId || personalInfo?.studentId || ''} onChange={onChange} className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="lastName" className={labelClass}>Last Name *</label><input id="lastName" name="lastName" value={formData.lastName} readOnly className={readOnlyClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="firstName" className={labelClass}>Given Name *</label><input id="firstName" name="firstName" value={formData.firstName} readOnly className={readOnlyClass} /></div>
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                        <label className={labelClass}>Extension Name *</label>
+                        <label htmlFor="suffix" className={labelClass}>Extension Name *</label>
                         <button type="button" onClick={() => onAutoNA('suffix', '0')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto 0</button>
                     </div>
-                    <input name="suffix" value={formData.suffix} onChange={onChange} placeholder="0 if none" className={inputClass} />
+                    <input id="suffix" name="suffix" value={formData.suffix} onChange={onChange} placeholder="0 if none" className={inputClass} />
                 </div>
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                        <label className={labelClass}>Middle Name *</label>
+                        <label htmlFor="middleName" className={labelClass}>Middle Name *</label>
                         <button type="button" onClick={() => onAutoNA('middleName', '0')} className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-300 hover:text-slate-800 transition-colors">Auto 0</button>
                     </div>
-                    <input name="middleName" value={formData.middleName} onChange={onChange} placeholder="0 if no middle name" className={inputClass} />
+                    <input id="middleName" name="middleName" value={formData.middleName} onChange={onChange} placeholder="0 if no middle name" className={inputClass} />
                 </div>
             </div>
-            <div className="space-y-1.5"><label className={labelClass}>Permanent Address - Street/Sitio & Barangay *</label><input name="street" value={formData.street} onChange={onChange} placeholder="House No., Block, Lot, Street/Sitio, Barangay" className={inputClass} /></div>
+            <div className="space-y-1.5"><label htmlFor="profileStreet" className={labelClass}>Permanent Address - Street/Sitio & Barangay *</label><input id="profileStreet" name="street" value={formData.street} onChange={onChange} placeholder="House No., Block, Lot, Street/Sitio, Barangay" className={inputClass} /></div>
             <div className={gridThreeClass}>
-                <div className="space-y-1.5"><label className={labelClass}>Town/City Municipality *</label><input name="city" value={formData.city} onChange={onChange} className={inputClass} /></div>
-                <div className="space-y-1.5"><label className={labelClass}>Province *</label><input name="province" value={formData.province} onChange={onChange} className={inputClass} /></div>
-                <div className="space-y-1.5"><label className={labelClass}>Zip Code *</label><input name="zipCode" value={formData.zipCode} onChange={onChange} className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="profileCity" className={labelClass}>Town/City Municipality *</label><input id="profileCity" name="city" value={formData.city} onChange={onChange} className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="profileProvince" className={labelClass}>Province *</label><input id="profileProvince" name="province" value={formData.province} onChange={onChange} className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="profileZipCode" className={labelClass}>Zip Code *</label><input id="profileZipCode" name="zipCode" value={formData.zipCode} onChange={onChange} className={inputClass} /></div>
             </div>
             <div className={gridTwoClass}>
-                <div className="space-y-1.5"><label className={labelClass}>Region *</label><select name="region" value={formData.region} onChange={onChange} className={inputClass}><option value="">Select</option>{regionOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                <div className="space-y-1.5"><label htmlFor="profileRegion" className={labelClass}>Region *</label><select id="profileRegion" name="region" value={formData.region} onChange={onChange} className={inputClass}><option value="">Select</option>{regionOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                 {formData.region === 'Other' && (
-                    <div className="space-y-1.5"><label className={labelClass}>Specify Region *</label><input name="regionOther" value={formData.regionOther || ''} onChange={onChange} className={inputClass} /></div>
+                    <div className="space-y-1.5"><label htmlFor="regionOther" className={labelClass}>Specify Region *</label><input id="regionOther" name="regionOther" value={formData.regionOther || ''} onChange={onChange} className={inputClass} /></div>
                 )}
-                <div className="space-y-1.5"><label className={labelClass}>Contact Number *</label><input name="mobile" value={formData.mobile} onChange={onChange} placeholder="09123456789" className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="profileMobile" className={labelClass}>Contact Number *</label><input id="profileMobile" name="mobile" value={formData.mobile} onChange={onChange} placeholder="09123456789" className={inputClass} /></div>
             </div>
             <div className={gridThreeClass}>
-                <div className="space-y-1.5"><label className={labelClass}>Birthday *</label><DatePicker required name="dob" value={formData.dob} onChange={onDateOfBirthChange} placeholder="YYYY-MM-DD" className="[&>button]:min-h-[3rem] [&>button]:rounded-xl [&>button]:border-slate-200 [&>button]:bg-slate-50 [&>button]:px-4 [&>button]:py-3 [&>button]:text-[16px] sm:[&>button]:py-2.5 sm:[&>button]:text-sm" /></div>
-                <div className="space-y-1.5"><label className={labelClass}>Age</label><input name="age" value={formData.age} onChange={onChange} className={inputClass} readOnly /></div>
-                <div className="space-y-1.5"><label className={labelClass}>Sex Assigned at Birth *</label><select name="sex" value={formData.sex} onChange={onChange} className={inputClass}><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+                <div className="space-y-1.5"><p className={labelClass}>Birthday *</p><DatePicker required name="dob" value={formData.dob} onChange={onDateOfBirthChange} placeholder="YYYY-MM-DD" className="[&>button]:min-h-[3rem] [&>button]:rounded-xl [&>button]:border-slate-200 [&>button]:bg-slate-50 [&>button]:px-4 [&>button]:py-3 [&>button]:text-[16px] sm:[&>button]:py-2.5 sm:[&>button]:text-sm" /></div>
+                <div className="space-y-1.5"><label htmlFor="profileAge" className={labelClass}>Age</label><input id="profileAge" name="age" value={formData.age} onChange={onChange} className={inputClass} readOnly /></div>
+                <div className="space-y-1.5"><label htmlFor="profileSex" className={labelClass}>Sex Assigned at Birth *</label><select id="profileSex" name="sex" value={formData.sex} onChange={onChange} className={inputClass}><option value="">Select</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
             </div>
             <div className={gridTwoClass}>
-                <div className="space-y-1.5"><label className={labelClass}>Gender *</label><select name="genderIdentity" value={formData.genderIdentity} onChange={onChange} className={inputClass}><option value="">Select</option><option value="Cis-gender">Cis-gender</option><option value="Transgender">Transgender</option><option value="Non-binary gender">Non-binary gender</option><option value="Prefer not to say">Prefer not to say</option></select></div>
-                <div className="space-y-1.5"><label className={labelClass}>Citizenship *</label><input name="nationality" value={formData.nationality} onChange={onChange} placeholder="Filipino" className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="genderIdentity" className={labelClass}>Gender *</label><select id="genderIdentity" name="genderIdentity" value={formData.genderIdentity} onChange={onChange} className={inputClass}><option value="">Select</option><option value="Cis-gender">Cis-gender</option><option value="Transgender">Transgender</option><option value="Non-binary gender">Non-binary gender</option><option value="Prefer not to say">Prefer not to say</option></select></div>
+                <div className="space-y-1.5"><label htmlFor="nationality" className={labelClass}>Citizenship *</label><input id="nationality" name="nationality" value={formData.nationality} onChange={onChange} placeholder="Filipino" className={inputClass} /></div>
             </div>
             <div className={gridTwoClass}>
-                <div className="space-y-1.5"><label className={labelClass}>FB Account Link *</label><input name="facebookUrl" value={formData.facebookUrl} onChange={onChange} placeholder="https://www.facebook.com/yourname" className={inputClass} /></div>
-                <div className="space-y-1.5"><label className={labelClass}>Place of Birth *</label><input name="placeOfBirth" value={formData.placeOfBirth} onChange={onChange} placeholder="City/Municipality, Province" className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="facebookUrl" className={labelClass}>FB Account Link *</label><input id="facebookUrl" name="facebookUrl" value={formData.facebookUrl} onChange={onChange} placeholder="https://www.facebook.com/yourname" className={inputClass} /></div>
+                <div className="space-y-1.5"><label htmlFor="placeOfBirth" className={labelClass}>Place of Birth *</label><input id="placeOfBirth" name="placeOfBirth" value={formData.placeOfBirth} onChange={onChange} placeholder="City/Municipality, Province" className={inputClass} /></div>
             </div>
-            <div className="space-y-1.5"><label className={labelClass}>Religion *</label><input name="religion" value={formData.religion} onChange={onChange} className={inputClass} /></div>
+            <div className="space-y-1.5"><label htmlFor="religion" className={labelClass}>Religion *</label><input id="religion" name="religion" value={formData.religion} onChange={onChange} className={inputClass} /></div>
             <div className={gridTwoClass}>
-                <div className="space-y-1.5"><label className={labelClass}>Year Level *</label><select name="yearLevelApplying" value={formData.yearLevelApplying} onChange={onChange} className={inputClass}><option value="">Select</option>{yearLevelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+                <div className="space-y-1.5"><label htmlFor="yearLevelApplying" className={labelClass}>Year Level *</label><select id="yearLevelApplying" name="yearLevelApplying" value={formData.yearLevelApplying} onChange={onChange} className={inputClass}><option value="">Select</option>{yearLevelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
                 {formData.yearLevelApplying === 'Other' && (
-                    <div className="space-y-1.5"><label className={labelClass}>Specify Year Level *</label><input name="yearLevelOther" value={formData.yearLevelOther || ''} onChange={onChange} className={inputClass} /></div>
+                    <div className="space-y-1.5"><label htmlFor="yearLevelOther" className={labelClass}>Specify Year Level *</label><input id="yearLevelOther" name="yearLevelOther" value={formData.yearLevelOther || ''} onChange={onChange} className={inputClass} /></div>
                 )}
-                <div className="space-y-1.5"><label className={labelClass}>Civil Status *</label><select name="civilStatus" value={formData.civilStatus} onChange={onChange} className={inputClass}><option value="">Select</option><option value="Single">Single</option><option value="Cohabitation (Live-In)">Cohabitation (Live-In)</option><option value="Was Previously Married But Separated">Was Previously Married But Separated</option><option value="Married">Married</option><option value="Widow/er">Widow/er</option></select></div>
+                <div className="space-y-1.5"><label htmlFor="civilStatus" className={labelClass}>Civil Status *</label><select id="civilStatus" name="civilStatus" value={formData.civilStatus} onChange={onChange} className={inputClass}><option value="">Select</option><option value="Single">Single</option><option value="Cohabitation (Live-In)">Cohabitation (Live-In)</option><option value="Was Previously Married But Separated">Was Previously Married But Separated</option><option value="Married">Married</option><option value="Widow/er">Widow/er</option></select></div>
             </div>
             <div className={gridTwoClass}>
                 <div className="space-y-1.5">

@@ -200,7 +200,7 @@ export function useCareStaffEvents({ functions }: any) {
     // Target Item States
     const [editingEventId, setEditingEventId] = useState<number | null>(null);
     const [eventToDelete, setEventToDelete] = useState<number | null>(null);
-    const [newEvent, setNewEvent] = useState<Partial<SystemEvent>>(createEmptyEvent());
+    const [newEvent, setNewEvent] = useState<Partial<SystemEvent>>(() => createEmptyEvent());
     const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
     const [courseOptions, setCourseOptions] = useState<string[]>([]);
 
@@ -227,8 +227,14 @@ export function useCareStaffEvents({ functions }: any) {
                     getDepartments(),
                     getCoursesWithDepartments()
                 ]);
-                setDepartmentOptions((departments || []).map((dept: any) => String(dept.name || '')).filter(Boolean));
-                setCourseOptions((courses || []).map((course: any) => String(course.name || '')).filter(Boolean));
+                setDepartmentOptions((departments || []).flatMap((dept: any) => {
+                    const name = String(dept.name || '');
+                    return name ? [name] : [];
+                }));
+                setCourseOptions((courses || []).flatMap((course: any) => {
+                    const name = String(course.name || '');
+                    return name ? [name] : [];
+                }));
             } catch (error) {
                 console.error('Failed to load event audience options.', error);
             }
@@ -350,7 +356,7 @@ export function useCareStaffEvents({ functions }: any) {
             // Enrich with year_level, section, course, department from students table
             let enriched = data || [];
             if (enriched.length > 0) {
-                const studentIds = [...new Set(enriched.map((a: any) => a.student_id).filter(Boolean))];
+                const studentIds = [...new Set(enriched.flatMap((a: any) => a.student_id ? [a.student_id] : []))];
                 if (studentIds.length > 0) {
                     const { data: studs } = await supabase.from('students').select('student_id, year_level, section, course, department').in('student_id', studentIds);
                     const stuMap: any = {};
@@ -480,16 +486,17 @@ export function useCareStaffEvents({ functions }: any) {
     ) => {
         if (options.length === 0) return null;
         const selectedValues = cleanAudienceValues((newEvent[field] as string[]) || []);
+        const selectedValueSet = new Set(selectedValues);
 
         return (
             <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">{label}</label>
+                <p className="block text-xs font-bold text-gray-500 mb-2">{label}</p>
                 <div className="max-h-32 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {options.map((option) => (
                         <label key={option} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">
                             <input
                                 type="checkbox"
-                                checked={selectedValues.includes(option)}
+                                checked={selectedValueSet.has(option)}
                                 onChange={() => setNewEvent({
                                     ...newEvent,
                                     [field]: toggleStringValue(selectedValues, option)

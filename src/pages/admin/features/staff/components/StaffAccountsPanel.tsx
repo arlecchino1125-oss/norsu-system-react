@@ -6,6 +6,108 @@ import { getStaffRoleBadgeClass, isFunctionUnavailableError } from '../../../uti
 import type { AdminPanelKey } from '../../../types';
 
 const STAFF_ACCOUNT_PAGE_SIZE = 10;
+const inputClass = 'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-sm outline-none transition-all focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100';
+const labelClass = 'mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500';
+
+const StaffAccountRow = ({
+    account, departments,
+    rowState, departmentDraft, onDepartmentDraftChange, onStartEditDepartment, onCancelEditDepartment, onSaveDepartment,
+    emailDraft, onEmailDraftChange, onSaveEmail,
+    onArchive
+}: any) => {
+    const { isEditingDepartment, isSavingDepartment, isSavingEmail, isArchiving } = rowState;
+    return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-semibold text-slate-900">{account.full_name || 'Unnamed Staff'}</h4>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${getStaffRoleBadgeClass(account.role)}`}>
+                        {account.role === 'Care Staff' ? 'CARE Staff' : account.role}
+                    </span>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${account.auth_user_id ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+                        {account.auth_user_id ? 'Linked' : 'Unlinked'}
+                    </span>
+                </div>
+                <p className="mt-1 text-sm text-slate-500">
+                    {account.username || 'No username'} - {account.department || 'No college'}
+                </p>
+                {account.role === 'Department Head' && (
+                    isEditingDepartment ? (
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <select
+                                aria-label="Department assignment"
+                                value={departmentDraft}
+                                onChange={(e) => onDepartmentDraftChange(e.target.value)}
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 focus:border-teal-400 focus:bg-white focus:outline-none"
+                            >
+                                <option value="">Select College</option>
+                                {departments.map((departmentName: string) => (
+                                    <option key={departmentName} value={departmentName}>{departmentName}</option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={onSaveDepartment}
+                                disabled={isSavingDepartment}
+                                className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSavingDepartment ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onCancelEditDepartment}
+                                disabled={isSavingDepartment}
+                                className="inline-flex shrink-0 items-center justify-center rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onStartEditDepartment}
+                            className="mt-1 text-xs font-semibold text-teal-700 hover:text-teal-800"
+                        >
+                            Edit College
+                        </button>
+                    )
+                )}
+                {account.email ? (
+                    <p className="mt-1 break-all text-xs text-slate-400">{account.email}</p>
+                ) : (
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                            type="email"
+                            value={emailDraft}
+                            onChange={(e) => onEmailDraftChange(e.target.value)}
+                            placeholder="Add real email"
+                            className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:outline-none"
+                        />
+                        <button
+                            type="button"
+                            onClick={onSaveEmail}
+                            disabled={isSavingEmail}
+                            className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isSavingEmail ? 'Saving...' : 'Save Email'}
+                        </button>
+                    </div>
+                )}
+            </div>
+            <button
+                type="button"
+                disabled={isArchiving}
+                onClick={onArchive}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-200 text-amber-600 transition hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                title={`Archive ${account.full_name || account.username || 'staff account'}`}
+            >
+                <Archive className={`h-4 w-4 ${isArchiving ? 'animate-spin' : ''}`} />
+            </button>
+        </div>
+    </div>
+);
+};
 
 interface StaffAccountsPanelProps {
     accounts: any[];
@@ -162,9 +264,6 @@ export function StaffAccountsPanel({
         currentStaffAccountsPage * STAFF_ACCOUNT_PAGE_SIZE
     );
 
-    const inputClass = 'w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-sm outline-none transition-all focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100';
-    const labelClass = 'mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500';
-
     return renderExpandablePanel({
         panelKey: 'staffAccounts' as AdminPanelKey,
         title: `Staff Accounts (${accounts.length})`,
@@ -188,8 +287,8 @@ export function StaffAccountsPanel({
                 <form onSubmit={handleCreate} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <div className="grid gap-3 md:grid-cols-2">
                         <div>
-                            <label className={labelClass}>Role</label>
-                            <select className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                    <label htmlFor="staff-role" className={labelClass}>Role</label>
+                    <select id="staff-role" className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                                 <option value="Department Head">Department Head (Dean)</option>
                                 <option value="Care Staff">CARE Staff</option>
                                 <option value="Registrar">Registrar</option>
@@ -197,25 +296,25 @@ export function StaffAccountsPanel({
                             </select>
                         </div>
                         <div>
-                            <label className={labelClass}>Full Name</label>
-                            <input required className={inputClass} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+                    <label htmlFor="staff-full-name" className={labelClass}>Full Name</label>
+                    <input id="staff-full-name" required className={inputClass} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
                         </div>
                         <div>
-                            <label className={labelClass}>Username</label>
-                            <input required className={inputClass} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
+                    <label htmlFor="staff-username" className={labelClass}>Username</label>
+                    <input id="staff-username" required className={inputClass} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
                         </div>
                         <div>
-                            <label className={labelClass}>Password</label>
-                            <input required type="password" autoComplete="new-password" className={inputClass} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                    <label htmlFor="staff-password" className={labelClass}>Password</label>
+                    <input id="staff-password" required type="password" autoComplete="new-password" className={inputClass} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
                         </div>
                         <div>
-                            <label className={labelClass}>Email</label>
-                            <input required type="email" className={inputClass} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                    <label htmlFor="staff-email" className={labelClass}>Email</label>
+                    <input id="staff-email" required type="email" className={inputClass} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
                         </div>
                         {form.role === 'Department Head' && (
                             <div>
-                                <label className={labelClass}>College</label>
-                                <select className={inputClass} value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}>
+                    <label htmlFor="staff-college" className={labelClass}>College</label>
+                    <select id="staff-college" className={inputClass} value={form.department} onChange={e => setForm({ ...form, department: e.target.value })}>
                                     <option value="">Select College</option>
                                     {departments.map((departmentName) => (
                                         <option key={departmentName} value={departmentName}>{departmentName}</option>
@@ -244,107 +343,39 @@ export function StaffAccountsPanel({
                             No staff accounts found.
                         </div>
                     ) : paginatedAccounts.map((acc: any) => (
-                        <div key={acc.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                                <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h4 className="font-semibold text-slate-900">{acc.full_name || 'Unnamed Staff'}</h4>
-                                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${getStaffRoleBadgeClass(acc.role)}`}>
-                                            {acc.role === 'Care Staff' ? 'CARE Staff' : acc.role}
-                                        </span>
-                                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${acc.auth_user_id ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
-                                            {acc.auth_user_id ? 'Linked' : 'Unlinked'}
-                                        </span>
-                                    </div>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                        {acc.username || 'No username'} - {acc.department || 'No college'}
-                                    </p>
-                                    {acc.role === 'Department Head' && (
-                                        editingDepartmentAccountId === String(acc.id) ? (
-                                            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                                <select
-                                                    value={getAccountDepartmentDraft(acc)}
-                                                    onChange={(e) => setDepartmentDrafts((prev) => ({
-                                                        ...prev,
-                                                        [String(acc.id)]: e.target.value
-                                                    }))}
-                                                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 focus:border-teal-400 focus:bg-white focus:outline-none"
-                                                >
-                                                    <option value="">Select College</option>
-                                                    {departments.map((departmentName) => (
-                                                        <option key={departmentName} value={departmentName}>{departmentName}</option>
-                                                    ))}
-                                                </select>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleSaveAccountDepartment(acc)}
-                                                    disabled={savingAccountDepartmentId === String(acc.id)}
-                                                    className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    {savingAccountDepartmentId === String(acc.id) ? 'Saving...' : 'Save'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setEditingDepartmentAccountId(null);
-                                                        setDepartmentDrafts((prev) => {
-                                                            const next = { ...prev };
-                                                            delete next[String(acc.id)];
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    disabled={savingAccountDepartmentId === String(acc.id)}
-                                                    className="inline-flex shrink-0 items-center justify-center rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditingDepartmentAccountId(String(acc.id))}
-                                                className="mt-1 text-xs font-semibold text-teal-700 hover:text-teal-800"
-                                            >
-                                                Edit College
-                                            </button>
-                                        )
-                                    )}
-                                    {acc.email ? (
-                                        <p className="mt-1 break-all text-xs text-slate-400">{acc.email}</p>
-                                    ) : (
-                                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                            <input
-                                                type="email"
-                                                value={getAccountEmailDraft(acc)}
-                                                onChange={(e) => setEmailDrafts((prev) => ({
-                                                    ...prev,
-                                                    [String(acc.id)]: e.target.value
-                                                }))}
-                                                placeholder="Add real email"
-                                                className="w-full rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:outline-none"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSaveAccountEmail(acc)}
-                                                disabled={savingAccountEmailId === String(acc.id)}
-                                                className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                            >
-                                                {savingAccountEmailId === String(acc.id) ? 'Saving...' : 'Save Email'}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                                <button
-                                    type="button"
-                                    disabled={archivingAccountId === String(acc.id)}
-                                    onClick={() => handleArchiveAccount(acc, archivingAccountId, setArchivingAccountId)}
-                                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-200 text-amber-600 transition hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                    title={`Archive ${acc.full_name || acc.username || 'staff account'}`}
-                                >
-                                    <Archive className={`h-4 w-4 ${archivingAccountId === String(acc.id) ? 'animate-spin' : ''}`} />
-                                </button>
-                            </div>
-                        </div>
+                        <StaffAccountRow
+                            key={acc.id}
+                            account={acc}
+                            departments={departments}
+                            rowState={{
+                                isEditingDepartment: editingDepartmentAccountId === String(acc.id),
+                                isSavingDepartment: savingAccountDepartmentId === String(acc.id),
+                                isSavingEmail: savingAccountEmailId === String(acc.id),
+                                isArchiving: archivingAccountId === String(acc.id)
+                            }}
+                            departmentDraft={getAccountDepartmentDraft(acc)}
+                            onDepartmentDraftChange={(value: string) => setDepartmentDrafts((prev) => ({
+                                ...prev,
+                                [String(acc.id)]: value
+                            }))}
+                            onStartEditDepartment={() => setEditingDepartmentAccountId(String(acc.id))}
+                            onCancelEditDepartment={() => {
+                                setEditingDepartmentAccountId(null);
+                                setDepartmentDrafts((prev) => {
+                                    const next = { ...prev };
+                                    delete next[String(acc.id)];
+                                    return next;
+                                });
+                            }}
+                            onSaveDepartment={() => handleSaveAccountDepartment(acc)}
+                            emailDraft={getAccountEmailDraft(acc)}
+                            onEmailDraftChange={(value: string) => setEmailDrafts((prev) => ({
+                                ...prev,
+                                [String(acc.id)]: value
+                            }))}
+                            onSaveEmail={() => handleSaveAccountEmail(acc)}
+                            onArchive={() => handleArchiveAccount(acc, archivingAccountId, setArchivingAccountId)}
+                        />
                     ))}
                 </div>
 

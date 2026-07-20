@@ -41,7 +41,10 @@ const createStudentDatasetRefreshCache = (): Record<StudentDatasetRefreshKey, Da
 });
 
 export function useStudentPortalRefresh(studentId: string | null | undefined) {
-    const datasetRefreshCacheRef = useRef<Record<StudentDatasetRefreshKey, DatasetRefreshCacheEntry>>(createStudentDatasetRefreshCache());
+    const datasetRefreshCacheRef = useRef<Record<StudentDatasetRefreshKey, DatasetRefreshCacheEntry> | null>(null);
+    if (datasetRefreshCacheRef.current === null) {
+        datasetRefreshCacheRef.current = createStudentDatasetRefreshCache();
+    }
 
     useEffect(() => {
         datasetRefreshCacheRef.current = createStudentDatasetRefreshCache();

@@ -25,6 +25,7 @@ export function ApplicantScheduleModal({
                         {isReschedule ? 'Reschedule Interview' : isBulk ? 'Bulk Schedule Interviews' : 'Schedule Interview'}
                     </h3>
                     <button type="button"
+                        aria-label="Close interview scheduling"
                         onClick={closeApplicantScheduleModal}
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
                     >
@@ -59,10 +60,11 @@ export function ApplicantScheduleModal({
                     <form id="schedule-form" onSubmit={confirmApplicantSchedule} className="space-y-5">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1">Date</label>
+                                <label htmlFor="applicant-interview-date" className="block text-sm font-semibold text-slate-700 mb-1">Date</label>
                                 <div className="relative">
                                     <CalendarDays size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                     <input
+                                        id="applicant-interview-date"
                                         type="date"
                                         required
                                         className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
@@ -72,10 +74,11 @@ export function ApplicantScheduleModal({
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1">Time</label>
+                                <label htmlFor="applicant-interview-time" className="block text-sm font-semibold text-slate-700 mb-1">Time</label>
                                 <div className="relative">
                                     <Clock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                     <input
+                                        id="applicant-interview-time"
                                         type="time"
                                         required
                                         className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
@@ -87,10 +90,11 @@ export function ApplicantScheduleModal({
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">Venue / Zoom Link</label>
+                            <label htmlFor="applicant-interview-venue" className="block text-sm font-semibold text-slate-700 mb-1">Venue / Zoom Link</label>
                             <div className="relative">
                                 <MapPin size={18} className="absolute left-3 top-3 text-slate-400" />
                                 <input
+                                    id="applicant-interview-venue"
                                     type="text"
                                     required
                                     placeholder="e.g. Room 101 or Zoom URL"
@@ -102,10 +106,11 @@ export function ApplicantScheduleModal({
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">Interview Panel</label>
+                            <label htmlFor="applicant-interview-panel" className="block text-sm font-semibold text-slate-700 mb-1">Interview Panel</label>
                             <div className="relative">
                                 <User size={18} className="absolute left-3 top-3 text-slate-400" />
                                 <input
+                                    id="applicant-interview-panel"
                                     type="text"
                                     placeholder="e.g. Dr. Smith (Optional)"
                                     className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"

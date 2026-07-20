@@ -77,15 +77,16 @@ const StudentEditModal = ({
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
                         <div className="px-6 py-4 border-b flex justify-between items-center">
                             <h3 className="font-bold text-lg">Edit Student</h3>
-                            <button type="button" onClick={() => setShowEditModal(false)}>
+                            <button type="button" aria-label="Close student editor" onClick={() => setShowEditModal(false)}>
                                 <XCircle size={24} className="text-slate-400" />
                             </button>
                         </div>
                         <form onSubmit={onUpdateStudent} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold mb-1">First Name</label>
-                                    <input
+                                <label htmlFor="student-first-name" className="block text-xs font-bold mb-1">First Name</label>
+                                <input
+                                    id="student-first-name"
                                         required
                                         value={editForm.first_name || ''}
                                         onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
@@ -93,8 +94,9 @@ const StudentEditModal = ({
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold mb-1">Last Name</label>
-                                    <input
+                                <label htmlFor="student-last-name" className="block text-xs font-bold mb-1">Last Name</label>
+                                <input
+                                    id="student-last-name"
                                         required
                                         value={editForm.last_name || ''}
                                         onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
@@ -103,8 +105,9 @@ const StudentEditModal = ({
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold mb-1">Course</label>
+                                <label htmlFor="student-course" className="block text-xs font-bold mb-1">Course</label>
                                 <select
+                                    id="student-course"
                                     required
                                     value={editForm.course || ''}
                                     onChange={(e) => setEditForm({ ...editForm, course: e.target.value })}
@@ -118,8 +121,9 @@ const StudentEditModal = ({
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold mb-1">Year Level</label>
-                                    <select
+                                <label htmlFor="student-year-level" className="block text-xs font-bold mb-1">Year Level</label>
+                                <select
+                                    id="student-year-level"
                                         value={editForm.year_level || '1st Year'}
                                         onChange={(e) => setEditForm({ ...editForm, year_level: e.target.value })}
                                         className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -128,8 +132,9 @@ const StudentEditModal = ({
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold mb-1">Status</label>
-                                    <select
+                                <label htmlFor="student-status" className="block text-xs font-bold mb-1">Status</label>
+                                <select
+                                    id="student-status"
                                         value={editForm.status || 'Active'}
                                         onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                                         className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -162,8 +167,9 @@ const StudentEditModal = ({
                                 {Boolean(editForm.course_year_update_required) && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                                         <div>
-                                            <label className="block text-xs font-bold mb-1">Window Start</label>
-                                            <input
+                                    <label htmlFor="student-window-start" className="block text-xs font-bold mb-1">Window Start</label>
+                                    <input
+                                        id="student-window-start"
                                                 type="datetime-local"
                                                 value={editForm.course_year_window_start || ''}
                                                 onChange={(e) => setEditForm({ ...editForm, course_year_window_start: e.target.value })}
@@ -171,8 +177,9 @@ const StudentEditModal = ({
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold mb-1">Window End</label>
-                                            <input
+                                    <label htmlFor="student-window-end" className="block text-xs font-bold mb-1">Window End</label>
+                                    <input
+                                        id="student-window-end"
                                                 type="datetime-local"
                                                 value={editForm.course_year_window_end || ''}
                                                 onChange={(e) => setEditForm({ ...editForm, course_year_window_end: e.target.value })}

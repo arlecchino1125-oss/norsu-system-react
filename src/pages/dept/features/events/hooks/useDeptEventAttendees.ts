@@ -30,7 +30,7 @@ export function useDeptEventAttendees({
             if (error) throw error;
             let enriched = attendeesData || [];
             if (enriched.length > 0) {
-                const studentIds = [...new Set(enriched.map((a: any) => a.student_id).filter(Boolean))];
+                const studentIds = [...new Set(enriched.flatMap((a: any) => a.student_id ? [a.student_id] : []))];
                 if (studentIds.length > 0) {
                     const { data: studs } = await supabase.from('students_directory').select('student_id, year_level, section, course').in('student_id', studentIds);
                     const stuMap: Record<string, any> = {};

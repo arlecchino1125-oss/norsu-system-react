@@ -41,7 +41,7 @@ export function DeptSidebar({
                             <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/50 transition-colors group-hover:text-emerald-100/80">Open Profile & Settings</p>
                         </div>
                     </div>
-                    <button type="button" onClick={() => setIsSidebarOpen(false)} className="text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
+                    <button type="button" aria-label="Close navigation" onClick={() => setIsSidebarOpen(false)} className="text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
                 </div>
             </div>
 

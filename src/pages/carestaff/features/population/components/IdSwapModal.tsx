@@ -86,7 +86,7 @@ const IdSwapModal = ({
                                 <RefreshCw className="h-5 w-5 text-blue-600" />
                                 Rename or Swap Student ID
                             </h3>
-                            <button type="button" onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); setSourceStudent(null); setTargetStudent(null); }} className="text-slate-400 hover:text-slate-600">
+                            <button type="button" aria-label="Close student ID dialog" onClick={() => { setShowIdSwapModal(false); setSourceId(''); setTargetId(''); setSourceStudent(null); setTargetStudent(null); }} className="text-slate-400 hover:text-slate-600">
                                 <XCircle size={22} />
                             </button>
                         </div>
@@ -96,8 +96,9 @@ const IdSwapModal = ({
                         <form onSubmit={handleSwapIds} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
+                                    <label htmlFor="source-student-id" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
                                     <input
+                                        id="source-student-id"
                                         required
                                         type="text"
                                         value={sourceId}
@@ -107,8 +108,9 @@ const IdSwapModal = ({
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
+                                    <label htmlFor="target-student-id" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
                                     <input
+                                        id="target-student-id"
                                         required
                                         type="text"
                                         value={targetId}

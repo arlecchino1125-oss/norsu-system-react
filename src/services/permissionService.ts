@@ -290,9 +290,9 @@ class PermissionService {
             return true;
         }
 
-        const sanitizedUpdates = updates
-            .filter((update) => update && update.role !== 'Admin')
-            .map((update) => ({
+        const sanitizedUpdates = updates.flatMap((update) => {
+            if (!update || update.role === 'Admin') return [];
+            const sanitizedUpdate = {
                 role: update.role,
                 permission_type: update.permissionType,
                 permission_key: String(update.permissionKey || '').trim(),
@@ -300,8 +300,9 @@ class PermissionService {
                 status: update.status ?? (update.isAllowed ? 'enabled' : 'hidden'),
                 notice_text: this.sanitizeNoticeText(update.noticeText),
                 description: update.description ?? this.getPermissionDescription(update.permissionType, update.permissionKey)
-            }))
-            .filter((update) => update.permission_key);
+            };
+            return sanitizedUpdate.permission_key ? [sanitizedUpdate] : [];
+        });
 
         if (sanitizedUpdates.length === 0) {
             return false;

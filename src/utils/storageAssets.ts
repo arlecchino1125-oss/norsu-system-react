@@ -77,9 +77,10 @@ export const getStoredAssetEntries = (value: string | null | undefined) => {
     try {
         const parsed = JSON.parse(normalized);
         if (Array.isArray(parsed)) {
-            return parsed
-                .map((entry) => String(entry || '').trim())
-                .filter(Boolean);
+            return parsed.flatMap((entry) => {
+                const normalizedEntry = String(entry || '').trim();
+                return normalizedEntry ? [normalizedEntry] : [];
+            });
         }
     } catch {
         // Fall back to the raw string when the column is not JSON.
@@ -190,7 +191,10 @@ export const resolveStoredAssetUrlsBulk = async (
     if (!values || values.length === 0) return resultMap;
 
     // Filter unique normalized non-empty values
-    const uniqueInputs = Array.from(new Set(values.map(v => String(v || '').trim()).filter(Boolean)));
+    const uniqueInputs = Array.from(new Set(values.flatMap((value) => {
+        const normalizedValue = String(value || '').trim();
+        return normalizedValue ? [normalizedValue] : [];
+    })));
 
     const pathsToSign: string[] = [];
     const alreadyResolved: Record<string, string> = {};
@@ -238,23 +242,27 @@ export const resolveStoredAssetUrlsBulk = async (
         }
     }
 
-    for (let i = 0; i < pathsToSign.length; i += batchSize) {
-        const batch = pathsToSign.slice(i, i + batchSize);
+    const pathBatches = Array.from(
+        { length: Math.ceil(pathsToSign.length / batchSize) },
+        (_, index) => pathsToSign.slice(index * batchSize, (index + 1) * batchSize)
+    );
+    const signedUrlBatches = await Promise.all(pathBatches.map(async (batch) => {
         try {
             const { data, error } = await supabase
                 .storage
                 .from(bucket)
                 .createSignedUrls(batch, expiresInSeconds);
-
-            if (!error && data) {
-                for (const item of data) {
-                    if (item.signedUrl) {
-                        signedUrlsMap[item.path] = item.signedUrl;
-                    }
-                }
-            }
+            return !error && data ? data : [];
         } catch (err) {
             console.error('Error batch signing URLs:', err);
+            return [];
+        }
+    }));
+    for (const data of signedUrlBatches) {
+        for (const item of data) {
+            if (item.signedUrl) {
+                signedUrlsMap[item.path] = item.signedUrl;
+            }
         }
     }
 

@@ -30,7 +30,7 @@ export function DeptViewFormModal(props: any) {
                     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[105] flex items-center justify-center p-4" onClick={() => setShowStudentModal(false)}>
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
                             <div className="relative bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-5">
-                                <button type="button" onClick={() => setShowStudentModal(false)} className="absolute top-4 right-4 text-white/80 hover:text-white transition">
+                                <button type="button" aria-label="Close student details" onClick={() => setShowStudentModal(false)} className="absolute top-4 right-4 text-white/80 hover:text-white transition">
                                     <XCircle size={24} />
                                 </button>
                                 <div className="flex items-center gap-4">
@@ -95,32 +95,32 @@ export function DeptViewFormModal(props: any) {
                                         </div>
                                         {/* Student info */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input readOnly value={viewFormRecord.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input readOnly value={viewFormRecord.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Student Contact Number</label><input readOnly value={viewFormRecord.contact_number || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Request Type</label><input readOnly value={viewFormRecord.request_type || 'Dean Referral'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-referral-student-name" className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input id="dept-form-referral-student-name" readOnly value={viewFormRecord.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-referral-course-year" className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input id="dept-form-referral-course-year" readOnly value={viewFormRecord.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-referral-contact" className="block text-xs font-bold text-gray-500 mb-1">Student Contact Number</label><input id="dept-form-referral-contact" readOnly value={viewFormRecord.contact_number || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-referral-request-type" className="block text-xs font-bold text-gray-500 mb-1">Request Type</label><input id="dept-form-referral-request-type" readOnly value={viewFormRecord.request_type || 'Dean Referral'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                         </div>
                                         {/* Referral details */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Referred by</label><input readOnly value={viewFormRecord.referred_by || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Referrer Contact Number</label><input readOnly value={viewFormRecord.referrer_contact_number || 'N/A'} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Relationship with Student</label><input readOnly value={viewFormRecord.relationship_with_student || 'N/A'} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-referrer-name" className="block text-xs font-bold text-gray-500 mb-1">Referred by</label><input id="dept-form-referrer-name" readOnly value={viewFormRecord.referred_by || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-referrer-contact" className="block text-xs font-bold text-gray-500 mb-1">Referrer Contact Number</label><input id="dept-form-referrer-contact" readOnly value={viewFormRecord.referrer_contact_number || 'N/A'} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-referrer-relationship" className="block text-xs font-bold text-gray-500 mb-1">Relationship with Student</label><input id="dept-form-referrer-relationship" readOnly value={viewFormRecord.relationship_with_student || 'N/A'} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                         </div>
                                         <div className="mb-4">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Referral</label>
-                                            <textarea readOnly rows={4} value={viewFormRecord.reason_for_referral || viewFormRecord.description || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                            <label htmlFor="dept-form-referral-reason" className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Referral</label>
+                                            <textarea id="dept-form-referral-reason" readOnly rows={4} value={viewFormRecord.reason_for_referral || viewFormRecord.description || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                         </div>
                                         <div className="mb-4">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Actions Made by Referrer</label>
-                                            <textarea readOnly rows={3} value={viewFormRecord.actions_made || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                            <label htmlFor="dept-form-referral-actions" className="block text-xs font-bold text-gray-500 mb-1">Actions Made by Referrer</label>
+                                            <textarea id="dept-form-referral-actions" readOnly rows={3} value={viewFormRecord.actions_made || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                         </div>
                                         <div className="mb-4">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Observations</label>
-                                            <textarea readOnly rows={2} value={viewFormRecord.date_duration_of_observations || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                            <label htmlFor="dept-form-referral-observations" className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Observations</label>
+                                            <textarea id="dept-form-referral-observations" readOnly rows={2} value={viewFormRecord.date_duration_of_observations || ''} className="w-full bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                         </div>
                                         {viewFormRecord.referrer_signature && (
                                             <div className="mb-4">
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">Name and Signature of the Referring Person</label>
+                                                <p className="block text-xs font-bold text-gray-500 mb-1">Name and Signature of the Referring Person</p>
                                                 <div className="bg-white border-2 border-dashed border-purple-200 rounded-xl p-4 flex flex-col items-center">
                                                     <img src={viewFormRecord.referrer_signature} alt="Referrer Signature" className="max-h-24 object-contain" />
                                                     <div className="w-48 border-t border-gray-400 mt-2 pt-1 text-center">
@@ -151,21 +151,21 @@ export function DeptViewFormModal(props: any) {
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input readOnly value={viewFormRecord.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input readOnly value={viewFormRecord.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input readOnly value={viewFormRecord.contact_number || 'Not set'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-student-name" className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input id="dept-form-student-name" readOnly value={viewFormRecord.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-student-course-year" className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input id="dept-form-student-course-year" readOnly value={viewFormRecord.course_year || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                                            <div><label htmlFor="dept-form-student-contact" className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input id="dept-form-student-contact" readOnly value={viewFormRecord.contact_number || 'Not set'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                                         </div>
                                         <div className="mb-4">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Requesting Counseling</label>
-                                            <textarea readOnly rows={4} value={viewFormRecord.reason_for_referral || viewFormRecord.description || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                            <label htmlFor="dept-form-student-reason" className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Requesting Counseling</label>
+                                            <textarea id="dept-form-student-reason" readOnly rows={4} value={viewFormRecord.reason_for_referral || viewFormRecord.description || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                         </div>
                                         <div className="mb-4">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Personal Actions Taken</label>
-                                            <textarea readOnly rows={3} value={viewFormRecord.personal_actions_taken || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                            <label htmlFor="dept-form-student-actions" className="block text-xs font-bold text-gray-500 mb-1">Personal Actions Taken</label>
+                                            <textarea id="dept-form-student-actions" readOnly rows={3} value={viewFormRecord.personal_actions_taken || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                         </div>
                                         <div className="mb-4">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Concern</label>
-                                            <textarea readOnly rows={2} value={viewFormRecord.date_duration_of_concern || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                                            <label htmlFor="dept-form-student-concern-duration" className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Concern</label>
+                                            <textarea id="dept-form-student-concern-duration" readOnly rows={2} value={viewFormRecord.date_duration_of_concern || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
                                         </div>
                                         {getCounselingScheduledDate(viewFormRecord) && (
                                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(getCounselingScheduledDate(viewFormRecord) as string).toLocaleString()}</p></div>

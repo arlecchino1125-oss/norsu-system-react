@@ -49,13 +49,16 @@ import {
 const noop = (_val?: any) => { };
 
 const normalizeTimeSlots = (rawSlots: any[] = []) => {
-    return rawSlots
-        .map((slot: any) => ({
+    return rawSlots.flatMap((slot: any) => {
+        const normalizedSlot = {
             start: String(slot?.start || '').trim(),
             end: String(slot?.end || '').trim(),
             slots: parseInt(String(slot?.slots ?? '0'), 10)
-        }))
-        .filter((slot: any) => slot.start && slot.end && Number.isFinite(slot.slots) && slot.slots > 0);
+        };
+        return normalizedSlot.start && normalizedSlot.end && Number.isFinite(normalizedSlot.slots) && normalizedSlot.slots > 0
+            ? [normalizedSlot]
+            : [];
+    });
 };
 
 const parseTimeToMinutes = (value: string) => {
@@ -711,13 +714,14 @@ export function useCareStaffNat({ showToast }: any) {
                 throw new Error('The uploaded file has no data rows.');
             }
 
-            const extractedRows = rawRows
-                .map((row, index) => ({
+            const extractedRows = rawRows.flatMap((row, index) => {
+                const extractedRow = {
                     rowNumber: index + 2,
                     referenceId: normalizeReferenceId(getSheetColumnValue(row, ['reference_id', 'referenceid', 'ref_id', 'refid', 'reference'])),
                     applicantName: String(getSheetColumnValue(row, ['applicant_name', 'applicant', 'full_name', 'fullname', 'name']) || '').trim()
-                }))
-                .filter((row) => row.referenceId || row.applicantName);
+                };
+                return extractedRow.referenceId || extractedRow.applicantName ? [extractedRow] : [];
+            });
 
             if (extractedRows.length === 0) {
                 throw new Error('No usable rows were found. Include at least a reference_id column.');
@@ -734,7 +738,7 @@ export function useCareStaffNat({ showToast }: any) {
                 seenReferenceIds.add(row.referenceId);
             });
 
-            const uniqueReferenceIds = [...new Set(extractedRows.map((row) => row.referenceId).filter(Boolean))];
+            const uniqueReferenceIds = [...new Set(extractedRows.flatMap((row) => row.referenceId ? [row.referenceId] : []))];
             if (uniqueReferenceIds.length === 0) {
                 throw new Error('No reference IDs were found in the upload.');
             }
@@ -849,9 +853,12 @@ export function useCareStaffNat({ showToast }: any) {
 
         setBulkPassApplying(true);
         try {
-            const applicationIds = [...new Set(readyRows.map((row) => row.appId).filter(Boolean))];
-            for (let index = 0; index < applicationIds.length; index += 100) {
-                const chunk = applicationIds.slice(index, index + 100);
+            const applicationIds = [...new Set(readyRows.flatMap((row) => row.appId ? [row.appId] : []))];
+            const applicationIdChunks = Array.from(
+                { length: Math.ceil(applicationIds.length / 100) },
+                (_, index) => applicationIds.slice(index * 100, (index + 1) * 100)
+            );
+            await Promise.all(applicationIdChunks.map(async (chunk) => {
                 const { data: updatedApplications, error } = await supabase
                     .from('applications')
                     .update({ status: PASS_STATUS })
@@ -863,7 +870,7 @@ export function useCareStaffNat({ showToast }: any) {
                 if ((updatedApplications || []).length !== chunk.length) {
                     throw new Error('Some attendance records changed. Refresh the list and try again.');
                 }
-            }
+            }));
 
             showToast(`${applicationIds.length} applicants marked as ${PASS_STATUS}.`, 'success');
             closeBulkPassModal();

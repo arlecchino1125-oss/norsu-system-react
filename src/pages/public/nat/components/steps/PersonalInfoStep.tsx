@@ -38,10 +38,11 @@ export default function PersonalInfoStep({
             { label: 'Suffix', name: 'suffix', width: 'md:col-span-1', placeholder: 'e.g. Jr.', required: false }
           ].map((field) => (
             <div key={field.name} className={`space-y-1.5 ${field.width || ''}`.trim()}>
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">
+              <label htmlFor={field.name} className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">
                 {field.label} {field.required !== false ? <span className="text-red-500">*</span> : null}
               </label>
               <input
+                id={field.name}
                 type="text"
                 name={field.name}
                 value={formData[field.name]}
@@ -57,7 +58,7 @@ export default function PersonalInfoStep({
 
         <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="space-y-1.5">
-            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Date of Birth <span className="text-red-500">*</span></label>
+            <p className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Date of Birth <span className="text-red-500">*</span></p>
             <DatePicker
               required
               name="dob"
@@ -69,8 +70,9 @@ export default function PersonalInfoStep({
             <FieldErrorText message={fieldErrors.dob} />
           </div>
           <div className="space-y-1.5">
-            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Age <span className="text-red-500">*</span></label>
+            <label htmlFor="age" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Age <span className="text-red-500">*</span></label>
             <input
+              id="age"
               type="number"
               name="age"
               value={formData.age}
@@ -81,8 +83,9 @@ export default function PersonalInfoStep({
             <FieldErrorText message={fieldErrors.age} />
           </div>
           <div className="space-y-1.5">
-            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Place of Birth <span className="text-red-500">*</span></label>
+            <label htmlFor="place-of-birth" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Place of Birth <span className="text-red-500">*</span></label>
             <input
+              id="place-of-birth"
               type="text"
               name="placeOfBirth"
               value={formData.placeOfBirth}
@@ -96,8 +99,9 @@ export default function PersonalInfoStep({
 
         <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
-            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Nationality <span className="text-red-500">*</span></label>
+            <label htmlFor="nationality" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Nationality <span className="text-red-500">*</span></label>
             <input
+              id="nationality"
               name="nationality"
               value={formData.nationality}
               onChange={handleChange}
@@ -107,8 +111,9 @@ export default function PersonalInfoStep({
             <FieldErrorText message={fieldErrors.nationality} />
           </div>
           <div className="space-y-1.5">
-            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Sex Assigned at Birth <span className="text-red-500">*</span></label>
+            <label htmlFor="sex" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Sex Assigned at Birth <span className="text-red-500">*</span></label>
             <select
+              id="sex"
               name="sex"
               value={formData.sex}
               onChange={handleChange}
@@ -124,7 +129,7 @@ export default function PersonalInfoStep({
         </div>
 
         <div className="mb-4">
-          <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Gender Identity</label>
+          <p className="mb-2 ml-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Gender Identity</p>
           <div className="flex flex-wrap gap-4">
             {['Cis-gender', 'Transgender', 'Non-binary', 'Prefer not to say'].map((option) => (
               <label key={option} className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white/40 px-3 py-2 transition-all hover:border-blue-200 hover:bg-blue-50">
@@ -136,8 +141,9 @@ export default function PersonalInfoStep({
         </div>
 
         <div className="space-y-1.5">
-          <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Civil Status <span className="text-red-500">*</span></label>
+          <label htmlFor="civil-status" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Civil Status <span className="text-red-500">*</span></label>
           <select
+            id="civil-status"
             name="civilStatus"
             value={formData.civilStatus}
             onChange={handleChange}

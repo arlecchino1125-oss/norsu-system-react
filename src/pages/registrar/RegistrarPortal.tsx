@@ -68,7 +68,7 @@ export default function RegistrarPortal() {
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-8">
                         <NorsuBrand title="Registrar Portal" subtitle="NORSU-G CARE registrar services" accent="emerald" size="sm" className="min-w-0" />
-                        <button type="button" onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white transition-colors">
+                        <button type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white transition-colors">
                             <XCircle size={24} />
                         </button>
                     </div>
@@ -120,6 +120,7 @@ export default function RegistrarPortal() {
                     <div className="flex items-center gap-4">
                         <button
                             type="button"
+                            aria-label="Open navigation"
                             onClick={() => setSidebarOpen(true)}
                             className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
                         >

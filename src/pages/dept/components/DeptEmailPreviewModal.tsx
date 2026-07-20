@@ -25,6 +25,7 @@ export function DeptEmailPreviewModal({
                     </div>
                     <button
                         type="button"
+                        aria-label="Close email preview"
                         onClick={closeEmailPreviewModal}
                         disabled={isConfirmingEmailPreview}
                         className="text-gray-400 hover:text-gray-600 disabled:opacity-50"

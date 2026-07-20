@@ -194,9 +194,10 @@ export function useDeptAdmissions({
             const interviewDate = `${applicantScheduleData.date} ${applicantScheduleData.time}`;
             const interviewVenue = String(applicantScheduleData.venue || '').trim();
             const interviewPanel = String(applicantScheduleData.panel || '').trim();
-            const selectedApplicationIds = selectedApplicants
-                .map((app: any) => String(app?.id || '').trim())
-                .filter(Boolean);
+            const selectedApplicationIds = selectedApplicants.flatMap((app: any) => {
+                const id = String(app?.id || '').trim();
+                return id ? [id] : [];
+            });
 
             let scheduledIds: string[] = [];
             let skipped: Array<Record<string, unknown>> = [];
@@ -232,7 +233,10 @@ export function useDeptAdmissions({
                     panel: interviewPanel
                 });
                 scheduledIds = Array.isArray(result?.scheduledIds)
-                    ? result.scheduledIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                    ? result.scheduledIds.flatMap((id: unknown) => {
+                        const normalizedId = String(id || '').trim();
+                        return normalizedId ? [normalizedId] : [];
+                    })
                     : [];
                 skipped = Array.isArray(result?.skipped) ? result.skipped : [];
             }
@@ -363,15 +367,19 @@ export function useDeptAdmissions({
 
         setIsProcessingBulkApplicantAction(true);
         try {
-            const applicationIds = nextApplicants
-                .map((app: any) => String(app?.id || '').trim())
-                .filter(Boolean);
+            const applicationIds = nextApplicants.flatMap((app: any) => {
+                const id = String(app?.id || '').trim();
+                return id ? [id] : [];
+            });
             const result = await invokeManagedAdmissionsFunction({
                 mode: 'bulk-approve-applications',
                 applicationIds
             });
             const updatedIds = Array.isArray(result?.updatedIds)
-                ? result.updatedIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                ? result.updatedIds.flatMap((id: unknown) => {
+                    const normalizedId = String(id || '').trim();
+                    return normalizedId ? [normalizedId] : [];
+                })
                 : [];
             const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
 
@@ -459,15 +467,19 @@ export function useDeptAdmissions({
 
         setIsProcessingBulkApplicantAction(true);
         try {
-            const applicationIds = nextApplicants
-                .map((app: any) => String(app?.id || '').trim())
-                .filter(Boolean);
+            const applicationIds = nextApplicants.flatMap((app: any) => {
+                const id = String(app?.id || '').trim();
+                return id ? [id] : [];
+            });
             const result = await invokeManagedAdmissionsFunction({
                 mode: 'bulk-forward-applications',
                 applicationIds
             });
             const updatedIds = Array.isArray(result?.updatedIds)
-                ? result.updatedIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                ? result.updatedIds.flatMap((id: unknown) => {
+                    const normalizedId = String(id || '').trim();
+                    return normalizedId ? [normalizedId] : [];
+                })
                 : [];
             const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
 
@@ -568,15 +580,19 @@ export function useDeptAdmissions({
 
         setIsProcessingBulkApplicantAction(true);
         try {
-            const applicationIds = nextApplicants
-                .map((app: any) => String(app?.id || '').trim())
-                .filter(Boolean);
+            const applicationIds = nextApplicants.flatMap((app: any) => {
+                const id = String(app?.id || '').trim();
+                return id ? [id] : [];
+            });
             const result = await invokeManagedAdmissionsFunction({
                 mode: 'bulk-mark-unsuccessful-applications',
                 applicationIds
             });
             const updatedIds = Array.isArray(result?.updatedIds)
-                ? result.updatedIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+                ? result.updatedIds.flatMap((id: unknown) => {
+                    const normalizedId = String(id || '').trim();
+                    return normalizedId ? [normalizedId] : [];
+                })
                 : [];
             const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
 

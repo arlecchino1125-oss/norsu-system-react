@@ -259,9 +259,10 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     if (!filters) return next;
 
     if (filters.annotationStudentIds) {
-        const ids = filters.annotationStudentIds
-            .map((id) => Number(id))
-            .filter((id) => Number.isFinite(id) && id > 0);
+        const ids = filters.annotationStudentIds.flatMap((value) => {
+            const id = Number(value);
+            return Number.isFinite(id) && id > 0 ? [id] : [];
+        });
         next = ids.length > 0 ? next.in('id', ids) : next.eq('id', -1);
     }
 
@@ -519,10 +520,10 @@ export const getCareStudentSections = async (filters?: Pick<StudentFilters, 'cou
         .range(0, 9999);
     if (error) throw error;
 
-    return [...new Set<string>((data || [])
-        .map((row: any) => String(row.section || '').trim())
-        .filter(Boolean)
-    )].sort();
+    return [...new Set<string>((data || []).flatMap((row: any) => {
+        const section = String(row.section || '').trim();
+        return section ? [section] : [];
+    }))].sort();
 };
 
 const normalizeOverviewRow = (row: any): CareStudentPopulationOverview => ({
@@ -530,7 +531,10 @@ const normalizeOverviewRow = (row: any): CareStudentPopulationOverview => ({
     activeStudents: Number(row?.active_students || row?.activeStudents || 0),
     archivedStudents: Number(row?.archived_students || row?.archivedStudents || 0),
     schoolYears: Array.isArray(row?.school_years)
-        ? row.school_years.map((year: unknown) => String(year || '').trim()).filter(Boolean)
+        ? row.school_years.flatMap((year: unknown) => {
+            const schoolYear = String(year || '').trim();
+            return schoolYear ? [schoolYear] : [];
+        })
         : []
 });
 

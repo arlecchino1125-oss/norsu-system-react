@@ -103,7 +103,7 @@ const renderDetailedDescription = (desc: any) => {
             {q1 && <div><p className="text-xs font-bold text-gray-600 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q1}</p></div>}
             {q2 && <div><p className="text-xs font-bold text-gray-600 mb-1">2. What kind of support did you receive at your previous school?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q2}</p></div>}
             {q3 && <div><p className="text-xs font-bold text-gray-600 mb-1">3. What support or assistance do you require from NORSU to fully participate in campus activities?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q3}</p></div>}
-            {q4 && <div><label className="block text-xs font-bold text-gray-700 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</label><textarea rows={2} readOnly value={q4 || ''} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700"></textarea></div>}
+                        {q4 && <div><label htmlFor="care-support-other-needs" className="block text-xs font-bold text-gray-700 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</label><textarea id="care-support-other-needs" rows={2} readOnly value={q4 || ''} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700"></textarea></div>}
         </div>
     );
 };
@@ -152,9 +152,10 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
         return req.status === supportTab;
     };
 
-    const visibleSupportReqs = supportReqs
-        .filter(matchesSupportTab)
-        .filter(req => supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)));
+    const visibleSupportReqs = supportReqs.filter(req => (
+        matchesSupportTab(req)
+        && (supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)))
+    ));
 
     const applySupportTabFilter = (query: any, tab = supportTab) => applyTabFilter(query, tab);
 

@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { parseScholarship } from '../../../../../utils/scholarshipHelpers';
 import type { StudentDatasetRefreshKey } from '../../../hooks/useStudentPortalRefresh';
@@ -24,12 +24,10 @@ export function useStudentScholarships({
 }: UseStudentScholarshipsArgs) {
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
     const [selectedScholarship, setSelectedScholarship] = useState<any>(null);
-    const [scholarshipsList, setScholarshipsList] = useState<any[]>([]);
-    const [myApplications, setMyApplications] = useState<any[]>([]);
     const [isApplyingScholarshipId, setIsApplyingScholarshipId] = useState<string | null>(null);
 
     // ponytail: React Query caching is injected to avoid page refresh amnesia.
-    const { data: scholarships, refetch: refetchScholarships } = useQuery({
+    const { data: scholarshipsList = [], refetch: refetchScholarships } = useQuery({
         queryKey: ['student_scholarships'],
         queryFn: async () => {
             const { data, error } = await supabaseClient
@@ -43,7 +41,7 @@ export function useStudentScholarships({
         staleTime: 2 * 60 * 1000
     });
 
-    const { data: applications, refetch: refetchApplications } = useQuery({
+    const { data: applications = [], refetch: refetchApplications } = useQuery({
         queryKey: ['student_scholarship_applications', personalInfo.studentId],
         queryFn: async () => {
             if (!personalInfo.studentId) return [];
@@ -58,19 +56,7 @@ export function useStudentScholarships({
         staleTime: 2 * 60 * 1000
     });
 
-    useEffect(() => {
-        if (scholarships) {
-            setScholarshipsList(scholarships);
-        }
-    }, [scholarships]);
-
-    useEffect(() => {
-        if (!personalInfo.studentId) {
-            setMyApplications([]);
-        } else if (applications) {
-            setMyApplications(applications);
-        }
-    }, [applications, personalInfo.studentId]);
+    const myApplications = personalInfo.studentId ? applications : [];
 
     const refreshScholarshipsCached = useCallback(
         async (options?: { force?: boolean }) => {

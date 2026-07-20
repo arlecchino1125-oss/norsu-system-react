@@ -69,9 +69,10 @@ export default function StaffAccountSecurityPage({
                     Manage your {portalLabel} profile, account security, and account-level preferences from one place.
                 </p>
                 <div className="mt-5 max-w-xl rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-purple-100/70">Profile Name</label>
+                    <label htmlFor="staff-profile-name" className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-purple-100/70">Profile Name</label>
                     <div className="flex flex-col gap-3 sm:flex-row">
-                        <input
+                    <input
+                        id="staff-profile-name"
                             type="text"
                             value={profileName}
                             onChange={(event) => setProfileName(event.target.value)}

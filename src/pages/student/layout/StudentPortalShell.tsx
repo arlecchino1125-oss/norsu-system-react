@@ -18,22 +18,24 @@ interface StudentPortalShellProps {
     overlays: React.ReactNode;
     activeView: string;
     activeViewLabel: string;
-    isSidebarOpen: boolean;
+    viewState: {
+        isSidebarOpen: boolean;
+        isCompactPortalLayout: boolean;
+        isRefreshingView: boolean;
+        showCommandHub: boolean;
+    };
     visibleSidebarLinks: StudentSidebarLink[];
     Icons: any;
     onCloseSidebar: () => void;
     onSelectView: (viewId: string) => void;
     onLogout: () => void;
-    isCompactPortalLayout: boolean;
     notifications: any[];
-    isRefreshingView: boolean;
     onOpenSidebar: () => void;
     onRefreshCurrentView: () => void;
     mainScrollRef: React.RefObject<HTMLDivElement>;
     scrollClassName: string;
     scrollStyle?: React.CSSProperties;
     children: React.ReactNode;
-    showCommandHub: boolean;
     setShowCommandHub: React.Dispatch<React.SetStateAction<boolean>>;
     isStudentViewVisible: (viewId: string) => boolean;
     isStudentViewEnabled: (viewId: string) => boolean;
@@ -49,22 +51,19 @@ export function StudentPortalShell({
     overlays,
     activeView,
     activeViewLabel,
-    isSidebarOpen,
+    viewState,
     visibleSidebarLinks,
     Icons,
     onCloseSidebar,
     onSelectView,
     onLogout,
-    isCompactPortalLayout,
     notifications,
-    isRefreshingView,
     onOpenSidebar,
     onRefreshCurrentView,
     mainScrollRef,
     scrollClassName,
     scrollStyle,
     children,
-    showCommandHub,
     setShowCommandHub,
     isStudentViewVisible,
     isStudentViewEnabled,
@@ -74,6 +73,7 @@ export function StudentPortalShell({
     toast,
     onCloseToast
 }: StudentPortalShellProps) {
+    const { isSidebarOpen, isCompactPortalLayout, isRefreshingView, showCommandHub } = viewState;
     return (
         <div className={`student-portal-shell flex h-[100dvh] min-h-[100dvh] bg-gradient-to-br from-slate-50 via-white to-blue-50/30 text-gray-800 font-sans overflow-hidden relative ${profileCompletionGateActive ? 'pointer-events-none select-none' : ''}`}>
             {overlays}

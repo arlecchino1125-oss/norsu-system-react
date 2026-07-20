@@ -39,8 +39,10 @@ export function AuditPanel({
     const departmentAuditCount = auditLogs.filter((log) => log.actor_role === 'Department Head').length;
     const activeAuditDepartments = new Set(
         auditLogs
-            .map((log) => String(log.actor_department || '').trim())
-            .filter(Boolean)
+            .flatMap((log) => {
+                const department = String(log.actor_department || '').trim();
+                return department ? [department] : [];
+            })
     ).size;
 
     return renderExpandablePanel({
@@ -53,6 +55,7 @@ export function AuditPanel({
         headerActions: (
             <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
                 <select
+                    aria-label="Filter audit logs by staff role"
                     value={auditRoleFilter}
                     onChange={(e) => setAuditRoleFilter(e.target.value as AuditRoleFilter)}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"

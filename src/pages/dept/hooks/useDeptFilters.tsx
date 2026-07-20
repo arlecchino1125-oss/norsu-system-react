@@ -15,11 +15,13 @@ export function useDeptFilters(data: any, filteredData: any) {
     const dept = String(data?.profile?.department || '').trim();
     const deptCourses = data?.courseMap
         ? [...new Set(
-            Object.entries(data.courseMap)
-                .filter(([_, d]) => d === dept)
-                .map(([courseName]) => courseName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))
+            Object.entries(data.courseMap).flatMap(([courseName, department]) => (
+                department === dept
+                    ? [courseName.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')]
+                    : []
+            ))
         )] as string[]
-        : [...new Set(filteredData.students.map((s: any) => s.course).filter(Boolean))] as string[];
+        : [...new Set(filteredData.students.flatMap((student: any) => student.course ? [student.course] : []))] as string[];
 
     // Helper: check if a student matches the current cascade filters
     const matchesCascadeFilters = (student: any) => {

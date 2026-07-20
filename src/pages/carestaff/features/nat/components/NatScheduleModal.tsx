@@ -12,16 +12,15 @@ const NatScheduleModal = ({
     closeScheduleModal,
     editingSchedule,
     handleSaveSchedule,
-    isEditingLegacySchedule,
-    isSavingSchedule,
-    isScheduleDateLocked,
+    modalState,
     normalizeTimeSlots,
     removeTimeSlotRow,
     scheduleForm,
     setScheduleForm,
-    showScheduleModal,
     updateTimeSlotRow
-}: any) => (
+}: any) => {
+    const { isEditingLegacySchedule, isSavingSchedule, isScheduleDateLocked, showScheduleModal } = modalState;
+    return (
     <AnimatePresence>
         {showScheduleModal && (
             <m.div
@@ -60,6 +59,7 @@ const NatScheduleModal = ({
                         </div>
                         <button
                             type="button"
+                            aria-label="Close NAT schedule"
                             onClick={closeScheduleModal}
                             className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-650 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-slate-350"
                         >
@@ -72,8 +72,9 @@ const NatScheduleModal = ({
                         <div className="flex-1 space-y-5 overflow-y-auto p-6">
                             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                                 <div>
-                                    <label className={FIELD_LABEL_CLASS}>Date</label>
+                                    <label htmlFor="nat-schedule-date" className={FIELD_LABEL_CLASS}>Date</label>
                                     <input
+                                        id="nat-schedule-date"
                                         type="date"
                                         className={FIELD_INPUT_CLASS}
                                         value={scheduleForm.date}
@@ -83,8 +84,9 @@ const NatScheduleModal = ({
                                     />
                                 </div>
                                 <div>
-                                    <label className={FIELD_LABEL_CLASS}>Venue</label>
+                                    <label htmlFor="nat-schedule-venue" className={FIELD_LABEL_CLASS}>Venue</label>
                                     <input
+                                        id="nat-schedule-venue"
                                         className={FIELD_INPUT_CLASS}
                                         placeholder="e.g. NORSU Gymnasium"
                                         value={scheduleForm.venue}
@@ -123,6 +125,7 @@ const NatScheduleModal = ({
                                         <div key={slot.clientId} className="grid grid-cols-12 items-center gap-2.5">
                                             <div className="col-span-4">
                                                 <input
+                                                    aria-label={`Start time for slot ${index + 1}`}
                                                     type="time"
                                                     className={SLOT_INPUT_CLASS}
                                                     value={slot.start}
@@ -132,6 +135,7 @@ const NatScheduleModal = ({
                                             </div>
                                             <div className="col-span-4">
                                                 <input
+                                                    aria-label={`End time for slot ${index + 1}`}
                                                     type="time"
                                                     className={SLOT_INPUT_CLASS}
                                                     value={slot.end}
@@ -141,6 +145,7 @@ const NatScheduleModal = ({
                                             </div>
                                             <div className="col-span-3">
                                                 <input
+                                                    aria-label={`Capacity for slot ${index + 1}`}
                                                     type="number"
                                                     min={1}
                                                     className={`${SLOT_INPUT_CLASS} tabular-nums text-center font-bold`}
@@ -153,6 +158,7 @@ const NatScheduleModal = ({
                                             <div className="col-span-1 flex justify-center">
                                                 <button
                                                     type="button"
+                                                    aria-label={`Remove time slot ${index + 1}`}
                                                     onClick={() => removeTimeSlotRow(index)}
                                                     className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-rose-200"
                                                 >
@@ -197,5 +203,6 @@ const NatScheduleModal = ({
         )}
     </AnimatePresence>
 );
+};
 
 export default NatScheduleModal;

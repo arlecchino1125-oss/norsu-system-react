@@ -720,6 +720,8 @@ const syncAllStaffAuthEmails = async (adminClient: any, request: Request) => {
             continue;
         }
 
+        // Keep Supabase Auth admin requests sequential to avoid account-sync rate limiting.
+        // oxlint-disable-next-line react-doctor/async-await-in-loop
         const { data: authLookup, error: authLookupError } = await adminClient.auth.admin.getUserById(staffAccount.auth_user_id);
         if (authLookupError || !authLookup?.user) {
             if (isMissingAuthUserError(authLookupError)) {

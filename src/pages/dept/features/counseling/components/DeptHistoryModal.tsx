@@ -90,13 +90,13 @@ export function DeptHistoryModal({ showHistoryModal, setShowHistoryModal, select
                                         <h3 className="font-bold text-lg dark:text-white">Case History: {selectedHistoryStudent.student_name || 'Student'}</h3>
                                         <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedHistoryStudent.student_id || 'Unavailable'}</p>
                                     </div>
-                                    <button type="button" onClick={() => setShowHistoryModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>
+                                    <button type="button" aria-label="Close case history" onClick={() => setShowHistoryModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>
                                 </div>
                                 <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
                                     {isHistoryLoading && <p className="text-center text-gray-400 py-4">Loading full case history...</p>}
                                     {historyError && <p className="text-center text-rose-500 py-4">{historyError}</p>}
-                                    {studentRecords.map((record: any, i: any) => (
-                                        <div key={record?.id || i} className="relative pl-8 border-l-2 border-gray-200 dark:border-gray-700">
+                                    {studentRecords.map((record: any) => (
+                                        <div key={record?.id || `${record?.student_id}-${record?.created_at}-${record?.request_type}`} className="relative pl-8 border-l-2 border-gray-200 dark:border-gray-700">
                                             <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-500 border-4 border-white dark:border-gray-800"></div>
                                             <div className="mb-1 flex justify-between">
                                                 <span className="font-bold text-gray-900 dark:text-white">{record.request_type || 'Counseling request'}</span>

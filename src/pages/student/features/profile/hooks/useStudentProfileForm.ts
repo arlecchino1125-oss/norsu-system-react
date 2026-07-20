@@ -557,10 +557,16 @@ export function useStudentProfileForm({
         session?.middle_name,
         session?.mobile,
         session?.province,
+        session?.region,
         session?.sex,
         session?.street,
         session?.suffix,
         session?.zip_code,
+        profileCompletionJustCompletedRef,
+        setForceProfileCompletionPrompt,
+        setProfileCompletionInitialData,
+        setProfileCompletionStatusOverride,
+        setProfileFieldsComplete,
         showToast,
         syncStudentSession
     ]);
@@ -979,7 +985,7 @@ export function useStudentProfileForm({
                         .from('courses')
                         .select('name')
                         .order('name');
-                    courseOptionsCacheRef.current = (courseRows || []).map((row: any) => row.name).filter(Boolean);
+                    courseOptionsCacheRef.current = (courseRows || []).flatMap((row: any) => row.name ? [row.name] : []);
                 }
                 const normalizedCourseOptions = [...new Set([trustedCourse, ...(courseOptionsCacheRef.current || [])].filter(Boolean))];
 
@@ -1087,11 +1093,31 @@ export function useStudentProfileForm({
         } catch (error) {
             console.error('Failed to refresh student profile.', error);
         }
-    }, [session, syncStudentSession, getStoredParentParts, invokeManagedStudentFunction, forceProfileCompletionPrompt, closeProfileCompletionModal, fetchStudentRow, queryClient]);
+    }, [
+        closeProfileCompletionModal,
+        fetchStudentRow,
+        forceProfileCompletionPrompt,
+        getStoredParentParts,
+        invokeManagedStudentFunction,
+        profileCompletionJustCompletedRef,
+        queryClient,
+        refreshStudentProfileRequestRef,
+        session,
+        setForceProfileCompletionPrompt,
+        setHasSeenTourState,
+        setProfileCompletionInitialData,
+        setProfileCompletionStatusOverride,
+        setProfileFieldsComplete,
+        syncStudentSession
+    ]);
+
+    const refreshStudentProfileForSession = React.useEffectEvent(() => {
+        void refreshStudentProfile();
+    });
 
     // Sync session to personalInfo
     useEffect(() => {
-        refreshStudentProfile();
+        refreshStudentProfileForSession();
     }, [session?.auth_user_id, session?.user?.id, session?.student_id, session?.userType]);
 
     // Save Profile Changes to Supabase

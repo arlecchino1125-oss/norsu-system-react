@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../../../lib/supabase';
 import { createGeneralFeedback } from '../../../../../services/studentPortalService';
@@ -35,6 +35,240 @@ const FEEDBACK_STEPS = [
     { label: 'Review & Submit', shortLabel: 'Submit' },
 ];
 
+const CC1_OPTIONS = [
+    { v: '1', t: '1. I know what a CC is and I saw this office\'s CC.' },
+    { v: '2', t: '2. I know what a CC is but I did NOT see this office\'s CC.' },
+    { v: '3', t: '3. I learned of the CC only when I saw this office\'s CC.' },
+    { v: '4', t: '4. I do not know what a CC is and I did not see one in this office. (Answer \'N/A\' on CC2 and CC3)' },
+];
+
+const CC2_OPTIONS = [
+    { v: '1', t: '1. Easy to see' },
+    { v: '2', t: '2. Somewhat easy to see' },
+    { v: '3', t: '3. Difficult to see' },
+    { v: '4', t: '4. Not visible at all' },
+    { v: '5', t: '5. N/A' },
+];
+
+const CC3_OPTIONS = [
+    { v: '1', t: '1. Helped very much' },
+    { v: '2', t: '2. Somewhat helped' },
+    { v: '3', t: '3. Did not help' },
+    { v: '4', t: '4. N/A' },
+];
+
+const sectionCardClass = 'student-surface-card rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm animate-fade-in-up sm:rounded-2xl sm:p-5';
+const sectionTitleClass = 'flex items-center gap-2 text-[13px] font-black text-slate-950 sm:text-sm';
+const sectionNumberClass = 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-black text-blue-600 sm:h-6 sm:w-6 sm:text-xs';
+const fieldLabelClass = 'mb-1.5 block text-[9px] font-black uppercase tracking-[0.1em] text-slate-500 sm:text-[10px]';
+const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:text-sm';
+const readonlyInputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-500 sm:text-sm';
+const radioCardBaseClass = 'flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 transition-all';
+
+const RadioOptionList = ({ name, options, value, onChange, disabled = false, alignTop = false }: any) => (
+    <div className={`space-y-2 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+        {options.map((opt: any) => (
+            <label key={opt.v} className={`${radioCardBaseClass} ${value === opt.v ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'}`}>
+                <input type="radio" name={name} value={opt.v} checked={value === opt.v} onChange={() => onChange(opt.v)} className={`accent-blue-500 ${alignTop ? 'mt-0.5' : ''}`} />
+                <span className="text-[12px] leading-5 text-slate-700 sm:text-sm">{opt.t}</span>
+            </label>
+        ))}
+    </div>
+);
+
+const ClientInfoStep = ({ form, updateForm }: any) => (
+    <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
+        <h3 className={`${sectionTitleClass} mb-4`}><span className={sectionNumberClass}>1</span> Client Information</h3>
+        <div className="space-y-4">
+            <div>
+                <p className={fieldLabelClass}>Client Type *</p>
+                <div className="grid grid-cols-2 gap-2">
+                    {['Citizen', 'Business', 'Government'].map(t => (
+                        <button key={t} type="button" onClick={() => updateForm('client_type', t)} className={`rounded-xl border px-3 py-2.5 text-[11px] font-black transition-all sm:text-xs ${t === 'Government' ? 'col-span-2' : ''} ${form.client_type === t ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40'}`}>
+                            {t === 'Government' ? 'Government (Employee or another agency)' : t}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+                <div>
+                    <label htmlFor="service-feedback-date" className={fieldLabelClass}>Date</label>
+                    <input id="service-feedback-date" type="text" readOnly value={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} className={readonlyInputClass} />
+                </div>
+                <div>
+                    <p className={fieldLabelClass}>Sex</p>
+                    <div className="flex gap-2">
+                        {['Male', 'Female'].map(s => (
+                            <button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 rounded-xl border px-3 py-2.5 text-[11px] font-black transition-all sm:text-xs ${form.sex === s ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40'}`}>{s}</button>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="service-feedback-age" className={fieldLabelClass}>Age</label>
+                    <input id="service-feedback-age" type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className={inputClass} placeholder="Age" />
+                </div>
+                <div>
+                    <label htmlFor="service-feedback-region" className={fieldLabelClass}>Region</label>
+                    <input id="service-feedback-region" type="text" {...getTextInputLimitProps('mediumText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className={inputClass} placeholder="Region of residence" />
+                </div>
+            </div>
+            <div>
+                <label htmlFor="service-feedback-availed" className={fieldLabelClass}>Service Availed</label>
+                <input id="service-feedback-availed" type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className={inputClass} placeholder="e.g. Counseling, Scholarship, Assessment, etc." />
+            </div>
+        </div>
+    </div>
+);
+
+const CcQuestionsStep = ({ form, updateForm, handleCc1Change, cc1IsAware }: any) => (
+    <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
+        <h3 className={`${sectionTitleClass} mb-2`}><span className={sectionNumberClass}>2</span> Citizen's Charter (CC) Questions</h3>
+        <p className="mb-4 pl-8 text-[11px] leading-5 text-slate-500 sm:text-xs sm:leading-5">The Citizen's Charter (CC) is an official document that reflects the services of a government agency/office including its requirements, fees, and processing times among others.</p>
+
+        <div className="mb-4">
+            <p className="mb-2 text-[12px] font-black leading-5 text-slate-800 sm:text-sm">CC1. Which of the following best describes your awareness of a CC? *</p>
+            <RadioOptionList name="cc1" options={CC1_OPTIONS} value={form.cc1} onChange={handleCc1Change} alignTop />
+        </div>
+
+        <div className="mb-4">
+            <p className={`mb-2 text-[12px] font-black leading-5 text-slate-800 sm:text-sm ${!cc1IsAware ? 'opacity-40' : ''}`}>CC2. If aware of CC (answered 1-3 in CC1), would you say that the CC of this office was ...?</p>
+            <RadioOptionList name="cc2" options={CC2_OPTIONS} value={form.cc2} onChange={(v: string) => updateForm('cc2', v)} disabled={!cc1IsAware} />
+        </div>
+
+        <div>
+            <p className={`mb-2 text-[12px] font-black leading-5 text-slate-800 sm:text-sm ${!cc1IsAware ? 'opacity-40' : ''}`}>CC3. If aware of CC (answered codes 1-3 in CC1), how much did the CC help you in your transaction?</p>
+            <RadioOptionList name="cc3" options={CC3_OPTIONS} value={form.cc3} onChange={(v: string) => updateForm('cc3', v)} disabled={!cc1IsAware} />
+        </div>
+    </div>
+);
+
+const SqdStep = ({ form, updateForm }: any) => (
+    <div className="student-surface-card overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm animate-fade-in-up sm:rounded-2xl" style={{ animationDelay: '80ms' }}>
+        <div className="p-3 pb-3 sm:p-5 sm:pb-4">
+            <h3 className={`${sectionTitleClass} mb-2`}><span className={sectionNumberClass}>3</span> Service Quality Dimensions (SQD)</h3>
+            <p className="pl-8 text-[11px] leading-5 text-slate-500 sm:text-xs">Choose one answer for each SQD statement.</p>
+            <p className="mt-1.5 pl-8 text-[10px] leading-4 text-slate-500 sm:text-[11px]">
+                Scale: 😞 <span className="font-black text-slate-700">SD</span> = Strongly Disagree; 🙁 <span className="font-black text-slate-700">D</span> = Disagree; 😐 <span className="font-black text-slate-700">N</span> = Neither; 🙂 <span className="font-black text-slate-700">A</span> = Agree; 😊 <span className="font-black text-slate-700">SA</span> = Strongly Agree.
+            </p>
+        </div>
+        <div className="space-y-2 border-t border-slate-100 p-3 sm:hidden">
+            {SQD_LABELS.map((sqd: any) => (
+                <div key={sqd.key} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-[11px] font-semibold leading-5 text-slate-700">{sqd.text}</p>
+                    <div className="mt-2 grid grid-cols-3 gap-1.5">
+                        {SQD_COLUMNS.map((col: any) => {
+                            const isSelected = form[sqd.key] === col.value;
+                            return (
+                                <button
+                                    key={col.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isSelected}
+                                    aria-label={`${sqd.text} ${col.label}`}
+                                    onClick={() => updateForm(sqd.key, col.value)}
+                                    className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-2 text-left transition ${isSelected ? 'border-blue-400 bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+                                >
+                                    <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-blue-500' : 'border-slate-400 bg-white'}`} aria-hidden="true">
+                                        {isSelected && <span className="h-2 w-2 rounded-full bg-blue-500" />}
+                                    </span>
+                                    {col.emoji && <span className="text-base leading-none">{col.emoji}</span>}
+                                    <span className="text-[11px] font-black leading-3">{col.shortLabel}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
+        <div className="hidden overflow-x-auto border-t border-slate-100 sm:block">
+            <table className="min-w-[720px] w-full border-collapse text-xs">
+                <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                        <th className="w-[42%] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.1em] text-slate-500"></th>
+                        {SQD_COLUMNS.map((col: any) => (
+                            <th key={col.value} className="w-[9.5%] px-2 py-3 text-center">
+                                {col.emoji && <div className="mb-1 text-lg leading-none">{col.emoji}</div>}
+                                <div className="text-[9px] font-black leading-tight text-slate-500">{col.label}</div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {SQD_LABELS.map((sqd: any, idx: number) => (
+                        <tr key={sqd.key} className={`border-b border-slate-100 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/30`}>
+                            <td className="px-4 py-3 text-[12px] leading-5 text-slate-700">{sqd.text}</td>
+                            {SQD_COLUMNS.map((col: any) => (
+                                <td key={col.value} className="px-2 py-3 text-center">
+                                    <input aria-label={`${sqd.text}: ${col.label}`} type="radio" name={sqd.key} value={col.value} checked={form[sqd.key] === col.value} onChange={() => updateForm(sqd.key, col.value)} className="h-4 w-4 cursor-pointer accent-blue-500" />
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
+
+const CommentsStep = ({ form, updateForm, profileEmail }: any) => (
+    <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
+        <h3 className={`${sectionTitleClass} mb-4`}><span className={sectionNumberClass}>4</span> Additional Comments</h3>
+        <div className="space-y-3">
+            <div>
+                <label htmlFor="service-feedback-suggestions" className={fieldLabelClass}>Suggestions on how we can further improve our services (optional)</label>
+                <textarea id="service-feedback-suggestions" value={form.suggestions} {...getTextInputLimitProps('notes')} onChange={e => updateForm('suggestions', e.target.value)} rows={3} className={`${inputClass} resize-none leading-5`} placeholder="Your suggestions..." />
+            </div>
+            <div>
+                <label htmlFor="service-feedback-email" className={fieldLabelClass}>Email address (optional)</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                    <input id="service-feedback-email" type="email" {...getTextInputLimitProps('email')} value={form.email} onChange={e => updateForm('email', e.target.value)} className={`${inputClass} flex-1`} placeholder="your.email@example.com" />
+                    {profileEmail && !form.email && (
+                        <button type="button" onClick={() => updateForm('email', profileEmail)} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-100 bg-blue-50 px-4 py-2.5 text-[12px] font-black text-blue-700 transition-all hover:bg-blue-100 sm:justify-start">
+                            <span>📧</span> Fill from profile
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const ReviewStep = ({ form, ccStepComplete, answeredSqdCount }: any) => (
+    <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
+        <h3 className={`${sectionTitleClass} mb-4`}><span className={sectionNumberClass}>5</span> Review &amp; Submit</h3>
+        <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Client Type</p>
+                <p className="mt-1 text-[12px] font-black text-slate-900">{form.client_type || 'Missing'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Service</p>
+                <p className="mt-1 truncate text-[12px] font-black text-slate-900">{form.service_availed || 'General Feedback'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">CC Answers</p>
+                <p className="mt-1 text-[12px] font-black text-slate-900">{ccStepComplete ? 'Complete' : 'Incomplete'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">SQD Answers</p>
+                <p className="mt-1 text-[12px] font-black text-slate-900">{answeredSqdCount}/{SQD_KEYS.length}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Email</p>
+                <p className="mt-1 truncate text-[12px] font-black text-slate-900">{form.email || 'Not provided'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Profile</p>
+                <p className="mt-1 text-[12px] font-black text-slate-900">{form.sex || 'No sex'}, {form.age || 'No age'}</p>
+            </div>
+        </div>
+        <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Suggestions</p>
+            <p className="mt-1 text-[12px] leading-5 text-slate-700">{form.suggestions || 'No additional comments.'}</p>
+        </div>
+    </div>
+);
+
 export function FeedbackView({
     personalInfo,
     feedbackPrefill,
@@ -70,103 +304,7 @@ export function FeedbackView({
         }
     }, [feedbackPrefill]);
 
-    const handleSubmit = async () => {
-        // Validate required
-        if (!form.client_type) {
-            setActiveStep(0);
-            setFormNotice({ type: 'error', message: 'Please choose a client type before submitting.' });
-            return;
-        }
-        if (!form.cc1) {
-            setActiveStep(1);
-            setFormNotice({ type: 'error', message: 'Please answer CC1 before submitting.' });
-            return;
-        }
-        if (['1', '2', '3'].includes(form.cc1) && (!form.cc2 || !form.cc3)) {
-            setActiveStep(1);
-            setFormNotice({ type: 'error', message: 'Please answer CC2 and CC3 before submitting.' });
-            return;
-        }
-        const allSqdFilled = SQD_KEYS.every(k => form[k] !== '');
-        if (!allSqdFilled) {
-            setActiveStep(2);
-            setFormNotice({ type: 'error', message: 'Please answer all SQD questions (0-8).' });
-            return;
-        }
-        const suggestionsCheck = validateTextInput(form.suggestions, 'notes', {
-            multiline: true,
-            label: 'Suggestions'
-        });
-        if (!suggestionsCheck.valid) {
-            setActiveStep(3);
-            setFormNotice({ type: 'error', message: suggestionsCheck.error || 'Suggestions are invalid.' });
-            return;
-        }
-        const emailCheck = validateTextInput(form.email, 'email', { label: 'Email address' });
-        if (form.email && !emailCheck.valid) {
-            setActiveStep(3);
-            setFormNotice({ type: 'error', message: emailCheck.error || 'Email address is invalid.' });
-            return;
-        }
-        setSubmitting(true);
-        try {
-            const payload = {
-                student_id: personalInfo.studentId,
-                student_name: personalInfo.fullName || personalInfo.name || 'Anonymous',
-                client_type: form.client_type,
-                sex: form.sex || null,
-                age: form.age ? parseInt(form.age) : null,
-                region: form.region || null,
-                service_availed: form.service_availed || null,
-                cc1: parseInt(form.cc1),
-                cc2: form.cc2 ? parseInt(form.cc2) : null,
-                cc3: form.cc3 ? parseInt(form.cc3) : null,
-                sqd0: parseInt(form.sqd0), sqd1: parseInt(form.sqd1), sqd2: parseInt(form.sqd2),
-                sqd3: parseInt(form.sqd3), sqd4: parseInt(form.sqd4), sqd5: parseInt(form.sqd5),
-                sqd6: parseInt(form.sqd6), sqd7: parseInt(form.sqd7), sqd8: parseInt(form.sqd8),
-                suggestions: suggestionsCheck.value || null,
-                email: emailCheck.value || null,
-            };
-            await createGeneralFeedback(payload);
-
-            // Link completed counseling requests to CSM feedback flow.
-            if (feedbackPrefill?.source === 'counseling' && feedbackPrefill?.counselingRequestId) {
-                const sqdScores = SQD_KEYS.flatMap(k => {
-                    const score = parseInt(form[k]);
-                    return Number.isFinite(score) && score > 0 ? [score] : [];
-                });
-                const linkedRating = sqdScores.length > 0
-                    ? Math.round(sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length)
-                    : null;
-                const linkedComment = `[CSM] ${suggestionsCheck.value || 'Submitted via CSM feedback form.'}`;
-
-                await supabase
-                    .from('counseling_requests')
-                    .update({ rating: linkedRating, feedback: linkedComment })
-                    .eq('id', feedbackPrefill.counselingRequestId)
-                    .eq('student_id', personalInfo.studentId);
-                void queryClient.invalidateQueries({ queryKey: ['student_counseling_data'] });
-            }
-
-            setSubmitted(true);
-            setActiveStep(0);
-            setForm({ client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '', cc1: '', cc2: '', cc3: '', sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '', suggestions: '', email: '' });
-            if (setFeedbackPrefill) setFeedbackPrefill(null);
-        } catch {
-            setFormNotice({ type: 'error', message: `Couldn't submit feedback..` });
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     const cc1IsAware = form.cc1 && ['1', '2', '3'].includes(form.cc1);
-    const sectionCardClass = 'student-surface-card rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm animate-fade-in-up sm:rounded-2xl sm:p-5';
-    const sectionTitleClass = 'flex items-center gap-2 text-[13px] font-black text-slate-950 sm:text-sm';
-    const sectionNumberClass = 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-black text-blue-600 sm:h-6 sm:w-6 sm:text-xs';
-    const fieldLabelClass = 'mb-1.5 block text-[9px] font-black uppercase tracking-[0.1em] text-slate-500 sm:text-[10px]';
-    const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:text-sm';
-    const readonlyInputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-500 sm:text-sm';
-    const radioCardBaseClass = 'flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 transition-all';
     const currentStep = FEEDBACK_STEPS[activeStep];
     const answeredSqdCount = SQD_KEYS.filter(key => form[key] !== '').length;
     const progressPercent = ((activeStep + 1) / FEEDBACK_STEPS.length) * 100;
@@ -222,6 +360,64 @@ export function FeedbackView({
             }
         }
         return true;
+    };
+
+    const handleSubmit = async () => {
+        // Re-run every step's validation; validateStep jumps to the failing step.
+        for (let step = 0; step < FEEDBACK_STEPS.length - 1; step += 1) {
+            if (!validateStep(step)) return;
+        }
+        const suggestionsCheck = validateTextInput(form.suggestions, 'notes', { multiline: true, label: 'Suggestions' });
+        const emailCheck = validateTextInput(form.email, 'email', { label: 'Email address' });
+        setSubmitting(true);
+        try {
+            const payload = {
+                student_id: personalInfo.studentId,
+                student_name: personalInfo.fullName || personalInfo.name || 'Anonymous',
+                client_type: form.client_type,
+                sex: form.sex || null,
+                age: form.age ? parseInt(form.age) : null,
+                region: form.region || null,
+                service_availed: form.service_availed || null,
+                cc1: parseInt(form.cc1),
+                cc2: form.cc2 ? parseInt(form.cc2) : null,
+                cc3: form.cc3 ? parseInt(form.cc3) : null,
+                sqd0: parseInt(form.sqd0), sqd1: parseInt(form.sqd1), sqd2: parseInt(form.sqd2),
+                sqd3: parseInt(form.sqd3), sqd4: parseInt(form.sqd4), sqd5: parseInt(form.sqd5),
+                sqd6: parseInt(form.sqd6), sqd7: parseInt(form.sqd7), sqd8: parseInt(form.sqd8),
+                suggestions: suggestionsCheck.value || null,
+                email: emailCheck.value || null,
+            };
+            await createGeneralFeedback(payload);
+
+            // Link completed counseling requests to CSM feedback flow.
+            if (feedbackPrefill?.source === 'counseling' && feedbackPrefill?.counselingRequestId) {
+                const sqdScores = SQD_KEYS.flatMap(k => {
+                    const score = parseInt(form[k]);
+                    return Number.isFinite(score) && score > 0 ? [score] : [];
+                });
+                const linkedRating = sqdScores.length > 0
+                    ? Math.round(sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length)
+                    : null;
+                const linkedComment = `[CSM] ${suggestionsCheck.value || 'Submitted via CSM feedback form.'}`;
+
+                await supabase
+                    .from('counseling_requests')
+                    .update({ rating: linkedRating, feedback: linkedComment })
+                    .eq('id', feedbackPrefill.counselingRequestId)
+                    .eq('student_id', personalInfo.studentId);
+                void queryClient.invalidateQueries({ queryKey: ['student_counseling_data'] });
+            }
+
+            setSubmitted(true);
+            setActiveStep(0);
+            setForm({ client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '', cc1: '', cc2: '', cc3: '', sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '', suggestions: '', email: '' });
+            if (setFeedbackPrefill) setFeedbackPrefill(null);
+        } catch {
+            setFormNotice({ type: 'error', message: `Couldn't submit feedback..` });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const goToStep = (targetStep: number) => {
@@ -320,235 +516,11 @@ export function FeedbackView({
                 </div>
             </div>
 
-            {/* Client Info Section */}
-            {activeStep === 0 && <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
-                <h3 className={`${sectionTitleClass} mb-4`}><span className={sectionNumberClass}>1</span> Client Information</h3>
-                <div className="space-y-4">
-                    <div>
-                        <label className={fieldLabelClass}>Client Type *</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {['Citizen', 'Business', 'Government'].map(t => (
-                                <button key={t} type="button" onClick={() => updateForm('client_type', t)} className={`rounded-xl border px-3 py-2.5 text-[11px] font-black transition-all sm:text-xs ${t === 'Government' ? 'col-span-2' : ''} ${form.client_type === t ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40'}`}>
-                                    {t === 'Government' ? 'Government (Employee or another agency)' : t}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-                        <div>
-                            <label className={fieldLabelClass}>Date</label>
-                            <input type="text" readOnly value={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} className={readonlyInputClass} />
-                        </div>
-                        <div>
-                            <label className={fieldLabelClass}>Sex</label>
-                            <div className="flex gap-2">
-                                {['Male', 'Female'].map(s => (
-                                    <button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 rounded-xl border px-3 py-2.5 text-[11px] font-black transition-all sm:text-xs ${form.sex === s ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/40'}`}>{s}</button>
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                            <label className={fieldLabelClass}>Age</label>
-                            <input type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className={inputClass} placeholder="Age" />
-                        </div>
-                        <div>
-                            <label className={fieldLabelClass}>Region</label>
-                            <input type="text" {...getTextInputLimitProps('mediumText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className={inputClass} placeholder="Region of residence" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className={fieldLabelClass}>Service Availed</label>
-                        <input type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className={inputClass} placeholder="e.g. Counseling, Scholarship, Assessment, etc." />
-                    </div>
-                </div>
-            </div>}
-
-            {/* CC Questions Section */}
-            {activeStep === 1 && <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
-                <h3 className={`${sectionTitleClass} mb-2`}><span className={sectionNumberClass}>2</span> Citizen's Charter (CC) Questions</h3>
-                <p className="mb-4 pl-8 text-[11px] leading-5 text-slate-500 sm:text-xs sm:leading-5">The Citizen's Charter (CC) is an official document that reflects the services of a government agency/office including its requirements, fees, and processing times among others.</p>
-
-                {/* CC1 */}
-                <div className="mb-4">
-                    <p className="mb-2 text-[12px] font-black leading-5 text-slate-800 sm:text-sm">CC1. Which of the following best describes your awareness of a CC? *</p>
-                    <div className="space-y-2">
-                        {[
-                            { v: '1', t: '1. I know what a CC is and I saw this office\'s CC.' },
-                            { v: '2', t: '2. I know what a CC is but I did NOT see this office\'s CC.' },
-                            { v: '3', t: '3. I learned of the CC only when I saw this office\'s CC.' },
-                            { v: '4', t: '4. I do not know what a CC is and I did not see one in this office. (Answer \'N/A\' on CC2 and CC3)' },
-                        ].map(opt => (
-                            <label key={opt.v} className={`${radioCardBaseClass} ${form.cc1 === opt.v ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'}`}>
-                                <input type="radio" name="cc1" value={opt.v} checked={form.cc1 === opt.v} onChange={() => handleCc1Change(opt.v)} className="mt-0.5 accent-blue-500" />
-                                <span className="text-[12px] leading-5 text-slate-700 sm:text-sm">{opt.t}</span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-
-                {/* CC2 */}
-                <div className={`mb-4 ${!cc1IsAware ? 'opacity-40 pointer-events-none' : ''}`}>
-                    <p className="mb-2 text-[12px] font-black leading-5 text-slate-800 sm:text-sm">CC2. If aware of CC (answered 1-3 in CC1), would you say that the CC of this office was ...?</p>
-                    <div className="space-y-2">
-                        {[
-                            { v: '1', t: '1. Easy to see' },
-                            { v: '2', t: '2. Somewhat easy to see' },
-                            { v: '3', t: '3. Difficult to see' },
-                            { v: '4', t: '4. Not visible at all' },
-                            { v: '5', t: '5. N/A' },
-                        ].map(opt => (
-                            <label key={opt.v} className={`${radioCardBaseClass} ${form.cc2 === opt.v ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'}`}>
-                                <input type="radio" name="cc2" value={opt.v} checked={form.cc2 === opt.v} onChange={() => updateForm('cc2', opt.v)} className="accent-blue-500" />
-                                <span className="text-[12px] leading-5 text-slate-700 sm:text-sm">{opt.t}</span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-
-                {/* CC3 */}
-                <div className={`${!cc1IsAware ? 'opacity-40 pointer-events-none' : ''}`}>
-                    <p className="mb-2 text-[12px] font-black leading-5 text-slate-800 sm:text-sm">CC3. If aware of CC (answered codes 1-3 in CC1), how much did the CC help you in your transaction?</p>
-                    <div className="space-y-2">
-                        {[
-                            { v: '1', t: '1. Helped very much' },
-                            { v: '2', t: '2. Somewhat helped' },
-                            { v: '3', t: '3. Did not help' },
-                            { v: '4', t: '4. N/A' },
-                        ].map(opt => (
-                            <label key={opt.v} className={`${radioCardBaseClass} ${form.cc3 === opt.v ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'}`}>
-                                <input type="radio" name="cc3" value={opt.v} checked={form.cc3 === opt.v} onChange={() => updateForm('cc3', opt.v)} className="accent-blue-500" />
-                                <span className="text-[12px] leading-5 text-slate-700 sm:text-sm">{opt.t}</span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-            </div>}
-
-            {/* SQD Section */}
-            {activeStep === 2 && <div className="student-surface-card overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm animate-fade-in-up sm:rounded-2xl" style={{ animationDelay: '80ms' }}>
-                <div className="p-3 pb-3 sm:p-5 sm:pb-4">
-                    <h3 className={`${sectionTitleClass} mb-2`}><span className={sectionNumberClass}>3</span> Service Quality Dimensions (SQD)</h3>
-                    <p className="pl-8 text-[11px] leading-5 text-slate-500 sm:text-xs">Choose one answer for each SQD statement.</p>
-                    <p className="mt-1.5 pl-8 text-[10px] leading-4 text-slate-500 sm:text-[11px]">
-                        Scale: 😞 <span className="font-black text-slate-700">SD</span> = Strongly Disagree; 🙁 <span className="font-black text-slate-700">D</span> = Disagree; 😐 <span className="font-black text-slate-700">N</span> = Neither; 🙂 <span className="font-black text-slate-700">A</span> = Agree; 😊 <span className="font-black text-slate-700">SA</span> = Strongly Agree.
-                    </p>
-                </div>
-                <div className="space-y-2 border-t border-slate-100 p-3 sm:hidden">
-                    {SQD_LABELS.map((sqd: any) => (
-                        <div key={sqd.key} className="rounded-xl border border-slate-200 bg-white p-3">
-                            <p className="text-[11px] font-semibold leading-5 text-slate-700">{sqd.text}</p>
-                            <div className="mt-2 grid grid-cols-3 gap-1.5">
-                                {SQD_COLUMNS.map((col: any) => {
-                                    const isSelected = form[sqd.key] === col.value;
-                                    return (
-                                        <button
-                                            key={col.value}
-                                            type="button"
-                                            role="radio"
-                                            aria-checked={isSelected}
-                                            aria-label={`${sqd.text} ${col.label}`}
-                                            onClick={() => updateForm(sqd.key, col.value)}
-                                            className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-2 text-left transition ${isSelected ? 'border-blue-400 bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
-                                        >
-                                            <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-blue-500' : 'border-slate-400 bg-white'}`} aria-hidden="true">
-                                                {isSelected && <span className="h-2 w-2 rounded-full bg-blue-500" />}
-                                            </span>
-                                            {col.emoji && <span className="text-base leading-none">{col.emoji}</span>}
-                                            <span className="text-[11px] font-black leading-3">{col.shortLabel}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <div className="hidden overflow-x-auto border-t border-slate-100 sm:block">
-                    <table className="min-w-[720px] w-full border-collapse text-xs">
-                        <thead>
-                            <tr className="border-b border-slate-200 bg-slate-50">
-                                <th className="w-[42%] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.1em] text-slate-500"></th>
-                                {SQD_COLUMNS.map((col: any) => (
-                                    <th key={col.value} className="w-[9.5%] px-2 py-3 text-center">
-                                        {col.emoji && <div className="mb-1 text-lg leading-none">{col.emoji}</div>}
-                                        <div className="text-[9px] font-black leading-tight text-slate-500">{col.label}</div>
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {SQD_LABELS.map((sqd: any, idx: number) => (
-                                <tr key={sqd.key} className={`border-b border-slate-100 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/30`}>
-                                    <td className="px-4 py-3 text-[12px] leading-5 text-slate-700">{sqd.text}</td>
-                                    {SQD_COLUMNS.map((col: any) => (
-                                        <td key={col.value} className="px-2 py-3 text-center">
-                                            <label className="flex cursor-pointer items-center justify-center">
-                                                <input type="radio" name={sqd.key} value={col.value} checked={form[sqd.key] === col.value} onChange={() => updateForm(sqd.key, col.value)} className="h-4 w-4 cursor-pointer accent-blue-500" />
-                                            </label>
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>}
-
-            {/* Open-ended Section */}
-            {activeStep === 3 && <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
-                <h3 className={`${sectionTitleClass} mb-4`}><span className={sectionNumberClass}>4</span> Additional Comments</h3>
-                <div className="space-y-3">
-                    <div>
-                        <label className={fieldLabelClass}>Suggestions on how we can further improve our services (optional)</label>
-                        <textarea value={form.suggestions} {...getTextInputLimitProps('notes')} onChange={e => updateForm('suggestions', e.target.value)} rows={3} className={`${inputClass} resize-none leading-5`} placeholder="Your suggestions..." />
-                    </div>
-                    <div>
-                        <label className={fieldLabelClass}>Email address (optional)</label>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <input type="email" {...getTextInputLimitProps('email')} value={form.email} onChange={e => updateForm('email', e.target.value)} className={`${inputClass} flex-1`} placeholder="your.email@example.com" />
-                            {profileEmail && !form.email && (
-                                <button type="button" onClick={() => updateForm('email', profileEmail)} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-100 bg-blue-50 px-4 py-2.5 text-[12px] font-black text-blue-700 transition-all hover:bg-blue-100 sm:justify-start">
-                                    <span>📧</span> Fill from profile
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>}
-
-            {/* Review Section */}
-            {activeStep === 4 && <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
-                <h3 className={`${sectionTitleClass} mb-4`}><span className={sectionNumberClass}>5</span> Review &amp; Submit</h3>
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Client Type</p>
-                        <p className="mt-1 text-[12px] font-black text-slate-900">{form.client_type || 'Missing'}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Service</p>
-                        <p className="mt-1 truncate text-[12px] font-black text-slate-900">{form.service_availed || 'General Feedback'}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">CC Answers</p>
-                        <p className="mt-1 text-[12px] font-black text-slate-900">{ccStepComplete ? 'Complete' : 'Incomplete'}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">SQD Answers</p>
-                        <p className="mt-1 text-[12px] font-black text-slate-900">{answeredSqdCount}/{SQD_KEYS.length}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Email</p>
-                        <p className="mt-1 truncate text-[12px] font-black text-slate-900">{form.email || 'Not provided'}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Profile</p>
-                        <p className="mt-1 text-[12px] font-black text-slate-900">{form.sex || 'No sex'}, {form.age || 'No age'}</p>
-                    </div>
-                </div>
-                <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Suggestions</p>
-                    <p className="mt-1 text-[12px] leading-5 text-slate-700">{form.suggestions || 'No additional comments.'}</p>
-                </div>
-            </div>}
+            {activeStep === 0 && <ClientInfoStep form={form} updateForm={updateForm} />}
+            {activeStep === 1 && <CcQuestionsStep form={form} updateForm={updateForm} handleCc1Change={handleCc1Change} cc1IsAware={cc1IsAware} />}
+            {activeStep === 2 && <SqdStep form={form} updateForm={updateForm} />}
+            {activeStep === 3 && <CommentsStep form={form} updateForm={updateForm} profileEmail={profileEmail} />}
+            {activeStep === 4 && <ReviewStep form={form} ccStepComplete={ccStepComplete} answeredSqdCount={answeredSqdCount} />}
 
             {/* Step actions */}
             <div className="student-surface-card flex gap-2 rounded-xl border border-slate-200/80 bg-white p-2 shadow-sm animate-fade-in-up sm:rounded-2xl sm:justify-end sm:p-3" style={{ animationDelay: '120ms' }}>

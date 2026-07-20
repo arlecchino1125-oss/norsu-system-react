@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from './auth';
+import { APP_SESSION_STORAGE_KEY } from './storageKeys';
 import { useAuth } from './useAuth';
 
 const authMocks = vi.hoisted(() => ({
@@ -41,7 +42,7 @@ describe('AuthProvider session updates', () => {
     });
 
     it('persists one functional session update once in Strict Mode', async () => {
-        localStorage.setItem('norsu_session', JSON.stringify({ full_name: 'Before' }));
+        localStorage.setItem(APP_SESSION_STORAGE_KEY, JSON.stringify({ full_name: 'Before' }));
         const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
         render(
@@ -53,15 +54,31 @@ describe('AuthProvider session updates', () => {
         );
 
         await screen.findByRole('button', { name: 'Before' });
-        const writesBeforeUpdate = setItem.mock.calls.filter(([key]) => key === 'norsu_session').length;
+        const writesBeforeUpdate = setItem.mock.calls.filter(([key]) => key === APP_SESSION_STORAGE_KEY).length;
 
         fireEvent.click(screen.getByRole('button', { name: 'Before' }));
 
         await screen.findByRole('button', { name: 'After' });
         await waitFor(() => {
-            const writesAfterUpdate = setItem.mock.calls.filter(([key]) => key === 'norsu_session').length;
+            const writesAfterUpdate = setItem.mock.calls.filter(([key]) => key === APP_SESSION_STORAGE_KEY).length;
             expect(writesAfterUpdate - writesBeforeUpdate).toBe(1);
         });
-        expect(JSON.parse(localStorage.getItem('norsu_session') || 'null')).toMatchObject({ full_name: 'After' });
+        expect(JSON.parse(localStorage.getItem(APP_SESSION_STORAGE_KEY) || 'null')).toMatchObject({ full_name: 'After' });
+    });
+
+    it('migrates a legacy unversioned session to the versioned key', async () => {
+        localStorage.setItem('norsu_session', JSON.stringify({ full_name: 'Before' }));
+
+        render(
+            <StrictMode>
+                <AuthProvider>
+                    <SessionEditor />
+                </AuthProvider>
+            </StrictMode>
+        );
+
+        await screen.findByRole('button', { name: 'Before' });
+        expect(localStorage.getItem('norsu_session')).toBeNull();
+        expect(JSON.parse(localStorage.getItem(APP_SESSION_STORAGE_KEY) || 'null')).toMatchObject({ full_name: 'Before' });
     });
 });

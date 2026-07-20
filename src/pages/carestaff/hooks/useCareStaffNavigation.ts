@@ -18,12 +18,10 @@ export function useCareStaffNavigation({
     }, [isFeatureVisible]);
 
     const visibleNavSections = useMemo(
-        () => NAV_SECTIONS
-            .map((section) => ({
-                ...section,
-                items: section.items.filter((item) => isCareStaffTabVisible(item.tab))
-            }))
-            .filter((section) => section.items.length > 0),
+        () => NAV_SECTIONS.flatMap((section) => {
+            const items = section.items.filter((item) => isCareStaffTabVisible(item.tab));
+            return items.length > 0 ? [{ ...section, items }] : [];
+        }),
         [isCareStaffTabVisible]
     );
 

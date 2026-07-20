@@ -55,7 +55,7 @@ const TAB_CONFIG: Array<{
 const SELECTABLE_ROLES = ROLES as readonly Role[];
 const PERMISSION_STATUS_OPTIONS = ['enabled', 'hidden', 'maintenance', 'coming_soon'] as const;
 
-export default function RolePermissionsPage() {
+function useRolePermissions() {
     const navigate = useNavigate();
     const { session } = useAuth() as any;
     const queryClient = useQueryClient();
@@ -149,15 +149,15 @@ export default function RolePermissionsPage() {
 
     const activePermissionDefinitions = useMemo(() => {
         const knownKeys = getKnownPermissionKeysByType(activeTab, selectedRole);
-        const customKeys = activeTypePermissions
-            .map((permission) => String(permission.permission_key || '').trim())
-            .filter((permissionKey) => permissionKey && permissionKey !== '*');
+        const customKeys = activeTypePermissions.flatMap((permission) => {
+            const permissionKey = String(permission.permission_key || '').trim();
+            return permissionKey && permissionKey !== '*' ? [permissionKey] : [];
+        });
 
         const mergedKeys = Array.from(new Set([...knownKeys, ...customKeys]));
         const normalizedSearch = searchTerm.trim().toLowerCase();
 
-        return mergedKeys
-            .map((permissionKey) => {
+        return mergedKeys.flatMap((permissionKey) => {
                 const databaseDefinition = activeTypePermissions.find((permission) => permission.permission_key === permissionKey);
                 const description = String(
                     databaseDefinition?.description
@@ -174,7 +174,7 @@ export default function RolePermissionsPage() {
                     }, activeTab, permissionKey)
                     : resolvePermissionDetails(permissionRecord, activeTab, permissionKey);
 
-                return {
+                const permission = {
                     permissionKey,
                     title: humanizePermissionKey(permissionKey),
                     description,
@@ -182,13 +182,11 @@ export default function RolePermissionsPage() {
                     status: resolvedPermission.status,
                     noticeText: resolvedPermission.noticeText
                 };
-            })
-            .filter((permission) => {
-                if (!normalizedSearch) return true;
-
-                return permission.permissionKey.toLowerCase().includes(normalizedSearch)
+                const matchesSearch = !normalizedSearch
+                    || permission.permissionKey.toLowerCase().includes(normalizedSearch)
                     || permission.title.toLowerCase().includes(normalizedSearch)
                     || permission.description.toLowerCase().includes(normalizedSearch);
+                return matchesSearch ? [permission] : [];
             })
             .sort((left, right) => left.title.localeCompare(right.title));
     }, [activeTab, activeTypePermissions, isAdminView, permissionRecord, searchTerm, selectedRole]);
@@ -203,9 +201,14 @@ export default function RolePermissionsPage() {
         () => activePermissionDefinitions.map((permission) => `${selectedRole}:${activeTab}:${permission.permissionKey}`),
         [activePermissionDefinitions, activeTab, selectedRole]
     );
+    const expandedPermissionKeySet = useMemo(
+        () => new Set(expandedPermissionKeys),
+        [expandedPermissionKeys]
+    );
+    const savingKeySet = useMemo(() => new Set(savingKeys), [savingKeys]);
     const expandedVisibleCount = useMemo(
-        () => visibleLookupKeys.filter((lookupKey) => expandedPermissionKeys.includes(lookupKey)).length,
-        [expandedPermissionKeys, visibleLookupKeys]
+        () => visibleLookupKeys.filter((lookupKey) => expandedPermissionKeySet.has(lookupKey)).length,
+        [expandedPermissionKeySet, visibleLookupKeys]
     );
     const listingsHelperText = isPageTab
         ? 'Use the toggle for quick access changes. Expand a page when you need to set it as hidden, under maintenance, or coming soon.'
@@ -405,28 +408,267 @@ export default function RolePermissionsPage() {
         setExpandedPermissionKeys([]);
     }, []);
 
-    if (session?.role !== 'Admin') {
-        return (
-            <div className="min-h-screen bg-slate-100 px-4 py-10 sm:px-6">
-                <div className="mx-auto max-w-3xl rounded-[28px] border border-rose-200 bg-white p-8 text-center shadow-lg shadow-slate-200/70">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
-                        <Shield className="h-7 w-7" />
-                    </div>
-                    <h1 className="mt-5 text-2xl font-semibold text-slate-900">Admin Access Required</h1>
-                    <p className="mt-3 text-sm leading-6 text-slate-500">
-                        Role permission controls are only available to the Admin portal.
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/admin/dashboard')}
-                        className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back to Dashboard
-                    </button>
-                </div>
+
+    return {
+        session, navigate, selectedRole, setSelectedRole, activeTab, searchTerm, setSearchTerm, noticeDrafts, setNoticeDrafts, expandedPermissionKeySet, savingKeySet, isResetModalOpen, setIsResetModalOpen, isResetting, isAdminView, isResetToDefaultsSupported, isPageTab, selectedRoleLabel, visibleTabs, activeTypePermissions, loading, error, handleSelectRole, handleSelectTab, activePermissionDefinitions, enabledCount, disabledCount, expandedVisibleCount, visibleLookupKeys, listingsHelperText, modeLabel, modeHelperText, handleTogglePermission, handleStatusChange, handleSaveNotice, handleResetToDefaults, togglePermissionExpansion, expandVisiblePermissions, collapseVisiblePermissions, loadPermissions, toast,
+    };
+}
+
+const ResetDefaultsModal = ({ selectedRoleLabel, isResetting, onCancel, onConfirm }: any) => (
+<div className="fixed inset-0 z-40 flex items-center justify-center bg-transparent px-4">
+    <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                <RotateCcw className="h-5 w-5" />
             </div>
-        );
+            <div>
+                <h2 className="text-xl font-semibold text-slate-900">Reset to default permissions?</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                    This will replace the current {selectedRoleLabel} permission set with the seeded defaults from the database migration. Custom overrides for this role will be removed.
+                </p>
+            </div>
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+                type="button"
+                onClick={onCancel}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+                Cancel
+            </button>
+            <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => void onConfirm()}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+                {isResetting && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>{isResetting ? 'Resetting...' : 'Confirm Reset'}</span>
+            </button>
+        </div>
+    </div>
+</div>
+);
+
+const PermissionToast = ({ toast }: any) => (
+<div className="fixed right-4 top-4 z-50 w-full max-w-sm">
+    <div className={`rounded-2xl border px-4 py-3 shadow-xl ${toast.type === 'success'
+        ? 'border-teal-200 bg-white text-slate-700'
+        : 'border-rose-200 bg-white text-slate-700'
+        }`}>
+        <div className="flex items-start gap-3">
+            {toast.type === 'success' ? (
+                <CheckCircle2 className="mt-0.5 h-5 w-5 text-teal-600" />
+            ) : (
+                <AlertCircle className="mt-0.5 h-5 w-5 text-rose-600" />
+            )}
+            <p className="text-sm font-medium">{toast.message}</p>
+        </div>
+    </div>
+</div>
+);
+
+const PermissionCard = ({
+    permission, lookupKey, cardState,
+    activeTab, selectedRole, noticeDrafts, setNoticeDrafts,
+    onToggle, onToggleExpansion, onStatusChange, onSaveNotice
+}: any) => {
+const { isSaving, isExpanded, isToggleEnabled, isPageTab, isAdminView } = cardState;
+return (
+<div
+    className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.34)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-24px_rgba(15,23,42,0.42)]"
+>
+    <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[1.05rem] font-semibold text-slate-900">{permission.title}</h3>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${isPageTab
+                    ? permission.isAllowed && permission.status === 'enabled'
+                        ? 'bg-teal-50 text-teal-700'
+                        : permission.status === 'maintenance'
+                            ? 'bg-amber-50 text-amber-700'
+                            : permission.status === 'coming_soon'
+                                ? 'bg-sky-50 text-sky-700'
+                                : 'bg-slate-100 text-slate-500'
+                    : permission.isAllowed
+                        ? 'bg-teal-50 text-teal-700'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}>
+                    {isPageTab
+                        ? (permission.isAllowed && permission.status === 'enabled'
+                            ? 'Enabled'
+                            : PERMISSION_STATUS_LABELS[permission.status])
+                        : (permission.isAllowed ? 'Allowed' : 'Denied')}
+                </span>
+            </div>
+        </div>
+
+        <div className="flex flex-shrink-0 items-center gap-2">
+            <button
+                type="button"
+                disabled={isAdminView || isSaving}
+                onClick={() => void onToggle(
+                    permission.permissionKey,
+                    isToggleEnabled,
+                    permission.status,
+                    permission.noticeText,
+                    permission.description
+                )}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${isToggleEnabled ? 'bg-[#14b8a6]' : 'bg-[#cbd5e1]'
+                    } ${isAdminView || isSaving ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                    }`}
+                aria-label={`Toggle ${permission.title}`}
+                aria-pressed={isToggleEnabled}
+            >
+                <span
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition ${isToggleEnabled ? 'translate-x-7' : 'translate-x-1'
+                        }`}
+                >
+                    {isSaving ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />
+                    ) : isToggleEnabled ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" />
+                    ) : null}
+                </span>
+            </button>
+            <button
+                type="button"
+                onClick={() => onToggleExpansion(lookupKey)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${permission.title}`}
+            >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+        </div>
+    </div>
+
+    {isExpanded ? (
+        <>
+            <p className="mt-4 text-sm leading-6 text-slate-500">
+                {permission.description}
+            </p>
+
+            {isPageTab ? (
+                <div className="mt-5 space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+                    <div className="grid gap-3 xl:grid-cols-[minmax(0,190px)_1fr]">
+                        <label className="block">
+                            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Page Status</span>
+                            <select
+                                value={permission.status}
+                                disabled={isAdminView || isSaving}
+                                onChange={(event) => void onStatusChange(
+                                    permission.permissionKey,
+                                    event.target.value as PermissionStatus,
+                                    permission.noticeText,
+                                    permission.description
+                                )}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {PERMISSION_STATUS_OPTIONS.map((status) => (
+                                    <option key={status} value={status}>
+                                        {PERMISSION_STATUS_LABELS[status]}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-500">
+                            Hidden removes this page from side navigation. Maintenance and Coming Soon keep the page visible, but replace the page with the notice below.
+                        </div>
+                    </div>
+
+                    <label className="block">
+                        <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Locked Page Notice</span>
+                        <textarea
+                            rows={4}
+                            value={noticeDrafts[lookupKey] ?? permission.noticeText ?? ''}
+                            disabled={isAdminView || isSaving}
+                            onChange={(event) => setNoticeDrafts((prev) => ({
+                                ...prev,
+                                [lookupKey]: event.target.value
+                            }))}
+                            placeholder={getPermissionNotice({
+                                isAllowed: permission.isAllowed,
+                                status: permission.status,
+                                noticeText: permission.noticeText,
+                                description: permission.description
+                            }, permission.title)}
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                    </label>
+
+                    <div className="flex flex-wrap gap-3">
+                        <AsyncButton
+                            type="button"
+                            disabled={isAdminView || isSaving}
+                            onClick={() => onSaveNotice(permission.permissionKey, permission)}
+                            className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            Save Notice
+                        </AsyncButton>
+                        <button
+                            type="button"
+                            disabled={isAdminView || isSaving}
+                            onClick={() => {
+                                const clearedLookupKey = `${selectedRole}:${activeTab}:${permission.permissionKey}`;
+                                setNoticeDrafts((prev) => ({
+                                    ...prev,
+                                    [clearedLookupKey]: ''
+                                }));
+                            }}
+                            className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            Clear Draft
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 text-sm leading-6 text-slate-500">
+                    <p className="font-semibold text-slate-700">Status controls are only available for Pages (portal pages).</p>
+                    <p className="mt-2">
+                        {activeTab === 'table'
+                            ? 'This is a backend data permission. Turn it off to stop this role from accessing the related table, even if a page is still visible.'
+                            : activeTab === 'function'
+                                ? 'This is an edge-function permission. Turn it off to block this role from invoking the related server function.'
+                                : 'This is an action permission. Turn it off to block this role from performing the related workflow action.'}
+                    </p>
+                </div>
+            )}
+        </>
+    ) : null}
+</div>
+);
+};
+
+const AdminAccessRequiredScreen = ({ onBack }: any) => (
+<div className="min-h-screen bg-slate-100 px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-3xl rounded-[28px] border border-rose-200 bg-white p-8 text-center shadow-lg shadow-slate-200/70">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+            <Shield className="h-7 w-7" />
+        </div>
+        <h1 className="mt-5 text-2xl font-semibold text-slate-900">Admin Access Required</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-500">
+            Role permission controls are only available to the Admin portal.
+        </p>
+        <button
+            type="button"
+            onClick={onBack}
+            className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+        >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+        </button>
+    </div>
+</div>
+);
+
+export default function RolePermissionsPage() {
+    const {
+        session, navigate, selectedRole, activeTab, searchTerm, setSearchTerm, noticeDrafts, setNoticeDrafts, expandedPermissionKeySet, savingKeySet, isResetModalOpen, setIsResetModalOpen, isResetting, isAdminView, isResetToDefaultsSupported, isPageTab, selectedRoleLabel, visibleTabs, loading, error, handleSelectRole, handleSelectTab, activePermissionDefinitions, enabledCount, disabledCount, expandedVisibleCount, listingsHelperText, modeLabel, modeHelperText, handleTogglePermission, handleStatusChange, handleSaveNotice, handleResetToDefaults, togglePermissionExpansion, expandVisiblePermissions, collapseVisiblePermissions, loadPermissions, toast,
+    } = useRolePermissions();
+    if (session?.role !== 'Admin') {
+        return <AdminAccessRequiredScreen onBack={() => navigate('/admin/dashboard')} />;
     }
 
     return (
@@ -637,176 +879,30 @@ export default function RolePermissionsPage() {
                                 <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
                                     {activePermissionDefinitions.map((permission) => {
                                         const lookupKey = `${selectedRole}:${activeTab}:${permission.permissionKey}`;
-                                        const isSaving = savingKeys.includes(lookupKey);
-                                        const isExpanded = expandedPermissionKeys.includes(lookupKey);
                                         const isToggleEnabled = isPageTab
                                             ? permission.isAllowed && permission.status === 'enabled'
                                             : permission.isAllowed;
-
                                         return (
-                                            <div
+                                            <PermissionCard
                                                 key={lookupKey}
-                                                className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.34)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-24px_rgba(15,23,42,0.42)]"
-                                            >
-                                                <div className="flex items-start justify-between gap-4">
-                                                    <div className="min-w-0">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <h3 className="text-[1.05rem] font-semibold text-slate-900">{permission.title}</h3>
-                                                            <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${isPageTab
-                                                                ? permission.isAllowed && permission.status === 'enabled'
-                                                                    ? 'bg-teal-50 text-teal-700'
-                                                                    : permission.status === 'maintenance'
-                                                                        ? 'bg-amber-50 text-amber-700'
-                                                                        : permission.status === 'coming_soon'
-                                                                            ? 'bg-sky-50 text-sky-700'
-                                                                            : 'bg-slate-100 text-slate-500'
-                                                                : permission.isAllowed
-                                                                    ? 'bg-teal-50 text-teal-700'
-                                                                    : 'bg-slate-100 text-slate-500'
-                                                                }`}>
-                                                                {isPageTab
-                                                                    ? (permission.isAllowed && permission.status === 'enabled'
-                                                                        ? 'Enabled'
-                                                                        : PERMISSION_STATUS_LABELS[permission.status])
-                                                                    : (permission.isAllowed ? 'Allowed' : 'Denied')}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex flex-shrink-0 items-center gap-2">
-                                                        <button
-                                                            type="button"
-                                                            disabled={isAdminView || isSaving}
-                                                            onClick={() => void handleTogglePermission(
-                                                                permission.permissionKey,
-                                                                isToggleEnabled,
-                                                                permission.status,
-                                                                permission.noticeText,
-                                                                permission.description
-                                                            )}
-                                                            className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${isToggleEnabled ? 'bg-[#14b8a6]' : 'bg-[#cbd5e1]'
-                                                                } ${isAdminView || isSaving ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
-                                                                }`}
-                                                            aria-label={`Toggle ${permission.title}`}
-                                                            aria-pressed={isToggleEnabled}
-                                                        >
-                                                            <span
-                                                                className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition ${isToggleEnabled ? 'translate-x-7' : 'translate-x-1'
-                                                                    }`}
-                                                            >
-                                                                {isSaving ? (
-                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />
-                                                                ) : isToggleEnabled ? (
-                                                                    <CheckCircle2 className="h-3.5 w-3.5 text-teal-600" />
-                                                                ) : null}
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => togglePermissionExpansion(lookupKey)}
-                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
-                                                            aria-expanded={isExpanded}
-                                                            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${permission.title}`}
-                                                        >
-                                                            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {isExpanded ? (
-                                                    <>
-                                                        <p className="mt-4 text-sm leading-6 text-slate-500">
-                                                            {permission.description}
-                                                        </p>
-
-                                                        {isPageTab ? (
-                                                            <div className="mt-5 space-y-4 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
-                                                                <div className="grid gap-3 xl:grid-cols-[minmax(0,190px)_1fr]">
-                                                                    <label className="block">
-                                                                        <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Page Status</span>
-                                                                        <select
-                                                                            value={permission.status}
-                                                                            disabled={isAdminView || isSaving}
-                                                                            onChange={(event) => void handleStatusChange(
-                                                                                permission.permissionKey,
-                                                                                event.target.value as PermissionStatus,
-                                                                                permission.noticeText,
-                                                                                permission.description
-                                                                            )}
-                                                                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                                                                        >
-                                                                            {PERMISSION_STATUS_OPTIONS.map((status) => (
-                                                                                <option key={status} value={status}>
-                                                                                    {PERMISSION_STATUS_LABELS[status]}
-                                                                                </option>
-                                                                            ))}
-                                                                        </select>
-                                                                    </label>
-                                                                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-500">
-                                                                        Hidden removes this page from side navigation. Maintenance and Coming Soon keep the page visible, but replace the page with the notice below.
-                                                                    </div>
-                                                                </div>
-
-                                                                <label className="block">
-                                                                    <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Locked Page Notice</span>
-                                                                    <textarea
-                                                                        rows={4}
-                                                                        value={noticeDrafts[lookupKey] ?? permission.noticeText ?? ''}
-                                                                        disabled={isAdminView || isSaving}
-                                                                        onChange={(event) => setNoticeDrafts((prev) => ({
-                                                                            ...prev,
-                                                                            [lookupKey]: event.target.value
-                                                                        }))}
-                                                                        placeholder={getPermissionNotice({
-                                                                            isAllowed: permission.isAllowed,
-                                                                            status: permission.status,
-                                                                            noticeText: permission.noticeText,
-                                                                            description: permission.description
-                                                                        }, permission.title)}
-                                                                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                                                                    />
-                                                                </label>
-
-                                                                <div className="flex flex-wrap gap-3">
-                                                                    <AsyncButton
-                                                                        type="button"
-                                                                        disabled={isAdminView || isSaving}
-                                                                        onClick={() => handleSaveNotice(permission.permissionKey, permission)}
-                                                                        className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                    >
-                                                                        Save Notice
-                                                                    </AsyncButton>
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={isAdminView || isSaving}
-                                                                        onClick={() => {
-                                                                            const clearedLookupKey = `${selectedRole}:${activeTab}:${permission.permissionKey}`;
-                                                                            setNoticeDrafts((prev) => ({
-                                                                                ...prev,
-                                                                                [clearedLookupKey]: ''
-                                                                            }));
-                                                                        }}
-                                                                        className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                    >
-                                                                        Clear Draft
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 text-sm leading-6 text-slate-500">
-                                                                <p className="font-semibold text-slate-700">Status controls are only available for Pages (portal pages).</p>
-                                                                <p className="mt-2">
-                                                                    {activeTab === 'table'
-                                                                        ? 'This is a backend data permission. Turn it off to stop this role from accessing the related table, even if a page is still visible.'
-                                                                        : activeTab === 'function'
-                                                                            ? 'This is an edge-function permission. Turn it off to block this role from invoking the related server function.'
-                                                                            : 'This is an action permission. Turn it off to block this role from performing the related workflow action.'}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                ) : null}
-                                            </div>
+                                                permission={permission}
+                                                lookupKey={lookupKey}
+                                                cardState={{
+                                                    isSaving: savingKeySet.has(lookupKey),
+                                                    isExpanded: expandedPermissionKeySet.has(lookupKey),
+                                                    isToggleEnabled,
+                                                    isPageTab,
+                                                    isAdminView
+                                                }}
+                                                activeTab={activeTab}
+                                                selectedRole={selectedRole}
+                                                noticeDrafts={noticeDrafts}
+                                                setNoticeDrafts={setNoticeDrafts}
+                                                onToggle={handleTogglePermission}
+                                                onToggleExpansion={togglePermissionExpansion}
+                                                onStatusChange={handleStatusChange}
+                                                onSaveNotice={handleSaveNotice}
+                                            />
                                         );
                                     })}
                                 </div>
@@ -816,59 +912,15 @@ export default function RolePermissionsPage() {
                 </div>
             </div>
 
-            {toast && (
-                <div className="fixed right-4 top-4 z-50 w-full max-w-sm">
-                    <div className={`rounded-2xl border px-4 py-3 shadow-xl ${toast.type === 'success'
-                        ? 'border-teal-200 bg-white text-slate-700'
-                        : 'border-rose-200 bg-white text-slate-700'
-                        }`}>
-                        <div className="flex items-start gap-3">
-                            {toast.type === 'success' ? (
-                                <CheckCircle2 className="mt-0.5 h-5 w-5 text-teal-600" />
-                            ) : (
-                                <AlertCircle className="mt-0.5 h-5 w-5 text-rose-600" />
-                            )}
-                            <p className="text-sm font-medium">{toast.message}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {toast && <PermissionToast toast={toast} />}
 
             {isResetModalOpen && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-transparent px-4">
-                    <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
-                        <div className="flex items-start gap-3">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-                                <RotateCcw className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-semibold text-slate-900">Reset to default permissions?</h2>
-                                <p className="mt-2 text-sm leading-6 text-slate-500">
-                                    This will replace the current {selectedRoleLabel} permission set with the seeded defaults from the database migration. Custom overrides for this role will be removed.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setIsResetModalOpen(false)}
-                                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                disabled={isResetting}
-                                onClick={() => void handleResetToDefaults()}
-                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {isResetting && <Loader2 className="h-4 w-4 animate-spin" />}
-                                <span>{isResetting ? 'Resetting...' : 'Confirm Reset'}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ResetDefaultsModal
+                    selectedRoleLabel={selectedRoleLabel}
+                    isResetting={isResetting}
+                    onCancel={() => setIsResetModalOpen(false)}
+                    onConfirm={handleResetToDefaults}
+                />
             )}
         </div>
     );

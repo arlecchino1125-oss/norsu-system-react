@@ -29,8 +29,9 @@ export default function ContactDetailsStep({
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Complete Address <span className="text-red-500">*</span></label>
+            <label htmlFor="street" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Complete Address <span className="text-red-500">*</span></label>
             <input
+              id="street"
               name="street"
               value={formData.street}
               onChange={handleChange}
@@ -43,8 +44,9 @@ export default function ContactDetailsStep({
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">City/Municipality <span className="text-red-500">*</span></label>
+              <label htmlFor="city" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">City/Municipality <span className="text-red-500">*</span></label>
               <input
+                id="city"
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
@@ -54,8 +56,9 @@ export default function ContactDetailsStep({
               <FieldErrorText message={fieldErrors.city} />
             </div>
             <div className="space-y-1.5">
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Province <span className="text-red-500">*</span></label>
+              <label htmlFor="province" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Province <span className="text-red-500">*</span></label>
               <input
+                id="province"
                 name="province"
                 value={formData.province}
                 onChange={handleChange}
@@ -65,8 +68,9 @@ export default function ContactDetailsStep({
               <FieldErrorText message={fieldErrors.province} />
             </div>
             <div className="space-y-1.5">
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Zip Code <span className="text-red-500">*</span></label>
+              <label htmlFor="zip-code" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Zip Code <span className="text-red-500">*</span></label>
               <input
+                id="zip-code"
                 name="zipCode"
                 value={formData.zipCode}
                 onChange={handleChange}
@@ -79,8 +83,9 @@ export default function ContactDetailsStep({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Mobile Number <span className="text-red-500">*</span></label>
+              <label htmlFor="mobile" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Mobile Number <span className="text-red-500">*</span></label>
               <input
+                id="mobile"
                 type="tel"
                 name="mobile"
                 value={formData.mobile}
@@ -92,8 +97,9 @@ export default function ContactDetailsStep({
               <FieldErrorText message={fieldErrors.mobile} />
             </div>
             <div className="space-y-1.5">
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Email Address <span className="text-red-500">*</span></label>
+              <label htmlFor="email" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Email Address <span className="text-red-500">*</span></label>
               <input
+                id="email"
                 type="email"
                 name="email"
                 value={formData.email}
@@ -105,8 +111,9 @@ export default function ContactDetailsStep({
               <FieldErrorText message={fieldErrors.email} />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Facebook Account Link (Optional)</label>
+              <label htmlFor="facebook-url" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Facebook Account Link (Optional)</label>
               <input
+                id="facebook-url"
                 name="facebookUrl"
                 value={formData.facebookUrl}
                 onChange={handleChange}

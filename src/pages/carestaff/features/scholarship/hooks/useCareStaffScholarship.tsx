@@ -64,7 +64,7 @@ const fetchApplicantsByScholarship = async (scholarshipId: string) => {
     if (error) throw error;
 
     const applications = (data || []) as ScholarshipApplicantRecord[];
-    const studentIds = [...new Set(applications.map((row) => row.student_id).filter(Boolean))];
+    const studentIds = [...new Set(applications.flatMap((row) => row.student_id ? [row.student_id] : []))];
     if (studentIds.length === 0) return applications;
 
     const { data: students, error: studentsError } = await supabase
