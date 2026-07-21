@@ -21,7 +21,7 @@ const DeptEventsPage = ({
                         <h3 className="font-bold text-gray-900 mb-2 dark:text-white">{event.title}</h3>
                         <p className="text-sm text-gray-500 mb-4 line-clamp-2 dark:text-gray-400">{event.description}</p>
                         {isAttendanceActivityType(event.type) && (
-                            <button onClick={() => handleViewDeptAttendees(event)} className="w-full py-2 bg-green-50 text-green-700 font-bold text-xs rounded-lg hover:bg-green-100 transition">
+                            <button type="button" onClick={() => handleViewDeptAttendees(event)} className="w-full py-2 bg-green-50 text-green-700 font-bold text-xs rounded-lg hover:bg-green-100 transition">
                                 View {data.profile.department.split(' ')[0]} Attendees
                             </button>
                         )}

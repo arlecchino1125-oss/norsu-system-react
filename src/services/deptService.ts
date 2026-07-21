@@ -364,7 +364,7 @@ const sortRows = (rows: any[], sort?: SortParams) => {
     const activeSort = sort || { column: 'created_at', ascending: false };
     const direction = activeSort.ascending ? 1 : -1;
 
-    return [...rows].sort((left: any, right: any) => {
+    return rows.toSorted((left: any, right: any) => {
         const leftValue = left?.[activeSort.column];
         const rightValue = right?.[activeSort.column];
 
@@ -404,9 +404,10 @@ export const getDepartmentCourseNames = async (departmentName: string) => {
 
     if (courseError) throw courseError;
 
-    const result = (courses || [])
-        .map((course: any) => String(course?.name || '').trim())
-        .filter(Boolean);
+    const result = (courses || []).flatMap((course: any) => {
+        const name = String(course?.name || '').trim();
+        return name ? [name] : [];
+    });
     writeDeptCache('department-course-names', normalizedDepartment, result, DEPT_LOOKUP_CACHE_TTL_MS);
     return result;
 };
@@ -582,17 +583,15 @@ export const getDepartmentInterviewQueue = async (
     });
 
     const normalizedDate = String(interviewDate || '').trim();
-    const rows = Array.from(mergedById.values())
-        .filter((row: any) => {
+    const rows = Array.from(mergedById.values()).filter((row: any) => {
             const rowInterviewDate = String(row?.interview_date || '').trim();
             if (!rowInterviewDate) return false;
-            if (!normalizedDate) return true;
-            return rowInterviewDate.startsWith(normalizedDate);
-        })
-        .filter((row: any) => !(
-            String(row?.status || '').trim() === 'Interview Scheduled'
-            && String(row?.interview_queue_status || '').trim() === 'Absent'
-        ));
+            const matchesDate = !normalizedDate || rowInterviewDate.startsWith(normalizedDate);
+            return matchesDate && !(
+                String(row?.status || '').trim() === 'Interview Scheduled'
+                && String(row?.interview_queue_status || '').trim() === 'Absent'
+            );
+        });
 
     return sortRows(rows, { column: 'interview_date', ascending: true });
 };

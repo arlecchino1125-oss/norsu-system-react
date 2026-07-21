@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { LayoutDashboard, LogOut, Menu, Users, Download, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../lib/auth';
+import { useAuth } from '../../lib/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import NorsuBrand from '../../components/NorsuBrand';
 
@@ -52,8 +52,10 @@ export default function RegistrarPortal() {
         <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-teal-500/30">
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm"
+                <button
+                    type="button"
+                    aria-label="Close registrar navigation"
+                    className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-400"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
@@ -66,7 +68,7 @@ export default function RegistrarPortal() {
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-8">
                         <NorsuBrand title="Registrar Portal" subtitle="NORSU-G CARE registrar services" accent="emerald" size="sm" className="min-w-0" />
-                        <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white transition-colors">
+                        <button type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white transition-colors">
                             <XCircle size={24} />
                         </button>
                     </div>
@@ -81,6 +83,7 @@ export default function RegistrarPortal() {
                         <div className="mb-4">
                             <p className="px-3 text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Student Management</p>
                             <button
+                                type="button"
                                 onClick={() => { setActiveTab('population'); setSidebarOpen(false); }}
                                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all font-medium text-sm
                                     ${activeTab === 'population'
@@ -97,6 +100,7 @@ export default function RegistrarPortal() {
 
                 <div className="mt-auto p-6 border-t border-slate-800">
                     <button
+                        type="button"
                         onClick={async () => {
                             await logout();
                             navigate('/');
@@ -115,6 +119,8 @@ export default function RegistrarPortal() {
                 <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
                     <div className="flex items-center gap-4">
                         <button
+                            type="button"
+                            aria-label="Open navigation"
                             onClick={() => setSidebarOpen(true)}
                             className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
                         >

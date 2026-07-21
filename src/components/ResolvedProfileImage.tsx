@@ -3,13 +3,13 @@ import { useResolvedDocumentUrl } from '../hooks/useResolvedDocumentUrl';
 import { getValidProfileImageUrl } from '../utils/formatters';
 import { openStoredAsset } from '../utils/storageAssets';
 
-type ResolvedProfileImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
+type ResolvedProfileImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onClick' | 'onKeyDown' | 'tabIndex'> & {
     storedValue: string;
     studentId: string;
     previewOnClick?: boolean;
 };
 
-export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = true, className = '', onClick, onKeyDown, onLoad, onError, ...imageProps }: ResolvedProfileImageProps) => {
+export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = true, className = '', onLoad, onError, ...imageProps }: ResolvedProfileImageProps) => {
     const { url, isLoading, error } = useResolvedDocumentUrl('profile-pictures', storedValue, {
         category: 'profile-photo',
         studentId
@@ -34,13 +34,28 @@ export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = 
                     <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
                 </span>
             )}
-            {url && (
+            {url && previewOnClick && (
+                <button type="button" className="h-full w-full cursor-zoom-in p-0" onClick={openPreview}>
+                    <img
+                        {...imageProps}
+                        src={getValidProfileImageUrl(url)}
+                        className="h-full w-full object-cover"
+                        onLoad={(event) => {
+                            setLoadedUrl(url);
+                            onLoad?.(event);
+                        }}
+                        onError={(event) => {
+                            setLoadedUrl(url);
+                            onError?.(event);
+                        }}
+                    />
+                </button>
+            )}
+            {url && !previewOnClick && (
                 <img
                     {...imageProps}
                     src={getValidProfileImageUrl(url)}
-                    role={previewOnClick ? 'button' : imageProps.role}
-                    tabIndex={previewOnClick ? (imageProps.tabIndex ?? 0) : imageProps.tabIndex}
-                    className={`h-full w-full object-cover${previewOnClick ? ' cursor-zoom-in' : ''}`}
+                    className="h-full w-full object-cover"
                     onLoad={(event) => {
                         setLoadedUrl(url);
                         onLoad?.(event);
@@ -48,17 +63,6 @@ export const ResolvedProfileImage = ({ storedValue, studentId, previewOnClick = 
                     onError={(event) => {
                         setLoadedUrl(url);
                         onError?.(event);
-                    }}
-                    onClick={(event) => {
-                        onClick?.(event);
-                        if (previewOnClick && !event.defaultPrevented) openPreview();
-                    }}
-                    onKeyDown={(event) => {
-                        onKeyDown?.(event);
-                        if (previewOnClick && !event.defaultPrevented && (event.key === 'Enter' || event.key === ' ')) {
-                            event.preventDefault();
-                            openPreview();
-                        }
                     }}
                 />
             )}

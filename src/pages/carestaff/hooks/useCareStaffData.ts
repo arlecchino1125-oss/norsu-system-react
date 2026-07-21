@@ -241,11 +241,15 @@ export function useCareStaffData(showToastMessage: ToastHandler) {
                 ...((supportReferredRows || []) as SupportNotificationRow[]).map((row) => mapSupportReferredNotification(row)),
                 ...((counselingReferredRows || []) as CounselingNotificationRow[]).map((row) => mapCounselingReferredNotification(row)),
                 ...((counselingScheduledRows || []) as CounselingNotificationRow[])
-                    .map((row) => mapCounselingScheduledTodayNotification(row))
-                    .filter(Boolean) as NotificationItem[],
+                    .flatMap((row) => {
+                        const notification = mapCounselingScheduledTodayNotification(row);
+                        return notification ? [notification] : [];
+                    }) as NotificationItem[],
                 ...((supportVisitRows || []) as SupportNotificationRow[])
-                    .map((row) => mapSupportVisitScheduledTodayNotification(row))
-                    .filter(Boolean) as NotificationItem[]
+                    .flatMap((row) => {
+                        const notification = mapSupportVisitScheduledTodayNotification(row);
+                        return notification ? [notification] : [];
+                    }) as NotificationItem[]
             ]);
         },
         enabled: false,

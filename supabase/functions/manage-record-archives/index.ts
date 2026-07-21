@@ -228,6 +228,9 @@ const setNatCourseStatus = async (adminClient: any, actor: any, body: Record<str
         'Course not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('courses')
         .update({ status })
@@ -264,6 +267,9 @@ const deactivateNatRequirement = async (adminClient: any, actor: any, body: Reco
         'NAT requirement not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('nat_requirements')
         .update({ is_active: false })
@@ -299,6 +305,9 @@ const setNatScheduleActive = async (adminClient: any, actor: any, body: Record<s
         'Schedule not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('admission_schedules')
         .update({ is_active: isActive })
@@ -445,6 +454,9 @@ const revokeEnrollmentKey = async (adminClient: any, actor: any, body: Record<st
         'Enrollment key not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('enrolled_students')
         .update({ status: 'Revoked' })
@@ -482,6 +494,9 @@ const deactivateForm = async (adminClient: any, actor: any, body: Record<string,
         'Form not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('forms')
         .update({ is_active: false })
@@ -516,6 +531,9 @@ const closeScholarship = async (adminClient: any, actor: any, body: Record<strin
         'Scholarship not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('scholarships')
         .update({ is_active: false })
@@ -550,6 +568,9 @@ const archiveEvent = async (adminClient: any, actor: any, body: Record<string, u
         'Event not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('events')
         .update({
@@ -589,6 +610,9 @@ const deactivateOfficeVisitReason = async (adminClient: any, actor: any, body: R
         'Office visit reason not found.'
     );
 
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('office_visit_reasons')
         .update({ is_active: false })

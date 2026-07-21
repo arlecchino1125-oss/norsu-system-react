@@ -1,22 +1,18 @@
 import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { invokeEdgeFunction } from '../../../lib/invokeEdgeFunction';
 import { recordStaffAuditAction } from '../../../lib/staffAudit';
 import {
     getStudentActivationPolicy as fetchStudentActivationPolicy,
     updateStudentActivationPolicy as saveStudentActivationPolicy
 } from '../../../lib/studentActivationPolicy';
-import type { StudentResetImpact } from '../../shared/StudentDataDangerZoneCard';
 import type { AuthSession, ToastHandler } from '../types';
 
 export function useCareStaffGovernance({
     session,
-    showToastMessage,
-    bumpViewRefreshSignal
+    showToastMessage
 }: {
     session?: AuthSession | null;
     showToastMessage: ToastHandler;
-    bumpViewRefreshSignal: () => void;
 }) {
     const queryClient = useQueryClient();
     const [isSavingStudentActivationPolicy, setIsSavingStudentActivationPolicy] = useState(false);
@@ -56,64 +52,18 @@ export function useCareStaffGovernance({
             }).catch((error) => {
                 console.error('Failed to record activation policy audit log:', error);
             });
-        } catch (error: any) {
+        } catch {
             showToastMessage('Failed to update the student activation policy.', 'error');
         } finally {
             setIsSavingStudentActivationPolicy(false);
         }
     }, [session, showToastMessage, studentActivationPolicy.requireEnrollmentKey, queryClient]);
 
-    const loadStudentResetImpact = useCallback(async (): Promise<{ impact?: StudentResetImpact; confirmationText?: string }> => {
-        return invokeEdgeFunction('manage-student-accounts', {
-            body: {
-                mode: 'preview-care-student-reset'
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to load the student reset impact.'
-        });
-    }, []);
-
-    const requestStudentResetOtp = useCallback(async () => {
-        return invokeEdgeFunction('manage-student-accounts', {
-            body: {
-                mode: 'request-care-reset-otp'
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to send the student reset OTP.'
-        });
-    }, []);
-
-    const confirmStudentReset = useCallback(async (payload: {
-        otp: string;
-        reason: string;
-        confirmationText: string;
-    }) => {
-        const result = await invokeEdgeFunction('manage-student-accounts', {
-            body: {
-                mode: 'care-reset-student-data',
-                otp: String(payload.otp || '').trim(),
-                reason: String(payload.reason || '').trim(),
-                confirmationText: String(payload.confirmationText || '').trim()
-            },
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to reset student data.'
-        });
-
-        bumpViewRefreshSignal();
-        return result;
-    }, [bumpViewRefreshSignal]);
-
     return {
         studentActivationPolicy,
         isLoadingStudentActivationPolicy,
         isSavingStudentActivationPolicy,
         loadStudentActivationPolicy,
-        toggleStudentActivationPolicy,
-        loadStudentResetImpact,
-        requestStudentResetOtp,
-        confirmStudentReset
+        toggleStudentActivationPolicy
     };
 }

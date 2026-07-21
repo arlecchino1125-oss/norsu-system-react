@@ -37,8 +37,6 @@ export interface CareStaffSupportPageProps {
     refreshSignal?: number;
 }
 
-export { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
-export { SUPPORT_DOCUMENT_ACCEPT } from '../../../../../utils/inputSecurity';
 const SUPPORT_STUDENT_COLUMNS = [
     'student_id',
     'first_name',
@@ -61,11 +59,58 @@ const SUPPORT_STUDENT_COLUMNS = [
     'alt_course_2'
 ].join(', ');
 
+const sortSupportByCreatedAt = (rows: any[]) =>
+    rows.toSorted((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+const invokeManagedCareServicesFunction = async (body: any) => {
+    return invokeEdgeFunction('manage-care-services', {
+        body,
+        requireAuth: true,
+        non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
+        fallbackMessage: 'Failed to manage CARE services.'
+    });
+};
+
+const parseDeptNotes = (value: string | null | undefined) => {
+    if (!value) return null;
+    try {
+        return JSON.parse(value);
+    } catch {
+        return null;
+    }
+};
+
+const renderDetailedDescription = (desc: any) => {
+    if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
+    const q1Index = desc.indexOf('[Q1 Description]:');
+    if (q1Index === -1) return <p className="text-sm text-gray-800 whitespace-pre-wrap">{desc}</p>;
+
+    const getPart = (key: string, nextKey: string | null) => {
+        const start = desc.indexOf(key);
+        if (start === -1) return null;
+        let end = nextKey ? desc.indexOf(nextKey) : -1;
+        if (end === -1) end = desc.length;
+        return desc.substring(start + key.length, end).trim();
+    };
+
+    const q1 = getPart('[Q1 Description]:', '[Q2 Previous Support]:');
+    const q2 = getPart('[Q2 Previous Support]:', '[Q3 Required Support]:');
+    const q3 = getPart('[Q3 Required Support]:', '[Q4 Other Needs]:');
+    const q4 = getPart('[Q4 Other Needs]:', null);
+
+    return (
+        <div className="space-y-4 mt-3">
+            {q1 && <div><p className="text-xs font-bold text-gray-600 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q1}</p></div>}
+            {q2 && <div><p className="text-xs font-bold text-gray-600 mb-1">2. What kind of support did you receive at your previous school?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q2}</p></div>}
+            {q3 && <div><p className="text-xs font-bold text-gray-600 mb-1">3. What support or assistance do you require from NORSU to fully participate in campus activities?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q3}</p></div>}
+                        {q4 && <div><label htmlFor="care-support-other-needs" className="block text-xs font-bold text-gray-700 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</label><textarea id="care-support-other-needs" rows={2} readOnly value={q4 || ''} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700"></textarea></div>}
+        </div>
+    );
+};
+
 export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
     const { showToast } = functions || {};
     const lastExternalRefreshSignalRef = useRef(refreshSignal);
-    const sortSupportByCreatedAt = (rows: any[]) =>
-        [...rows].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
     // Data State
     const [supportReqs, setSupportReqs] = useState<any[]>([]);
@@ -86,30 +131,12 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
     const [isForwardingSupport, setIsForwardingSupport] = useState(false);
     const [isFinalizingSupport, setIsFinalizingSupport] = useState(false);
 
-    const invokeManagedCareServicesFunction = async (body: any) => {
-        return invokeEdgeFunction('manage-care-services', {
-            body,
-            requireAuth: true,
-            non2xxMessage: 'Your CARE Staff session could not be verified. Sign in again.',
-            fallbackMessage: 'Failed to manage CARE services.'
-        });
-    };
-
     const queueProcessEmailNotification = (payload: any, context: string) => {
         void sendTransactionalEmailNotification(payload).then((emailResult) => {
             if (emailResult.emailSent === false) {
                 showToast?.(`${context} Email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
             }
         });
-    };
-
-    const parseDeptNotes = (value: string | null | undefined) => {
-        if (!value) return null;
-        try {
-            return JSON.parse(value);
-        } catch {
-            return null;
-        }
     };
 
     const supportTabs = [
@@ -125,9 +152,10 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
         return req.status === supportTab;
     };
 
-    const visibleSupportReqs = supportReqs
-        .filter(matchesSupportTab)
-        .filter(req => supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)));
+    const visibleSupportReqs = supportReqs.filter(req => (
+        matchesSupportTab(req)
+        && (supportCategory === 'All' || (req.support_type && req.support_type.includes(supportCategory)))
+    ));
 
     const applySupportTabFilter = (query: any, tab = supportTab) => applyTabFilter(query, tab);
 
@@ -186,9 +214,9 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
                 .subscribe(),
             (channel) => supabase.removeChannel(channel)
         );
-    }, []);
+    }, [showToast]);
 
-    const handleRefreshData = async () => {
+    const handleRefreshData = useCallback(async () => {
         setIsRefreshingData(true);
         try {
             await fetchSupport();
@@ -196,13 +224,13 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
         } finally {
             setIsRefreshingData(false);
         }
-    };
+    }, [fetchSupport, showToast]);
 
     useEffect(() => {
         if (refreshSignal === lastExternalRefreshSignalRef.current) return;
         lastExternalRefreshSignalRef.current = refreshSignal;
         void handleRefreshData();
-    }, [refreshSignal]);
+    }, [refreshSignal, handleRefreshData]);
 
     // Handlers
     const openSupportModal = async (req: any) => {
@@ -539,34 +567,6 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
 
         doc.save(generateExportFilename(`Additional_Support_${(req.student_name || 'unknown').replace(/\s+/g, '_')}`, 'pdf'));
         showToast?.('Support form downloaded successfully!', 'success');
-    };
-
-    const renderDetailedDescription = (desc: any) => {
-        if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
-        const q1Index = desc.indexOf('[Q1 Description]:');
-        if (q1Index === -1) return <p className="text-sm text-gray-800 whitespace-pre-wrap">{desc}</p>;
-
-        const getPart = (key: string, nextKey: string | null) => {
-            const start = desc.indexOf(key);
-            if (start === -1) return null;
-            let end = nextKey ? desc.indexOf(nextKey) : -1;
-            if (end === -1) end = desc.length;
-            return desc.substring(start + key.length, end).trim();
-        };
-
-        const q1 = getPart('[Q1 Description]:', '[Q2 Previous Support]:');
-        const q2 = getPart('[Q2 Previous Support]:', '[Q3 Required Support]:');
-        const q3 = getPart('[Q3 Required Support]:', '[Q4 Other Needs]:');
-        const q4 = getPart('[Q4 Other Needs]:', null);
-
-        return (
-            <div className="space-y-4 mt-3">
-                {q1 && <div><p className="text-xs font-bold text-gray-600 mb-1">1. Upon application, you indicated that you have a disability or special learning need. Please describe it briefly.</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q1}</p></div>}
-                {q2 && <div><p className="text-xs font-bold text-gray-600 mb-1">2. What kind of support did you receive at your previous school?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q2}</p></div>}
-                {q3 && <div><p className="text-xs font-bold text-gray-600 mb-1">3. What support or assistance do you require from NORSU to fully participate in campus activities?</p><p className="text-sm text-gray-800 bg-white p-2 rounded border border-gray-100 whitespace-pre-wrap">{q3}</p></div>}
-                {q4 && <div><label className="block text-xs font-bold text-gray-700 mb-1">4. Indicate and elaborate on any other special needs or assistance that may be required:</label><textarea rows={2} readOnly value={q4 || ''} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700"></textarea></div>}
-            </div>
-        );
     };
 
     return {

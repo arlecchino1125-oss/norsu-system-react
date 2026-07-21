@@ -31,8 +31,7 @@ export function GovernancePanel({ renderExpandablePanel }: GovernancePanelProps)
                         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">CARE Staff Owns</p>
                         <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                             <li>Student population, NAT, activation policy, and student-service workflows</li>
-                            <li>Restricted student-data reset controls inside advanced settings</li>
-                            <li>OTP-protected destructive actions with reason capture and audit logs</li>
+                            <li>Archive and restore controls with reason capture and audit logs</li>
                             <li>Operational case handling instead of institution-wide governance</li>
                         </ul>
                     </div>
@@ -47,7 +46,7 @@ export function GovernancePanel({ renderExpandablePanel }: GovernancePanelProps)
                     </div>
                 </div>
                 <div className="border-t border-slate-200/80 bg-slate-50/70 px-6 py-5 text-sm leading-6 text-slate-600">
-                    Student reset controls have moved out of admin and into CARE Staff advanced controls, where they are hidden behind OTP verification, typed confirmation, a written reason, and staff audit logging.
+                    Bulk student-data reset controls have been removed from the system entirely. Record changes flow through the archive, restore, and per-record workflows, all of which are audit-logged.
                 </div>
             </>
         )

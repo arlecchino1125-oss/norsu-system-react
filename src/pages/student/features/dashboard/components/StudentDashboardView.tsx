@@ -90,7 +90,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                     <div className="w-16 h-16 bg-gradient-to-br from-green-400/20 to-emerald-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
                     <h3 className="font-extrabold text-lg mb-2 text-gray-900">Thank You!</h3>
                     <p className="text-sm text-gray-500 mb-6">Your feedback has been submitted successfully. Your response helps us improve our services.</p>
-                    <button onClick={onClose} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Done</button>
+                    <button type="button" onClick={onClose} className="bg-gradient-to-r from-blue-500 to-sky-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 btn-press transition-all">Done</button>
                 </div>
             </div>,
             document.body
@@ -110,7 +110,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                                 Visit reason: <span className="text-white font-bold">{timeOutVisitReason}</span>
                             </p>
                         </div>
-                        <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-all flex-shrink-0 text-lg">✕</button>
+                        <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-all flex-shrink-0 text-lg">✕</button>
                     </div>
                 </div>
 
@@ -126,7 +126,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                         <h4 className="font-bold text-sm text-gray-900 mb-4 flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-extrabold">1</span> Client Information</h4>
                         <div className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Client Type *</label>
+                                <p className="text-xs font-bold text-gray-500 uppercase mb-2 block">Client Type *</p>
                                 <div className="flex gap-2 flex-wrap">
                                     {['Citizen', 'Business', 'Government'].map(t => (
                                         <button key={t} type="button" onClick={() => updateForm('client_type', t)} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${form.client_type === t ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'}`}>
@@ -136,10 +136,10 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Sex</label><div className="flex gap-2">{['Male', 'Female'].map(s => (<button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all ${form.sex === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white border-gray-200 text-gray-600'}`}>{s}</button>))}</div></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Age</label><input type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Region</label><input type="text" {...getTextInputLimitProps('shortText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Service Availed</label><input type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition bg-blue-50 font-bold text-blue-700" /></div>
+                                <div><p className="text-xs font-bold text-gray-500 uppercase mb-1 block">Sex</p><div className="flex gap-2">{['Male', 'Female'].map(s => (<button key={s} type="button" onClick={() => updateForm('sex', s)} className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border transition-all ${form.sex === s ? 'bg-blue-500 text-white border-blue-500' : 'bg-white border-gray-200 text-gray-600'}`}>{s}</button>))}</div></div>
+                                <div><label htmlFor="dashboard-feedback-age" className="text-xs font-bold text-gray-500 uppercase mb-1 block">Age</label><input id="dashboard-feedback-age" type="number" min="0" max="150" value={form.age} onChange={e => updateForm('age', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Age" /></div>
+                                <div><label htmlFor="dashboard-feedback-region" className="text-xs font-bold text-gray-500 uppercase mb-1 block">Region</label><input id="dashboard-feedback-region" type="text" {...getTextInputLimitProps('shortText')} value={form.region} onChange={e => updateForm('region', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition" placeholder="Region" /></div>
+                                <div><label htmlFor="dashboard-feedback-service" className="text-xs font-bold text-gray-500 uppercase mb-1 block">Service Availed</label><input id="dashboard-feedback-service" type="text" {...getTextInputLimitProps('mediumText')} value={form.service_availed} onChange={e => updateForm('service_availed', e.target.value)} className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition bg-blue-50 font-bold text-blue-700" /></div>
                             </div>
                         </div>
                     </div>
@@ -213,9 +213,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
                                             <td className="px-4 py-2.5 text-xs text-gray-700 leading-relaxed">{sqd.text}</td>
                                             {SQD_COLUMNS.map(col => (
                                                 <td key={col.value} className="text-center px-1 py-2.5">
-                                                    <label className="flex items-center justify-center cursor-pointer">
-                                                        <input type="radio" name={`to_${sqd.key}`} value={col.value} checked={form[sqd.key] === col.value} onChange={() => updateForm(sqd.key, col.value)} className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
-                                                    </label>
+                                                    <input aria-label={`${sqd.text}: ${col.label}`} type="radio" name={`to_${sqd.key}`} value={col.value} checked={form[sqd.key] === col.value} onChange={() => updateForm(sqd.key, col.value)} className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
                                                 </td>
                                             ))}
                                         </tr>
@@ -234,10 +232,10 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
 
                 {/* Footer */}
                 <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50/50 px-4 py-4 flex-shrink-0 sm:flex-row sm:px-6">
-                    <button onClick={handleSubmit} disabled={submitting} className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all disabled:opacity-50">
+                    <button type="button" onClick={handleSubmit} disabled={submitting} className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all disabled:opacity-50">
                         {submitting ? 'Submitting...' : 'Submit Feedback'}
                     </button>
-                    <button onClick={onClose} className="w-full px-6 py-3.5 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all sm:w-auto">
+                    <button type="button" onClick={onClose} className="w-full px-6 py-3.5 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all sm:w-auto">
                         Skip
                     </button>
                 </div>
@@ -255,28 +253,23 @@ const StudentDashboardView = ({
     handleOfficeTimeOut,
     notifications,
     StudentHero,
-    showTimeInModal,
+    viewState,
     setShowTimeInModal,
     visitReasons,
     selectedReason,
     setSelectedReason,
     submitTimeIn,
-    isSubmittingOfficeTimeIn,
-    isCompletingOfficeVisit,
-    showTimeOutFeedback,
     setShowTimeOutFeedback,
     timeOutVisitReason,
-    showProfileCompletionBanner,
     openProfileCompletionModal,
     showToast,
 }: any) => {
-    const [eventsList, setEventsList] = useState<any[]>([]);
+    const { showTimeInModal, isSubmittingOfficeTimeIn, isCompletingOfficeVisit, showTimeOutFeedback, showProfileCompletionBanner } = viewState;
     const [showTipGuide, setShowTipGuide] = useState(false);
 
     // No mount-refetch: React Query fetches when the cache is empty and the
     // 2-minute staleness policy governs the rest. refetch() would bypass it.
-    useStudentEventsData({
-        setEventsList,
+    const { eventsList } = useStudentEventsData({
         personalInfo
     });
 
@@ -332,7 +325,7 @@ const StudentDashboardView = ({
                     </div>
 
                     {activeVisit ? (
-                        <button
+                        <button type="button"
                             disabled={isCompletingOfficeVisit}
                             onClick={handleOfficeTimeOut}
                             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
@@ -341,7 +334,7 @@ const StudentDashboardView = ({
                             <ArrowRight className="h-4 w-4" />
                         </button>
                     ) : (
-                        <button
+                        <button type="button"
                             onClick={handleOfficeTimeIn}
                             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-500 sm:w-auto"
                         >
@@ -421,7 +414,7 @@ const StudentDashboardView = ({
                     <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl student-mobile-modal-panel student-mobile-modal-scroll-panel sm:p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-lg">Office Visit</h3>
-                            <button onClick={() => setShowTimeInModal(false)} className="text-gray-400 text-xl">✕</button>
+                            <button type="button" onClick={() => setShowTimeInModal(false)} className="text-gray-400 text-xl">✕</button>
                         </div>
                         <p className="text-sm text-gray-500 mb-4">Please select the reason for your visit:</p>
                         <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
@@ -432,7 +425,7 @@ const StudentDashboardView = ({
                                 </label>
                             ))}
                         </div>
-                        <button disabled={isSubmittingOfficeTimeIn} onClick={submitTimeIn} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingOfficeTimeIn ? 'Submitting...' : 'Confirm Time In'}</button>
+                        <button type="button" disabled={isSubmittingOfficeTimeIn} onClick={submitTimeIn} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingOfficeTimeIn ? 'Submitting...' : 'Confirm Time In'}</button>
                     </div>
                 </div>
             )}

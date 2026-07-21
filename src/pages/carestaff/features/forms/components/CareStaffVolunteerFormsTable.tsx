@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, XCircle, Search, User } from 'lucide-react';
@@ -13,9 +13,103 @@ interface CareStaffVolunteerFormsTableProps {
     refreshSignal?: number;
 }
 
+const getStatusStyle = (status: string) => {
+    if (status === 'approved') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    if (status === 'rejected') return 'bg-rose-100 text-rose-700 border-rose-200';
+    return 'bg-amber-100 text-amber-700 border-amber-200';
+};
+
+const ApplicationReviewModal = ({ application, isUpdating, onClose, onReject, onApprove }: any) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent care-modal-overlay">
+        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                    <User className="h-5 w-5 text-blue-600" /> Application Details
+                </h3>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${getStatusStyle(application.status)}`}>
+                    {application.status}
+                </span>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                    <h4 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3">Applicant Details</h4>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        {([
+                            ['Name', [application.students?.first_name, application.students?.middle_name ? `${String(application.students.middle_name).charAt(0)}.` : '', application.students?.last_name, application.students?.suffix].filter(Boolean).join(' ')],
+                            ['Student ID No.', application.student_id],
+                            ['Email', application.students?.email],
+                            ['Age', application.students?.age],
+                            ['Sex', application.students?.sex],
+                            ['College/Department', application.students?.department],
+                            ['Program & Year', [application.students?.course, application.students?.year_level].filter(Boolean).join(' - ')],
+                            ['Mobile', application.students?.mobile],
+                            ['Form Year', application.school_year]
+                        ] as [string, any][]).map(([label, value]) => (
+                            <div key={label}>
+                                <p className="text-[10px] uppercase font-bold text-slate-400">{label}</p>
+                                <p className="mt-1 text-sm font-bold text-slate-900 break-words">{value || 'N/A'}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <h4 className="text-sm font-bold text-slate-900 border-b pb-2 mb-3">Submission Information</h4>
+                    <div className="space-y-4">
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400">Organizations</p>
+                            <p className="mt-1 text-sm text-slate-700">{application.organizations || 'None provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400">Motivation</p>
+                            <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{application.motivation}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400">Skills</p>
+                            <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{application.skills || 'None provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400">Commitment</p>
+                            <p className="mt-1 text-sm text-slate-700">{application.commitment}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between shrink-0">
+                <Button variant="secondary" onClick={onClose} disabled={isUpdating}>
+                    Close
+                </Button>
+
+                {application.status === 'pending' && (
+                    <div className="flex gap-3">
+                        <Button
+                            variant="danger"
+                            leftIcon={<XCircle size={16} />}
+                            onClick={onReject}
+                            isLoading={isUpdating}
+                        >
+                            Reject
+                        </Button>
+                        <Button
+                            variant="primary"
+                            leftIcon={<CheckCircle size={16} />}
+                            onClick={onApprove}
+                            isLoading={isUpdating}
+                            className="!bg-emerald-600 hover:!bg-emerald-700"
+                        >
+                            Approve
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+);
+
 export default function CareStaffVolunteerFormsTable({ functions, refreshSignal = 0 }: CareStaffVolunteerFormsTableProps) {
     const queryClient = useQueryClient();
-    const lastExternalRefreshSignalRef = useRef(refreshSignal);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedApplication, setSelectedApplication] = useState<any>(null);
@@ -23,8 +117,8 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
     const [yearFilter, setYearFilter] = useState<string | null>(null);
     const [yearDraft, setYearDraft] = useState('');
 
-    const { data: settings, refetch: refetchSettings } = useQuery({
-        queryKey: ['peer-facilitator-settings'],
+    const { data: settings } = useQuery({
+        queryKey: ['peer-facilitator-settings', refreshSignal],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('peer_facilitator_settings')
@@ -57,8 +151,8 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         }
     });
 
-    const { data: applications = [], isLoading, refetch: refetchApplications } = useQuery({
-        queryKey: ['care-staff-volunteer-apps'],
+    const { data: applications = [], isLoading } = useQuery({
+        queryKey: ['care-staff-volunteer-apps', refreshSignal],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('peer_facilitator_applications')
@@ -111,12 +205,6 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         }
     });
 
-    useEffect(() => {
-        if (refreshSignal === lastExternalRefreshSignalRef.current) return;
-        lastExternalRefreshSignalRef.current = refreshSignal;
-        void Promise.all([refetchSettings(), refetchApplications()]);
-    }, [refetchApplications, refetchSettings, refreshSignal]);
-
     const yearOptions = Array.from(new Set(
         [activeYear, ...applications.map((app: any) => app.school_year)].filter(Boolean)
     ));
@@ -130,12 +218,6 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         return matchesSearch && matchesStatus && matchesYear;
     });
 
-    const getStatusStyle = (status: string) => {
-        if (status === 'approved') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-        if (status === 'rejected') return 'bg-rose-100 text-rose-700 border-rose-200';
-        return 'bg-amber-100 text-amber-700 border-amber-200';
-    };
-
     const openApplication = (app: any) => {
         setSelectedApplication(app);
         setShowModal(true);
@@ -145,9 +227,10 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         <div className="space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <label className="text-xs font-bold text-gray-500 whitespace-nowrap">Form Year (active)</label>
+                    <label htmlFor="care-volunteer-form-year" className="text-xs font-bold text-gray-500 whitespace-nowrap">Form Year (active)</label>
                     <div className="flex items-center gap-2">
                         <input
+                            id="care-volunteer-form-year"
                             type="text"
                             value={yearDraft}
                             onChange={(e) => setYearDraft(e.target.value)}
@@ -167,8 +250,9 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                 </div>
                 {yearOptions.length > 0 && (
                     <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-gray-500 whitespace-nowrap">Viewing window</label>
+                        <label htmlFor="care-volunteer-viewing-year" className="text-xs font-bold text-gray-500 whitespace-nowrap">Viewing window</label>
                         <select
+                            id="care-volunteer-viewing-year"
                             value={selectedYear}
                             onChange={(e) => setYearFilter(e.target.value)}
                             className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -194,7 +278,7 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                 </div>
                 <div className="flex gap-2">
                     {['all', 'pending', 'approved', 'rejected'].map(status => (
-                        <button
+                        <button type="button"
                             key={status}
                             onClick={() => setStatusFilter(status)}
                             className={`px-4 py-2 text-xs font-bold rounded-lg border capitalize transition-all ${statusFilter === status
@@ -257,92 +341,13 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
             </Card>
 
             {showModal && selectedApplication && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent care-modal-overlay">
-                    <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-                            <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
-                                <User className="h-5 w-5 text-blue-600" /> Application Details
-                            </h3>
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${getStatusStyle(selectedApplication.status)}`}>
-                                {selectedApplication.status}
-                            </span>
-                        </div>
-
-                        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-                            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                <h4 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3">Applicant Details</h4>
-                                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                                    {([
-                                        ['Name', [selectedApplication.students?.first_name, selectedApplication.students?.middle_name ? `${String(selectedApplication.students.middle_name).charAt(0)}.` : '', selectedApplication.students?.last_name, selectedApplication.students?.suffix].filter(Boolean).join(' ')],
-                                        ['Student ID No.', selectedApplication.student_id],
-                                        ['Email', selectedApplication.students?.email],
-                                        ['Age', selectedApplication.students?.age],
-                                        ['Sex', selectedApplication.students?.sex],
-                                        ['College/Department', selectedApplication.students?.department],
-                                        ['Program & Year', [selectedApplication.students?.course, selectedApplication.students?.year_level].filter(Boolean).join(' - ')],
-                                        ['Mobile', selectedApplication.students?.mobile],
-                                        ['Form Year', selectedApplication.school_year]
-                                    ] as [string, any][]).map(([label, value]) => (
-                                        <div key={label}>
-                                            <p className="text-[10px] uppercase font-bold text-slate-400">{label}</p>
-                                            <p className="mt-1 text-sm font-bold text-slate-900 break-words">{value || 'N/A'}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className="text-sm font-bold text-slate-900 border-b pb-2 mb-3">Submission Information</h4>
-                                <div className="space-y-4">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Organizations</p>
-                                        <p className="mt-1 text-sm text-slate-700">{selectedApplication.organizations || 'None provided'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Motivation</p>
-                                        <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{selectedApplication.motivation}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Skills</p>
-                                        <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{selectedApplication.skills || 'None provided'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Commitment</p>
-                                        <p className="mt-1 text-sm text-slate-700">{selectedApplication.commitment}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between shrink-0">
-                            <Button variant="secondary" onClick={() => setShowModal(false)} disabled={updateStatusMutation.isPending}>
-                                Close
-                            </Button>
-
-                            {selectedApplication.status === 'pending' && (
-                                <div className="flex gap-3">
-                                    <Button
-                                        variant="danger"
-                                        leftIcon={<XCircle size={16} />}
-                                        onClick={() => updateStatusMutation.mutate({ id: selectedApplication.id, status: 'rejected' })}
-                                        isLoading={updateStatusMutation.isPending}
-                                    >
-                                        Reject
-                                    </Button>
-                                    <Button
-                                        variant="primary"
-                                        leftIcon={<CheckCircle size={16} />}
-                                        onClick={() => updateStatusMutation.mutate({ id: selectedApplication.id, status: 'approved' })}
-                                        isLoading={updateStatusMutation.isPending}
-                                        className="!bg-emerald-600 hover:!bg-emerald-700"
-                                    >
-                                        Approve
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>,
+                <ApplicationReviewModal
+                    application={selectedApplication}
+                    isUpdating={updateStatusMutation.isPending}
+                    onClose={() => setShowModal(false)}
+                    onReject={() => updateStatusMutation.mutate({ id: selectedApplication.id, status: 'rejected' })}
+                    onApprove={() => updateStatusMutation.mutate({ id: selectedApplication.id, status: 'approved' })}
+                />,
                 document.body
             )}
         </div>

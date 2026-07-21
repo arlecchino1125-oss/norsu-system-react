@@ -1,10 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getEventsPage } from '../../../../../services/studentPortalService';
 import { isStudentEligibleForEvent } from '../../../../../utils/eventAudience';
 
 interface UseStudentEventsDataArgs {
-    setEventsList: (rows: any[]) => void;
     personalInfo?: any;
 }
 
@@ -31,7 +30,7 @@ function isEventExpired(event: any): boolean {
     return false;
 }
 
-export const useStudentEventsData = ({ setEventsList, personalInfo }: UseStudentEventsDataArgs) => {
+export const useStudentEventsData = ({ personalInfo }: UseStudentEventsDataArgs) => {
     // ponytail: React Query caches the raw query so it doesn't slam the network.
     // Local memory filtering handles the audience profile matching.
     const { data: rawEvents, refetch } = useQuery({
@@ -43,8 +42,8 @@ export const useStudentEventsData = ({ setEventsList, personalInfo }: UseStudent
         staleTime: 2 * 60 * 1000
     });
 
-    useEffect(() => {
-        if (!rawEvents) return;
+    const eventsList = useMemo(() => {
+        if (!rawEvents) return [];
         try {
             const studentAudienceProfile = {
                 department: personalInfo?.department,
@@ -57,10 +56,10 @@ export const useStudentEventsData = ({ setEventsList, personalInfo }: UseStudent
             const activeEvents = rawEvents.filter((ev: any) => (
                 !isEventExpired(ev) && isStudentEligibleForEvent(ev, studentAudienceProfile)
             ));
-            setEventsList(activeEvents);
+            return activeEvents;
         } catch (error) {
             console.error('Failed to load student events.', error);
-            setEventsList([]);
+            return [];
         }
     }, [
         rawEvents,
@@ -69,13 +68,12 @@ export const useStudentEventsData = ({ setEventsList, personalInfo }: UseStudent
         personalInfo?.section,
         personalInfo?.status,
         personalInfo?.year,
-        personalInfo?.year_level,
-        setEventsList
+        personalInfo?.year_level
     ]);
 
     const refreshEvents = useCallback(async () => {
         await refetch();
     }, [refetch]);
 
-    return { refreshEvents };
+    return { eventsList, refreshEvents };
 };

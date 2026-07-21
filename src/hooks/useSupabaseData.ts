@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TableName } from '../types/tables';
@@ -27,29 +27,36 @@ export function useSupabaseData<T = any>({
     fetchAll = false
 }: SupabaseHookOptions) {
     const queryClient = useQueryClient();
-    const queryKey = [table, select, order?.column, order?.ascending, eq?.column, eq?.value, fetchAll];
+    const queryKey = useMemo(
+        () => [table, select, order?.column, order?.ascending, eq?.column, eq?.value, fetchAll],
+        [table, select, order?.column, order?.ascending, eq?.column, eq?.value, fetchAll]
+    );
 
     const isSafeRealtimeSelect = !/[():]/.test(select);
 
-    const matchesEqFilter = (row: any) => {
-        if (!eq) return true;
-        return row?.[eq.column] === eq.value;
-    };
+    const eqColumn = eq?.column;
+    const eqValue = eq?.value;
+    const matchesEqFilter = useCallback((row: any) => {
+        if (!eqColumn) return true;
+        return row?.[eqColumn] === eqValue;
+    }, [eqColumn, eqValue]);
 
-    const sortRows = (rows: T[]) => {
-        if (!order?.column) return rows;
+    const orderColumn = order?.column;
+    const orderAscending = order?.ascending;
+    const sortRows = useCallback((rows: T[]) => {
+        if (!orderColumn) return rows;
 
-        const direction = order.ascending === false ? -1 : 1;
-        return [...rows].sort((left: any, right: any) => {
-            const leftValue = left?.[order.column];
-            const rightValue = right?.[order.column];
+        const direction = orderAscending === false ? -1 : 1;
+        return rows.toSorted((left: any, right: any) => {
+            const leftValue = left?.[orderColumn];
+            const rightValue = right?.[orderColumn];
 
             if (leftValue === rightValue) return 0;
             if (leftValue == null) return -1 * direction;
             if (rightValue == null) return 1 * direction;
             return leftValue > rightValue ? direction : -1 * direction;
         });
-    };
+    }, [orderColumn, orderAscending]);
 
     const { data: qData, isLoading: loading, error: qError, refetch } = useQuery({
         queryKey,
@@ -94,6 +101,10 @@ export function useSupabaseData<T = any>({
     const data = (qData as T[]) || [];
     const error = qError ? qError.message : null;
 
+    // False positive: cleanup below does call supabase.removeChannel(channel) —
+    // the detector doesn't recognize Supabase's client.removeChannel() cleanup
+    // convention (it looks for .unsubscribe() on the subscribed object itself).
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (subscribe) {
             const channel = supabase
@@ -135,7 +146,7 @@ export function useSupabaseData<T = any>({
                 supabase.removeChannel(channel);
             };
         }
-    }, [table, select, order?.column, order?.ascending, eq?.column, eq?.value, subscribe, fetchAll, queryClient, refetch, isSafeRealtimeSelect]);
+    }, [table, queryKey, subscribe, queryClient, refetch, isSafeRealtimeSelect, sortRows, matchesEqFilter]);
 
     return { data, loading, error, refetch };
 }

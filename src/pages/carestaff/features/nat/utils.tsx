@@ -97,7 +97,8 @@ export const getApplicantRouteLabel = (app: any) => {
 };
 
 export const getSheetColumnValue = (row: Record<string, unknown>, aliases: string[]) => {
-    const matchKey = Object.keys(row).find((key) => aliases.includes(
+    const aliasSet = new Set(aliases);
+    const matchKey = Object.keys(row).find((key) => aliasSet.has(
         String(key || '')
             .trim()
             .toLowerCase()
@@ -109,5 +110,5 @@ export const getSheetColumnValue = (row: Record<string, unknown>, aliases: strin
 export const createEmptyScheduleForm = () => ({
     date: '',
     venue: '',
-    timeSlots: [{ start: '08:00', end: '09:00', slots: '' }]
+    timeSlots: [{ clientId: crypto.randomUUID(), start: '08:00', end: '09:00', slots: '' }]
 });

@@ -1,16 +1,7 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, Info, XCircle, X } from 'lucide-react';
-
-export type ToastType = 'success' | 'error' | 'info';
-
-export interface ToastOptions {
-    message: string;
-    type?: ToastType;
-    /** Auto-dismiss delay in ms. Pass 0 to keep it until dismissed. */
-    durationMs?: number;
-    action?: { label: string; onClick: () => void };
-}
+import { ToastContext, type ToastOptions, type ToastType } from './useToast';
 
 interface ToastEntry {
     id: number;
@@ -18,23 +9,6 @@ interface ToastEntry {
     type: ToastType;
     durationMs: number;
     action?: ToastOptions['action'];
-}
-
-interface ToastContextValue {
-    /** Back-compatible signature matching the per-portal showToast helpers. */
-    showToast: (message: string, type?: ToastType) => number;
-    toast: (options: ToastOptions) => number;
-    dismissToast: (id: number) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
-
-export function useToast(): ToastContextValue {
-    const ctx = useContext(ToastContext);
-    if (!ctx) {
-        throw new Error('useToast must be used within a <ToastProvider>');
-    }
-    return ctx;
 }
 
 const MAX_VISIBLE = 4;
@@ -62,6 +36,7 @@ function ToastViewport({ toasts, onDismiss }: { toasts: ToastEntry[]; onDismiss:
                             <span className="flex-1 text-sm font-semibold">{t.message}</span>
                             {t.action && (
                                 <button
+                                    type="button"
                                     onClick={() => { t.action?.onClick(); onDismiss(t.id); }}
                                     className="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide transition-colors hover:bg-white/30"
                                 >
@@ -69,6 +44,7 @@ function ToastViewport({ toasts, onDismiss }: { toasts: ToastEntry[]; onDismiss:
                                 </button>
                             )}
                             <button
+                                type="button"
                                 onClick={() => onDismiss(t.id)}
                                 aria-label="Dismiss notification"
                                 className="shrink-0 text-white/70 transition-colors hover:text-white"
@@ -125,9 +101,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         (message: string, type: ToastType = 'success') => toast({ message, type }),
         [toast],
     );
+    const contextValue = useMemo(
+        () => ({ showToast, toast, dismissToast }),
+        [showToast, toast, dismissToast],
+    );
 
     return (
-        <ToastContext.Provider value={{ showToast, toast, dismissToast }}>
+        <ToastContext.Provider value={contextValue}>
             {children}
             {typeof document !== 'undefined'
                 && createPortal(<ToastViewport toasts={toasts} onDismiss={dismissToast} />, document.body)}

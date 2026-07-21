@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useAuth } from '../../../lib/auth';
+import { useAuth } from '../../../lib/useAuth';
 import { supabase } from '../../../lib/supabase';
 import { STUDENT_VIEW_FEATURE_MAP, STUDENT_VIEW_LABELS } from '../StudentPortalRoutes';
 import { useStudentCompactPortalLayout } from '../hooks/useStudentCompactPortalLayout';
@@ -22,7 +22,7 @@ const supabaseClient = supabase;
 export const ProfileCompletionModal = lazy(() => import('../features/profile/components/ProfileCompletionModal'));
 export const StudentDashboardView = lazy(() => import('../features/dashboard/components/StudentDashboardView'));
 export const StudentEventsView = lazy(() => import('../features/events/components/StudentEventsView'));
-import { Icons } from '../components/StudentPortalIcons';
+import * as Icons from '../components/StudentPortalIcons';
 import { StudentHero } from '../components/StudentHero';
 import type { Event, Request, Scholarship, Student } from '../types';
 import {
@@ -38,6 +38,47 @@ import {
     createInitialProfileFormData,
     buildProfileCompletionFormSnapshot
 } from '../features/profile/profileFormUtils';
+
+const formatFullDate = (date: any) => date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+const TOUR_STEPS = [
+    {
+        title: "Welcome to your Student Portal! 👋",
+        description: "This is your central hub for all student services, assessments, and essential information. Let's take a quick look around.",
+        icon: <Icons.Star filled />,
+        highlightId: null
+    },
+    {
+        title: "Needs Assessment",
+        description: "Complete available needs assessment forms and submit your responses here.",
+        icon: <Icons.Assessment />,
+        highlightId: "nav-assessment"
+    },
+    {
+        title: "Counseling Services",
+        description: "Need someone to talk to? Request an appointment with our counseling staff easily through this tab.",
+        icon: <Icons.Counseling />,
+        highlightId: "nav-counseling"
+    },
+    {
+        title: "Events & Announcements",
+        description: "Stay updated with the latest workshops, seminars, and important school announcements.",
+        icon: <Icons.Events />,
+        highlightId: "nav-events"
+    },
+    {
+        title: "Your Profile",
+        description: "Keep your personal information up to date so we can serve you better. Click here to edit your details.",
+        icon: <Icons.Profile />,
+        highlightId: "nav-profile"
+    },
+    {
+        title: "You're All Set! 🚀",
+        description: "Feel free to explore the portal at your own pace. If you ever need help, the Support tab is right there.",
+        icon: <Icons.CheckCircle />,
+        highlightId: null
+    }
+];
 
 export function useStudentPortal() {
     const { session, loading, updateSession, logout } = useAuth() as any;
@@ -64,12 +105,10 @@ export function useStudentPortal() {
     const [rating, setRating] = useState(0);
     const [counselingRequests, setCounselingRequests] = useState<any[]>([]);
     const [supportRequests, setSupportRequests] = useState<any[]>([]);
-    const [notifications, setNotifications] = useState<any[]>([]);
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
     const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
     const [sessionFeedback, setSessionFeedback] = useState<any>({ rating: 0, comment: '' });
     const [feedbackPrefill, setFeedbackPrefill] = useState<any>(null);
-    const [activeVisit, setActiveVisit] = useState<any>(null);
     const { toast, showToast, closeToast } = useStudentToast();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showCommandHub, setShowCommandHub] = useState(false);
@@ -138,7 +177,6 @@ export function useStudentPortal() {
     const [showSupportRequestsModal, setShowSupportRequestsModal] = useState(false);
 
     // Office Logbook Modal State
-    const [visitReasons, setVisitReasons] = useState<any[]>([]);
 
     const handleLogout = React.useCallback(async () => {
         await logout();
@@ -242,11 +280,15 @@ export function useStudentPortal() {
         supabaseClient
     });
 
-    const { refreshActiveVisit, refreshVisitReasons, refreshNotifications } = useStudentProfileData({
-        studentId: personalInfo.studentId,
-        setActiveVisit,
-        setVisitReasons,
-        setNotifications
+    const {
+        activeVisit,
+        visitReasons,
+        notifications,
+        refreshActiveVisit,
+        refreshVisitReasons,
+        refreshNotifications
+    } = useStudentProfileData({
+        studentId: personalInfo.studentId
     });
     // These refresh handles invalidate the leaf-hook React Query caches by key
     // prefix, so writes reconcile even when the leaf hook mounts elsewhere.
@@ -319,7 +361,6 @@ export function useStudentPortal() {
         handleOfficeTimeOut
     } = useStudentOfficeVisitActions({
         activeVisit,
-        setActiveVisit,
         personalInfo,
         showToast,
         invokeManagedStudentFunction,
@@ -352,7 +393,6 @@ export function useStudentPortal() {
         }
     }, [loading, session, profileCompletionGateActive, hasSeenTourState, isSidebarOpen]);
 
-    const formatFullDate = (date: any) => date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const {
         attendanceMap,
         registrationMap,
@@ -470,14 +510,14 @@ export function useStudentPortal() {
         }
     }, [refreshCurrentView, showToast]);
 
-    const openAssessmentForm = async (form: any) => {
+    const openAssessmentForm = useCallback(async (form: any) => {
         if (completedForms.has(form.id)) {
             showToast('You have already completed this assessment.', 'error');
             return;
         }
         setActiveForm(form);
         setShowAssessmentModal(true);
-    };
+    }, [completedForms, showToast]);
 
     const openAssessmentFormWithProfileGate = React.useCallback(async (form: any) => {
         if (!requireStudentFeatureAccess(
@@ -605,13 +645,13 @@ export function useStudentPortal() {
                     <h1 className="text-2xl font-bold text-slate-900">Unable to load student permissions</h1>
                     <p className="mt-3 text-sm leading-6 text-slate-500">{permissionsError}</p>
                     <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                        <button
+                        <button type="button"
                             onClick={() => window.location.reload()}
                             className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                             Reload
                         </button>
-                        <button
+                        <button type="button"
                             onClick={handleLogout}
                             className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                         >
@@ -631,7 +671,7 @@ export function useStudentPortal() {
                     <p className="mt-3 text-sm leading-6 text-slate-500">
                         Your student role currently has no enabled portal features. Please contact an administrator or CARE staff for access.
                     </p>
-                    <button
+                    <button type="button"
                         onClick={handleLogout}
                         className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
@@ -649,45 +689,6 @@ export function useStudentPortal() {
         && !(activeViewAccessState.isAllowed && activeViewAccessState.status === 'enabled');
 
     // --- ONBOARDING TOUR DATA ---
-    const TOUR_STEPS = [
-        {
-            title: "Welcome to your Student Portal! 👋",
-            description: "This is your central hub for all student services, assessments, and essential information. Let's take a quick look around.",
-            icon: <Icons.Star filled />,
-            highlightId: null
-        },
-        {
-            title: "Needs Assessment",
-            description: "Complete available needs assessment forms and submit your responses here.",
-            icon: <Icons.Assessment />,
-            highlightId: "nav-assessment"
-        },
-        {
-            title: "Counseling Services",
-            description: "Need someone to talk to? Request an appointment with our counseling staff easily through this tab.",
-            icon: <Icons.Counseling />,
-            highlightId: "nav-counseling"
-        },
-        {
-            title: "Events & Announcements",
-            description: "Stay updated with the latest workshops, seminars, and important school announcements.",
-            icon: <Icons.Events />,
-            highlightId: "nav-events"
-        },
-        {
-            title: "Your Profile",
-            description: "Keep your personal information up to date so we can serve you better. Click here to edit your details.",
-            icon: <Icons.Profile />,
-            highlightId: "nav-profile"
-        },
-        {
-            title: "You're All Set! 🚀",
-            description: "Feel free to explore the portal at your own pace. If you ever need help, the Support tab is right there.",
-            icon: <Icons.CheckCircle />,
-            highlightId: null
-        }
-    ];
-
     const currentTourStep = TOUR_STEPS[tourStep];
     const highlightedElement = currentTourStep?.highlightId ? document.getElementById(currentTourStep.highlightId) : null;
     const highlightRect = highlightedElement ? highlightedElement.getBoundingClientRect() : null;
@@ -861,7 +862,6 @@ export function useStudentPortal() {
         supportRequests,
         setSupportRequests,
         notifications,
-        setNotifications,
         selectedRequest,
         setSelectedRequest,
         selectedSupportRequest,
@@ -871,7 +871,6 @@ export function useStudentPortal() {
         feedbackPrefill,
         setFeedbackPrefill,
         activeVisit,
-        setActiveVisit,
         toast,
         showToast,
         closeToast,
@@ -903,7 +902,6 @@ export function useStudentPortal() {
         showSupportRequestsModal,
         setShowSupportRequestsModal,
         visitReasons,
-        setVisitReasons,
         handleLogout,
         isEditing,
         setIsEditing,

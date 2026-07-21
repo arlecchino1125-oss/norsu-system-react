@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Modal from './ui/Modal';
 import {
     DOCUMENT_PREVIEW_EVENT,
@@ -18,78 +19,124 @@ const getExtension = (request: DocumentPreviewRequest) => {
     return '';
 };
 
+type PreviewState = {
+    request: DocumentPreviewRequest | null;
+    convertedUrl: string;
+    isPreparing: boolean;
+    isContentLoading: boolean;
+    error: string;
+};
+
+const INITIAL_PREVIEW_STATE: PreviewState = {
+    request: null,
+    convertedUrl: '',
+    isPreparing: false,
+    isContentLoading: false,
+    error: ''
+};
+
+type PreviewAction =
+    | { type: 'requested'; request: DocumentPreviewRequest; isPreparing: boolean; isContentLoading: boolean }
+    | { type: 'converted'; url: string }
+    | { type: 'conversionFailed'; message: string }
+    | { type: 'preparingDone' }
+    | { type: 'contentLoaded' }
+    | { type: 'contentFailed'; message: string }
+    | { type: 'closed' };
+
+function previewReducer(state: PreviewState, action: PreviewAction): PreviewState {
+    switch (action.type) {
+        case 'requested':
+            return {
+                ...INITIAL_PREVIEW_STATE,
+                request: action.request,
+                isPreparing: action.isPreparing,
+                isContentLoading: action.isContentLoading
+            };
+        case 'converted':
+            return { ...state, convertedUrl: action.url };
+        case 'conversionFailed':
+            return { ...state, error: action.message, isContentLoading: false };
+        case 'preparingDone':
+            return { ...state, isPreparing: false };
+        case 'contentLoaded':
+            return { ...state, isContentLoading: false };
+        case 'contentFailed':
+            return { ...state, isContentLoading: false, error: action.message };
+        case 'closed':
+            return { ...state, request: null };
+        default:
+            return state;
+    }
+}
+
 export default function DocumentPreviewModal() {
-    const [request, setRequest] = useState<DocumentPreviewRequest | null>(null);
-    const [convertedUrl, setConvertedUrl] = useState('');
-    const [isPreparing, setIsPreparing] = useState(false);
-    const [isContentLoading, setIsContentLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [{ request, convertedUrl, isPreparing, isContentLoading, error }, dispatch] = useReducer(previewReducer, INITIAL_PREVIEW_STATE);
     const extension = useMemo(() => request ? getExtension(request) : '', [request]);
 
     useEffect(() => {
         const handlePreview = (event: Event) => {
             const detail = (event as CustomEvent<DocumentPreviewRequest>).detail;
             if (!detail?.url) return;
-            setRequest(detail);
-            setConvertedUrl('');
-            setError('');
             const nextExtension = getExtension(detail);
-            setIsPreparing(CONVERTED_IMAGE_EXTENSIONS.has(nextExtension));
-            setIsContentLoading(
-                DIRECT_IMAGE_EXTENSIONS.has(nextExtension)
-                || CONVERTED_IMAGE_EXTENSIONS.has(nextExtension)
-                || nextExtension === 'pdf'
-            );
+            dispatch({
+                type: 'requested',
+                request: detail,
+                isPreparing: CONVERTED_IMAGE_EXTENSIONS.has(nextExtension),
+                isContentLoading: DIRECT_IMAGE_EXTENSIONS.has(nextExtension)
+                    || CONVERTED_IMAGE_EXTENSIONS.has(nextExtension)
+                    || nextExtension === 'pdf'
+            });
         };
         window.addEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
         return () => window.removeEventListener(DOCUMENT_PREVIEW_EVENT, handlePreview);
     }, []);
 
+    const shouldConvert = Boolean(request) && CONVERTED_IMAGE_EXTENSIONS.has(extension);
+    const conversion = useQuery({
+        queryKey: ['document-preview-heic-conversion', request?.url],
+        queryFn: async ({ signal }) => {
+            const [original, { heicTo }] = await Promise.all([
+                fetch(request!.url, { signal }).then((response) => {
+                    if (!response.ok) throw new Error('Unable to retrieve the image.');
+                    return response.blob();
+                }),
+                import('heic-to/csp')
+            ]);
+            const converted = await heicTo({ blob: original, type: 'image/jpeg', quality: 0.9 });
+            if (!converted) throw new Error('The image contained no previewable frame.');
+            return URL.createObjectURL(converted);
+        },
+        enabled: shouldConvert,
+        retry: false,
+        staleTime: Infinity,
+        gcTime: 0
+    });
+
+    // Revoke each converted object URL once react-query replaces or drops it.
     useEffect(() => {
-        if (!request || !CONVERTED_IMAGE_EXTENSIONS.has(extension)) return;
+        const url = conversion.data;
+        if (!url) return;
+        return () => URL.revokeObjectURL(url);
+    }, [conversion.data]);
 
-        let cancelled = false;
-        let objectUrl = '';
-        const preparePreview = async () => {
-            try {
-                const response = await fetch(request.url);
-                if (!response.ok) throw new Error('Unable to retrieve the image.');
-                const original = await response.blob();
-                const { heicTo } = await import('heic-to/csp');
-                const converted = await heicTo({ blob: original, type: 'image/jpeg', quality: 0.9 });
-                if (!converted) throw new Error('The image contained no previewable frame.');
-                objectUrl = URL.createObjectURL(converted);
-                if (cancelled) {
-                    URL.revokeObjectURL(objectUrl);
-                    return;
-                }
-                setConvertedUrl(objectUrl);
-            } catch {
-                if (!cancelled) {
-                    setError('This image could not be prepared for preview.');
-                    setIsContentLoading(false);
-                }
-            } finally {
-                if (!cancelled) setIsPreparing(false);
-            }
-        };
-        void preparePreview();
+    useEffect(() => {
+        if (!shouldConvert) return;
+        if (conversion.status === 'success') {
+            dispatch({ type: 'converted', url: conversion.data });
+            dispatch({ type: 'preparingDone' });
+        } else if (conversion.status === 'error') {
+            dispatch({ type: 'conversionFailed', message: 'This image could not be prepared for preview.' });
+            dispatch({ type: 'preparingDone' });
+        }
+    }, [shouldConvert, conversion.status, conversion.data]);
 
-        return () => {
-            cancelled = true;
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
-        };
-    }, [extension, request]);
-
-    const close = () => setRequest(null);
+    const close = () => dispatch({ type: 'closed' });
     const isDirectImage = DIRECT_IMAGE_EXTENSIONS.has(extension);
     const isConvertedImage = CONVERTED_IMAGE_EXTENSIONS.has(extension);
     const isPdf = extension === 'pdf';
-    const finishLoading = () => setIsContentLoading(false);
-    const failLoading = () => {
-        setIsContentLoading(false);
-        setError('This file could not be loaded for preview.');
-    };
+    const finishLoading = () => dispatch({ type: 'contentLoaded' });
+    const failLoading = () => dispatch({ type: 'contentFailed', message: 'This file could not be loaded for preview.' });
 
     return (
         <Modal
@@ -117,7 +164,7 @@ export default function DocumentPreviewModal() {
                     <img src={convertedUrl} alt={request.label} onLoad={finishLoading} onError={failLoading} className={`max-h-[60vh] max-w-full object-contain ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
                 )}
                 {!isPreparing && !error && request && isPdf && (
-                    <iframe src={request.url} title={request.label} onLoad={finishLoading} onError={failLoading} className={`h-[60vh] w-full border-0 bg-white ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
+                    <iframe src={request.url} title={request.label} sandbox="" onLoad={finishLoading} onError={failLoading} className={`h-[60vh] w-full border-0 bg-white ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
                 )}
                 {!isPreparing && !error && request && !isDirectImage && !isConvertedImage && !isPdf && (
                     <p role="alert" className="px-6 text-center text-sm font-semibold text-slate-700">This file type cannot be previewed in the portal.</p>

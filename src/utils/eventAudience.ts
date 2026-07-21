@@ -32,7 +32,10 @@ export const isAttendanceActivityType = (type: unknown) =>
 
 const normalizeAudienceValues = (value: unknown): string[] => {
     if (Array.isArray(value)) {
-        return value.map((item) => String(item || '').trim()).filter(Boolean);
+        return value.flatMap((item) => {
+            const normalized = String(item || '').trim();
+            return normalized ? [normalized] : [];
+        });
     }
 
     const text = String(value ?? '').trim();
@@ -50,7 +53,10 @@ const normalizeAudienceValues = (value: unknown): string[] => {
 };
 
 export const cleanAudienceValues = (values: unknown[]) =>
-    values.map((value) => String(value || '').trim()).filter(Boolean);
+    values.flatMap((value) => {
+        const normalized = String(value || '').trim();
+        return normalized ? [normalized] : [];
+    });
 
 export const getEventAudienceType = (event: AudienceEvent): EventAudienceType => {
     const value = String(event?.audience_type || 'all_students');

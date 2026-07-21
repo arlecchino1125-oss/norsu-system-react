@@ -32,7 +32,7 @@ const DeptCounseledPage = ({
             <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-100/80 shadow-sm flex flex-col gap-3 card-hover">
                 <div className="flex gap-4">
                     <input value={counseledSearch} onChange={(e) => setCounseledSearch(e.target.value)} className="flex-1 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" placeholder="Search by name..." />
-                    <input type="date" value={counseledDate} onChange={(e) => setCounseledDate(e.target.value)} className="w-48 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" />
+                    <input aria-label="Counseled date" type="date" value={counseledDate} onChange={(e) => setCounseledDate(e.target.value)} className="w-48 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" />
                 </div>
                 {cascadeFilterBar}
             </div>
@@ -58,7 +58,7 @@ const DeptCounseledPage = ({
                                     <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">{r.request_type || 'Counseling request'}</span></td>
                                     <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${r.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}`}>{r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : r.status}</span></td>
                                     <td className="p-4">
-                                        <button onClick={() => { setSelectedHistoryStudent(r); setShowHistoryModal(true); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium dark:text-blue-400 dark:hover:text-blue-300">View History</button>
+                                        <button type="button" onClick={() => { setSelectedHistoryStudent(r); setShowHistoryModal(true); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium dark:text-blue-400 dark:hover:text-blue-300">View History</button>
                                     </td>
                                 </tr>
                             ))}

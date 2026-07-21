@@ -38,6 +38,83 @@ const EVENT_FEEDBACK_COLUMNS = [
     'events(title, event_date, event_time, end_time)'
 ].join(', ');
 const EVENT_FEEDBACK_FILTERED_COLUMNS = EVENT_FEEDBACK_COLUMNS.replace('events(title, event_date, event_time, end_time)', 'events!inner(title, event_date, event_time, end_time)');
+// Dummy setter to comply with existing destructuring requirements (shared, since all are no-ops)
+const noop = () => { };
+
+const CRITERIA_LABELS = [
+    'Relevance of the activity to the needs/problems of the clientele',
+    'Quality of the activity',
+    'Timeliness',
+    'Management of the activity',
+    'Overall organization of the activity',
+    'Overall assessment of the activity',
+    'Skills/competence of the facilitator/s'
+];
+
+const CC_QUESTIONS = [
+    {
+        key: 'cc1',
+        question: "CC1. Which of the following best describes your awareness of a CC?",
+        options: {
+            1: "1. I know what a CC is and I saw this office's CC.",
+            2: "2. I know what a CC is but I did NOT see this office's CC.",
+            3: "3. I learned of the CC only when I saw this office's CC.",
+            4: '4. I do not know what a CC is and I did not see one in this office.',
+        } as Record<number, string>
+    },
+    {
+        key: 'cc2',
+        question: 'CC2. If aware of CC (answered 1-3 in CC1), would you say that the CC of this office was ...?',
+        options: {
+            1: '1. Easy to see',
+            2: '2. Somewhat easy to see',
+            3: '3. Difficult to see',
+            4: '4. Not visible at all',
+            5: '5. N/A',
+        } as Record<number, string>
+    },
+    {
+        key: 'cc3',
+        question: 'CC3. If aware of CC (answered 1-3 in CC1), how much did the CC help you in your transaction?',
+        options: {
+            1: '1. Helped very much',
+            2: '2. Somewhat helped',
+            3: '3. Did not help',
+            4: '4. N/A',
+        } as Record<number, string>
+    }
+];
+
+const getCcAnswerText = (item: any, value: any) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 'No response';
+    return item.options[parsed] || String(value);
+};
+
+const getEventName = (row: any) => row?.events?.title || 'Event';
+
+const getEventRating = (row: any) => {
+    const direct = Number(row?.rating);
+    if (Number.isFinite(direct) && direct >= 1 && direct <= 5) return direct;
+    const scores = [1, 2, 3, 4, 5, 6, 7]
+        .map(i => Number(row?.[`q${i}_score`]))
+        .filter(v => Number.isFinite(v) && v >= 1 && v <= 5);
+    if (scores.length === 0) return 0;
+    return Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
+};
+
+const computeStats = (list: any[]) => {
+    if (!list || list.length === 0) return { avg: 0, total: 0, distribution: [0, 0, 0, 0, 0] };
+    const total = list.length;
+    const sum = list.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0);
+    const dist = [0, 0, 0, 0, 0];
+    list.forEach(r => {
+        const rounded = Math.round(Number(r.rating));
+        if (rounded >= 1 && rounded <= 5) dist[rounded - 1]++;
+    });
+    return { avg: Number((sum / total).toFixed(1)), total, distribution: dist };
+};
+
 const GENERAL_FEEDBACK_COLUMNS = [
     'id',
     'student_id',
@@ -72,80 +149,6 @@ export function useCareStaffFeedback({ functions }: any) {
     const [viewingCSM, setViewingCSM] = useState<any>(null);
     const printRef = useRef(null);
 
-    const criteriaLabels = [
-        'Relevance of the activity to the needs/problems of the clientele',
-        'Quality of the activity',
-        'Timeliness',
-        'Management of the activity',
-        'Overall organization of the activity',
-        'Overall assessment of the activity',
-        'Skills/competence of the facilitator/s'
-    ];
-
-    const ccQuestions = [
-        {
-            key: 'cc1',
-            question: "CC1. Which of the following best describes your awareness of a CC?",
-            options: {
-                1: "1. I know what a CC is and I saw this office's CC.",
-                2: "2. I know what a CC is but I did NOT see this office's CC.",
-                3: "3. I learned of the CC only when I saw this office's CC.",
-                4: '4. I do not know what a CC is and I did not see one in this office.',
-            } as Record<number, string>
-        },
-        {
-            key: 'cc2',
-            question: 'CC2. If aware of CC (answered 1-3 in CC1), would you say that the CC of this office was ...?',
-            options: {
-                1: '1. Easy to see',
-                2: '2. Somewhat easy to see',
-                3: '3. Difficult to see',
-                4: '4. Not visible at all',
-                5: '5. N/A',
-            } as Record<number, string>
-        },
-        {
-            key: 'cc3',
-            question: 'CC3. If aware of CC (answered 1-3 in CC1), how much did the CC help you in your transaction?',
-            options: {
-                1: '1. Helped very much',
-                2: '2. Somewhat helped',
-                3: '3. Did not help',
-                4: '4. N/A',
-            } as Record<number, string>
-        }
-    ];
-
-    const getCcAnswerText = (item: any, value: any) => {
-        const parsed = Number(value);
-        if (!Number.isFinite(parsed) || parsed <= 0) return 'No response';
-        return item.options[parsed] || String(value);
-    };
-
-    const getEventName = (row: any) => row?.events?.title || 'Event';
-
-    const getEventRating = (row: any) => {
-        const direct = Number(row?.rating);
-        if (Number.isFinite(direct) && direct >= 1 && direct <= 5) return direct;
-        const scores = [1, 2, 3, 4, 5, 6, 7]
-            .map(i => Number(row?.[`q${i}_score`]))
-            .filter(v => Number.isFinite(v) && v >= 1 && v <= 5);
-        if (scores.length === 0) return 0;
-        return Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
-    };
-
-    const computeStats = (list: any[]) => {
-        if (!list || list.length === 0) return { avg: 0, total: 0, distribution: [0, 0, 0, 0, 0] };
-        const total = list.length;
-        const sum = list.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0);
-        const dist = [0, 0, 0, 0, 0];
-        list.forEach(r => {
-            const rounded = Math.round(Number(r.rating));
-            if (rounded >= 1 && rounded <= 5) dist[rounded - 1]++;
-        });
-        return { avg: Number((sum / total).toFixed(1)), total, distribution: dist };
-    };
-
     // ponytail: cache event names for filtering dropdown
     const { data: eventNames = [] } = useQuery({
         queryKey: ['feedback-event-names'],
@@ -154,7 +157,7 @@ export function useCareStaffFeedback({ functions }: any) {
                 .from('events')
                 .select('title')
                 .order('title', { ascending: true });
-            return [...(new Set((data || []).map((row: any) => row.title).filter(Boolean)))];
+            return [...(new Set((data || []).flatMap((row: any) => row.title ? [row.title] : [])))];
         },
         staleTime: 5 * 60 * 1000
     });
@@ -220,7 +223,7 @@ export function useCareStaffFeedback({ functions }: any) {
         setCurrentPage(1);
     }, [currentView, eventFilter]);
 
-    const items = queryResult?.items || [];
+    const items = useMemo(() => queryResult?.items || [], [queryResult]);
     const feedbackTotal = queryResult?.count || 0;
     const rawEventData = queryResult?.rawEventData || [];
     const rawGeneralData = queryResult?.rawGeneralData || [];
@@ -235,11 +238,12 @@ export function useCareStaffFeedback({ functions }: any) {
     const eventOptions = ['All Events', ...eventNames];
     const filteredEventRows = (rawEventData || []).filter(d => eventFilter === 'All Events' || getEventName(d) === eventFilter);
 
-    const eventCriteriaStats = criteriaLabels.map((label, idx) => {
+    const eventCriteriaStats = CRITERIA_LABELS.map((label, idx) => {
         const key = `q${idx + 1}_score`;
-        const scores = filteredEventRows
-            .map(row => Number(row?.[key]))
-            .filter(score => Number.isFinite(score) && score >= 1 && score <= 5);
+        const scores = filteredEventRows.flatMap(row => {
+            const score = Number(row?.[key]);
+            return Number.isFinite(score) && score >= 1 && score <= 5 ? [score] : [];
+        });
         const mean = scores.length > 0
             ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2))
             : null;
@@ -254,10 +258,11 @@ export function useCareStaffFeedback({ functions }: any) {
 
     const handlePrintEval = () => {
         if (!printRef.current) return;
-        const printContent = printRef.current.innerHTML;
         const printWindow = window.open('', '_blank', 'width=800,height=900');
         if (!printWindow) return;
-        printWindow.document.write(`<!DOCTYPE html><html><head><title>Participant's Evaluation Form</title><style>
+        const printDocument = printWindow.document;
+        const style = printDocument.createElement('style');
+        style.textContent = `
             body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; color: #1a1a1a; font-size: 14px; }
             .eval-header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; }
             .eval-header h1 { font-size: 18px; font-weight: 800; color: #1e40af; margin: 0; }
@@ -273,20 +278,14 @@ export function useCareStaffFeedback({ functions }: any) {
             .open-section label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
             .open-section p { background: #f0f9ff; padding: 8px 12px; border-radius: 6px; font-size: 12px; }
             @media print { body { padding: 20px; } }
-        </style></head><body>${printContent}</body></html>`);
-        printWindow.document.close();
+        `;
+        printDocument.title = "Participant's Evaluation Form";
+        printDocument.head.append(style);
+        printDocument.body.append(printRef.current.cloneNode(true));
+        printDocument.close();
         printWindow.focus();
         setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
     };
-
-    // Dummy setter functions to comply with existing destructuring requirements
-    const setFeedbackTotal = () => { };
-    const setItems = () => { };
-    const setRawEventData = () => { };
-    const setEventNames = () => { };
-    const setLoading = () => { };
-    const setStats = () => { };
-    const setRawGeneralData = () => { };
 
     return {
         currentView,
@@ -296,26 +295,26 @@ export function useCareStaffFeedback({ functions }: any) {
         currentPage,
         setCurrentPage,
         feedbackTotal,
-        setFeedbackTotal,
+        setFeedbackTotal: noop,
         items,
-        setItems,
+        setItems: noop,
         rawEventData,
-        setRawEventData,
+        setRawEventData: noop,
         eventNames,
-        setEventNames,
+        setEventNames: noop,
         loading,
-        setLoading,
+        setLoading: noop,
         stats,
-        setStats,
+        setStats: noop,
         viewingEval,
         setViewingEval,
         rawGeneralData,
-        setRawGeneralData,
+        setRawGeneralData: noop,
         viewingCSM,
         setViewingCSM,
         printRef,
-        criteriaLabels,
-        ccQuestions,
+        criteriaLabels: CRITERIA_LABELS,
+        ccQuestions: CC_QUESTIONS,
         getCcAnswerText,
         getEventName,
         getEventRating,

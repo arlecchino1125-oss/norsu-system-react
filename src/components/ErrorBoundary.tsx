@@ -56,6 +56,7 @@ class ErrorBoundary extends Component<Props, State> {
                             </div>
                         )}
                         <button
+                            type="button"
                             onClick={this.handleReload}
                             className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-0.5"
                         >

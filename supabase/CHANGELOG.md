@@ -1,5 +1,15 @@
 # Supabase Changelog
 
+## 2026-07-20 — Security: Remove the CARE bulk student-data reset entirely
+
+**Migration:** `20260720120000_remove_student_data_reset.sql`
+
+**Problem:** The CARE Staff settings page exposed an OTP-protected "danger zone" that deleted every student-service record and every linked student auth account in one action. Even gated behind OTP + typed confirmation + audit logging, a single compromised CARE Staff session could irreversibly destroy all student data. The capability is no longer needed.
+
+**Fix:** Removed end to end. Frontend: deleted `StudentDataDangerZoneCard`, its wiring in the CARE Staff settings page/dashboard/governance hook, and the `reset_student_data` action from the permission catalog and Care Staff defaults; updated the admin Governance panel copy. Edge function: deleted the `preview-care-student-reset`, `request-care-reset-otp`, and `care-reset-student-data` modes and their helpers from `manage-student-accounts`, and dropped the `destructive_reset` OTP purpose from the shared OTP/email services. Database: deleted the `reset_student_data` permission rows, rewrote `seed_default_role_permissions` so reset-to-defaults cannot re-grant it, purged unconsumed `destructive_reset` OTPs, and tightened the `security_change_otps` purpose CHECK so they can never be created again.
+
+**Rollback:** Requires restoring the deleted code and re-widening the CHECK constraint. Deliberately not provided as a simple script — the removal is the security fix.
+
 ## 2026-07-14 — Security: Restrict archive surface, drop unguarded event RPC
 
 **Migration:** `20260714100000_restrict_archive_surface.sql`

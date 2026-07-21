@@ -102,6 +102,10 @@ export function useAdminAuditLogs(isAuthenticated: boolean, showToast: (msg: str
         }
     }, [auditQueryError, showToast]);
 
+    // False positive: cleanup below does call supabase.removeChannel(channel) —
+    // the detector doesn't recognize Supabase's client.removeChannel() cleanup
+    // convention (it looks for .unsubscribe() on the subscribed object itself).
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (!isAuthenticated) return;
 

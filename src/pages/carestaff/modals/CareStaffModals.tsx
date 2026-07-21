@@ -4,6 +4,7 @@ import {
     MessageCircle, Rocket
 } from 'lucide-react';
 import Modal from '../../../components/ui/Modal';
+import { CARE_STAFF_NOTES_STORAGE_KEY } from '../../../lib/storageKeys';
 
 export function renderCareStaffModals(p: any) {
     const {
@@ -13,7 +14,7 @@ export function renderCareStaffModals(p: any) {
     return (
         <>
             {/* COMMAND HUB FAB */}
-            <button
+            <button type="button"
                 onClick={() => setShowCommandHub(true)}
                 className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-full shadow-xl shadow-purple-300/40 hover:shadow-2xl hover:shadow-purple-400/50 hover:scale-110 transition-all duration-300 flex items-center justify-center animate-float"
                 title="Command Hub"
@@ -37,6 +38,7 @@ export function renderCareStaffModals(p: any) {
                         </div>
                         <button
                             type="button"
+                            aria-label="Close command hub"
                             onClick={() => setShowCommandHub(false)}
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-purple-200 transition-colors hover:bg-white/10 hover:text-white"
                         >
@@ -52,7 +54,7 @@ export function renderCareStaffModals(p: any) {
                         { key: 'help', label: 'Help', icon: <Info size={14} /> },
                         { key: 'notes', label: 'Notes', icon: <FileText size={14} /> },
                     ].map(t => (
-                        <button key={t.key} onClick={() => setCommandHubTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-all ${commandHubTab === t.key ? 'text-purple-700 border-b-2 border-purple-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>
+                        <button type="button" key={t.key} onClick={() => setCommandHubTab(t.key)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-all ${commandHubTab === t.key ? 'text-purple-700 border-b-2 border-purple-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>
                             {t.icon} {t.label}
                         </button>
                     ))}
@@ -69,8 +71,8 @@ export function renderCareStaffModals(p: any) {
                                 { label: 'Support', icon: <CheckCircle size={18} />, color: 'from-amber-400 to-orange-500', action: () => { setActiveTab('support'); setShowCommandHub(false); } },
                                 { label: 'Analytics', icon: <BarChart2 size={18} />, color: 'from-emerald-400 to-green-500', action: () => { setActiveTab('analytics'); setShowCommandHub(false); } },
                                 { label: 'NAT Mgmt', icon: <FileText size={18} />, color: 'from-rose-400 to-pink-500', action: () => { setActiveTab('nat'); setShowCommandHub(false); } },
-                            ].map((item, idx) => (
-                                <button key={idx} onClick={item.action} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group">
+                            ].map((item) => (
+                                <button type="button" key={item.label} onClick={item.action} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/50 transition-all duration-200 group">
                                     <div className={`w-10 h-10 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform`}>
                                         {item.icon}
                                     </div>
@@ -88,8 +90,8 @@ export function renderCareStaffModals(p: any) {
                                 { icon: '📝', title: 'NAT Management', desc: 'Track applicants, manage test schedules, and view test takers (students who timed in & out on exam day).' },
                                 { icon: '📊', title: 'Student Analytics', desc: 'Use form-based needs assessments to analyze student wellness trends across departments and year levels.' },
                                 { icon: '⚡', title: 'Real-time Updates', desc: 'All data syncs in real-time. You\'ll see toast notifications when students submit feedback or new requests arrive.' },
-                            ].map((tip, idx) => (
-                                <div key={idx} className="flex gap-3 p-3 rounded-xl bg-gray-50/80 hover:bg-purple-50/50 transition-colors">
+                            ].map((tip) => (
+                                <div key={tip.title} className="flex gap-3 p-3 rounded-xl bg-gray-50/80 hover:bg-purple-50/50 transition-colors">
                                     <span className="text-lg flex-shrink-0">{tip.icon}</span>
                                     <div>
                                         <p className="text-xs font-bold text-gray-800">{tip.title}</p>
@@ -109,11 +111,11 @@ export function renderCareStaffModals(p: any) {
                                 if (!text) return;
                                 const updated = [{ id: Date.now(), text, time: new Date().toLocaleString() }, ...staffNotes];
                                 setStaffNotes(updated);
-                                localStorage.setItem('care_staff_notes', JSON.stringify(updated));
+                                localStorage.setItem(CARE_STAFF_NOTES_STORAGE_KEY, JSON.stringify(updated));
                                 input.value = '';
                             }} className="flex gap-2">
                                 <input name="noteInput" placeholder="Quick note..." className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 transition-all" />
-                                <button type="submit" className="px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-purple-200 transition-all">
+                                <button type="submit" aria-label="Add note" className="px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-purple-200 transition-all">
                                     <Plus size={16} />
                                 </button>
                             </form>
@@ -128,10 +130,10 @@ export function renderCareStaffModals(p: any) {
                                                 <p className="text-xs text-gray-800 leading-relaxed">{note.text}</p>
                                                 <p className="text-[10px] text-gray-400 mt-1">{note.time}</p>
                                             </div>
-                                            <button onClick={() => {
+                                            <button type="button" aria-label="Delete note" onClick={() => {
                                                 const updated = staffNotes.filter(n => n.id !== note.id);
                                                 setStaffNotes(updated);
-                                                localStorage.setItem('care_staff_notes', JSON.stringify(updated));
+                                                localStorage.setItem(CARE_STAFF_NOTES_STORAGE_KEY, JSON.stringify(updated));
                                             }} className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all flex-shrink-0 self-start">
                                                 <Trash2 size={12} />
                                             </button>

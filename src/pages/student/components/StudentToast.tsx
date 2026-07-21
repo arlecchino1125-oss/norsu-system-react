@@ -28,7 +28,7 @@ export function StudentToast({ toast, onClose }: StudentToastProps) {
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
             )}
             <span>{toast.message}</span>
-            <button onClick={onClose} className="ml-2 text-white/70 hover:text-white transition-colors">
+            <button type="button" aria-label="Dismiss notification" onClick={onClose} className="ml-2 text-white/70 hover:text-white transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
         </div>,

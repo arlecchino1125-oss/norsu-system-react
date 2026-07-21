@@ -8,10 +8,11 @@ const normalizeText = (value: unknown) => String(value || '').trim();
 
 export const buildNatPublicStats = ({ applications, courses, schedules }: NatPublicStatsInput) => {
     const openCourses = new Set(
-        courses
-            .filter((course) => String(course.status || '') === 'Open')
-            .map((course) => normalizeText(course.name))
-            .filter(Boolean)
+        courses.flatMap((course) => {
+            if (String(course.status || '') !== 'Open') return [];
+            const name = normalizeText(course.name);
+            return name ? [name] : [];
+        })
     );
     const activeScheduleTimes = new Map<string, Set<string>>();
 

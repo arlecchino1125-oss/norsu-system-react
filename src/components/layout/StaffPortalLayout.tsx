@@ -54,6 +54,8 @@ interface StaffPortalLayoutProps {
   logoUrl?: string;
 }
 
+const EMPTY_NOTIFICATIONS: NotificationItem[] = [];
+
 export default function StaffPortalLayout({
   sidebarSections,
   activeTab,
@@ -66,7 +68,7 @@ export default function StaffPortalLayout({
   onRefresh,
   isRefreshing = false,
   refreshLabel = 'Refresh View',
-  notifications = [],
+  notifications = EMPTY_NOTIFICATIONS,
   notificationsLoading = false,
   onOpenNotifications,
   headerActions,
@@ -109,8 +111,10 @@ export default function StaffPortalLayout({
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50/30 font-sans text-gray-800">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/20 backdrop-blur-sm lg:hidden"
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-20 bg-black/20 backdrop-blur-sm lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -142,6 +146,8 @@ export default function StaffPortalLayout({
           <div className="flex min-w-0 items-center gap-4">
             {/* Mobile hamburger */}
             <button
+              type="button"
+              aria-label="Open navigation"
               onClick={() => setSidebarOpen(true)}
               className="rounded-xl p-2.5 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800 lg:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/30"
             >
@@ -172,6 +178,7 @@ export default function StaffPortalLayout({
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
                 title={refreshLabel}
@@ -193,6 +200,7 @@ export default function StaffPortalLayout({
             {/* Profile Dropdown */}
             <div ref={profileRef} className="hidden md:block relative pl-3 ml-1 border-l border-slate-200/60">
               <button
+                type="button"
                 onClick={() => setProfileOpen(v => !v)}
                 className={`w-[2.35rem] h-[2.35rem] rounded-full border transition-all overflow-hidden shadow-sm flex items-center justify-center hover:scale-105 focus:outline-none ${profileOpen ? 'border-purple-400 ring-2 ring-purple-200' : 'border-purple-100 bg-purple-50'}`}
                 aria-label="Open profile menu"
@@ -215,6 +223,7 @@ export default function StaffPortalLayout({
                   <div className="py-1.5">
                     {onOpenSettings && (
                       <button
+                        type="button"
                         onClick={() => { setProfileOpen(false); onOpenSettings(); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                       >
@@ -223,6 +232,7 @@ export default function StaffPortalLayout({
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => { setProfileOpen(false); onLogout(); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
                     >

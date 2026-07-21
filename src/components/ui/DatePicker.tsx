@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface DatePickerProps {
@@ -36,10 +36,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
     // Sync view when value changes externally
     useEffect(() => {
-        if (parsed) {
-            setViewMonth(parsed.getMonth());
-            setViewYear(parsed.getFullYear());
-        }
+        if (!value) return;
+        const nextParsed = new Date(value + 'T00:00:00');
+        setViewMonth(nextParsed.getMonth());
+        setViewYear(nextParsed.getFullYear());
     }, [value]);
 
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -102,7 +102,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                 <AnimatePresence>
                     {open && (
                         <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
-                            <motion.div
+                            <m.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
@@ -110,7 +110,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
                                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }}
                             />
-                        <motion.div
+                        <m.div
                             ref={modalRef}
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -120,18 +120,20 @@ const DatePicker: React.FC<DatePickerProps> = ({
                         >
                             {/* Month/Year header */}
                             <div className="flex items-center justify-between gap-2 mb-3">
-                                <button type="button" onClick={() => navigateMonth(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                <button type="button" aria-label="Previous month" onClick={() => navigateMonth(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                                     <ChevronLeft size={16} className="text-slate-600" />
                                 </button>
                                 <div className="flex items-center gap-1.5">
                                     <select
+                                        aria-label="Month"
                                         value={viewMonth}
                                         onChange={e => setViewMonth(Number(e.target.value))}
                                         className="px-2 py-1 bg-indigo-50 text-indigo-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-indigo-100 transition-colors appearance-auto"
                                     >
-                                        {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                        {MONTHS.map((month, index) => <option key={month} value={index}>{month}</option>)}
                                     </select>
                                     <select
+                                        aria-label="Year"
                                         value={viewYear}
                                         onChange={e => setViewYear(Number(e.target.value))}
                                         className="px-2 py-1 bg-slate-100 text-slate-700 font-bold text-sm rounded-lg border-0 outline-none cursor-pointer hover:bg-slate-200 transition-colors appearance-auto"
@@ -139,7 +141,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                         {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                                     </select>
                                 </div>
-                                <button type="button" onClick={() => navigateMonth(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                <button type="button" aria-label="Next month" onClick={() => navigateMonth(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                                     <ChevronRight size={16} className="text-slate-600" />
                                 </button>
                             </div>
@@ -199,7 +201,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                                     </button>
                                 </div>
                             )}
-                        </motion.div>
+                        </m.div>
                     </div>
                     )}
                 </AnimatePresence>,

@@ -1,8 +1,14 @@
 import React from 'react';
 import { User, Lock, CheckCircle, AlertCircle, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useRoleLogin } from '../hooks/auth/useRoleLogin';
 import { STAFF_LOGIN_CONFIGS } from './auth/staffLoginConfigs';
+
+const PAGE_VARIANTS = {
+    initial: { opacity: 0, y: 15 },
+    in: { opacity: 1, y: 0 },
+    out: { opacity: 0, y: -15 }
+};
 
 export default function CareStaffLogin() {
     const {
@@ -17,12 +23,6 @@ export default function CareStaffLogin() {
         toast,
         handleSubmit
     } = useRoleLogin(STAFF_LOGIN_CONFIGS.careStaff);
-
-    const pageVariants = {
-        initial: { opacity: 0, y: 15 },
-        in: { opacity: 1, y: 0 },
-        out: { opacity: 0, y: -15 }
-    };
 
     return (
         <div className="relative flex min-h-screen w-full overflow-hidden bg-[#eef6ff] font-inter selection:bg-purple-500/30">
@@ -48,22 +48,22 @@ export default function CareStaffLogin() {
                 <div className="grid w-full max-w-6xl items-center gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.85fr)] xl:gap-14">
                     {/* Left: Branding & Message */}
                     <div className="flex flex-col justify-center">
-                        <motion.div
+                        <m.div
                             initial="initial"
                             animate="in"
-                            variants={pageVariants}
+                            variants={PAGE_VARIANTS}
                             transition={{ duration: 0.8 }}
                             className="mx-auto w-full max-w-2xl lg:mx-0 lg:max-w-xl"
                         >
                             <div className="mb-5 flex flex-col gap-4 sm:mb-7 sm:flex-row sm:items-center sm:gap-5">
                                 <div className="flex shrink-0 items-center -space-x-3">
-                                    <motion.img
+                                    <m.img
                                         whileHover={{ y: -2 }}
                                         src="/norsu.png"
                                         alt="NORSU-G Seal"
                                         className="h-16 w-16 rounded-full border-[3px] border-white bg-white object-cover p-1 shadow-xl shadow-sky-900/10 ring-1 ring-sky-200/80 sm:h-24 sm:w-24"
                                     />
-                                    <motion.img
+                                    <m.img
                                         whileHover={{ y: -2 }}
                                         src="/carecenter.png"
                                         alt="CARE Center Logo"
@@ -102,12 +102,12 @@ export default function CareStaffLogin() {
                                     </div>
                                 ))}
                             </div>
-                        </motion.div>
+                        </m.div>
                     </div>
 
                     {/* Right: Login Card */}
                     <div className="flex w-full items-center justify-center lg:justify-end">
-                        <motion.div
+                        <m.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.6, delay: 0.2 }}
@@ -172,7 +172,7 @@ export default function CareStaffLogin() {
                                     </div>
 
                                     <div className="pt-4">
-                                        <motion.button
+                                        <m.button
                                             whileHover={{ y: -2 }}
                                             whileTap={{ scale: 0.98 }}
                                             disabled={loading || authLoading}
@@ -182,7 +182,7 @@ export default function CareStaffLogin() {
                                             {loading ? (
                                                 <><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Authenticating...</>
                                             ) : 'Sign In'}
-                                        </motion.button>
+                                        </m.button>
                                     </div>
 
                                     <div className="flex items-start gap-3 rounded-2xl border border-sky-100 bg-sky-50/80 p-3 text-left">
@@ -200,7 +200,7 @@ export default function CareStaffLogin() {
                                     </div>
                                 </form>
                             </div>
-                        </motion.div>
+                        </m.div>
                     </div>
                 </div>
             </div>
@@ -208,7 +208,7 @@ export default function CareStaffLogin() {
             {/* Custom Toast Notification */}
             <AnimatePresence>
                 {toast && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: 50, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
@@ -219,7 +219,7 @@ export default function CareStaffLogin() {
                             <h4 className="font-bold text-sm tracking-wide">{toast.type === 'error' ? 'Login Failed' : 'Welcome'}</h4>
                             <p className="text-xs font-medium opacity-90">{toast.msg}</p>
                         </div>
-                    </motion.div>
+                    </m.div>
                 )}
             </AnimatePresence>
         </div>

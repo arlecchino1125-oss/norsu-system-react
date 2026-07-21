@@ -77,12 +77,13 @@ const StudentProfileModal = ({
     <>
             {profileViewStudent && typeof document !== 'undefined' && createPortal(
                 <>
-                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-2 sm:p-6" onClick={() => setProfileViewStudent(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-2 sm:p-6">
+                    <button type="button" aria-label="Close student profile" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400" onClick={() => setProfileViewStudent(null)} />
+                    <div className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
                         {/* Header */}
                         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50 flex flex-col sm:flex-row items-start sm:items-center justify-between shrink-0 gap-3">
                             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                                <button
+                                <button type="button"
                                     onClick={() => profileViewStudent?.profile_picture_url && setShowPhotoModal(true)}
                                     className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center text-xl sm:text-2xl font-black text-white shrink-0 shadow-lg shadow-blue-200 ${profileViewStudent?.profile_picture_url ? 'cursor-pointer hover:opacity-90 hover:ring-2 hover:ring-blue-400 transition-all focus:outline-none' : 'cursor-default'}`}
                                 >
@@ -100,10 +101,10 @@ const StudentProfileModal = ({
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                                <button onClick={() => { openEditModal(profileViewStudent); setProfileViewStudent(null); }} className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-md">
+                                <button type="button" onClick={() => { openEditModal(profileViewStudent); setProfileViewStudent(null); }} className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-md">
                                     <Edit size={14} /> Edit
                                 </button>
-                                <button onClick={() => setProfileViewStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                                <button type="button" aria-label="Close student profile" onClick={() => setProfileViewStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
                                     <XCircle size={22} />
                                 </button>
                             </div>
@@ -115,7 +116,7 @@ const StudentProfileModal = ({
                             <div className="sm:w-56 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-100 overflow-x-auto sm:overflow-x-visible sm:overflow-y-auto shrink-0 py-1 sm:py-2">
                                 <div className="flex sm:flex-col gap-0.5 px-1 sm:px-0 min-w-max sm:min-w-0">
                                     {PROFILE_CATEGORIES.map((cat, i) => (
-                                        <button
+                                        <button type="button"
                                             key={cat.key}
                                             onClick={() => setProfileCategoryIndex(i)}
                                             className={`text-left px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm transition-all whitespace-nowrap sm:whitespace-normal rounded-lg sm:rounded-none sm:w-full ${profileCategoryIndex === i
@@ -221,7 +222,7 @@ const StudentProfileModal = ({
 
                         {/* Footer with navigation */}
                         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
-                            <button
+                            <button type="button"
                                 onClick={() => setProfileCategoryIndex(i => Math.max(0, i - 1))}
                                 disabled={profileCategoryIndex === 0}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -231,7 +232,7 @@ const StudentProfileModal = ({
                             <span className="text-xs text-slate-400 font-medium">
                                 {profileCategoryIndex + 1} / {PROFILE_CATEGORIES.length} — {PROFILE_CATEGORIES[profileCategoryIndex].label}
                             </span>
-                            <button
+                            <button type="button"
                                 onClick={() => setProfileCategoryIndex(i => Math.min(PROFILE_CATEGORIES.length - 1, i + 1))}
                                 disabled={profileCategoryIndex === PROFILE_CATEGORIES.length - 1}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -245,13 +246,14 @@ const StudentProfileModal = ({
                 {/* Full Size Photo Modal */}
                 <div
                     className={`fixed inset-0 z-[70] flex items-center justify-center bg-transparent p-4 transition-all duration-300 ease-out ${showPhotoModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-                    onClick={() => setShowPhotoModal(false)}
+                    inert={!showPhotoModal}
                 >
+                    <button type="button" aria-label="Close profile photo" className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400" onClick={() => setShowPhotoModal(false)} />
                     <div
-                        className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
-                        onClick={(e) => e.stopPropagation()}
+                        className={`z-10 bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col relative transition-all duration-300 ease-out delay-75 ${showPhotoModal ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
                     >
-                        <button
+                        <button type="button"
+                            aria-label="Close profile photo"
                             onClick={() => setShowPhotoModal(false)}
                             className="absolute top-4 right-4 w-8 h-8 bg-black/40 hover:bg-black/60 text-white backdrop-blur-md rounded-full flex items-center justify-center transition-colors z-10 border border-white/20"
                         >

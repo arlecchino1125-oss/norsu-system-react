@@ -83,7 +83,7 @@ const ArchivedStudentsModal = ({
                                 <h3 className="font-bold text-lg text-slate-900">Archived Students</h3>
                                 <p className="text-sm text-slate-500 mt-1">Student records stay preserved here until they are restored to the active roster.</p>
                             </div>
-                            <button onClick={() => setShowArchivedStudentsModal(false)} className="text-slate-400 hover:text-slate-600">
+                            <button type="button" aria-label="Close archived students" onClick={() => setShowArchivedStudentsModal(false)} className="text-slate-400 hover:text-slate-600">
                                 <XCircle size={24} />
                             </button>
                         </div>

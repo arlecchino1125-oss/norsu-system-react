@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import { Search, ChevronDown, X, Check } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 interface SelectOption {
     label: string;
@@ -38,6 +38,8 @@ export default function SearchableSelect({
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
+    const generatedId = useId();
+    const controlId = id || generatedId;
 
     const selectedOption = options.find(opt => opt.value === value);
 
@@ -64,13 +66,13 @@ export default function SearchableSelect({
     return (
         <div className={`space-y-1.5 relative ${className}`} ref={containerRef}>
             <div className="flex justify-between items-center px-1">
-                <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                <label htmlFor={controlId} className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
                     {label} {required && <span className="text-rose-500">*</span>}
                 </label>
             </div>
 
             <button
-                id={id}
+                id={controlId}
                 type="button"
                 onClick={handleClick}
                 className={`w-full px-4 py-3 sm:py-2.5 bg-slate-50 border rounded-xl text-left transition-all duration-200 flex items-center justify-between ${
@@ -90,17 +92,23 @@ export default function SearchableSelect({
                     {isOpen && (
                         <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
                             {/* Backdrop */}
-                            <motion.div
+                            <m.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.15 }}
                                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }}
-                            />
+                            >
+                                <button
+                                    type="button"
+                                    aria-label="Close options"
+                                    className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }}
+                                />
+                            </m.div>
                             
                             {/* Modal Box */}
-                            <motion.div
+                            <m.div
                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -110,7 +118,7 @@ export default function SearchableSelect({
                                 {/* Modal Header */}
                                 <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
                                     <h3 className="font-bold text-slate-800">{placeholder}</h3>
-                                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+                                    <button type="button" aria-label="Close options" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(false); }} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
                                         <X size={20} />
                                     </button>
                                 </div>
@@ -135,10 +143,11 @@ export default function SearchableSelect({
                                     {filteredOptions.length > 0 ? (
                                         <div className="space-y-1">
                                             {filteredOptions.map((option) => (
-                                                <div
+                                                <button
+                                                    type="button"
                                                     key={option.value}
                                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(option.value); }}
-                                                    className={`px-4 py-2.5 rounded-xl text-sm sm:text-[13px] leading-tight cursor-pointer flex items-center justify-between transition-all ${
+                                                    className={`w-full px-4 py-2.5 rounded-xl text-left text-sm sm:text-[13px] leading-tight cursor-pointer flex items-center justify-between transition-all ${
                                                         value === option.value
                                                             ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200'
                                                             : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 font-medium'
@@ -146,7 +155,7 @@ export default function SearchableSelect({
                                                 >
                                                     <span className="pr-4">{option.label}</span>
                                                     {value === option.value && <Check className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />}
-                                                </div>
+                                                </button>
                                             ))}
                                         </div>
                                     ) : (
@@ -159,7 +168,7 @@ export default function SearchableSelect({
                                         </div>
                                     )}
                                 </div>
-                            </motion.div>
+                            </m.div>
                         </div>
                     )}
                 </AnimatePresence>,

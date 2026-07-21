@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createDeferredChannelCleanup } from '../../../../../lib/realtime';
 import { supabase } from '../../../../../lib/supabase';
@@ -25,199 +25,197 @@ interface CareStaffDashboardViewProps {
     refreshSignal?: number;
 }
 
-const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab, refreshSignal = 0 }) => {
-    const PROFILE_ACTIVITY_ACTIONS = [
-        'Student Profile Updated',
-        'Student Profile Completed',
-        'Student Profile Picture Updated'
-    ];
+const PROFILE_ACTIVITY_ACTIONS = [
+    'Student Profile Updated',
+    'Student Profile Completed',
+    'Student Profile Picture Updated'
+];
 
-    const queryClient = useQueryClient();
+const mapProfileLogToActivity = (log: any) => ({
+    id: `profile-${log.id}`,
+    type: 'Profile',
+    icon: <Users size={16} />,
+    color: 'from-fuchsia-400 to-purple-500',
+    title:
+        log.action === 'Student Profile Completed'
+            ? 'Student profile completed'
+            : log.action === 'Student Profile Picture Updated'
+                ? 'Student profile picture updated'
+                : 'Student profile updated',
+    detail: log.details || log.user_name || 'Student modified profile information',
+    date: new Date(log.created_at)
+});
 
-    const mapProfileLogToActivity = (log: any) => ({
-        id: `profile-${log.id}`,
+const mapProfileNotificationToActivity = (notification: any) => {
+    const rawMessage = String(notification?.message || '');
+    const cleanedMessage = rawMessage.replace(/^\[PROFILE UPDATE\]\s*/i, '');
+    return {
+        id: `profile-notif-${notification.id}`,
         type: 'Profile',
         icon: <Users size={16} />,
         color: 'from-fuchsia-400 to-purple-500',
-        title:
-            log.action === 'Student Profile Completed'
-                ? 'Student profile completed'
-                : log.action === 'Student Profile Picture Updated'
-                    ? 'Student profile picture updated'
-                    : 'Student profile updated',
-        detail: log.details || log.user_name || 'Student modified profile information',
-        date: new Date(log.created_at)
+        title: 'Student profile updated',
+        detail: cleanedMessage || 'Student modified profile information',
+        date: new Date(notification.created_at)
+    };
+};
+
+const buildStudentNameMap = async (studentIds: string[]) => {
+    if (studentIds.length === 0) return new Map<string, string>();
+    const { data, error } = await supabase
+        .from('students')
+        .select('student_id, first_name, middle_name, last_name, suffix')
+        .in('student_id', studentIds);
+    if (error) throw error;
+
+    const nameMap = new Map<string, string>();
+    (data || []).forEach((student: any) => {
+        const fullName = [
+            student.first_name,
+            student.middle_name,
+            student.last_name,
+            student.suffix
+        ].filter(Boolean).join(' ');
+        nameMap.set(student.student_id, fullName || student.student_id);
     });
+    return nameMap;
+};
 
-    const mapProfileNotificationToActivity = (notification: any) => {
-        const rawMessage = String(notification?.message || '');
-        const cleanedMessage = rawMessage.replace(/^\[PROFILE UPDATE\]\s*/i, '');
+const fetchCareStaffDashboardData = async () => {
+        const [
+            { count: studentsCount },
+            { count: counselingCount },
+            { count: supportCount },
+            { count: eventsCount },
+            { count: counselingForCareCount },
+            { count: supportForCareCount },
+            { count: profileUpdateCount },
+            { data: recentEvents },
+            { data: recentCounseling },
+            { data: recentSupport },
+            { data: recentApps },
+            { data: recentProfileUpdates },
+            { data: recentProfileNotifications }
+        ] = await Promise.all([
+            supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+            supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
+            supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
+            supabase.from('events').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+            supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
+            supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
+            supabase.from('notifications').select('id', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%'),
+            supabase.from('events').select('id, title, type, created_at').eq('is_archived', false).order('created_at', { ascending: false }).limit(10),
+            supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', [...CARE_STAFF_COUNSELING_ACTIVITY_STATUSES]).order('created_at', { ascending: false }).limit(10),
+            supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
+            supabase.from('scholarship_applications').select('id, student_id, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
+            supabase
+                .from('audit_logs')
+                .select('id, user_name, action, details, created_at')
+                .in('action', PROFILE_ACTIVITY_ACTIONS)
+                .order('created_at', { ascending: false })
+                .limit(15),
+            supabase
+                .from('notifications')
+                .select('id, message, created_at')
+                .like('message', '[PROFILE UPDATE]%')
+                .order('created_at', { ascending: false })
+                .limit(15)
+        ]);
+
+        const scholarshipApplicantNameMap = await buildStudentNameMap(
+            [...new Set((recentApps || []).flatMap((app: any) => app.student_id ? [app.student_id] : []))]
+        );
+
+        const combinedActivities = [
+            ...(recentEvents || []).map((e: any) => ({
+                id: `evt-${e.id}`,
+                type: e.type === 'Announcement' ? 'Announcement' : e.type,
+                icon: e.type === 'Announcement' ? <Bell size={16} /> : <Calendar size={16} />,
+                color: e.type === 'Announcement' ? 'from-purple-400 to-indigo-500' : 'from-blue-400 to-indigo-500',
+                title: e.type === 'Announcement' ? 'Announcement posted' : `${e.type || 'Event'} scheduled`,
+                detail: e.title,
+                date: new Date(e.created_at)
+            })),
+            ...(recentCounseling || []).map((c: any) => ({
+                id: `coun-${c.id}`,
+                type: 'Counseling',
+                icon: <Users size={16} />,
+                color:
+                    c.status === COUNSELING_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
+                        : c.status === COUNSELING_STATUS.REFERRED ? 'from-purple-400 to-violet-500'
+                            : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'from-indigo-400 to-blue-500'
+                                : c.status === COUNSELING_STATUS.REJECTED ? 'from-rose-400 to-red-500'
+                                    : 'from-blue-400 to-cyan-500',
+                title:
+                    c.status === COUNSELING_STATUS.COMPLETED ? 'Counseling completed'
+                        : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
+                            : c.status === COUNSELING_STATUS.SCHEDULED ? 'Department counseling scheduled'
+                                : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
+                                    : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
+                                        : isCounselingAwaitingDept(c.status) ? 'Counseling request submitted'
+                                            : 'Counseling updated',
+                detail: c.student_name,
+                date: new Date(c.created_at)
+            })),
+            ...(recentSupport || []).map((s: any) => ({
+                id: `sup-${s.id}`,
+                type: 'Support',
+                icon: <CheckCircle size={16} />,
+                color:
+                    s.status === SUPPORT_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
+                        : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'from-orange-400 to-amber-500'
+                            : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'from-blue-400 to-cyan-500'
+                                : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'from-emerald-400 to-teal-500'
+                                    : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'from-orange-400 to-yellow-500'
+                                        : s.status === SUPPORT_STATUS.REJECTED ? 'from-rose-400 to-red-500'
+                                            : 'from-amber-400 to-yellow-500',
+                title:
+                    s.status === SUPPORT_STATUS.COMPLETED ? 'Support resolved'
+                        : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'Support forwarded to department'
+                            : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'Department visit scheduled'
+                                : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'Department resolved support request'
+                                    : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'Support referred back to CARE Staff'
+                                        : s.status === SUPPORT_STATUS.REJECTED ? 'Support request rejected'
+                                            : 'Support request received',
+                detail: s.student_name,
+                date: new Date(s.created_at)
+            })),
+            ...(recentApps || []).map((a: any) => ({
+                id: `app-${a.id}`,
+                type: 'Application',
+                icon: <ClipboardList size={16} />,
+                color: a.status === 'Approved' ? 'from-green-400 to-emerald-500' : 'from-red-400 to-rose-500',
+                title: `Application ${a.status?.toLowerCase() || ''}`,
+                detail: scholarshipApplicantNameMap.get(a.student_id) || a.student_id || 'Unknown Applicant',
+                date: new Date(a.created_at)
+            })),
+            ...(recentProfileUpdates || []).map((log: any) => mapProfileLogToActivity(log)),
+            ...(recentProfileNotifications || []).map((notif: any) => mapProfileNotificationToActivity(notif))
+        ].sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 10);
+
         return {
-            id: `profile-notif-${notification.id}`,
-            type: 'Profile',
-            icon: <Users size={16} />,
-            color: 'from-fuchsia-400 to-purple-500',
-            title: 'Student profile updated',
-            detail: cleanedMessage || 'Student modified profile information',
-            date: new Date(notification.created_at)
+            counts: {
+                students: studentsCount || 0,
+                counseling: counselingCount || 0,
+                support: supportCount || 0,
+                events: eventsCount || 0
+            },
+            roleAlerts: {
+                counselingForCare: counselingForCareCount || 0,
+                supportForCare: supportForCareCount || 0,
+                profileUpdates: profileUpdateCount || 0
+            },
+            activities: combinedActivities
         };
-    };
+};
 
-    const buildStudentNameMap = async (studentIds: string[]) => {
-        if (studentIds.length === 0) return new Map<string, string>();
-        const { data, error } = await supabase
-            .from('students')
-            .select('student_id, first_name, middle_name, last_name, suffix')
-            .in('student_id', studentIds);
-        if (error) throw error;
-
-        const nameMap = new Map<string, string>();
-        (data || []).forEach((student: any) => {
-            const fullName = [
-                student.first_name,
-                student.middle_name,
-                student.last_name,
-                student.suffix
-            ].filter(Boolean).join(' ');
-            nameMap.set(student.student_id, fullName || student.student_id);
-        });
-        return nameMap;
-    };
+const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActiveTab, refreshSignal = 0 }) => {
+    const queryClient = useQueryClient();
 
     // Refactor fetching to React Query to enable client-side caching & request deduplication
     const { data: dashboardData, isLoading: qLoading } = useQuery({
         queryKey: ['care_staff_dashboard_data', refreshSignal],
-        queryFn: async () => {
-            const [
-                { count: studentsCount },
-                { count: counselingCount },
-                { count: supportCount },
-                { count: eventsCount },
-                { count: counselingForCareCount },
-                { count: supportForCareCount },
-                { count: profileUpdateCount }
-            ] = await Promise.all([
-                supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_COUNSELING_STATUSES]),
-                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [...CARE_STAFF_ACTIVE_SUPPORT_STATUSES]),
-                supabase.from('events').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-                supabase.from('counseling_requests').select('id', { count: 'exact', head: true }).in('status', [COUNSELING_STATUS.REFERRED, COUNSELING_STATUS.STAFF_SCHEDULED]),
-                supabase.from('support_requests').select('id', { count: 'exact', head: true }).in('status', [SUPPORT_STATUS.SUBMITTED, SUPPORT_STATUS.REFERRED_TO_CARE]),
-                supabase.from('notifications').select('id', { count: 'exact', head: true }).like('message', '[PROFILE UPDATE]%')
-            ]);
-
-            const [
-                { data: recentEvents },
-                { data: recentCounseling },
-                { data: recentSupport },
-                { data: recentApps },
-                { data: recentProfileUpdates },
-                { data: recentProfileNotifications }
-            ] = await Promise.all([
-                supabase.from('events').select('id, title, type, created_at').eq('is_archived', false).order('created_at', { ascending: false }).limit(10),
-                supabase.from('counseling_requests').select('id, student_name, status, created_at').in('status', [...CARE_STAFF_COUNSELING_ACTIVITY_STATUSES]).order('created_at', { ascending: false }).limit(10),
-                supabase.from('support_requests').select('id, student_name, status, created_at').order('created_at', { ascending: false }).limit(10),
-                supabase.from('scholarship_applications').select('id, student_id, status, created_at').neq('status', 'Pending').order('created_at', { ascending: false }).limit(10),
-                supabase
-                    .from('audit_logs')
-                    .select('id, user_name, action, details, created_at')
-                    .in('action', PROFILE_ACTIVITY_ACTIONS)
-                    .order('created_at', { ascending: false })
-                    .limit(15),
-                supabase
-                    .from('notifications')
-                    .select('id, message, created_at')
-                    .like('message', '[PROFILE UPDATE]%')
-                    .order('created_at', { ascending: false })
-                    .limit(15)
-            ]);
-
-            const scholarshipApplicantNameMap = await buildStudentNameMap(
-                [...new Set((recentApps || []).map((app: any) => app.student_id).filter(Boolean))]
-            );
-
-            const combinedActivities = [
-                ...(recentEvents || []).map((e: any) => ({
-                    id: `evt-${e.id}`,
-                    type: e.type === 'Announcement' ? 'Announcement' : e.type,
-                    icon: e.type === 'Announcement' ? <Bell size={16} /> : <Calendar size={16} />,
-                    color: e.type === 'Announcement' ? 'from-purple-400 to-indigo-500' : 'from-blue-400 to-indigo-500',
-                    title: e.type === 'Announcement' ? 'Announcement posted' : `${e.type || 'Event'} scheduled`,
-                    detail: e.title,
-                    date: new Date(e.created_at)
-                })),
-                ...(recentCounseling || []).map((c: any) => ({
-                    id: `coun-${c.id}`,
-                    type: 'Counseling',
-                    icon: <Users size={16} />,
-                    color:
-                        c.status === COUNSELING_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
-                            : c.status === COUNSELING_STATUS.REFERRED ? 'from-purple-400 to-violet-500'
-                                : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'from-indigo-400 to-blue-500'
-                                    : c.status === COUNSELING_STATUS.REJECTED ? 'from-rose-400 to-red-500'
-                                        : 'from-blue-400 to-cyan-500',
-                    title:
-                        c.status === COUNSELING_STATUS.COMPLETED ? 'Counseling completed'
-                            : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
-                                : c.status === COUNSELING_STATUS.SCHEDULED ? 'Department counseling scheduled'
-                                    : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
-                                        : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
-                                            : isCounselingAwaitingDept(c.status) ? 'Counseling request submitted'
-                                                : 'Counseling updated',
-                    detail: c.student_name,
-                    date: new Date(c.created_at)
-                })),
-                ...(recentSupport || []).map((s: any) => ({
-                    id: `sup-${s.id}`,
-                    type: 'Support',
-                    icon: <CheckCircle size={16} />,
-                    color:
-                        s.status === SUPPORT_STATUS.COMPLETED ? 'from-green-400 to-emerald-500'
-                            : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'from-orange-400 to-amber-500'
-                                : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'from-blue-400 to-cyan-500'
-                                    : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'from-emerald-400 to-teal-500'
-                                        : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'from-orange-400 to-yellow-500'
-                                            : s.status === SUPPORT_STATUS.REJECTED ? 'from-rose-400 to-red-500'
-                                                : 'from-amber-400 to-yellow-500',
-                    title:
-                        s.status === SUPPORT_STATUS.COMPLETED ? 'Support resolved'
-                            : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'Support forwarded to department'
-                                : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'Department visit scheduled'
-                                    : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'Department resolved support request'
-                                        : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'Support referred back to CARE Staff'
-                                            : s.status === SUPPORT_STATUS.REJECTED ? 'Support request rejected'
-                                                : 'Support request received',
-                    detail: s.student_name,
-                    date: new Date(s.created_at)
-                })),
-                ...(recentApps || []).map((a: any) => ({
-                    id: `app-${a.id}`,
-                    type: 'Application',
-                    icon: <ClipboardList size={16} />,
-                    color: a.status === 'Approved' ? 'from-green-400 to-emerald-500' : 'from-red-400 to-rose-500',
-                    title: `Application ${a.status?.toLowerCase() || ''}`,
-                    detail: scholarshipApplicantNameMap.get(a.student_id) || a.student_id || 'Unknown Applicant',
-                    date: new Date(a.created_at)
-                })),
-                ...(recentProfileUpdates || []).map((log: any) => mapProfileLogToActivity(log)),
-                ...(recentProfileNotifications || []).map((notif: any) => mapProfileNotificationToActivity(notif))
-            ].sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 10);
-
-            return {
-                counts: {
-                    students: studentsCount || 0,
-                    counseling: counselingCount || 0,
-                    support: supportCount || 0,
-                    events: eventsCount || 0
-                },
-                roleAlerts: {
-                    counselingForCare: counselingForCareCount || 0,
-                    supportForCare: supportForCareCount || 0,
-                    profileUpdates: profileUpdateCount || 0
-                },
-                activities: combinedActivities
-            };
-        }
+        queryFn: fetchCareStaffDashboardData
     });
 
     const counts = dashboardData?.counts || { students: 0, counseling: 0, support: 0, events: 0 };
@@ -259,7 +257,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
             removeProfileActivityChannel();
             removeProfileNotificationChannel();
         };
-    }, []);
+    }, [queryClient]);
 
     if (loading) {
         return (
@@ -271,14 +269,14 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
     }
 
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-8 pb-10 overflow-x-hidden"
         >
             {/* Stat Cards - Kinetic Upgrade */}
-            <motion.div
+            <m.div
                 initial="hidden"
                 animate="show"
                 variants={{
@@ -292,9 +290,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     { label: 'Counselings (Active)', value: counts.counseling, icon: <Users size={22} />, gradient: 'from-blue-400 to-indigo-600', shadow: 'shadow-blue-500/30' },
                     { label: 'Support Cases (Active)', value: counts.support, icon: <CheckCircle size={22} />, gradient: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
                     { label: 'Total Events', value: counts.events, icon: <Calendar size={22} />, gradient: 'from-purple-400 to-violet-600', shadow: 'shadow-purple-500/30' },
-                ].map((card, idx) => (
-                    <motion.div
-                        key={idx}
+                ].map((card) => (
+                    <m.div
+                        key={card.label}
                         variants={{
                             hidden: { y: 20, opacity: 0, scale: 0.95 },
                             show: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
@@ -307,21 +305,21 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
 
                         <div className="flex items-center justify-between relative z-10 w-full mb-2">
                             <span className="text-slate-500 font-semibold text-[13px] uppercase tracking-wider">{card.label}</span>
-                            <motion.div
+                            <m.div
                                 whileHover={{ scale: 1.15, rotate: 5 }}
                                 className={`w-12 h-12 flex items-center justify-center bg-gradient-to-br ${card.gradient} rounded-2xl text-white shadow-lg ${card.shadow} transition-transform`}
                             >
                                 {card.icon}
-                            </motion.div>
+                            </m.div>
                         </div>
                         <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight relative z-10 group-hover:text-purple-900 transition-colors">{card.value}</h3>
-                    </motion.div>
+                    </m.div>
                 ))}
-            </motion.div>
+            </m.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity Feed - Floating Timeline UI */}
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.2 }}
@@ -342,7 +340,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                             </div>
                         ) : (
                             activities.map((act, idx) => (
-                                <motion.div
+                                <m.div
                                     key={act.id}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -369,15 +367,15 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                         </span>
                                         <p className="text-[11px] font-semibold text-slate-400">{act.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                                     </div>
-                                </motion.div>
+                                </m.div>
                             ))
                         )}
                     </div>
-                </motion.div>
+                </m.div>
 
                 <div className="space-y-8 flex flex-col">
                     {/* Role-Based Alerts Bento */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, x: 30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.3 }}
@@ -394,9 +392,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                 { label: 'Counseling Cases', desc: 'Assigned to CARE Staff', value: roleAlerts.counselingForCare, tab: 'counseling', tone: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20', bg: 'bg-blue-50 border-blue-100', text: 'text-blue-700' },
                                 { label: 'Support Cases', desc: 'Waiting for resolution', value: roleAlerts.supportForCare, tab: 'support', tone: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/20', bg: 'bg-amber-50 border-amber-100', text: 'text-amber-700' },
                                 { label: 'Profile Updates', desc: 'Pending system review', value: roleAlerts.profileUpdates, tab: 'population', tone: 'from-fuchsia-400 to-purple-500', shadow: 'shadow-fuchsia-500/20', bg: 'bg-fuchsia-50 border-fuchsia-100', text: 'text-fuchsia-700' }
-                            ].map((item, idx) => (
-                                <motion.button
-                                    key={idx}
+                            ].map((item) => (
+                                <m.button
+                                    key={item.tab}
                                     whileHover={{ scale: 1.02, x: 4 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => setActiveTab(item.tab)}
@@ -409,13 +407,13 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                     <div className={`px-4 py-1.5 rounded-xl bg-gradient-to-br ${item.tone} ${item.shadow} text-white font-bold text-sm shadow-md`}>
                                         {item.value}
                                     </div>
-                                </motion.button>
+                                </m.button>
                             ))}
                         </div>
-                    </motion.div>
+                    </m.div>
 
                     {/* Quick Actions Grid Bento */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, x: 30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ type: "spring", stiffness: 200, damping: 25, delay: 0.4 }}
@@ -429,7 +427,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 flex-1">
-                            <motion.button
+                            <m.button
                                 whileHover={{ scale: 1.05, y: -4 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setActiveTab('events')}
@@ -439,9 +437,9 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                     <Calendar size={22} />
                                 </div>
                                 <span className="text-[13px] font-bold text-slate-700 text-center tracking-tight group-hover:text-purple-800 transition-colors">Schedule<br />Event</span>
-                            </motion.button>
+                            </m.button>
 
-                            <motion.button
+                            <m.button
                                 whileHover={{ scale: 1.05, y: -4 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setActiveTab('events')}
@@ -451,10 +449,10 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                     <Send size={22} />
                                 </div>
                                 <span className="text-[13px] font-bold text-slate-700 text-center tracking-tight group-hover:text-purple-800 transition-colors">Send<br />Notice</span>
-                            </motion.button>
+                            </m.button>
                         </div>
 
-                        <motion.button
+                        <m.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setActiveTab('analytics')}
@@ -467,11 +465,11 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                                 <span className="font-bold text-[15px] tracking-tight">Open System Analytics</span>
                             </div>
                             <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                        </motion.button>
-                    </motion.div>
+                        </m.button>
+                    </m.div>
                 </div>
             </div>
-        </motion.div>
+        </m.div>
     );
 };
 

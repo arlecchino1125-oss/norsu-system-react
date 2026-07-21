@@ -46,6 +46,7 @@ const DeptInterviewQueuePage = ({
                     <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
                         <CalendarDays size={16} className="text-gray-400" />
                         <input
+                            aria-label="Interview queue date"
                             type="date"
                             value={queueDate}
                             onChange={(event) => setQueueDate(event.target.value)}

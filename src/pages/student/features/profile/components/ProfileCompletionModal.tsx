@@ -132,58 +132,36 @@ const extractDepartmentName = (departments: any) => {
     return departments.name || '';
 };
 
-export default function ProfileCompletionModal({
-    isOpen,
-    initialData,
-    personalInfo,
-    showToast,
-    onCompleted,
-    onClose
+const loadProfileCompletionDraft = (initialData: any) => {
+    if (typeof localStorage === 'undefined') return initialData;
+    const studentIdKey = String(initialData?.studentId || 'new').trim();
+    try {
+        const savedDraft = localStorage.getItem(`profile_completion_draft_${studentIdKey}`);
+        return savedDraft ? { ...initialData, ...JSON.parse(savedDraft) } : initialData;
+    } catch (error) {
+        console.warn('Failed to parse profile completion draft', error);
+        return initialData;
+    }
+};
+
+const loadProfileCompletionStep = (initialData: any) => {
+    if (typeof localStorage === 'undefined') return 1;
+    const studentIdKey = String(initialData?.studentId || 'new').trim();
+    const savedStep = localStorage.getItem(`profile_completion_step_${studentIdKey}`);
+    return savedStep ? Number(savedStep) : 1;
+};
+
+function useProfileCompletionForm({
+    isOpen, initialData, personalInfo, showToast, onCompleted
 }: ProfileCompletionModalProps) {
-    const [profileStep, setProfileStep] = useState(1);
+    const [profileStep, setProfileStep] = useState(() => loadProfileCompletionStep(initialData));
     const [profileSaving, setProfileSaving] = useState(false);
-    const [formData, setFormData] = useState<any>(initialData);
+    const [formData, setFormData] = useState<any>(() => loadProfileCompletionDraft(initialData));
     const [profilePhotoPreviewUrl, setProfilePhotoPreviewUrl] = useState('');
     const [programOptions, setProgramOptions] = useState<string[]>(FALLBACK_PROGRAM_OPTIONS);
     const [collegeOptions, setCollegeOptions] = useState<string[]>(FALLBACK_COLLEGE_OPTIONS);
     const [courseDepartmentMap, setCourseDepartmentMap] = useState<Record<string, string>>({});
     const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const wasOpenRef = useRef(false);
-
-    useEffect(() => {
-        if (!isOpen) {
-            wasOpenRef.current = false;
-            return;
-        }
-
-        if (wasOpenRef.current) {
-            return;
-        }
-
-        wasOpenRef.current = true;
-        
-        const studentIdKey = String(initialData?.studentId || 'new').trim();
-        const draftKey = `profile_completion_draft_${studentIdKey}`;
-        const stepKey = `profile_completion_step_${studentIdKey}`;
-        
-        let loadedData = initialData;
-        try {
-            const savedDraft = localStorage.getItem(draftKey);
-            if (savedDraft) {
-                loadedData = { ...initialData, ...JSON.parse(savedDraft) };
-            }
-        } catch (e) {
-            console.warn('Failed to parse profile completion draft', e);
-        }
-        
-        const savedStep = localStorage.getItem(stepKey);
-        setProfileStep(savedStep ? Number(savedStep) : 1);
-        setFormData(loadedData);
-        setProfilePhotoPreviewUrl((current) => {
-            if (current) URL.revokeObjectURL(current);
-            return '';
-        });
-    }, [initialData, isOpen]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -206,7 +184,7 @@ export default function ProfileCompletionModal({
         const studentIdKey = String(formData?.studentId || initialData?.studentId || 'new').trim();
         const stepKey = `profile_completion_step_${studentIdKey}`;
         localStorage.setItem(stepKey, String(profileStep));
-    }, [profileStep, isOpen, initialData?.studentId]);
+    }, [profileStep, isOpen, initialData?.studentId, formData?.studentId]);
 
     useEffect(() => {
         if (scrollContainerRef.current) {
@@ -228,9 +206,10 @@ export default function ProfileCompletionModal({
             if (!isMounted) return;
 
             if (!coursesResult.error && Array.isArray(coursesResult.data) && coursesResult.data.length > 0) {
-                const nextPrograms = coursesResult.data
-                    .map((row: any) => String(row.name || '').trim())
-                    .filter(Boolean);
+                const nextPrograms = coursesResult.data.flatMap((row: any) => {
+                    const name = String(row.name || '').trim();
+                    return name ? [name] : [];
+                });
                 const nextCourseDepartmentMap = coursesResult.data.reduce((map: Record<string, string>, row: any) => {
                     const courseName = String(row.name || '').trim();
                     const departmentName = extractDepartmentName(row.departments);
@@ -244,7 +223,10 @@ export default function ProfileCompletionModal({
             }
 
             if (!departmentsResult.error && Array.isArray(departmentsResult.data) && departmentsResult.data.length > 0) {
-                setCollegeOptions(departmentsResult.data.map((row: any) => String(row.name || '').trim()).filter(Boolean));
+                setCollegeOptions(departmentsResult.data.flatMap((row: any) => {
+                    const name = String(row.name || '').trim();
+                    return name ? [name] : [];
+                }));
             } else if (departmentsResult.error) {
                 console.warn('Unable to load department options for profile completion.', departmentsResult.error);
             }
@@ -255,7 +237,7 @@ export default function ProfileCompletionModal({
         return () => {
             isMounted = false;
         };
-    }, [isOpen]);
+    }, [isOpen, initialData?.course]);
 
     useEffect(() => {
         return () => {
@@ -838,10 +820,14 @@ export default function ProfileCompletionModal({
     }
 
     const selectedCollege = String(formData.department || '').trim();
-    const visibleCollegeOptions = Array.from(new Set([...collegeOptions].map((value) => String(value || '').trim()).filter(Boolean)));
-    const visibleProgramOptions = Array.from(new Set([
-        ...programOptions
-    ].map((value) => String(value || '').trim()).filter(Boolean)));
+    const visibleCollegeOptions = Array.from(new Set(collegeOptions.flatMap((value) => {
+        const name = String(value || '').trim();
+        return name ? [name] : [];
+    })));
+    const visibleProgramOptions = Array.from(new Set(programOptions.flatMap((value) => {
+        const name = String(value || '').trim();
+        return name ? [name] : [];
+    })));
     const handleOpenProfileDocument = async (value: string, config: typeof PROFILE_DOCUMENT_UPLOADS[number]) => {
         try {
             await openStoredAsset('support_documents', value, 300, {
@@ -859,15 +845,17 @@ export default function ProfileCompletionModal({
     const renderProfileDocumentInput = (config: typeof PROFILE_DOCUMENT_UPLOADS[number]) => {
         const file = formData[config.fileField] as File | null;
         const existingUrl = String(formData[config.urlField] || '').trim();
+        const inputId = `profile-document-${config.fileField}`;
 
         return (
             <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
-                <label className={profileCompletionLabelClass}>{config.label}</label>
+                <label htmlFor={inputId} className={profileCompletionLabelClass}>{config.label}</label>
                 <input
+                    id={inputId}
                     type="file"
                     accept="image/*,application/pdf"
                     onChange={(event) => handleProfileDocumentChange(event, config.fileField)}
-                    className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-indigo-700"
+                    className="block w-full text-sm text-indigo-900 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-indigo-700"
                 />
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
                     <span>Max 1 MB.</span>
@@ -880,6 +868,19 @@ export default function ProfileCompletionModal({
         );
     };
 
+
+    return {
+        profileStep, setProfileStep, profileSaving, formData, setFormData, profilePhotoPreviewUrl, scrollContainerRef, handleAutoNA, handleProfileFormChange, handleProfilePhotoChange, handleProfileNextStep, handleProfileCompletion, renderProfileDocumentInput, visibleCollegeOptions, visibleProgramOptions
+    };
+}
+
+export default function ProfileCompletionModal({
+    isOpen, initialData, personalInfo, showToast, onCompleted, onClose
+}: ProfileCompletionModalProps) {
+    const {
+        profileStep, setProfileStep, profileSaving, formData, setFormData, profilePhotoPreviewUrl, scrollContainerRef, handleAutoNA, handleProfileFormChange, handleProfilePhotoChange, handleProfileNextStep, handleProfileCompletion, renderProfileDocumentInput, visibleCollegeOptions, visibleProgramOptions
+    } = useProfileCompletionForm({ isOpen, initialData, personalInfo, showToast, onCompleted, onClose });
+
     return createPortal(
         <div className="fixed inset-0 z-[10002] bg-slate-900/60 p-3 sm:p-4 pointer-events-auto backdrop-blur-sm flex items-center justify-center">
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] overflow-hidden flex flex-col relative">
@@ -887,6 +888,7 @@ export default function ProfileCompletionModal({
                         <button
                             type="button"
                             onClick={onClose}
+                            aria-label="Close profile completion"
                             className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors z-30"
                         >
                             <X className="w-5 h-5" />
@@ -1048,7 +1050,7 @@ export default function ProfileCompletionModal({
                             {profileStep < PROFILE_TOTAL_STEPS ? (
                                 <button type="button" onClick={handleProfileNextStep} className="w-full rounded-xl bg-slate-900 px-8 py-3 font-bold text-white shadow-md transition-all hover:bg-slate-800 sm:w-auto sm:py-2.5">Next Step</button>
                             ) : (
-                                <button disabled={profileSaving || !formData.agreedToPrivacy} onClick={handleProfileCompletion} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-8 py-3 font-bold text-white shadow-lg transition-all disabled:opacity-50 sm:w-auto sm:py-2.5">{profileSaving ? 'Saving...' : 'Complete Profile'}</button>
+                                <button type="button" disabled={profileSaving || !formData.agreedToPrivacy} onClick={handleProfileCompletion} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-8 py-3 font-bold text-white shadow-lg transition-all disabled:opacity-50 sm:w-auto sm:py-2.5">{profileSaving ? 'Saving...' : 'Complete Profile'}</button>
                             )}
                         </div>
                     </div>

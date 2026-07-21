@@ -29,22 +29,20 @@ CREATE POLICY "Students can view their own applications"
         SELECT auth_user_id FROM public.students WHERE student_id = peer_facilitator_applications.student_id
     ));
 
--- Allow care staff to view all applications
--- (Assuming care staff have a specific JWT claim or we just allow authenticated users to view)
--- If there's a specific role check, you can replace this. For now, we'll allow all authenticated users to select
+-- Allow care staff and admins to view all applications
 CREATE POLICY "Authenticated users can view all applications"
     ON public.peer_facilitator_applications
     FOR SELECT
     TO authenticated
-    USING (true);
+    USING (public.is_admin() OR public.current_staff_role() = 'Care Staff'::text);
 
 -- Allow care staff to update applications
 CREATE POLICY "Authenticated users can update applications"
     ON public.peer_facilitator_applications
     FOR UPDATE
     TO authenticated
-    USING (true)
-    WITH CHECK (true);
+    USING (public.is_admin() OR public.current_staff_role() = 'Care Staff'::text)
+    WITH CHECK (public.is_admin() OR public.current_staff_role() = 'Care Staff'::text);
 
 -- Grant privileges to authenticated and anon roles (if required, though standard is authenticated)
 GRANT ALL ON public.peer_facilitator_applications TO authenticated;

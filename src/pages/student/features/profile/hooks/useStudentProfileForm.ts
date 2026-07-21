@@ -20,7 +20,6 @@ import type { Student } from '../../../types';
 import {
     isValidYearLevel,
     normalizeStudentEmail,
-    applyPendingProfileToProfileForm,
     toYesNoChoice,
     hasFilledProfileValue,
     isProfileCompletionFormComplete,
@@ -42,6 +41,181 @@ interface UseStudentProfileFormArgs {
     showToast: (message: string, type?: string) => void;
     setHasSeenTourState: React.Dispatch<React.SetStateAction<boolean>>;
 }
+
+const PROFILE_FIELD_LABELS: Record<string, string> = {
+    first_name: 'First Name',
+    last_name: 'Last Name',
+    middle_name: 'Middle Name',
+    suffix: 'Suffix',
+    dob: 'Birth Date',
+    age: 'Age',
+    place_of_birth: 'Place of Birth',
+    nationality: 'Nationality',
+    sex: 'Sex',
+    gender_identity: 'Gender Identity',
+    civil_status: 'Civil Status',
+    address: 'Address',
+    street: 'Street',
+    city: 'City',
+    province: 'Province',
+    zip_code: 'Zip Code',
+    region: 'Region',
+    mobile: 'Mobile',
+    email: 'Email',
+    facebook_url: 'Facebook URL',
+    religion: 'Religion',
+    year_level: 'Year Level',
+    department: 'Department',
+    course: 'Complete Program',
+    section: 'Section',
+    supporter: 'Supporter',
+    supporter_contact: 'Supporter Contact',
+    is_working_student: 'Working Student Status',
+    working_student_type: 'Working Student Type',
+    employer_name: 'Employer Name',
+    employer_address: 'Employer Address',
+    is_pwd: 'PWD Status',
+    pwd_number: 'PWD Number',
+    pwd_type: 'PWD Type',
+    disability_cause: 'Cause of Disability',
+    pwd_document_url: 'PWD Claim Document',
+    is_indigenous: 'Indigenous Status',
+    indigenous_group: 'Indigenous Group',
+    ip_document_url: 'IP Claim Document',
+    is_four_ps_member: '4Ps Membership',
+    four_ps_document_url: '4Ps Document',
+    is_rebel_returnee: 'Rebel Returnee Status',
+    is_solo_parent: 'Solo Parent Status',
+    is_child_of_solo_parent: 'Child of Solo Parent Status',
+    solo_parent_document_url: 'Solo Parent Document',
+    is_orphan: 'Orphan Status',
+    orphan_cause: 'Orphan Cause',
+    is_homeless_citizen: 'Homeless Citizen Status',
+    is_senior_citizen: 'Senior Citizen Status',
+    senior_citizen_document_url: 'Senior Citizen Document',
+    work_experiences: 'Work Experiences',
+    mother_name: 'Mother Name',
+    mother_last_name: 'Mother Last Name',
+    mother_given_name: 'Mother Given Name',
+    mother_middle_name: 'Mother Middle Name',
+    mother_occupation: 'Mother Occupation',
+    mother_status: 'Mother Status',
+    mother_contact: 'Mother Contact',
+    mother_address: 'Mother Address',
+    father_name: 'Father Name',
+    father_last_name: 'Father Last Name',
+    father_given_name: 'Father Given Name',
+    father_middle_name: 'Father Middle Name',
+    father_occupation: 'Father Occupation',
+    father_status: 'Father Status',
+    father_contact: 'Father Contact',
+    father_address: 'Father Address',
+    parents_num_children: 'Parents Number of Children',
+    birth_order: 'Birth Order',
+    birth_order_other: 'Birth Order Other',
+    spouse_name: 'Spouse Name',
+    spouse_occupation: 'Spouse Occupation',
+    spouse_employer_name: 'Spouse Employer/Business Name',
+    spouse_employer_address: 'Spouse Employer/Business Address',
+    spouse_contact: 'Spouse Contact Number',
+    num_children: 'No. of Children',
+    children_names_birthdates: 'Children Names and Birthdates',
+    currently_pregnant: 'Currently Pregnant',
+    guardian_name: 'Guardian Name',
+    guardian_address: 'Guardian Address',
+    guardian_contact: 'Guardian Contact',
+    guardian_relation: 'Guardian Relation',
+    emergency_name: 'Person to Contact Full Name',
+    emergency_address: 'Person to Contact Address',
+    emergency_relationship: 'Person to Contact Relationship',
+    emergency_number: 'Person to Contact Number',
+    elem_school: 'Elementary School',
+    elem_year_graduated: 'Elementary Inclusive Years Attended',
+    junior_high_school: 'Junior High School',
+    junior_high_year_graduated: 'Junior High Inclusive Years Attended',
+    senior_high_school: 'Senior High School',
+    senior_high_year_graduated: 'Senior High Inclusive Years Attended',
+    college_school: 'Transferee College School',
+    college_year_graduated: 'College Inclusive Years Attended',
+    honors_awards: 'Honors/Awards',
+    tesda_nc2_acquired: 'TESDA NC II Acquired - Date Acquired - Validity',
+    eligibility_acquired: 'Eligibility Acquired - Date Acquired',
+    special_trainings_attended: 'Special Trainings Attended',
+    extracurricular_activities: 'Voluntary Activities',
+    holds_public_service_position: 'Public Service Position Holder',
+    public_service_position: 'Position in Public Service',
+    organizations_memberships: 'Organizations Memberships',
+    sports_skills: 'Sports',
+    other_talents: 'Other Talents',
+    scholarships_availed: 'Scholarship Availed and Sponsor',
+    has_been_criminally_charged: 'Criminally Charged Before Any Court',
+    has_been_convicted_of_crime: 'Convicted of Any Crime',
+    profile_completed: 'Profile Completion',
+    profile_picture_url: 'Profile Picture'
+};
+
+const toProfileFieldLabel = (field: string) => {
+    if (PROFILE_FIELD_LABELS[field]) return PROFILE_FIELD_LABELS[field];
+    return field
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const normalizeProfileField = (value: any) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'boolean') return value ? '1' : '0';
+    if (typeof value === 'number') return Number.isNaN(value) ? '' : String(value);
+    return String(value).trim();
+};
+
+const formatGateDate = (value: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString();
+};
+
+const getChangedProfileFields = (beforeProfile: any, afterPayload: any) => {
+    const changedFields: string[] = [];
+    Object.keys(afterPayload || {}).forEach((key) => {
+        const beforeValue = normalizeProfileField(beforeProfile?.[key]);
+        const afterValue = normalizeProfileField(afterPayload?.[key]);
+        if (beforeValue !== afterValue) {
+            changedFields.push(toProfileFieldLabel(key));
+        }
+    });
+    return changedFields;
+};
+
+const getCourseYearWindowRange = (startValue: string | null | undefined, endValue: string | null | undefined) => {
+    const startText = formatGateDate(startValue || null);
+    const endText = formatGateDate(endValue || null);
+    if (startText && endText) return `${startText} to ${endText}`;
+    if (startText) return `Starts ${startText}`;
+    if (endText) return `Until ${endText}`;
+    return null;
+};
+
+const getSchoolYearLabel = (startValue: string | null | undefined, endValue: string | null | undefined) => {
+    const startDate = startValue ? new Date(startValue) : null;
+    const endDate = endValue ? new Date(endValue) : null;
+    const hasStart = Boolean(startDate && !Number.isNaN(startDate.getTime()));
+    const hasEnd = Boolean(endDate && !Number.isNaN(endDate.getTime()));
+
+    if (!hasStart && !hasEnd) return 'SY Unknown';
+    if (!hasStart && hasEnd) {
+        const endYear = (endDate as Date).getFullYear();
+        return `SY ${endYear - 1}-${endYear}`;
+    }
+    if (hasStart && !hasEnd) {
+        const startYear = (startDate as Date).getFullYear();
+        return `SY ${startYear}-${startYear + 1}`;
+    }
+
+    const startYear = (startDate as Date).getFullYear();
+    const endYear = (endDate as Date).getFullYear();
+    return `SY ${Math.min(startYear, endYear)}-${Math.max(startYear, endYear)}`;
+};
 
 // Profile domain lifted verbatim from useStudentPortal (see docs/portal-structure-refactor-plan.md).
 // Owns personalInfo, hydration from the students row, profile save/security/picture
@@ -131,8 +305,7 @@ export function useStudentProfileForm({
         dismissProfileCompletionReminder
     } = useStudentProfileCompletionGate({
         session,
-        createInitialProfileFormData,
-        applyPendingProfileToProfileForm
+        createInitialProfileFormData
     });
     const [isSavingProfileChanges, setIsSavingProfileChanges] = useState(false);
 
@@ -152,144 +325,6 @@ export function useStudentProfileForm({
             middle: fallback.middle
         };
     }, []);
-
-    const PROFILE_FIELD_LABELS: Record<string, string> = {
-        first_name: 'First Name',
-        last_name: 'Last Name',
-        middle_name: 'Middle Name',
-        suffix: 'Suffix',
-        dob: 'Birth Date',
-        age: 'Age',
-        place_of_birth: 'Place of Birth',
-        nationality: 'Nationality',
-        sex: 'Sex',
-        gender_identity: 'Gender Identity',
-        civil_status: 'Civil Status',
-        address: 'Address',
-        street: 'Street',
-        city: 'City',
-        province: 'Province',
-        zip_code: 'Zip Code',
-        region: 'Region',
-        mobile: 'Mobile',
-        email: 'Email',
-        facebook_url: 'Facebook URL',
-        religion: 'Religion',
-        year_level: 'Year Level',
-        department: 'Department',
-        course: 'Complete Program',
-        section: 'Section',
-        supporter: 'Supporter',
-        supporter_contact: 'Supporter Contact',
-        is_working_student: 'Working Student Status',
-        working_student_type: 'Working Student Type',
-        employer_name: 'Employer Name',
-        employer_address: 'Employer Address',
-        is_pwd: 'PWD Status',
-        pwd_number: 'PWD Number',
-        pwd_type: 'PWD Type',
-        disability_cause: 'Cause of Disability',
-        pwd_document_url: 'PWD Claim Document',
-        is_indigenous: 'Indigenous Status',
-        indigenous_group: 'Indigenous Group',
-        ip_document_url: 'IP Claim Document',
-        is_four_ps_member: '4Ps Membership',
-        four_ps_document_url: '4Ps Document',
-        is_rebel_returnee: 'Rebel Returnee Status',
-        is_solo_parent: 'Solo Parent Status',
-        is_child_of_solo_parent: 'Child of Solo Parent Status',
-        solo_parent_document_url: 'Solo Parent Document',
-        is_orphan: 'Orphan Status',
-        orphan_cause: 'Orphan Cause',
-        is_homeless_citizen: 'Homeless Citizen Status',
-        is_senior_citizen: 'Senior Citizen Status',
-        senior_citizen_document_url: 'Senior Citizen Document',
-        work_experiences: 'Work Experiences',
-        mother_name: 'Mother Name',
-        mother_last_name: 'Mother Last Name',
-        mother_given_name: 'Mother Given Name',
-        mother_middle_name: 'Mother Middle Name',
-        mother_occupation: 'Mother Occupation',
-        mother_status: 'Mother Status',
-        mother_contact: 'Mother Contact',
-        mother_address: 'Mother Address',
-        father_name: 'Father Name',
-        father_last_name: 'Father Last Name',
-        father_given_name: 'Father Given Name',
-        father_middle_name: 'Father Middle Name',
-        father_occupation: 'Father Occupation',
-        father_status: 'Father Status',
-        father_contact: 'Father Contact',
-        father_address: 'Father Address',
-        parents_num_children: 'Parents Number of Children',
-        birth_order: 'Birth Order',
-        birth_order_other: 'Birth Order Other',
-        spouse_name: 'Spouse Name',
-        spouse_occupation: 'Spouse Occupation',
-        spouse_employer_name: 'Spouse Employer/Business Name',
-        spouse_employer_address: 'Spouse Employer/Business Address',
-        spouse_contact: 'Spouse Contact Number',
-        num_children: 'No. of Children',
-        children_names_birthdates: 'Children Names and Birthdates',
-        currently_pregnant: 'Currently Pregnant',
-        guardian_name: 'Guardian Name',
-        guardian_address: 'Guardian Address',
-        guardian_contact: 'Guardian Contact',
-        guardian_relation: 'Guardian Relation',
-        emergency_name: 'Person to Contact Full Name',
-        emergency_address: 'Person to Contact Address',
-        emergency_relationship: 'Person to Contact Relationship',
-        emergency_number: 'Person to Contact Number',
-        elem_school: 'Elementary School',
-        elem_year_graduated: 'Elementary Inclusive Years Attended',
-        junior_high_school: 'Junior High School',
-        junior_high_year_graduated: 'Junior High Inclusive Years Attended',
-        senior_high_school: 'Senior High School',
-        senior_high_year_graduated: 'Senior High Inclusive Years Attended',
-        college_school: 'Transferee College School',
-        college_year_graduated: 'College Inclusive Years Attended',
-        honors_awards: 'Honors/Awards',
-        tesda_nc2_acquired: 'TESDA NC II Acquired - Date Acquired - Validity',
-        eligibility_acquired: 'Eligibility Acquired - Date Acquired',
-        special_trainings_attended: 'Special Trainings Attended',
-        extracurricular_activities: 'Voluntary Activities',
-        holds_public_service_position: 'Public Service Position Holder',
-        public_service_position: 'Position in Public Service',
-        organizations_memberships: 'Organizations Memberships',
-        sports_skills: 'Sports',
-        other_talents: 'Other Talents',
-        scholarships_availed: 'Scholarship Availed and Sponsor',
-        has_been_criminally_charged: 'Criminally Charged Before Any Court',
-        has_been_convicted_of_crime: 'Convicted of Any Crime',
-        profile_completed: 'Profile Completion',
-        profile_picture_url: 'Profile Picture'
-    };
-
-    const normalizeProfileField = (value: any) => {
-        if (value === null || value === undefined) return '';
-        if (typeof value === 'boolean') return value ? '1' : '0';
-        if (typeof value === 'number') return Number.isNaN(value) ? '' : String(value);
-        return String(value).trim();
-    };
-
-    const toProfileFieldLabel = (field: string) => {
-        if (PROFILE_FIELD_LABELS[field]) return PROFILE_FIELD_LABELS[field];
-        return field
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, (char) => char.toUpperCase());
-    };
-
-    const getChangedProfileFields = (beforeProfile: any, afterPayload: any) => {
-        const changedFields: string[] = [];
-        Object.keys(afterPayload || {}).forEach((key) => {
-            const beforeValue = normalizeProfileField(beforeProfile?.[key]);
-            const afterValue = normalizeProfileField(afterPayload?.[key]);
-            if (beforeValue !== afterValue) {
-                changedFields.push(toProfileFieldLabel(key));
-            }
-        });
-        return changedFields;
-    };
 
     const logStudentProfileUpdate = async ({
         action,
@@ -522,10 +557,16 @@ export function useStudentProfileForm({
         session?.middle_name,
         session?.mobile,
         session?.province,
+        session?.region,
         session?.sex,
         session?.street,
         session?.suffix,
         session?.zip_code,
+        profileCompletionJustCompletedRef,
+        setForceProfileCompletionPrompt,
+        setProfileCompletionInitialData,
+        setProfileCompletionStatusOverride,
+        setProfileFieldsComplete,
         showToast,
         syncStudentSession
     ]);
@@ -549,6 +590,9 @@ export function useStudentProfileForm({
 
         // Force a fresh auth token before calling a JWT-protected edge function.
         const { data: refreshedSessionData, error: refreshError } = await supabaseClient.auth.refreshSession();
+        // Ordered on purpose: getSession() reads the auth store refreshSession() just updated;
+        // running them in parallel could return a stale token.
+        // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
         const { data: authSessionData } = await supabaseClient.auth.getSession();
         const accessToken = refreshedSessionData.session?.access_token || authSessionData.session?.access_token;
         if (!accessToken) {
@@ -580,44 +624,7 @@ export function useStudentProfileForm({
         });
 
         return nextEmail;
-    }, [session?.auth_email, session?.auth_user_id, session?.user, syncStudentSession]);
-
-    const getCourseYearWindowRange = (startValue: string | null | undefined, endValue: string | null | undefined) => {
-        const startText = formatGateDate(startValue || null);
-        const endText = formatGateDate(endValue || null);
-        if (startText && endText) return `${startText} to ${endText}`;
-        if (startText) return `Starts ${startText}`;
-        if (endText) return `Until ${endText}`;
-        return null;
-    };
-
-    const formatGateDate = (value: string | null) => {
-        if (!value) return '';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return value;
-        return date.toLocaleString();
-    };
-
-    const getSchoolYearLabel = (startValue: string | null | undefined, endValue: string | null | undefined) => {
-        const startDate = startValue ? new Date(startValue) : null;
-        const endDate = endValue ? new Date(endValue) : null;
-        const hasStart = Boolean(startDate && !Number.isNaN(startDate.getTime()));
-        const hasEnd = Boolean(endDate && !Number.isNaN(endDate.getTime()));
-
-        if (!hasStart && !hasEnd) return 'SY Unknown';
-        if (!hasStart && hasEnd) {
-            const endYear = (endDate as Date).getFullYear();
-            return `SY ${endYear - 1}-${endYear}`;
-        }
-        if (hasStart && !hasEnd) {
-            const startYear = (startDate as Date).getFullYear();
-            return `SY ${startYear}-${startYear + 1}`;
-        }
-
-        const startYear = (startDate as Date).getFullYear();
-        const endYear = (endDate as Date).getFullYear();
-        return `SY ${Math.min(startYear, endYear)}-${Math.max(startYear, endYear)}`;
-    };
+    }, [session?.auth_user_id, session?.user, syncStudentSession]);
 
     const submitCourseYearConfirmation = async () => {
         if (!personalInfo.studentId) return;
@@ -978,7 +985,7 @@ export function useStudentProfileForm({
                         .from('courses')
                         .select('name')
                         .order('name');
-                    courseOptionsCacheRef.current = (courseRows || []).map((row: any) => row.name).filter(Boolean);
+                    courseOptionsCacheRef.current = (courseRows || []).flatMap((row: any) => row.name ? [row.name] : []);
                 }
                 const normalizedCourseOptions = [...new Set([trustedCourse, ...(courseOptionsCacheRef.current || [])].filter(Boolean))];
 
@@ -1086,11 +1093,31 @@ export function useStudentProfileForm({
         } catch (error) {
             console.error('Failed to refresh student profile.', error);
         }
-    }, [session, syncStudentSession, getStoredParentParts, invokeManagedStudentFunction, forceProfileCompletionPrompt, closeProfileCompletionModal, fetchStudentRow, queryClient]);
+    }, [
+        closeProfileCompletionModal,
+        fetchStudentRow,
+        forceProfileCompletionPrompt,
+        getStoredParentParts,
+        invokeManagedStudentFunction,
+        profileCompletionJustCompletedRef,
+        queryClient,
+        refreshStudentProfileRequestRef,
+        session,
+        setForceProfileCompletionPrompt,
+        setHasSeenTourState,
+        setProfileCompletionInitialData,
+        setProfileCompletionStatusOverride,
+        setProfileFieldsComplete,
+        syncStudentSession
+    ]);
+
+    const refreshStudentProfileForSession = React.useEffectEvent(() => {
+        void refreshStudentProfile();
+    });
 
     // Sync session to personalInfo
     useEffect(() => {
-        refreshStudentProfile();
+        refreshStudentProfileForSession();
     }, [session?.auth_user_id, session?.user?.id, session?.student_id, session?.userType]);
 
     // Save Profile Changes to Supabase

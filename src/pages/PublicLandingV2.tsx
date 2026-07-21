@@ -14,67 +14,62 @@ import {
 import NorsuBrand from '../components/NorsuBrand';
 import usePublicTheme from '../hooks/usePublicTheme';
 
+const getAnimationDelayStyle = (delayMs: number) => ({ animationDelay: `${delayMs}ms` });
+
+const PUBLIC_LANDING_PORTALS = [
+    {
+        title: 'NAT Portal',
+        description: 'Apply for admission testing, review schedules, and check application progress.',
+        audience: 'Applicants and prospective students',
+        bestFor: 'Choose this if you are applying for admission, checking a NAT schedule, or reviewing your application progress.',
+        cta: 'Apply now',
+        icon: FileText,
+        accent: 'orange',
+        route: '/nat'
+    },
+    {
+        title: 'Student Portal',
+        description: 'Manage your profile, counseling, scholarships, support requests, and activities.',
+        audience: 'Currently enrolled students',
+        bestFor: 'Choose this if you already have a student account and need services, forms, events, or support requests.',
+        cta: 'Open student space',
+        icon: GraduationCap,
+        accent: 'blue',
+        route: '/student/login'
+    },
+    {
+        title: 'Department Portal',
+        description: 'Review counseling and support cases, manage admissions interviews, and monitor students, events, and reports.',
+        audience: 'Department heads and academic reviewers',
+        bestFor: 'Choose this if you handle department-level reviews, admissions interviews, or student case decisions.',
+        cta: 'Open department space',
+        icon: Users,
+        accent: 'emerald',
+        route: '/department/login'
+    },
+    {
+        title: 'CARE Staff',
+        description: 'Coordinate interventions, counseling sessions, support services, and monitoring.',
+        audience: 'CARE staff members',
+        bestFor: 'Choose this if you manage counseling workflows, interventions, referrals, and operational follow-up.',
+        cta: 'Open care staff space',
+        icon: Briefcase,
+        accent: 'purple',
+        route: '/care-staff'
+    }
+] as const;
+
 export default function PublicLandingV2() {
     const navigate = useNavigate();
     const { isDark, toggleTheme } = usePublicTheme();
     const [isGuideOpen, setIsGuideOpen] = React.useState(false);
-    const getAnimationDelayStyle = (delayMs: number) => ({ animationDelay: `${delayMs}ms` });
+    const guideDialogRef = React.useRef<HTMLDialogElement>(null);
 
     React.useEffect(() => {
-        if (!isGuideOpen) return;
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setIsGuideOpen(false);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isGuideOpen]);
-
-    const portals = [
-        {
-            title: 'NAT Portal',
-            description: 'Apply for admission testing, review schedules, and check application progress.',
-            audience: 'Applicants and prospective students',
-            bestFor: 'Choose this if you are applying for admission, checking a NAT schedule, or reviewing your application progress.',
-            cta: 'Apply now',
-            icon: FileText,
-            accent: 'orange',
-            route: '/nat'
-        },
-        {
-            title: 'Student Portal',
-            description: 'Manage your profile, counseling, scholarships, support requests, and activities.',
-            audience: 'Currently enrolled students',
-            bestFor: 'Choose this if you already have a student account and need services, forms, events, or support requests.',
-            cta: 'Open student space',
-            icon: GraduationCap,
-            accent: 'blue',
-            route: '/student/login'
-        },
-        {
-            title: 'Department Portal',
-            description: 'Review counseling and support cases, manage admissions interviews, and monitor students, events, and reports.',
-            audience: 'Department heads and academic reviewers',
-            bestFor: 'Choose this if you handle department-level reviews, admissions interviews, or student case decisions.',
-            cta: 'Open department space',
-            icon: Users,
-            accent: 'emerald',
-            route: '/department/login'
-        },
-        {
-            title: 'CARE Staff',
-            description: 'Coordinate interventions, counseling sessions, support services, and monitoring.',
-            audience: 'CARE staff members',
-            bestFor: 'Choose this if you manage counseling workflows, interventions, referrals, and operational follow-up.',
-            cta: 'Open care staff space',
-            icon: Briefcase,
-            accent: 'purple',
-            route: '/care-staff'
+        if (isGuideOpen && guideDialogRef.current && !guideDialogRef.current.open) {
+            guideDialogRef.current.showModal();
         }
-    ] as const;
+    }, [isGuideOpen]);
 
     return (
         <div className={isDark ? 'dark' : ''}>
@@ -197,12 +192,12 @@ export default function PublicLandingV2() {
 
                         </div>
 
-                        <div className="animate-fade-in-up relative" style={getAnimationDelayStyle(290)} role="navigation" aria-labelledby="portal-directory-heading">
+                        <nav className="animate-fade-in-up relative" style={getAnimationDelayStyle(290)} aria-labelledby="portal-directory-heading">
                             <div className="absolute inset-0 rounded-[1.5rem] bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.14),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(34,197,94,0.12),_transparent_30%)] sm:rounded-[2rem] md:rounded-[2.5rem]" />
                             <div className="relative p-1 sm:p-3 md:p-6">
                                 <h2 id="portal-directory-heading" className="sr-only">Portal directory</h2>
                                 <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:gap-6">
-                                    {portals.map((portal, index) => {
+                                    {PUBLIC_LANDING_PORTALS.map((portal, index) => {
                                         const Icon = portal.icon;
                                         const accentClass = {
                                             orange: 'bg-orange-50 text-orange-600',
@@ -232,7 +227,7 @@ export default function PublicLandingV2() {
                                     })}
                                 </div>
                             </div>
-                        </div>
+                        </nav>
                     </section>
 
                     <section className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-8 sm:gap-4 md:mt-10 md:grid-cols-4 md:gap-6">
@@ -271,16 +266,16 @@ export default function PublicLandingV2() {
             </div>
 
             {isGuideOpen && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-transparent p-3 sm:p-4"
-                    onClick={() => setIsGuideOpen(false)}
+                <dialog
+                    ref={guideDialogRef}
+                    id="portal-guide-modal"
+                    className="fixed inset-0 z-[100] m-0 h-full w-full max-w-none items-center justify-center bg-transparent p-3 backdrop:bg-transparent open:flex sm:p-4"
+                    aria-labelledby="portal-guide-title"
+                    onCancel={() => setIsGuideOpen(false)}
                 >
+                    <button type="button" aria-label="Close portal guide" className="absolute inset-0" onClick={() => setIsGuideOpen(false)} />
                     <div
-                        id="portal-guide-modal"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="portal-guide-title"
-                        className="animate-scale-in w-full max-w-3xl overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:rounded-3xl"
+                        className="animate-scale-in relative z-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:rounded-3xl"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-blue-600 to-sky-500 px-5 py-5 text-white dark:border-slate-700 sm:px-6">
@@ -308,7 +303,7 @@ export default function PublicLandingV2() {
 
                         <div className="max-h-[calc(100dvh-11rem)] overflow-y-auto p-4 sm:p-6">
                             <div className="grid gap-3 sm:grid-cols-2" aria-label="Portal guidance">
-                                {portals.map((portal) => {
+                                {PUBLIC_LANDING_PORTALS.map((portal) => {
                                     const Icon = portal.icon;
                                     const accentClass = {
                                         orange: 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300',
@@ -347,7 +342,7 @@ export default function PublicLandingV2() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </dialog>
             )}
         </div>
     );

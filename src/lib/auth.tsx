@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { supabase, SUPABASE_AUTH_STORAGE_KEY } from './supabase';
 import { signOutAndClearBrowserState } from './authLogout';
 import { buildEdgeFunctionHeaders } from './functionHeaders';
@@ -9,200 +9,15 @@ import { authenticateLogin } from './authLogin';
 import {
     recoverLocalSupabaseSession
 } from './supabaseSessionRecovery';
-
-const AuthContext = createContext(null);
-type StaffProfileRecord = {
-    id?: string | number | null;
-    username?: string | null;
-    full_name?: string | null;
-    role?: string | null;
-    department?: string | null;
-    email?: string | null;
-    created_at?: string | null;
-    auth_user_id?: string | null;
-    is_archived?: boolean | null;
-    archived_at?: string | null;
-    archive_note?: string | null;
-    [key: string]: unknown;
-};
-const isStaffProfileRecord = (value: unknown): value is StaffProfileRecord =>
-    Boolean(value) && typeof value === 'object' && 'role' in value;
-const STAFF_PROFILE_SELECT = '*';
-const STUDENT_BOOTSTRAP_SELECT = [
-    'id',
-    'created_at',
-    'first_name',
-    'last_name',
-    'middle_name',
-    'student_id',
-    'course',
-    'year_level',
-    'status',
-    'department',
-    'email',
-    'mobile',
-    'section',
-    'region',
-    'profile_picture_url',
-    'profile_completed',
-    'has_seen_tour',
-    'course_year_update_required',
-    'course_year_window_start',
-    'course_year_window_end',
-    'course_year_confirmed_at',
-    'auth_user_id'
-].join(', ');
-const STUDENT_PROFILE_SELECT = [
-    'id',
-    'created_at',
-    'first_name',
-    'last_name',
-    'student_id',
-    'course',
-    'year_level',
-    'status',
-    'department',
-    'middle_name',
-    'dob',
-    'civil_status',
-    'nationality',
-    'email',
-    'mobile',
-    'street',
-    'city',
-    'province',
-    'zip_code',
-    'region',
-    'suffix',
-    'place_of_birth',
-    'age',
-    'sex',
-    'gender_identity',
-    'facebook_url',
-    'is_working_student',
-    'working_student_type',
-    'employer_name',
-    'employer_address',
-    'supporter',
-    'supporter_contact',
-    'is_pwd',
-    'pwd_number',
-    'pwd_type',
-    'disability_cause',
-    'pwd_document_url',
-    'is_indigenous',
-    'indigenous_group',
-    'ip_document_url',
-    'is_four_ps_member',
-    'four_ps_document_url',
-    'is_rebel_returnee',
-    'is_solo_parent',
-    'is_child_of_solo_parent',
-    'solo_parent_document_url',
-    'is_orphan',
-    'orphan_cause',
-    'is_homeless_citizen',
-    'is_senior_citizen',
-    'senior_citizen_document_url',
-    'work_experiences',
-    'priority_course',
-    'alt_course_1',
-    'alt_course_2',
-    'section',
-    'profile_picture_url',
-    'religion',
-    'mother_name',
-    'mother_occupation',
-    'mother_status',
-    'mother_contact',
-    'mother_address',
-    'father_name',
-    'father_occupation',
-    'father_status',
-    'father_contact',
-    'father_address',
-    'parents_num_children',
-    'birth_order',
-    'birth_order_other',
-    'spouse_name',
-    'spouse_occupation',
-    'spouse_employer_name',
-    'spouse_employer_address',
-    'spouse_contact',
-    'num_children',
-    'children_names_birthdates',
-    'currently_pregnant',
-    'guardian_name',
-    'guardian_address',
-    'guardian_contact',
-    'guardian_relation',
-    'emergency_name',
-    'emergency_address',
-    'emergency_relationship',
-    'emergency_number',
-    'elem_school',
-    'elem_year_graduated',
-    'junior_high_school',
-    'junior_high_year_graduated',
-    'senior_high_school',
-    'senior_high_year_graduated',
-    'college_school',
-    'college_year_graduated',
-    'honors_awards',
-    'tesda_nc2_acquired',
-    'eligibility_acquired',
-    'special_trainings_attended',
-    'extracurricular_activities',
-    'holds_public_service_position',
-    'public_service_position',
-    'organizations_memberships',
-    'sports_skills',
-    'other_talents',
-    'scholarships_availed',
-    'has_been_criminally_charged',
-    'has_been_convicted_of_crime',
-    'profile_completed',
-    'has_seen_tour',
-    'course_year_update_required',
-    'course_year_window_start',
-    'course_year_window_end',
-    'course_year_confirmed_at',
-    'course_year_archive',
-    'father_last_name',
-    'father_given_name',
-    'father_middle_name',
-    'mother_last_name',
-    'mother_given_name',
-    'mother_middle_name',
-    'auth_user_id'
-].join(', ');
+import { getStaffProfileByAuthUser, getStudentProfileByAuthUser } from './authProfiles';
+import { useAuthSessionBootstrap } from './useAuthSessionBootstrap';
+import { APP_SESSION_STORAGE_KEY } from './storageKeys';
+import { AuthContext } from './useAuth';
 
 const normalizeLoginEmail = (value: unknown) => {
     const email = String(value || '').trim().toLowerCase();
     return email || null;
 };
-const getSessionAuthUserId = (value: any) => String(
-    value?.auth_user_id
-    || value?.user?.id
-    || value?.id
-    || ''
-).trim();
-const getSessionAuthUserType = (value: any) => String(
-    value?.userType
-    || value?.role
-    || ''
-).trim().toLowerCase();
-const matchesAuthUser = (value: any, authUser: any) => {
-    const currentAuthUserId = String(authUser?.id || '').trim();
-    return Boolean(currentAuthUserId) && getSessionAuthUserId(value) === currentAuthUserId;
-};
-const shouldReuseLoadedAuthSession = (event: string, currentSession: any, authUser: any) =>
-    event === 'INITIAL_SESSION'
-    || (
-        (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')
-        && Boolean(currentSession)
-        && matchesAuthUser(currentSession, authUser)
-    );
 
 // claude — Identical for "no such account" and "wrong password" so login never
 // reveals whether an ID/username/email exists (anti-enumeration). Every failure
@@ -269,12 +84,13 @@ export function AuthProvider({ children }: any) {
     const sessionRef = React.useRef<any>(null);
 
     const persistSession = useCallback((nextSession: any) => {
+        sessionRef.current = nextSession;
         setSession(nextSession);
         if (nextSession) {
-            localStorage.setItem('norsu_session', JSON.stringify(nextSession));
+            localStorage.setItem(APP_SESSION_STORAGE_KEY, JSON.stringify(nextSession));
             return;
         }
-        localStorage.removeItem('norsu_session');
+        localStorage.removeItem(APP_SESSION_STORAGE_KEY);
     }, []);
 
     React.useEffect(() => {
@@ -300,111 +116,23 @@ export function AuthProvider({ children }: any) {
         }
     }, [handleRecoverableSessionError]);
 
-    const getStudentProfileByAuthUser = useCallback(async (authUser: any) => {
-        if (!authUser) return null;
-
-        if (authUser.id) {
-            const { data: linkedStudent, error: linkedError } = await supabase
-                .from('students')
-                .select(STUDENT_PROFILE_SELECT)
-                .eq('auth_user_id', authUser.id)
-                .maybeSingle();
-
-            if (linkedError) throw linkedError;
-            if (linkedStudent) return linkedStudent;
-        }
-
-        return null;
-    }, []);
-    const getStudentBootstrapByAuthUser = useCallback(async (authUser: any) => {
-        if (!authUser?.id) return null;
-
-        const { data: linkedStudent, error: linkedError } = await supabase
-            .from('students')
-            .select(STUDENT_BOOTSTRAP_SELECT)
-            .eq('auth_user_id', authUser.id)
-            .maybeSingle();
-
-        if (linkedError) throw linkedError;
-        return linkedStudent || null;
-    }, []);
-
-    const getStaffProfileByAuthUser = useCallback(async (authUser: any): Promise<StaffProfileRecord | null> => {
-        if (!authUser) return null;
-
-        if (authUser.id) {
-            const { data: linkedStaff, error: linkedError } = await supabase
-                .from('staff_accounts')
-                .select(STAFF_PROFILE_SELECT)
-                .eq('auth_user_id', authUser.id)
-                .maybeSingle();
-
-            if (linkedError) throw linkedError;
-            if (isStaffProfileRecord(linkedStaff) && !linkedStaff.is_archived) return linkedStaff;
-        }
-
-        return null;
-    }, []);
-
-    const restoreStaffSessionFromAuth = useCallback(async (authUser: any) => {
-        const staff = await getStaffProfileByAuthUser(authUser);
-        if (!staff) {
-            return null;
-        }
-
-        const sessionData = sanitizeStaffSession(staff, authUser);
-        persistSession(sessionData);
-        return sessionData;
-    }, [getStaffProfileByAuthUser, persistSession]);
-    const restoreStudentBootstrapSessionFromAuth = useCallback(async (authUser: any) => {
-        const student = await getStudentBootstrapByAuthUser(authUser);
-        if (!student) {
-            return null;
-        }
-
-        const sessionData = sanitizeStudentSession(student, authUser);
-        persistSession(sessionData);
-        return sessionData;
-    }, [getStudentBootstrapByAuthUser, persistSession]);
-
-    const restoreStudentSessionFromAuth = useCallback(async (authUser: any) => {
-        const student = await getStudentProfileByAuthUser(authUser);
-        if (!student) {
-            persistSession(null);
-            return null;
-        }
-
-        const sessionData = sanitizeStudentSession(student, authUser);
-        persistSession(sessionData);
-        return sessionData;
-    }, [getStudentProfileByAuthUser, persistSession]);
-
     const updateSession = useCallback((updates: any) => {
-        setSession((prev: any) => {
-            const nextSession = typeof updates === 'function'
-                ? updates(prev)
-                : { ...(prev || {}), ...(updates || {}) };
+        const previousSession = sessionRef.current;
+        const nextSession = typeof updates === 'function'
+            ? updates(previousSession)
+            : { ...(previousSession || {}), ...(updates || {}) };
 
-            if (prev && nextSession) {
-                const prevKeys = Object.keys(prev);
-                const nextKeys = Object.keys(nextSession);
-                const unchanged = prevKeys.length === nextKeys.length
-                    && nextKeys.every((key) => Object.is(prev[key], nextSession[key]));
+        if (previousSession && nextSession) {
+            const previousKeys = Object.keys(previousSession);
+            const nextKeys = Object.keys(nextSession);
+            const unchanged = previousKeys.length === nextKeys.length
+                && nextKeys.every((key) => Object.is(previousSession[key], nextSession[key]));
 
-                if (unchanged) {
-                    return prev;
-                }
-            }
+            if (unchanged) return;
+        }
 
-            if (nextSession) {
-                localStorage.setItem('norsu_session', JSON.stringify(nextSession));
-            } else {
-                localStorage.removeItem('norsu_session');
-            }
-
-            return nextSession;
-        });
-    }, []);
+        persistSession(nextSession);
+    }, [persistSession]);
 
     /**
      * Login for Staff (Admin, Department Head, Care Staff)
@@ -448,7 +176,7 @@ export function AuthProvider({ children }: any) {
             }
             return { success: false, error: getLoginCatchMessage(err, 'Connection error') };
         }
-    }, [getStaffProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
+    }, [persistSession, prepareAuthSessionForLogin]);
 
     /**
      * Login for Students
@@ -509,134 +237,18 @@ export function AuthProvider({ children }: any) {
             }
             return { success: false, error: getLoginCatchMessage(err, 'Login error') };
         }
-    }, [getStudentProfileByAuthUser, persistSession, prepareAuthSessionForLogin]);
+    }, [persistSession, prepareAuthSessionForLogin]);
 
     // Alias for backward compatibility with existing staff login pages
     const login = loginStaff;
 
-    React.useEffect(() => {
-        let isActive = true;
-
-        const initializeSession = async () => {
-            const stored = localStorage.getItem('norsu_session');
-            let parsedSession = null;
-
-            if (stored) {
-                try {
-                    parsedSession = JSON.parse(stored);
-                } catch (e) {
-                    localStorage.removeItem('norsu_session');
-                }
-            }
-
-            try {
-                const { data, error } = await supabase.auth.getSession();
-                if (!isActive) return;
-
-                if (error) {
-                    const recovered = await handleRecoverableSessionError(error);
-                    if (!isActive) return;
-                    if (recovered) {
-                        return;
-                    }
-                    throw error;
-                }
-
-                if (data.session?.user) {
-                    const authUser = data.session.user;
-                    const cachedUserType = matchesAuthUser(parsedSession, authUser)
-                        ? getSessionAuthUserType(parsedSession)
-                        : '';
-
-                    if (cachedUserType === 'student') {
-                        const restoredStudent = await restoreStudentBootstrapSessionFromAuth(authUser);
-                        if (restoredStudent) {
-                            return;
-                        }
-
-                        const restoredStaff = await restoreStaffSessionFromAuth(authUser);
-                        if (restoredStaff) {
-                            return;
-                        }
-                    } else if (cachedUserType === 'staff' || cachedUserType === 'admin' || cachedUserType === 'department head' || cachedUserType === 'care staff' || cachedUserType === 'registrar') {
-                        const restoredStaff = await restoreStaffSessionFromAuth(authUser);
-                        if (restoredStaff) {
-                            return;
-                        }
-
-                        const restoredStudent = await restoreStudentBootstrapSessionFromAuth(authUser);
-                        if (restoredStudent) {
-                            return;
-                        }
-                    } else {
-                        const restoredStaff = await restoreStaffSessionFromAuth(authUser);
-                        if (restoredStaff) {
-                            return;
-                        }
-
-                        const restoredStudent = await restoreStudentBootstrapSessionFromAuth(authUser);
-                        if (restoredStudent) {
-                            return;
-                        }
-                    }
-
-                    persistSession(null);
-                } else if (parsedSession?.userType === 'staff' || parsedSession?.auth_user_id || parsedSession?.userType === 'student') {
-                    persistSession(null);
-                } else if (parsedSession) {
-                    setSession(parsedSession);
-                }
-            } catch (error) {
-                const recovered = await handleRecoverableSessionError(error);
-                if (recovered) {
-                    return;
-                }
-                if (isActive && parsedSession) {
-                    setSession(parsedSession);
-                }
-            } finally {
-                if (isActive) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        const {
-            data: { subscription }
-        } = supabase.auth.onAuthStateChange((event, nextAuthSession) => {
-            const currentSession = sessionRef.current;
-
-            if (nextAuthSession?.user) {
-                if (shouldReuseLoadedAuthSession(event, currentSession, nextAuthSession.user)) {
-                    return;
-                }
-
-                restoreStaffSessionFromAuth(nextAuthSession.user)
-                    .then((restoredStaff) => {
-                        if (restoredStaff) return restoredStaff;
-                        return restoreStudentSessionFromAuth(nextAuthSession.user);
-                    })
-                    .catch((error) => {
-                        console.error('Failed to restore session from Supabase Auth.', error);
-                    });
-                return;
-            }
-
-            if (!currentSession
-                || currentSession.userType === 'staff'
-                || currentSession.auth_user_id
-                || currentSession.userType === 'student') {
-                persistSession(null);
-            }
-        });
-
-        initializeSession();
-
-        return () => {
-            isActive = false;
-            subscription.unsubscribe();
-        };
-    }, [handleRecoverableSessionError, persistSession, restoreStaffSessionFromAuth, restoreStudentBootstrapSessionFromAuth, restoreStudentSessionFromAuth]);
+    useAuthSessionBootstrap({
+        sessionRef,
+        persistSession,
+        setSession,
+        setLoading,
+        handleRecoverableSessionError
+    });
 
     const logout = useCallback(async () => {
         const error = await signOutAndClearBrowserState(supabase, SUPABASE_AUTH_STORAGE_KEY);
@@ -663,12 +275,4 @@ export function AuthProvider({ children }: any) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
 }

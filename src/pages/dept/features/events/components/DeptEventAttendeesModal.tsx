@@ -10,9 +10,9 @@ export function DeptEventAttendeesModal(props: any) {
         {/* Attendees Modal - Enhanced */}
             {
                 showEventAttendees && (() => {
-                    const yearLevels = [...new Set(deptAttendees.map((a: any) => a.year_level).filter(Boolean))].sort();
-                    const attCourses = [...new Set(deptAttendees.map((a: any) => a.course).filter(Boolean))].sort();
-                    const attSections = [...new Set(deptAttendees.map((a: any) => a.section).filter(Boolean))].sort();
+                    const yearLevels = [...new Set(deptAttendees.flatMap((a: any) => a.year_level ? [a.year_level] : []))].sort();
+                    const attCourses = [...new Set(deptAttendees.flatMap((a: any) => a.course ? [a.course] : []))].sort();
+                    const attSections = [...new Set(deptAttendees.flatMap((a: any) => a.section ? [a.section] : []))].sort();
                     let filtered = deptAttendees;
                     if (yearLevelFilter !== 'All') filtered = filtered.filter((a: any) => a.year_level === yearLevelFilter);
                     if (deptCourseFilter !== 'All') filtered = filtered.filter((a: any) => a.course === deptCourseFilter);
@@ -29,7 +29,7 @@ export function DeptEventAttendeesModal(props: any) {
                                             <p className="text-xs text-gray-500 dark:text-gray-400">{showEventAttendees.title}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => {
+                                            <button type="button" onClick={() => {
                                                 if (filtered.length === 0) return;
                                                 const headers = ['Student Name', 'Department', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
                                                 const rows = filtered.map((a: any) => [
@@ -46,7 +46,7 @@ export function DeptEventAttendeesModal(props: any) {
                                             }} disabled={filtered.length === 0} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-50 transition shadow-sm disabled:opacity-50 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-500">
                                                 Export Excel
                                             </button>
-                                            <button onClick={() => { setShowEventAttendees(null); setYearLevelFilter('All'); setDeptCourseFilter('All'); setDeptSectionFilter('All'); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>
+                                            <button type="button" aria-label="Close attendees list" onClick={() => { setShowEventAttendees(null); setYearLevelFilter('All'); setDeptCourseFilter('All'); setDeptSectionFilter('All'); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 text-xs mb-3">
@@ -57,30 +57,30 @@ export function DeptEventAttendeesModal(props: any) {
                                     {yearLevels.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5">
                                             <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Year:</span>
-                                            <button onClick={() => setYearLevelFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === 'All' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100 dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500'}`}>All</button>
+                                            <button type="button" onClick={() => setYearLevelFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === 'All' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100 dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500'}`}>All</button>
                                             {yearLevels.map((yl: any) => {
                                                 const count = deptAttendees.filter((a: any) => a.year_level === yl).length;
-                                                return <button key={yl} onClick={() => setYearLevelFilter(yl)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === yl ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100 dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500'}`}>{yl} ({count})</button>;
+                                                return <button type="button" key={yl} onClick={() => setYearLevelFilter(yl)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === yl ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100 dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500'}`}>{yl} ({count})</button>;
                                             })}
                                         </div>
                                     )}
                                     {attCourses.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5 mt-2">
                                             <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Course:</span>
-                                            <button onClick={() => setDeptCourseFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptCourseFilter === 'All' ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
+                                            <button type="button" onClick={() => setDeptCourseFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptCourseFilter === 'All' ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
                                             {attCourses.map((c: any) => {
                                                 const count = deptAttendees.filter((a: any) => a.course === c).length;
-                                                return <button key={c} onClick={() => setDeptCourseFilter(c)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptCourseFilter === c ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{c} ({count})</button>;
+                                                return <button type="button" key={c} onClick={() => setDeptCourseFilter(c)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptCourseFilter === c ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{c} ({count})</button>;
                                             })}
                                         </div>
                                     )}
                                     {attSections.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5 mt-2">
                                             <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Section:</span>
-                                            <button onClick={() => setDeptSectionFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptSectionFilter === 'All' ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
+                                            <button type="button" onClick={() => setDeptSectionFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptSectionFilter === 'All' ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
                                             {attSections.map((s: any) => {
                                                 const count = deptAttendees.filter((a: any) => a.section === s).length;
-                                                return <button key={s} onClick={() => setDeptSectionFilter(s)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptSectionFilter === s ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>Sec {s} ({count})</button>;
+                                                return <button type="button" key={s} onClick={() => setDeptSectionFilter(s)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${deptSectionFilter === s ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>Sec {s} ({count})</button>;
                                             })}
                                         </div>
                                     )}
@@ -100,8 +100,8 @@ export function DeptEventAttendeesModal(props: any) {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {filtered.map((att: any, i: any) => (
-                                                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                {filtered.map((att: any) => (
+                                                    <tr key={att.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                                         <td className="px-6 py-3">
                                                             <p className="font-bold text-gray-900 dark:text-white">{att.student_name}</p>
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">{att.department}</p>

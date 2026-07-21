@@ -92,7 +92,7 @@ const sortNatRowsLocally = (rows: any[], sort?: SortParams) => {
     const sortColumn = sort?.column || 'created_at';
     const direction = sort?.ascending === true ? 1 : -1;
 
-    return [...rows].sort((left: any, right: any) => {
+    return rows.toSorted((left: any, right: any) => {
         let leftValue: any = left?.[sortColumn];
         let rightValue: any = right?.[sortColumn];
 

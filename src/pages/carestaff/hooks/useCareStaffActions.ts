@@ -53,7 +53,7 @@ export function useCareStaffActions({
             setPendingProfileId(studentId);
             setActiveTab('population');
         }
-    }), [logAudit, showToastMessage]);
+    }), [logAudit, showToastMessage, setActiveTab, setPendingProfileId]);
 
     return { functions, logAudit };
 }

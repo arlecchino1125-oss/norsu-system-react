@@ -1,7 +1,5 @@
-import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { lazy, Suspense, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '../../../../../lib/supabase';
 import { useStudentCounselingData } from '../hooks/useStudentCounselingData';
 import {
     CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
@@ -47,6 +45,175 @@ const ArrowIcon = () => (
     </svg>
 );
 
+/** Slide-in drawer listing every counseling request the student has made. */
+const RequestsDrawer = ({ requests, formatFullDate, onSelect, onClose }: any) => (
+    <div className="fixed inset-0 z-50 flex justify-end bg-transparent student-mobile-modal-overlay" onClick={onClose}>
+        <div className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl student-mobile-modal-drawer-panel" onClick={(event) => event.stopPropagation()}>
+            <div className="shrink-0 border-b border-slate-100 bg-slate-950 px-5 py-4 text-white">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Counseling</p>
+                        <h3 className="mt-1 text-lg font-black">Your Requests</h3>
+                        <p className="mt-1 text-xs font-semibold text-slate-400">{requests.length} total request{requests.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <button
+                        type="button"
+                        aria-label="Close requests"
+                        onClick={onClose}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
+                    >
+                        <CloseIcon />
+                    </button>
+                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+                {requests.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                        <p className="text-sm font-black text-slate-800">No requests found</p>
+                        <p className="mt-2 text-xs leading-5 text-slate-500">Once you submit a request, updates from CARE staff will appear here.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {requests.map((req: any) => (
+                            <button
+                                key={req.id}
+                                type="button"
+                                onClick={() => onSelect(req)}
+                                className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-black text-slate-950">{req.request_type || 'Self-Referral'}</p>
+                                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{getRequestPreview(req)}</p>
+                                        <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{formatFullDate(new Date(req.created_at))}</p>
+                                    </div>
+                                    <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black uppercase ${getCounselingStatusTone(req.status)}`}>{getCounselingStatusLabel(req.status)}</span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+);
+
+/** Read-only detail sheet for one request, with the CSM feedback prompt for completed sessions. */
+const RequestDetailsModal = ({ request, formatFullDate, Icons, onClose, onOpenCsm }: any) => (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-transparent p-3 student-mobile-modal-overlay sm:items-center sm:p-4">
+        <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl student-mobile-modal-panel">
+            <div className="shrink-0 border-b border-slate-100 p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Counseling Request</p>
+                        <h3 className="mt-1 text-lg font-black leading-tight text-slate-950">Self-referral details</h3>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">Submitted {formatFullDate(new Date(request.created_at))}</p>
+                    </div>
+                    <button
+                        type="button"
+                        aria-label="Close request details"
+                        onClick={onClose}
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                    >
+                        <CloseIcon />
+                    </button>
+                </div>
+                <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase ${getCounselingStatusTone(request.status)}`}>
+                    {getCounselingStatusLabel(request.status, 'Forwarded to CARE Staff')}
+                </span>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto p-4 student-mobile-modal-scroll-panel sm:p-5">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {[
+                        { label: 'Student', value: request.student_name || 'Not set' },
+                        { label: 'Course & Year', value: request.course_year || 'Not set' },
+                        { label: 'Contact', value: request.contact_number || 'Not set' },
+                    ].map((item) => (
+                        <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+                            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
+                            <p className="mt-1 break-words text-sm font-bold leading-5 text-slate-800">{item.value}</p>
+                        </div>
+                    ))}
+                </div>
+
+                {[
+                    { label: 'Reason/s for requesting counseling', value: request.reason_for_referral || request.description || '' },
+                    { label: 'Personal actions taken', value: request.personal_actions_taken || '' },
+                    { label: 'Date / duration of concern', value: request.date_duration_of_concern || '' },
+                ].map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{item.label}</p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{item.value || 'Not provided.'}</p>
+                    </div>
+                ))}
+
+                <div className="space-y-3">
+                    {request.referred_by && (
+                        <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-700">Forwarded to CARE Staff by</p>
+                            <p className="mt-1 text-sm font-bold text-violet-950">{request.referred_by}</p>
+                        </div>
+                    )}
+                    {getCounselingScheduledDate(request) && (
+                        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">Scheduled Session</p>
+                            <p className="mt-1 text-sm font-bold text-blue-950">{new Date(getCounselingScheduledDate(request) as string).toLocaleString()}</p>
+                        </div>
+                    )}
+                    {request.status === COUNSELING_STATUS.REJECTED && (
+                        <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-700">Request Rejected</p>
+                            <p className="mt-1 text-sm leading-6 text-rose-950">{request.resolution_notes || 'Your request has been reviewed and was not approved at this time.'}</p>
+                        </div>
+                    )}
+                    {request.status === COUNSELING_STATUS.COMPLETED && request.resolution_notes && (
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Counselor Advice</p>
+                            <p className="mt-1 text-sm leading-6 text-emerald-950">{request.resolution_notes}</p>
+                        </div>
+                    )}
+                </div>
+
+                {request.status === COUNSELING_STATUS.COMPLETED && (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <h4 className="text-sm font-black text-slate-950">Counseling Feedback</h4>
+                        {(request.rating || (typeof request.feedback === 'string' && request.feedback.startsWith('[CSM]'))) ? (
+                            <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-center">
+                                {request.rating ? (
+                                    <div className="mb-2 flex justify-center gap-1 text-amber-500">
+                                        {[1, 2, 3, 4, 5].map((n) => <div key={n} className="scale-75"><Icons.Star filled={n <= request.rating} /></div>)}
+                                    </div>
+                                ) : null}
+                                <p className="text-sm italic text-amber-900">
+                                    {request.feedback?.startsWith('[CSM]')
+                                        ? 'Feedback submitted through the CSM form.'
+                                        : `"${request.feedback || 'No comment provided.'}"`}
+                                </p>
+                                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700">Thank you for your feedback</p>
+                            </div>
+                        ) : (
+                            <div className="mt-3 space-y-3">
+                                <p className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
+                                    Please complete the Client Satisfaction Measurement form for this completed counseling session.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={onOpenCsm}
+                                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-500"
+                                >
+                                    Open CSM Feedback Form
+                                    <ArrowIcon />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+);
+
 export default function CounselingView({
     formatFullDate,
     Icons,
@@ -55,25 +222,16 @@ export default function CounselingView({
     setActiveView,
     showToast
 }: StudentRemainingFlatViewProps) {
-    const queryClient = useQueryClient();
-    const [counselingRequests, setCounselingRequests] = useState<any[]>([]);
     const [showCounselingRequestsModal, setShowCounselingRequestsModal] = useState(false);
     const [showCounselingForm, setShowCounselingForm] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<any>(null);
-    const [sessionFeedback, setSessionFeedback] = useState<any>({ rating: 0, comment: '' });
 
-    const { refreshCounselingRequests } = useStudentCounselingData({
-        studentId: personalInfo.studentId,
-        setCounselingRequests
+    const { counselingRequests, refreshCounselingRequests } = useStudentCounselingData({
+        studentId: personalInfo.studentId
     });
-
-    useEffect(() => {
-        refreshCounselingRequests();
-    }, [refreshCounselingRequests]);
 
     const openRequestModal = (req: any) => {
         setSelectedRequest(req);
-        setSessionFeedback({ rating: req.rating || 0, comment: req.feedback || '' });
     };
 
     const openCounselingForm = () => setShowCounselingForm(true);
@@ -82,20 +240,6 @@ export default function CounselingView({
         setShowCounselingForm(false);
         await refreshCounselingRequests();
     }, [refreshCounselingRequests]);
-
-    const submitSessionFeedback = async () => {
-        try {
-            const { error } = await supabase.from('counseling_requests').update({ rating: sessionFeedback.rating, feedback: sessionFeedback.comment }).eq('id', selectedRequest.id);
-            if (error) throw error;
-            const updatedReq = { ...selectedRequest, rating: sessionFeedback.rating, feedback: sessionFeedback.comment };
-            setSelectedRequest(updatedReq);
-            setCounselingRequests(prev => prev.map(r => r.id === updatedReq.id ? updatedReq : r));
-            void queryClient.invalidateQueries({ queryKey: ['student_counseling_data'] });
-            showToast('Feedback submitted successfully', 'success');
-        } catch (error: any) {
-            showToast('Failed to submit feedback', 'error');
-        }
-    };
 
     const activeRequests = counselingRequests.filter((request: any) => CARE_STAFF_ACTIVE_COUNSELING_STATUSES.includes(request.status));
     const completedRequests = counselingRequests.filter((request: any) => request.status === COUNSELING_STATUS.COMPLETED);
@@ -213,179 +357,31 @@ export default function CounselingView({
             )}
 
             {showCounselingRequestsModal && createPortal(
-                <div className="fixed inset-0 z-50 flex justify-end bg-transparent student-mobile-modal-overlay" onClick={() => setShowCounselingRequestsModal(false)}>
-                    <div className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl student-mobile-modal-drawer-panel" onClick={(event) => event.stopPropagation()}>
-                        <div className="shrink-0 border-b border-slate-100 bg-slate-950 px-5 py-4 text-white">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Counseling</p>
-                                    <h3 className="mt-1 text-lg font-black">Your Requests</h3>
-                                    <p className="mt-1 text-xs font-semibold text-slate-400">{counselingRequests.length} total request{counselingRequests.length !== 1 ? 's' : ''}</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    aria-label="Close requests"
-                                    onClick={() => setShowCounselingRequestsModal(false)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
-                                >
-                                    <CloseIcon />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4">
-                            {counselingRequests.length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                                    <p className="text-sm font-black text-slate-800">No requests found</p>
-                                    <p className="mt-2 text-xs leading-5 text-slate-500">Once you submit a request, updates from CARE staff will appear here.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {counselingRequests.map((req: any) => (
-                                        <button
-                                            key={req.id}
-                                            type="button"
-                                            onClick={() => { setShowCounselingRequestsModal(false); openRequestModal(req); }}
-                                            className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-black text-slate-950">{req.request_type || 'Self-Referral'}</p>
-                                                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{getRequestPreview(req)}</p>
-                                                    <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{formatFullDate(new Date(req.created_at))}</p>
-                                                </div>
-                                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black uppercase ${getCounselingStatusTone(req.status)}`}>{getCounselingStatusLabel(req.status)}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>,
+                <RequestsDrawer
+                    requests={counselingRequests}
+                    formatFullDate={formatFullDate}
+                    onSelect={(req: any) => { setShowCounselingRequestsModal(false); openRequestModal(req); }}
+                    onClose={() => setShowCounselingRequestsModal(false)}
+                />,
                 document.body
             )}
 
             {selectedRequest && createPortal(
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-transparent p-3 student-mobile-modal-overlay sm:items-center sm:p-4">
-                    <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl student-mobile-modal-panel">
-                        <div className="shrink-0 border-b border-slate-100 p-4 sm:p-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Counseling Request</p>
-                                    <h3 className="mt-1 text-lg font-black leading-tight text-slate-950">Self-referral details</h3>
-                                    <p className="mt-1 text-xs font-semibold text-slate-500">Submitted {formatFullDate(new Date(selectedRequest.created_at))}</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    aria-label="Close request details"
-                                    onClick={() => setSelectedRequest(null)}
-                                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                                >
-                                    <CloseIcon />
-                                </button>
-                            </div>
-                            <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase ${getCounselingStatusTone(selectedRequest.status)}`}>
-                                {getCounselingStatusLabel(selectedRequest.status, 'Forwarded to CARE Staff')}
-                            </span>
-                        </div>
-
-                        <div className="flex-1 space-y-4 overflow-y-auto p-4 student-mobile-modal-scroll-panel sm:p-5">
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                {[
-                                    { label: 'Student', value: selectedRequest.student_name || 'Not set' },
-                                    { label: 'Course & Year', value: selectedRequest.course_year || 'Not set' },
-                                    { label: 'Contact', value: selectedRequest.contact_number || 'Not set' },
-                                ].map((item) => (
-                                    <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
-                                        <p className="mt-1 break-words text-sm font-bold leading-5 text-slate-800">{item.value}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {[
-                                { label: 'Reason/s for requesting counseling', value: selectedRequest.reason_for_referral || selectedRequest.description || '' },
-                                { label: 'Personal actions taken', value: selectedRequest.personal_actions_taken || '' },
-                                { label: 'Date / duration of concern', value: selectedRequest.date_duration_of_concern || '' },
-                            ].map((item) => (
-                                <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{item.label}</p>
-                                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{item.value || 'Not provided.'}</p>
-                                </div>
-                            ))}
-
-                            <div className="space-y-3">
-                                {selectedRequest.referred_by && (
-                                    <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-700">Forwarded to CARE Staff by</p>
-                                        <p className="mt-1 text-sm font-bold text-violet-950">{selectedRequest.referred_by}</p>
-                                    </div>
-                                )}
-                                {getCounselingScheduledDate(selectedRequest) && (
-                                    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">Scheduled Session</p>
-                                        <p className="mt-1 text-sm font-bold text-blue-950">{new Date(getCounselingScheduledDate(selectedRequest) as string).toLocaleString()}</p>
-                                    </div>
-                                )}
-                                {selectedRequest.status === COUNSELING_STATUS.REJECTED && (
-                                    <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-700">Request Rejected</p>
-                                        <p className="mt-1 text-sm leading-6 text-rose-950">{selectedRequest.resolution_notes || 'Your request has been reviewed and was not approved at this time.'}</p>
-                                    </div>
-                                )}
-                                {selectedRequest.status === COUNSELING_STATUS.COMPLETED && selectedRequest.resolution_notes && (
-                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700">Counselor Advice</p>
-                                        <p className="mt-1 text-sm leading-6 text-emerald-950">{selectedRequest.resolution_notes}</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {selectedRequest.status === COUNSELING_STATUS.COMPLETED && (
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                    <h4 className="text-sm font-black text-slate-950">Counseling Feedback</h4>
-                                    {(selectedRequest.rating || (typeof selectedRequest.feedback === 'string' && selectedRequest.feedback.startsWith('[CSM]'))) ? (
-                                        <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-center">
-                                            {selectedRequest.rating ? (
-                                                <div className="mb-2 flex justify-center gap-1 text-amber-500">
-                                                    {[1, 2, 3, 4, 5].map((n) => <div key={n} className="scale-75"><Icons.Star filled={n <= selectedRequest.rating} /></div>)}
-                                                </div>
-                                            ) : null}
-                                            <p className="text-sm italic text-amber-900">
-                                                {selectedRequest.feedback?.startsWith('[CSM]')
-                                                    ? 'Feedback submitted through the CSM form.'
-                                                    : `"${selectedRequest.feedback || 'No comment provided.'}"`}
-                                            </p>
-                                            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700">Thank you for your feedback</p>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-3 space-y-3">
-                                            <p className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
-                                                Please complete the Client Satisfaction Measurement form for this completed counseling session.
-                                            </p>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setFeedbackPrefill({
-                                                        source: 'counseling',
-                                                        counselingRequestId: selectedRequest.id,
-                                                        service_availed: selectedRequest.request_type ? `Counseling - ${selectedRequest.request_type}` : 'Counseling Services',
-                                                    });
-                                                    setSelectedRequest(null);
-                                                    setActiveView('feedback');
-                                                }}
-                                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-500"
-                                            >
-                                                Open CSM Feedback Form
-                                                <ArrowIcon />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>,
+                <RequestDetailsModal
+                    request={selectedRequest}
+                    formatFullDate={formatFullDate}
+                    Icons={Icons}
+                    onClose={() => setSelectedRequest(null)}
+                    onOpenCsm={() => {
+                        setFeedbackPrefill({
+                            source: 'counseling',
+                            counselingRequestId: selectedRequest.id,
+                            service_availed: selectedRequest.request_type ? `Counseling - ${selectedRequest.request_type}` : 'Counseling Services',
+                        });
+                        setSelectedRequest(null);
+                        setActiveView('feedback');
+                    }}
+                />,
                 document.body
             )}
         </div>

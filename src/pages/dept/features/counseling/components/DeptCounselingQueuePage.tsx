@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, UserPlus, XCircle } from 'lucide-react';
 import {
     COUNSELING_STATUS,
@@ -10,6 +10,147 @@ import {
 const ITEMS_PER_PAGE_DEFAULT = 15;
 const PAGE_SIZE_OPTIONS = [10, 15, 25, 50];
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+
+const QueuePaginationBar = ({
+    startIndex, endIndex, totalResults, currentPage, totalPages, pageSize, onPageSizeChange, goToPage
+}: any) => (
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-1">
+                <p className="text-sm font-semibold text-gray-800">
+                    Showing {startIndex + 1}-{endIndex} of {totalResults} results
+                </p>
+                <p className="text-xs text-gray-500">
+                    Page {currentPage} of {totalPages}
+                </p>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="font-semibold">Rows</span>
+                    <select
+                        value={pageSize}
+                        onChange={(event) => onPageSizeChange(Number(event.target.value))}
+                        className={`rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                    >
+                        {PAGE_SIZE_OPTIONS.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="font-semibold">Jump to</span>
+                    <input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        value={currentPage}
+                        onChange={(event) => goToPage(Number(event.target.value) || 1)}
+                        className={`w-20 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                    />
+                </label>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                    >
+                        <ChevronLeft size={16} />
+                        Previous
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                    >
+                        Next
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+/** Read-only self-referral form with status-dependent actions. */
+const CounselingViewModal = ({
+    request, pendingCounselingCompletionId, onClose, onOpenSchedule, onOpenReject, onComplete, onForward
+}: any) => (
+    <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
+        <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
+            <div className="p-8">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 className="font-extrabold text-lg">STUDENT SELF-REFERRAL FOR COUNSELING FORM</h3>
+                        <p className="text-xs text-gray-400 mt-1">Office of the Director, Counseling, Assessment, Resources, and Enhancement Center</p>
+                        <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(request.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isCounselingAwaitingDept(request.status) ? 'bg-amber-100 text-amber-700' : request.status === COUNSELING_STATUS.SCHEDULED ? 'bg-blue-100 text-blue-700' : request.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : request.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-700' : request.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : request.status === COUNSELING_STATUS.REJECTED ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{isCounselingAwaitingDept(request.status) ? 'Pending Review' : request.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : request.status}</span>
+                        <button type="button" aria-label="Close counseling request" onClick={onClose} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                    </div>
+                </div>
+                {/* Read-only form fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div><label htmlFor="dept-request-student-name" className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input id="dept-request-student-name" readOnly value={request.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                    <div><label htmlFor="dept-request-course-year" className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input id="dept-request-course-year" readOnly value={request.course_year || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                    <div><label htmlFor="dept-request-contact-number" className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input id="dept-request-contact-number" readOnly value={request.contact_number || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="dept-request-reason" className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Requesting Counseling</label>
+                    <textarea id="dept-request-reason" readOnly rows={4} value={request.reason_for_referral || request.description || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="dept-request-actions" className="block text-xs font-bold text-gray-500 mb-1">Personal Actions Taken</label>
+                    <textarea id="dept-request-actions" readOnly rows={3} value={request.personal_actions_taken || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="dept-request-concern-duration" className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Concern</label>
+                    <textarea id="dept-request-concern-duration" readOnly rows={2} value={request.date_duration_of_concern || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
+                </div>
+                {/* Signature (shown for referred requests) */}
+                {request.referrer_signature && (
+                    <div className="mb-4">
+                        <p className="block text-xs font-bold text-gray-500 mb-1">Name and Signature of the Referring Person</p>
+                        <div className="bg-white border-2 border-dashed border-purple-200 rounded-xl p-4 flex flex-col items-center">
+                            <img src={request.referrer_signature} alt="Referrer Signature" className="max-h-24 object-contain" />
+                            <div className="w-48 border-t border-gray-400 mt-2 pt-1 text-center">
+                                <p className="text-sm font-bold text-gray-800">{request.referred_by}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* Status-specific info */}
+                {getCounselingScheduledDate(request) && (
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(getCounselingScheduledDate(request) as string).toLocaleString()}</p></div>
+                )}
+                {request.referred_by && (
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-3"><p className="text-xs font-bold text-purple-800 uppercase mb-1">Forwarded by</p><p className="text-sm font-semibold text-purple-900">{request.referred_by}</p></div>
+                )}
+            </div>
+            {/* Action buttons */}
+            <div className="p-6 border-t border-gray-100 flex flex-wrap gap-3 sticky bottom-0 bg-white rounded-b-2xl">
+                {isCounselingAwaitingDept(request.status) && (
+                    <>
+                        <button type="button" onClick={onOpenSchedule} className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200/50 hover:shadow-xl transition-all">Approve & Schedule</button>
+                        <button type="button" onClick={onOpenReject} className="flex-1 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-all">Reject</button>
+                    </>
+                )}
+                {request.status === COUNSELING_STATUS.SCHEDULED && (
+                    <>
+                        <button type="button" disabled={pendingCounselingCompletionId === String(request.id)} onClick={() => onComplete(request)} className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200/50 hover:shadow-xl transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-lg">{pendingCounselingCompletionId === String(request.id) ? 'Completing...' : 'Mark as Completed'}</button>
+                        <button type="button" onClick={() => onForward(request)} className="flex-1 py-2.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all">Forward to CARE Staff</button>
+                    </>
+                )}
+                <button type="button" onClick={onClose} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+);
 
 const DeptCounselingQueuePage = ({
     counselingRequests,
@@ -23,11 +164,9 @@ const DeptCounselingQueuePage = ({
     setForwardingToStaff,
     setReferralForm,
     setShowReferralModal,
-    showCounselingViewModal,
+    modalState,
     setShowCounselingViewModal,
-    showScheduleModal,
     setShowScheduleModal,
-    showRejectModal,
     setShowRejectModal,
     scheduleData,
     setScheduleData,
@@ -37,11 +176,12 @@ const DeptCounselingQueuePage = ({
     handleRejectRequest,
     handleCompleteRequest,
     handleStartForward,
-    isSubmittingCounselingSchedule,
-    isSubmittingCounselingReject,
+    submissionState,
     pendingCounselingCompletionId
 }: any) => {
-    const [currentPage, setCurrentPage] = useState(1);
+    const { showCounselingViewModal, showScheduleModal, showRejectModal } = modalState;
+    const { isSubmittingCounselingSchedule, isSubmittingCounselingReject } = submissionState;
+    const [pageState, setPageState] = useState({ key: '', page: 1 });
     const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE_DEFAULT);
 
     const openDirectReferral = () => {
@@ -60,41 +200,34 @@ const DeptCounselingQueuePage = ({
         setShowReferralModal(true);
     };
 
-    const matchesCounselingTab = (request: any) => {
+    const matchesCounselingTab = useCallback((request: any) => {
         if (counselingTab === 'WithCare') return isWithCareStaffCounseling(request.status);
         if (counselingTab === COUNSELING_STATUS.SUBMITTED) return isCounselingAwaitingDept(request.status);
         return request.status === counselingTab;
-    };
+    }, [counselingTab]);
 
     const filteredRequests = useMemo(() => (
-        counselingRequests
-            .filter(matchesCounselingTab)
-            .filter((request: any) => matchesCascadeFilters(getStudentForRequest(request)))
-    ), [counselingRequests, counselingTab, getStudentForRequest, matchesCascadeFilters]);
+        counselingRequests.filter((request: any) => (
+            matchesCounselingTab(request)
+            && matchesCascadeFilters(getStudentForRequest(request))
+        ))
+    ), [counselingRequests, matchesCounselingTab, getStudentForRequest, matchesCascadeFilters]);
 
     const filteredRequestSignature = useMemo(
         () => filteredRequests.map((request: any) => String(request?.id || '')).join('|'),
         [filteredRequests]
     );
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [counselingTab, filteredRequestSignature]);
-
     const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
+    const pageKey = `${counselingTab}:${filteredRequestSignature}`;
+    const currentPage = pageState.key === pageKey ? Math.min(pageState.page, totalPages) : 1;
     const startIndex = filteredRequests.length === 0 ? 0 : (currentPage - 1) * pageSize;
     const endIndex = Math.min(startIndex + pageSize, filteredRequests.length);
     const paginatedRequests = filteredRequests.slice(startIndex, startIndex + pageSize);
 
-    useEffect(() => {
-        if (currentPage > totalPages) {
-            setCurrentPage(totalPages);
-        }
-    }, [currentPage, totalPages]);
-
     const goToPage = (nextPage: number) => {
         const safePage = Number.isFinite(nextPage) ? Math.min(Math.max(nextPage, 1), totalPages) : 1;
-        setCurrentPage(safePage);
+        setPageState({ key: pageKey, page: safePage });
     };
 
     return (
@@ -148,27 +281,27 @@ const DeptCounselingQueuePage = ({
                         (() => {
                             const isCompletingRequest = pendingCounselingCompletionId === String(req.id);
                             return (
-                        <div key={req.id} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all animate-fade-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
+                        <div key={req.id} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all animate-fade-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
                             <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-4">
-                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">{req.student_name.charAt(0)}</div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-900">{req.student_name}</h4>
-                                        {req.course_year && <p className="text-xs text-gray-500">{req.course_year}</p>}
-                                        <p className="text-[10px] text-gray-400 mt-2">{new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                                    </div>
-                                </div>
+                                <button type="button" aria-label={`View counseling request for ${req.student_name}`} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="flex min-w-0 flex-1 cursor-pointer items-start gap-4 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                    <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">{req.student_name.charAt(0)}</span>
+                                    <span className="min-w-0">
+                                        <span className="block font-bold text-gray-900">{req.student_name}</span>
+                                        {req.course_year && <span className="block text-xs text-gray-500">{req.course_year}</span>}
+                                        <span className="mt-2 block text-[10px] text-gray-400">{new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    </span>
+                                </button>
                                 <div className="flex gap-2 ml-4 flex-shrink-0">
                                     {isCounselingAwaitingDept(req.status) && (
                                         <>
-                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowScheduleModal(true); }} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors" title="Approve & Schedule">Approve</button>
-                                            <button onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowRejectModal(true); }} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors" title="Reject">Reject</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowScheduleModal(true); }} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors" title="Approve & Schedule">Approve</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCounselingReq(req); setShowRejectModal(true); }} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors" title="Reject">Reject</button>
                                         </>
                                     )}
                                     {req.status === COUNSELING_STATUS.SCHEDULED && (
                                         <>
-                                            <button disabled={isCompletingRequest} onClick={(e) => { e.stopPropagation(); handleCompleteRequest(req); }} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-green-50">{isCompletingRequest ? 'Completing...' : 'Complete'}</button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleStartForward(req); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors">Forward</button>
+                                            <button type="button" disabled={isCompletingRequest} onClick={(e) => { e.stopPropagation(); handleCompleteRequest(req); }} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-green-50">{isCompletingRequest ? 'Completing...' : 'Complete'}</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); handleStartForward(req); }} className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors">Forward</button>
                                         </>
                                     )}
                                     {getCounselingScheduledDate(req) && <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-semibold">{new Date(getCounselingScheduledDate(req) as string).toLocaleDateString()}</span>}
@@ -178,69 +311,19 @@ const DeptCounselingQueuePage = ({
                             );
                         })()
                     ))}
-                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4">
-                        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                            <div className="space-y-1">
-                                <p className="text-sm font-semibold text-gray-800">
-                                    Showing {startIndex + 1}-{endIndex} of {filteredRequests.length} results
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                    Page {currentPage} of {totalPages}
-                                </p>
-                            </div>
-
-                            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-                                <label className="flex items-center gap-2 text-sm text-gray-600">
-                                    <span className="font-semibold">Rows</span>
-                                    <select
-                                        value={pageSize}
-                                        onChange={(event) => {
-                                            setPageSize(Number(event.target.value));
-                                            setCurrentPage(1);
-                                        }}
-                                        className={`rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
-                                    >
-                                        {PAGE_SIZE_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>{option}</option>
-                                        ))}
-                                    </select>
-                                </label>
-
-                                <label className="flex items-center gap-2 text-sm text-gray-600">
-                                    <span className="font-semibold">Jump to</span>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={totalPages}
-                                        value={currentPage}
-                                        onChange={(event) => goToPage(Number(event.target.value) || 1)}
-                                        className={`w-20 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
-                                    />
-                                </label>
-
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => goToPage(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                                    >
-                                        <ChevronLeft size={16} />
-                                        Previous
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => goToPage(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-                                    >
-                                        Next
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <QueuePaginationBar
+                        startIndex={startIndex}
+                        endIndex={endIndex}
+                        totalResults={filteredRequests.length}
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        pageSize={pageSize}
+                        onPageSizeChange={(size: number) => {
+                            setPageSize(size);
+                            setPageState({ key: pageKey, page: 1 });
+                        }}
+                        goToPage={goToPage}
+                    />
                     </>
                     )}
                 </div>
@@ -248,76 +331,15 @@ const DeptCounselingQueuePage = ({
 
             {/* Counseling View Modal - Read-only Self-Referral Form */}
             {showCounselingViewModal && selectedCounselingReq && (
-                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
-                    <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-purple-100/50">
-                        <div className="p-8">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-extrabold text-lg">STUDENT SELF-REFERRAL FOR COUNSELING FORM</h3>
-                                    <p className="text-xs text-gray-400 mt-1">Office of the Director, Counseling, Assessment, Resources, and Enhancement Center</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(selectedCounselingReq.created_at).toLocaleString()}</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isCounselingAwaitingDept(selectedCounselingReq.status) ? 'bg-amber-100 text-amber-700' : selectedCounselingReq.status === COUNSELING_STATUS.SCHEDULED ? 'bg-blue-100 text-blue-700' : selectedCounselingReq.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : selectedCounselingReq.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-700' : selectedCounselingReq.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : selectedCounselingReq.status === COUNSELING_STATUS.REJECTED ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{isCounselingAwaitingDept(selectedCounselingReq.status) ? 'Pending Review' : selectedCounselingReq.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : selectedCounselingReq.status}</span>
-                                    <button onClick={() => setShowCounselingViewModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
-                                </div>
-                            </div>
-                            {/* Read-only form fields */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input readOnly value={selectedCounselingReq.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input readOnly value={selectedCounselingReq.course_year || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input readOnly value={selectedCounselingReq.contact_number || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Reason/s for Requesting Counseling</label>
-                                <textarea readOnly rows={4} value={selectedCounselingReq.reason_for_referral || selectedCounselingReq.description || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Personal Actions Taken</label>
-                                <textarea readOnly rows={3} value={selectedCounselingReq.personal_actions_taken || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Concern</label>
-                                <textarea readOnly rows={2} value={selectedCounselingReq.date_duration_of_concern || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 cursor-not-allowed resize-none"></textarea>
-                            </div>
-                            {/* Signature (shown for referred requests) */}
-                            {selectedCounselingReq.referrer_signature && (
-                                <div className="mb-4">
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Name and Signature of the Referring Person</label>
-                                    <div className="bg-white border-2 border-dashed border-purple-200 rounded-xl p-4 flex flex-col items-center">
-                                        <img src={selectedCounselingReq.referrer_signature} alt="Referrer Signature" className="max-h-24 object-contain" />
-                                        <div className="w-48 border-t border-gray-400 mt-2 pt-1 text-center">
-                                            <p className="text-sm font-bold text-gray-800">{selectedCounselingReq.referred_by}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {/* Status-specific info */}
-                            {getCounselingScheduledDate(selectedCounselingReq) && (
-                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-3"><p className="text-xs font-bold text-blue-800 uppercase mb-1">Scheduled Session</p><p className="text-sm font-semibold text-blue-900">{new Date(getCounselingScheduledDate(selectedCounselingReq) as string).toLocaleString()}</p></div>
-                            )}
-                            {selectedCounselingReq.referred_by && (
-                                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-3"><p className="text-xs font-bold text-purple-800 uppercase mb-1">Forwarded by</p><p className="text-sm font-semibold text-purple-900">{selectedCounselingReq.referred_by}</p></div>
-                            )}
-                        </div>
-                        {/* Action buttons */}
-                        <div className="p-6 border-t border-gray-100 flex flex-wrap gap-3 sticky bottom-0 bg-white rounded-b-2xl">
-                            {isCounselingAwaitingDept(selectedCounselingReq.status) && (
-                                <>
-                                    <button onClick={() => { setShowCounselingViewModal(false); setShowScheduleModal(true); }} className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200/50 hover:shadow-xl transition-all">Approve & Schedule</button>
-                                    <button onClick={() => { setShowCounselingViewModal(false); setShowRejectModal(true); }} className="flex-1 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition-all">Reject</button>
-                                </>
-                            )}
-                            {selectedCounselingReq.status === COUNSELING_STATUS.SCHEDULED && (
-                                <>
-                                    <button disabled={pendingCounselingCompletionId === String(selectedCounselingReq.id)} onClick={() => handleCompleteRequest(selectedCounselingReq)} className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-green-200/50 hover:shadow-xl transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-lg">{pendingCounselingCompletionId === String(selectedCounselingReq.id) ? 'Completing...' : 'Mark as Completed'}</button>
-                                    <button onClick={() => handleStartForward(selectedCounselingReq)} className="flex-1 py-2.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all">Forward to CARE Staff</button>
-                                </>
-                            )}
-                            <button onClick={() => setShowCounselingViewModal(false)} className="w-full py-2 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors">Close</button>
-                        </div>
-                    </div>
-                </div>
+                <CounselingViewModal
+                    request={selectedCounselingReq}
+                    pendingCounselingCompletionId={pendingCounselingCompletionId}
+                    onClose={() => setShowCounselingViewModal(false)}
+                    onOpenSchedule={() => { setShowCounselingViewModal(false); setShowScheduleModal(true); }}
+                    onOpenReject={() => { setShowCounselingViewModal(false); setShowRejectModal(true); }}
+                    onComplete={handleCompleteRequest}
+                    onForward={handleStartForward}
+                />
             )}
 
             {/* Schedule Modal */}
@@ -326,16 +348,16 @@ const DeptCounselingQueuePage = ({
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Approve & Schedule Session</h3>
-                            <button onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                            <button type="button" aria-label="Close scheduling dialog" onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                         </div>
                         <form onSubmit={handleApproveAndSchedule} className="p-6 space-y-4">
                             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
                                 <p className="text-sm font-bold text-emerald-900">{selectedCounselingReq.student_name}</p>
                                 <p className="text-xs text-emerald-700 mt-1 line-clamp-2">{selectedCounselingReq.reason_for_referral || selectedCounselingReq.description}</p>
                             </div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Session Date <span className="text-red-400">*</span></label><input type="date" value={scheduleData.date} onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })} className="w-full px-4 py-2 border rounded-xl text-sm" required /></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Session Time <span className="text-red-400">*</span></label><input type="time" value={scheduleData.time} onChange={e => setScheduleData({ ...scheduleData, time: e.target.value })} className="w-full px-4 py-2 border rounded-xl text-sm" required /></div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Notes (Optional)</label><textarea value={scheduleData.notes} onChange={e => setScheduleData({ ...scheduleData, notes: e.target.value })} className="w-full px-4 py-2 border rounded-xl text-sm h-20" placeholder="Additional instructions for the student..."></textarea></div>
+                            <div><label htmlFor="dept-session-date" className="block text-xs font-bold text-gray-500 mb-1">Session Date <span className="text-red-400">*</span></label><input id="dept-session-date" type="date" value={scheduleData.date} onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })} className="w-full px-4 py-2 border rounded-xl text-sm" required /></div>
+                            <div><label htmlFor="dept-session-time" className="block text-xs font-bold text-gray-500 mb-1">Session Time <span className="text-red-400">*</span></label><input id="dept-session-time" type="time" value={scheduleData.time} onChange={e => setScheduleData({ ...scheduleData, time: e.target.value })} className="w-full px-4 py-2 border rounded-xl text-sm" required /></div>
+                            <div><label htmlFor="dept-session-notes" className="block text-xs font-bold text-gray-500 mb-1">Notes (Optional)</label><textarea id="dept-session-notes" value={scheduleData.notes} onChange={e => setScheduleData({ ...scheduleData, notes: e.target.value })} className="w-full px-4 py-2 border rounded-xl text-sm h-20" placeholder="Additional instructions for the student..."></textarea></div>
                             <button type="submit" disabled={isSubmittingCounselingSchedule} className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:shadow-lg shadow-emerald-200/50 transition-all disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-none">{isSubmittingCounselingSchedule ? 'Scheduling...' : 'Approve & Schedule'}</button>
                         </form>
                     </div>
@@ -348,17 +370,17 @@ const DeptCounselingQueuePage = ({
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-lg">Reject Request</h3>
-                            <button onClick={() => setShowRejectModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                            <button type="button" aria-label="Close rejection dialog" onClick={() => setShowRejectModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                         </div>
                         <div className="p-6 space-y-4">
                             <div className="bg-red-50 p-4 rounded-xl border border-red-100">
                                 <p className="text-sm font-bold text-red-900">{selectedCounselingReq.student_name}</p>
                                 <p className="text-xs text-red-700 mt-1 line-clamp-2">{selectedCounselingReq.reason_for_referral || selectedCounselingReq.description}</p>
                             </div>
-                            <div><label className="block text-xs font-bold text-gray-500 mb-1">Reason for Rejection (Optional)</label><textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} className="w-full px-4 py-2 border rounded-xl text-sm h-24" placeholder="Explain why this request is being rejected..."></textarea></div>
+                            <div><label htmlFor="dept-rejection-notes" className="block text-xs font-bold text-gray-500 mb-1">Reason for Rejection (Optional)</label><textarea id="dept-rejection-notes" value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} className="w-full px-4 py-2 border rounded-xl text-sm h-24" placeholder="Explain why this request is being rejected..."></textarea></div>
                             <div className="flex gap-3">
-                                <button disabled={isSubmittingCounselingReject} onClick={handleRejectRequest} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingCounselingReject ? 'Rejecting...' : 'Reject Request'}</button>
-                                <button onClick={() => setShowRejectModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all">Cancel</button>
+                                <button type="button" disabled={isSubmittingCounselingReject} onClick={handleRejectRequest} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingCounselingReject ? 'Rejecting...' : 'Reject Request'}</button>
+                                <button type="button" onClick={() => setShowRejectModal(false)} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all">Cancel</button>
                             </div>
                         </div>
                     </div>

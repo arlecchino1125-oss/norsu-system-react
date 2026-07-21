@@ -123,7 +123,7 @@ export function IdSwapModal({ showToast, handleRefreshData, invokeManagedStudent
                         <RefreshCw className="h-5 w-5 text-teal-600" />
                         Rename or Swap Student ID
                     </h3>
-                    <button type="button" onClick={() => setShowIdSwapModal(false)} className="text-slate-400 hover:text-slate-600">
+                            <button type="button" aria-label="Close student ID dialog" onClick={() => setShowIdSwapModal(false)} className="text-slate-400 hover:text-slate-600">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
@@ -133,8 +133,9 @@ export function IdSwapModal({ showToast, handleRefreshData, invokeManagedStudent
                 <form onSubmit={handleSwapIds} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
-                            <input
+                                    <label htmlFor="admin-source-student-id" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Source Student ID</label>
+                                    <input
+                                        id="admin-source-student-id"
                                 required
                                 type="text"
                                 value={sourceId}
@@ -144,8 +145,9 @@ export function IdSwapModal({ showToast, handleRefreshData, invokeManagedStudent
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
-                            <input
+                                    <label htmlFor="admin-target-student-id" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Target Student ID</label>
+                                    <input
+                                        id="admin-target-student-id"
                                 required
                                 type="text"
                                 value={targetId}

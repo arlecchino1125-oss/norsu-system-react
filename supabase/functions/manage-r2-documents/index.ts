@@ -182,7 +182,10 @@ const resolveUploadResource = async (
 const parseStoredArray = (value: unknown) => {
     try {
         const parsed = JSON.parse(String(value || ''));
-        return Array.isArray(parsed) ? parsed.map((entry) => String(entry || '').trim()).filter(Boolean) : [];
+        return Array.isArray(parsed) ? parsed.flatMap((entry) => {
+            const normalizedEntry = String(entry || '').trim();
+            return normalizedEntry ? [normalizedEntry] : [];
+        }) : [];
     } catch {
         return String(value || '').trim() ? [String(value).trim()] : [];
     }

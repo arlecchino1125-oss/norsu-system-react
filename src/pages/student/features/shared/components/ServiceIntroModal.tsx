@@ -93,12 +93,8 @@ type ServiceGuideKey = keyof typeof SERVICE_GUIDES;
 // Reusable Service Intro Guide Modal
 export function ServiceIntroModal({ serviceKey }: { serviceKey: string }) {
     const storageKey = `norsu_intro_seen_${serviceKey}`;
-    const [show, setShow] = React.useState(false);
+    const [show, setShow] = React.useState(() => !localStorage.getItem(storageKey));
     const guide = SERVICE_GUIDES[serviceKey as ServiceGuideKey];
-
-    React.useEffect(() => {
-        if (!localStorage.getItem(storageKey)) setShow(true);
-    }, []);
 
     if (!show || !guide) return null;
 
@@ -120,8 +116,8 @@ export function ServiceIntroModal({ serviceKey }: { serviceKey: string }) {
                 <div className="p-5 sm:p-8">
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">How it works</h4>
                     <div className="space-y-3 mb-6">
-                        {guide.steps.map((step: any, idx: number) => (
-                            <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                        {guide.steps.map((step: any) => (
+                            <div key={step.text} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
                                 <span className="text-lg flex-shrink-0">{step.icon}</span>
                                 <p className="text-sm text-gray-700">{step.text}</p>
                             </div>
@@ -132,7 +128,7 @@ export function ServiceIntroModal({ serviceKey }: { serviceKey: string }) {
                             <p className="text-xs text-blue-700"><span className="font-bold">💡 Tip:</span> {guide.tip}</p>
                         </div>
                     )}
-                    <button onClick={dismiss} className={`w-full py-3.5 bg-gradient-to-r ${guide.color} text-white rounded-xl font-bold text-sm shadow-lg transition-all hover:opacity-90`}>
+                    <button type="button" onClick={dismiss} className={`w-full py-3.5 bg-gradient-to-r ${guide.color} text-white rounded-xl font-bold text-sm shadow-lg transition-all hover:opacity-90`}>
                         Got it, let's go!
                     </button>
                 </div>

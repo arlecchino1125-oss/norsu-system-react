@@ -1,11 +1,11 @@
-﻿import { ClockDisplay, GreetingText } from '../../../../../components/ClockDisplay';
+import { ClockDisplay, GreetingText } from '../../../../../components/ClockDisplay';
 import {
     Search, Settings, BarChart2, Rocket,
     ClipboardCheck, CalendarCheck, Award
 } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
 import type { CareStaffDashboardFunctions } from '../../../types';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 type HomePageFunctions = Pick<
     CareStaffDashboardFunctions,
@@ -36,14 +36,14 @@ const ITEM_SPRING = {
     show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
-const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
-    const tools = [
-        { title: 'Student Analytics', module: 'Student Analytics', desc: 'Monitor trends & tracking data', icon: <Search size={22} />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30' },
-        { title: 'Form Management', module: 'Form Management', desc: 'Process and review user forms', icon: <ClipboardCheck size={22} />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-500/30' },
-        { title: 'Event Broadcaster', module: 'Event Broadcaster', desc: 'Manage system announcements', icon: <CalendarCheck size={22} />, color: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30' },
-        { title: 'Manage Scholarships', module: 'Manage Scholarships', desc: 'Manage scholarship programs and applications', icon: <Award size={22} />, color: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
-    ];
+const HOME_ADMIN_TOOLS = [
+    { title: 'Student Analytics', module: 'Student Analytics', desc: 'Monitor trends & tracking data', icon: <Search size={22} />, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30' },
+    { title: 'Form Management', module: 'Form Management', desc: 'Process and review user forms', icon: <ClipboardCheck size={22} />, color: 'from-purple-500 to-violet-600', shadow: 'shadow-purple-500/30' },
+    { title: 'Event Broadcaster', module: 'Event Broadcaster', desc: 'Manage system announcements', icon: <CalendarCheck size={22} />, color: 'from-emerald-400 to-teal-500', shadow: 'shadow-emerald-500/30' },
+    { title: 'Manage Scholarships', module: 'Manage Scholarships', desc: 'Manage scholarship programs and applications', icon: <Award size={22} />, color: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
+];
 
+const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
     return (
         <div className="relative z-10 mt-10 border-t border-white/10 pt-8">
             <div className="mb-6 flex items-center justify-between px-2">
@@ -51,15 +51,15 @@ const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
                     <Settings size={20} className="text-purple-200" /> Quick Launch
                 </h2>
             </div>
-            <motion.div
+            <m.div
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
                 variants={STAGGER_CONTAINER}
                 initial="hidden"
                 animate="show"
             >
-                {tools.map((tool, idx) => (
-                    <motion.button
-                        key={idx}
+                {HOME_ADMIN_TOOLS.map((tool) => (
+                    <m.button
+                        key={tool.module}
                         variants={ITEM_SPRING}
                         whileHover={{ scale: 1.04, y: -8, transition: { type: "spring", stiffness: 420, damping: 16 } }}
                         whileTap={{ scale: 0.98 }}
@@ -74,9 +74,9 @@ const HomeAdminTools = ({ functions }: HomeAdminToolsProps) => {
                         </div>
                         <h3 className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors text-base tracking-tight z-10">{tool.title}</h3>
                         <p className="text-[14px] text-slate-500 mt-2 font-medium leading-relaxed z-10">{tool.desc}</p>
-                    </motion.button>
+                    </m.button>
                 ))}
-            </motion.div>
+            </m.div>
         </div>
     );
 };
@@ -86,20 +86,20 @@ const CareStaffHomePage = ({ functions }: CareStaffHomePageProps) => {
     return (
         <div className="overflow-x-hidden pt-2">
             {/* Welcome Hero with Live Clock - Micro-Interactions Upgrade */}
-            <motion.div
+            <m.div
                 initial={{ opacity: 0, y: 30, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 25 }}
                 className="group relative flex min-h-[calc(100vh-7.25rem)] flex-col overflow-hidden rounded-[2.5rem] border border-purple-500/20 bg-gradient-to-br from-[#241042] via-[#1A0B2E] to-[#120524] p-8 text-white shadow-[0_20px_50px_rgba(88,28,135,0.15)] md:min-h-[calc(100vh-8.25rem)] lg:p-14"
             >
                 {/* Decorative Premium Glows with Mouse Reactivity */}
-                <motion.div
+                <m.div
                     initial={{ rotate: 0 }}
                     animate={{ rotate: 360 }}
                     transition={{ duration: 150, repeat: Infinity, ease: "linear" }}
                     className="absolute top-0 right-0 w-[800px] h-[800px] bg-purple-500/20 rounded-full blur-[120px] -mr-64 -mt-64 pointer-events-none group-hover:bg-purple-500/30 transition-colors duration-1000"
                 />
-                <motion.div
+                <m.div
                     initial={{ rotate: 0 }}
                     animate={{ rotate: -360 }}
                     transition={{ duration: 200, repeat: Infinity, ease: "linear" }}
@@ -123,7 +123,7 @@ const CareStaffHomePage = ({ functions }: CareStaffHomePageProps) => {
                             Experience streamlined student care management. Access comprehensive analytics, administrative tools, and real-time insights—all from a single, unified command center.
                         </p>
                         <div className="flex flex-wrap gap-5 justify-center lg:justify-start">
-                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <m.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                 <Button
                                     variant="primary"
                                     size="lg"
@@ -135,8 +135,8 @@ const CareStaffHomePage = ({ functions }: CareStaffHomePageProps) => {
                                         <Rocket size={20} className="mr-3 text-purple-600 group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform duration-300" /> Start Session
                                     </div>
                                 </Button>
-                            </motion.div>
-                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            </m.div>
+                            <m.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                 <Button
                                     variant="primary"
                                     size="lg"
@@ -145,12 +145,12 @@ const CareStaffHomePage = ({ functions }: CareStaffHomePageProps) => {
                                 >
                                     <BarChart2 size={20} className="mr-3 opacity-70" /> View Analytics
                                 </Button>
-                            </motion.div>
+                            </m.div>
                         </div>
                     </div>
 
                     {/* Right: Live Clock */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, rotateX: 20, scale: 0.8 }}
                         animate={{ opacity: 1, rotateX: 0, scale: 1 }}
                         transition={{ type: "spring", stiffness: 150, damping: 20, delay: 0.2 }}
@@ -158,12 +158,12 @@ const CareStaffHomePage = ({ functions }: CareStaffHomePageProps) => {
                         className="hidden lg:block flex-shrink-0 cursor-default perspective-1000"
                     >
                         <ClockDisplay />
-                    </motion.div>
+                    </m.div>
                 </div>
 
                 {/* Admin Tools Quick Launch */}
                 <HomeAdminTools functions={functions} />
-            </motion.div>
+            </m.div>
         </div>
     );
 };

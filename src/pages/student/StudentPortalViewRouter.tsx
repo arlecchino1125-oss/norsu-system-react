@@ -43,7 +43,7 @@ export function renderRemainingViews(viewProps: StudentRemainingViewProps) {
 
     return (
         <>
-            <ServiceIntroModal serviceKey={route.serviceKey} />
+            <ServiceIntroModal key={route.serviceKey} serviceKey={route.serviceKey} />
             {renderLazyView(true, route.component, props)}
         </>
     );

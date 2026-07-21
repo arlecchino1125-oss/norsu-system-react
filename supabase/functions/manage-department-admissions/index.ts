@@ -171,9 +171,10 @@ const getDepartmentCourseNames = async (
     if (coursesError) throw coursesError;
 
     return new Set(
-        (courses || [])
-            .map((course: { name?: string | null }) => String(course.name || '').trim())
-            .filter(Boolean)
+        (courses || []).flatMap((course: { name?: string | null }) => {
+            const name = String(course.name || '').trim();
+            return name ? [name] : [];
+        })
     );
 };
 
@@ -255,9 +256,10 @@ const normalizeApplicationIds = (applicationIds: unknown) => {
     }
 
     return Array.from(new Set(
-        applicationIds
-            .map((value) => String(value || '').trim())
-            .filter(Boolean)
+        applicationIds.flatMap((value) => {
+            const id = String(value || '').trim();
+            return id ? [id] : [];
+        })
     ));
 };
 
@@ -281,8 +283,10 @@ const getBulkDecisionReadyApplications = async (
     applicationIds: string[],
     actionLabel: string
 ) => {
-    const courseNames: DepartmentCourseNames = await getDepartmentCourseNames(adminClient, department);
-    const applications: DepartmentApplicationRow[] = await getApplicationsByIds(adminClient, applicationIds);
+    const [courseNames, applications]: [DepartmentCourseNames, DepartmentApplicationRow[]] = await Promise.all([
+        getDepartmentCourseNames(adminClient, department),
+        getApplicationsByIds(adminClient, applicationIds)
+    ]);
     const applicationsById = new Map<string, DepartmentApplicationRow>(
         applications.map((application) => [String(application.id), application])
     );
@@ -339,8 +343,10 @@ const scheduleDepartmentApplications = async (
     panel: string | null
 ) => {
     const interviewDate = `${date} ${time}`;
-    const courseNames: DepartmentCourseNames = await getDepartmentCourseNames(adminClient, department);
-    const applications: DepartmentApplicationRow[] = await getApplicationsByIds(adminClient, applicationIds);
+    const [courseNames, applications]: [DepartmentCourseNames, DepartmentApplicationRow[]] = await Promise.all([
+        getDepartmentCourseNames(adminClient, department),
+        getApplicationsByIds(adminClient, applicationIds)
+    ]);
     const applicationsById = new Map<string, DepartmentApplicationRow>(
         applications.map((application) => [String(application.id), application])
     );
@@ -396,10 +402,11 @@ const scheduleDepartmentApplications = async (
         if (error) throw error;
     }
 
+    const scheduledIdSet = new Set(scheduledIds);
     return {
         interviewDate,
         scheduledIds,
-        scheduledApplications: applications.filter((application: any) => scheduledIds.includes(String(application.id))),
+        scheduledApplications: applications.filter((application: any) => scheduledIdSet.has(String(application.id))),
         skipped
     };
 };

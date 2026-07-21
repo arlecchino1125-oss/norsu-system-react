@@ -1,9 +1,10 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-import { useAuth } from '../lib/auth';
-import { usePortalTabRoute, readInitialTab } from '../hooks/usePortalTabRoute';
-import { useToast } from '../components/ui/toast/ToastProvider';
+import { useAuth } from '../lib/useAuth';
+import { CARE_STAFF_NOTES_STORAGE_KEY, migrateLegacyStorageKey } from '../lib/storageKeys';
+import { usePortalTabRoute } from '../hooks/usePortalTabRoute';
+import { useToast } from '../components/ui/toast/useToast';
 import { usePermissions } from '../hooks/usePermissions';
 import FeatureAvailabilityView from '../components/permissions/FeatureAvailabilityView';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';
@@ -58,16 +59,10 @@ const CareStaffDashboard = () => {
         getFeatureAccessState,
         isFeatureVisible
     } = usePermissions();
-    const { tab: urlTab } = useParams<{ tab?: string }>();
-    const [activeTab, setActiveTab] = useState<ActiveTab>(
-        () => readInitialTab<ActiveTab>(urlTab, ACTIVE_TABS, 'home'),
-    );
-    const { goToTab } = usePortalTabRoute<ActiveTab>({
+    const { activeTab, goToTab } = usePortalTabRoute<ActiveTab>({
         basePath: CARE_STAFF_BASE_PATH,
         tabs: ACTIVE_TABS,
         defaultTab: 'home',
-        activeTab,
-        onTabResolved: setActiveTab,
     });
     const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
 
@@ -76,7 +71,8 @@ const CareStaffDashboard = () => {
     const [commandHubTab, setCommandHubTab] = useState<CommandHubTab>('actions');
     const [staffNotes, setStaffNotes] = useState<StaffNote[]>(() => {
         try {
-            const parsed = JSON.parse(localStorage.getItem('care_staff_notes') || '[]');
+            migrateLegacyStorageKey('care_staff_notes', CARE_STAFF_NOTES_STORAGE_KEY);
+            const parsed = JSON.parse(localStorage.getItem(CARE_STAFF_NOTES_STORAGE_KEY) || '[]');
             return Array.isArray(parsed) ? (parsed as StaffNote[]) : [];
         } catch {
             return [];
@@ -114,11 +110,8 @@ const CareStaffDashboard = () => {
         isLoadingStudentActivationPolicy,
         isSavingStudentActivationPolicy,
         loadStudentActivationPolicy,
-        toggleStudentActivationPolicy,
-        loadStudentResetImpact,
-        requestStudentResetOtp,
-        confirmStudentReset
-    } = useCareStaffGovernance({ session, showToastMessage, bumpViewRefreshSignal });
+        toggleStudentActivationPolicy
+    } = useCareStaffGovernance({ session, showToastMessage });
 
     useEffect(() => {
         if (activeTab === 'settings') {
@@ -228,9 +221,6 @@ const CareStaffDashboard = () => {
                         isLoadingStudentActivationPolicy={isLoadingStudentActivationPolicy}
                         isSavingStudentActivationPolicy={isSavingStudentActivationPolicy}
                         toggleStudentActivationPolicy={toggleStudentActivationPolicy}
-                        loadStudentResetImpact={loadStudentResetImpact}
-                        requestStudentResetOtp={requestStudentResetOtp}
-                        confirmStudentReset={confirmStudentReset}
                     />
                 );
             case 'audit':
@@ -261,7 +251,7 @@ const CareStaffDashboard = () => {
                 <div className="w-full max-w-2xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-xl">
                     <h1 className="text-2xl font-bold text-slate-900">Unable to load CARE Staff permissions</h1>
                     <p className="mt-3 text-sm leading-6 text-slate-500">{permissionsError}</p>
-                    <button
+                    <button type="button"
                         onClick={() => window.location.reload()}
                         className="mt-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >

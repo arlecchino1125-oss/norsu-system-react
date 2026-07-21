@@ -1,4 +1,4 @@
-const APP_SESSION_STORAGE_KEY = 'norsu_session';
+import { APP_SESSION_STORAGE_KEY } from './storageKeys';
 
 const RECOVERABLE_SESSION_ERROR_MARKERS = [
     'invalid refresh token',

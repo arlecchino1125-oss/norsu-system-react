@@ -9,10 +9,10 @@ const normalizeEmail = (value: unknown) => {
 };
 
 const buildDisplayName = (...parts: unknown[]) => {
-    const joined = parts
-        .map((part) => String(part ?? '').trim())
-        .filter(Boolean)
-        .join(' ');
+    const joined = parts.flatMap((part) => {
+        const namePart = String(part ?? '').trim();
+        return namePart ? [namePart] : [];
+    }).join(' ');
 
     return joined || 'Student';
 };

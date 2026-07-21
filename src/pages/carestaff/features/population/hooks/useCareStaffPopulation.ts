@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import {
@@ -66,6 +66,43 @@ import {
     getArchivedSnapshotForSchoolYear,
     isProfileIncompleteStep1
 } from '../utils';
+
+const POPULATION_SORT_COLUMN_MAP: Record<string, string> = {
+    name: 'last_name',
+    student_id: 'student_id',
+    course: 'course',
+    status: 'status',
+    created_at: 'created_at'
+};
+
+const updateStudentsByIds = async (targetIds: Array<string | number>, payload: any) => {
+    const batches = Array.from(
+        { length: Math.ceil(targetIds.length / 500) },
+        (_, index) => targetIds.slice(index * 500, (index + 1) * 500)
+    );
+    const updatedCounts = await Promise.all(batches.map(async (batchIds) => {
+        const { data, error } = await supabase
+            .from('students')
+            .update(payload)
+            .in('id', batchIds.map(Number))
+            .select('id');
+        if (error) throw error;
+        return data?.length || 0;
+    }));
+    return updatedCounts.reduce((total, count) => total + count, 0);
+};
+
+const handleDownloadTemplate = () => {
+    const csvContent = "Student ID,Course,Year Level\n2026-1001,BS Information Technology,1st Year\n2026-1002,BS Civil Engineering,2nd Year\n2026-1003,BS Nursing,1st Year";
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "student_ids_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+};
 
 export function useCareStaffPopulation({
     functions,
@@ -472,18 +509,18 @@ export function useCareStaffPopulation({
         setCourseApplicantCountsLoading(qCourseApplicantCountsLoading);
     }, [qCourseApplicantCounts, qCourseApplicantCountsLoading]);
 
-    const refreshPopulationAfterStudentMutation = async () => {
+    const refreshPopulationAfterStudentMutation = useCallback(async () => {
         setTableRefreshTick((current) => current + 1);
         await Promise.all([
             queryClient.invalidateQueries({ queryKey: ['care_staff_population_overview'] }),
             queryClient.invalidateQueries({ queryKey: ['care_staff_population_paged_students'] }),
             schoolYearFilter !== 'All' ? queryClient.invalidateQueries({ queryKey: ['care_staff_population_historical'] }) : Promise.resolve()
         ]);
-    };
+    }, [queryClient, schoolYearFilter]);
 
     // Obsolete useEffect mounts deleted (handled by useQuery configuration automatically)
 
-    const openProfileModal = async (student: any) => {
+    const openProfileModal = useCallback(async (student: any) => {
         setProfileLoading(true);
         setProfileCategoryIndex(0);
         try {
@@ -495,14 +532,14 @@ export function useCareStaffPopulation({
             if (typeof student === 'object') setProfileViewStudent(student);
         }
         setProfileLoading(false);
-    };
+    }, []);
     /* Lifted to Parent
     const fetchStudents = async () => { ... };
     const fetchCourses = async () => { ... };
     useEffect(() => { fetchStudents(); fetchCourses(); ... }, []);
     */
 
-    const fetchEnrollmentKeys = async () => {
+    const fetchEnrollmentKeys = useCallback(async () => {
         try {
             let query = supabase
                 .from('enrolled_students')
@@ -526,11 +563,68 @@ export function useCareStaffPopulation({
             setTotalEnrollmentKeysCount(count || 0);
         } catch (error) {
             console.error('Error fetching enrollment keys:', error);
-            functions.showToast("Couldn't load enrollment keys.", 'error');
+            showToast?.("Couldn't load enrollment keys.", 'error');
         }
-    };
+    }, [enrollmentSearchQuery, enrollmentStatusFilter, showToast]);
 
-    const handleRefreshData = async () => {
+    const cleanupExpiredCourseYearWindows = useCallback(async (silent = true) => {
+        try {
+            if (archiveRpcStateRef.current !== 'missing') {
+                const { data, error } = await supabase.rpc('archive_and_reset_expired_course_year');
+                if (error) {
+                    const errorText = String(error.message || '').toLowerCase();
+                    const rpcMissing = errorText.includes('archive_and_reset_expired_course_year');
+                    if (!rpcMissing) throw error;
+                    archiveRpcStateRef.current = 'missing';
+                    sessionStorage.setItem(ARCHIVE_RPC_MISSING_CACHE_KEY, '1');
+                } else {
+                    archiveRpcStateRef.current = 'available';
+                    sessionStorage.removeItem(ARCHIVE_RPC_MISSING_CACHE_KEY);
+
+                    const cleanedCount = Number(data || 0);
+                    if (cleanedCount > 0) {
+                        if (!silent) {
+                            showToast?.(`School-year windows were updated for ${cleanedCount} students.`, 'info');
+                        }
+                        void refreshPopulationAfterStudentMutation();
+                    }
+                    return;
+                }
+            }
+
+            // Fallback for environments where migration is not yet applied.
+            const nowIso = new Date().toISOString();
+            const { data: fallbackData, error: fallbackError } = await supabase
+                .from('students')
+                .update({
+                    course: null,
+                    year_level: null,
+                    status: 'Inactive',
+                    course_year_confirmed_at: null,
+                    course_year_update_required: false,
+                    course_year_window_start: null,
+                    course_year_window_end: null
+                })
+                .lt('course_year_window_end', nowIso)
+                .select('id');
+            if (fallbackError) throw fallbackError;
+
+            const fallbackCount = fallbackData?.length || 0;
+            if (fallbackCount > 0) {
+                if (!silent) {
+                    showToast?.(`Expired windows processed for ${fallbackCount} students.`, 'info');
+                }
+                void refreshPopulationAfterStudentMutation();
+            }
+        } catch (error: any) {
+            console.error('Error cleaning expired course/year windows:', error);
+            if (!silent) {
+                showToast?.("Couldn't update windows. ", 'error');
+            }
+        }
+    }, [refreshPopulationAfterStudentMutation, showToast]);
+
+    const handleRefreshData = useCallback(async () => {
         if (refreshInFlightRef.current) return;
         refreshInFlightRef.current = true;
         const refreshStartedAt = Date.now();
@@ -561,7 +655,7 @@ export function useCareStaffPopulation({
             }
             await Promise.all(refreshJobs);
             setTableRefreshTick((current) => current + 1);
-            functions.showToast('Student data refreshed.', 'success');
+            showToast?.('Student data refreshed.', 'success');
         } finally {
             const remainingAnimationMs = CARE_STUDENT_REFRESH_MIN_MS - (Date.now() - refreshStartedAt);
             if (remainingAnimationMs > 0) {
@@ -570,70 +664,24 @@ export function useCareStaffPopulation({
             refreshInFlightRef.current = false;
             setIsRefreshingData(false);
         }
-    };
+    }, [
+        archivedStudentsLoaded,
+        cleanupExpiredCourseYearWindows,
+        courseApplicantCountsLoaded,
+        courseYearCountsLoaded,
+        fetchEnrollmentKeys,
+        queryClient,
+        schoolYearFilter,
+        showArchivedStudentsModal,
+        showEnrollmentModal,
+        showToast
+    ]);
 
     useEffect(() => {
         if (refreshSignal === lastExternalRefreshSignalRef.current) return;
         lastExternalRefreshSignalRef.current = refreshSignal;
         void handleRefreshData();
-    }, [refreshSignal]);
-
-    const cleanupExpiredCourseYearWindows = async (silent = true) => {
-        try {
-            if (archiveRpcStateRef.current !== 'missing') {
-                const { data, error } = await supabase.rpc('archive_and_reset_expired_course_year');
-                if (error) {
-                    const errorText = String(error.message || '').toLowerCase();
-                    const rpcMissing = errorText.includes('archive_and_reset_expired_course_year');
-                    if (!rpcMissing) throw error;
-                    archiveRpcStateRef.current = 'missing';
-                    sessionStorage.setItem(ARCHIVE_RPC_MISSING_CACHE_KEY, '1');
-                } else {
-                    archiveRpcStateRef.current = 'available';
-                    sessionStorage.removeItem(ARCHIVE_RPC_MISSING_CACHE_KEY);
-
-                    const cleanedCount = Number(data || 0);
-                    if (cleanedCount > 0) {
-                        if (!silent) {
-                            functions.showToast(`School-year windows were updated for ${cleanedCount} students.`, 'info');
-                        }
-                        void refreshPopulationAfterStudentMutation();
-                    }
-                    return;
-                }
-            }
-
-            // Fallback for environments where migration is not yet applied.
-            const nowIso = new Date().toISOString();
-            const { data: fallbackData, error: fallbackError } = await supabase
-                .from('students')
-                .update({
-                    course: null,
-                    year_level: null,
-                    status: 'Inactive',
-                    course_year_confirmed_at: null,
-                    course_year_update_required: false,
-                    course_year_window_start: null,
-                    course_year_window_end: null
-                })
-                .lt('course_year_window_end', nowIso)
-                .select('id');
-            if (fallbackError) throw fallbackError;
-
-            const fallbackCount = fallbackData?.length || 0;
-            if (fallbackCount > 0) {
-                if (!silent) {
-                    functions.showToast(`Expired windows processed for ${fallbackCount} students.`, 'info');
-                }
-                void refreshPopulationAfterStudentMutation();
-            }
-        } catch (error: any) {
-            console.error('Error cleaning expired course/year windows:', error);
-            if (!silent) {
-                functions.showToast("Couldn't update windows. ", 'error');
-            }
-        }
-    };
+    }, [handleRefreshData, refreshSignal]);
 
     // Handle pending profile view from other pages
     useEffect(() => {
@@ -641,19 +689,19 @@ export function useCareStaffPopulation({
             openProfileModal(pendingProfileId);
             onProfileOpened?.();
         }
-    }, [pendingProfileId]);
+    }, [onProfileOpened, openProfileModal, pendingProfileId]);
 
     useEffect(() => {
         if (showEnrollmentModal) {
             cleanupExpiredCourseYearWindows(false);
         }
-    }, [showEnrollmentModal]);
+    }, [cleanupExpiredCourseYearWindows, showEnrollmentModal]);
 
     useEffect(() => {
         if (showEnrollmentModal) {
             fetchEnrollmentKeys();
         }
-    }, [showEnrollmentModal, enrollmentStatusFilter, enrollmentSearchQuery]);
+    }, [fetchEnrollmentKeys, showEnrollmentModal]);
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -668,13 +716,6 @@ export function useCareStaffPopulation({
         setCurrentPage(1);
     }, [departmentFilter, courseFilter, yearFilter, statusFilter, sectionFilter, schoolYearFilter, hasNoteFilter, atRiskFilter]);
 
-    const sortColumnMap: Record<string, string> = {
-        name: 'last_name',
-        student_id: 'student_id',
-        course: 'course',
-        status: 'status',
-        created_at: 'created_at'
-    };
     const annotationFilterActive = hasNoteFilter || atRiskFilter;
     const {
         data: qAnnotationStudentIds = [],
@@ -721,7 +762,7 @@ export function useCareStaffPopulation({
             },
             { page: currentPage, pageSize: itemsPerPage },
             {
-                column: sortColumnMap[sortConfig.key] || 'created_at',
+                column: POPULATION_SORT_COLUMN_MAP[sortConfig.key] || 'created_at',
                 ascending: sortConfig.direction === 'asc'
             }
         ),
@@ -792,21 +833,6 @@ export function useCareStaffPopulation({
         return getCareStudentBulkTargets(getCurrentStudentFilters(searchTerm));
     };
 
-    const updateStudentsByIds = async (targetIds: Array<string | number>, payload: any) => {
-        let updatedCount = 0;
-        for (let i = 0; i < targetIds.length; i += 500) {
-            const batchIds = targetIds.slice(i, i + 500);
-            const { data, error } = await supabase
-                .from('students')
-                .update(payload)
-                .in('id', batchIds.map(Number))
-                .select('id');
-            if (error) throw error;
-            updatedCount += data?.length || 0;
-        }
-        return updatedCount;
-    };
-
     const applyBulkCourseYearWindow = async () => {
         const start = bulkWindowForm.start ? new Date(bulkWindowForm.start) : null;
         const end = bulkWindowForm.end ? new Date(bulkWindowForm.end) : null;
@@ -824,7 +850,7 @@ export function useCareStaffPopulation({
             functions.showToast('No students match the selected filter.', 'info');
             return;
         }
-        const targetIds = targets.map((student: any) => student.id).filter(Boolean);
+        const targetIds = targets.flatMap((student: any) => student.id ? [student.id] : []);
         if (targetIds.length === 0) {
             functions.showToast('No valid student IDs found for the selected filter.', 'error');
             return;
@@ -856,7 +882,7 @@ export function useCareStaffPopulation({
             functions.showToast('No students match the selected filter.', 'info');
             return;
         }
-        const targetIds = targets.map((student: any) => student.id).filter(Boolean);
+        const targetIds = targets.flatMap((student: any) => student.id ? [student.id] : []);
         if (targetIds.length === 0) {
             functions.showToast('No valid student IDs found for the selected filter.', 'error');
             return;
@@ -893,13 +919,19 @@ export function useCareStaffPopulation({
         try {
             const targetIds = targets.map((student: any) => student.student_id);
             const existingMap = new Map<string, any>();
-            for (let i = 0; i < targetIds.length; i += 500) {
-                const batchIds = targetIds.slice(i, i + 500);
+            const targetIdBatches = Array.from(
+                { length: Math.ceil(targetIds.length / 500) },
+                (_, index) => targetIds.slice(index * 500, (index + 1) * 500)
+            );
+            const existingKeyBatches = await Promise.all(targetIdBatches.map(async (batchIds) => {
                 const { data: existingKeys, error: existingError } = await supabase
                     .from('enrolled_students')
                     .select('student_id, is_used, status, assigned_to_email')
                     .in('student_id', batchIds);
                 if (existingError) throw existingError;
+                return existingKeys || [];
+            }));
+            for (const existingKeys of existingKeyBatches) {
                 (existingKeys || []).forEach((row: any) => existingMap.set(row.student_id, row));
             }
 
@@ -921,13 +953,16 @@ export function useCareStaffPopulation({
                 return row;
             });
 
-            for (let i = 0; i < rows.length; i += 500) {
-                const batch = rows.slice(i, i + 500);
+            const rowBatches = Array.from(
+                { length: Math.ceil(rows.length / 500) },
+                (_, index) => rows.slice(index * 500, (index + 1) * 500)
+            );
+            await Promise.all(rowBatches.map(async (batch) => {
                 const { error } = await supabase
                     .from('enrolled_students')
                     .upsert(batch, { onConflict: 'student_id' });
                 if (error) throw error;
-            }
+            }));
 
             functions.showToast(`Enrollment keys updated for ${rows.length} students.`);
             fetchEnrollmentKeys();
@@ -1006,7 +1041,10 @@ export function useCareStaffPopulation({
 
         const processRows = async (rows: Array<{ id?: unknown; course?: unknown; year?: unknown }>) => {
             // Excel parses numeric cells as numbers; enrolled_students.student_id is text
-            const rawIds = rows.map(r => String(r.id ?? '').trim()).filter(Boolean);
+            const rawIds = rows.flatMap((row) => {
+                const id = String(row.id ?? '').trim();
+                return id ? [id] : [];
+            });
             if (rawIds.length === 0) { functions.showToast("No valid IDs found in the file.", 'error'); return; }
 
             const uniqueIds = [...new Set(rawIds)];
@@ -1019,23 +1057,26 @@ export function useCareStaffPopulation({
 
                 if (checkError) throw checkError;
 
-                const existingIds = existing.map(row => row.student_id);
-                const newIds = uniqueIds.filter(id => !existingIds.includes(id));
+                const existingIdSet = new Set(existing.map(row => row.student_id));
+                const newIds = uniqueIds.filter(id => !existingIdSet.has(id));
 
                 if (newIds.length === 0) { functions.showToast("All IDs in this file already exist.", 'info'); e.target.value = ''; return; }
 
                 if (!confirm(`Found ${newIds.length} new IDs to upload. Proceed?`)) { e.target.value = ''; return; }
 
                 const validCourses = new Set(allCourses.map(c => c.name));
-                const updates = rows.filter(r => newIds.includes(String(r.id ?? '').trim())).map(r => {
-                    const course = String(r.course ?? '').trim();
-                    return {
-                        student_id: String(r.id).trim(),
-                        course: validCourses.has(course) ? course : null,
-                        year_level: YEAR_LEVEL_OPTIONS.includes(String(r.year || '').trim()) ? String(r.year).trim() : null,
+                const newIdSet = new Set(newIds);
+                const updates = rows.flatMap(row => {
+                    const studentId = String(row.id ?? '').trim();
+                    const course = String(row.course ?? '').trim();
+                    if (!newIdSet.has(studentId) || !validCourses.has(course)) return [];
+                    return [{
+                        student_id: studentId,
+                        course,
+                        year_level: YEAR_LEVEL_OPTIONS.includes(String(row.year || '').trim()) ? String(row.year).trim() : null,
                         is_used: false
-                    };
-                }).filter(r => r.course);
+                    }];
+                });
                 const { error } = await supabase.from('enrolled_students').insert(updates);
                 if (error) throw error;
                 functions.showToast(`Successfully added ${updates.length} new enrollment keys!`);
@@ -1056,13 +1097,14 @@ export function useCareStaffPopulation({
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
                     // Skip header row, parse remaining
-                    const rows = jsonData.slice(1)
-                        .map(row => ({
+                    const rows = jsonData.slice(1).flatMap(row => {
+                        const parsedRow = {
                             id: String(row[0] || '').trim(),
                             course: String(row[1] || '').trim(),
                             year: String(row[2] || '').trim()
-                        }))
-                        .filter(row => row.id && row.id.toLowerCase() !== 'student_id');
+                        };
+                        return parsedRow.id && parsedRow.id.toLowerCase() !== 'student_id' ? [parsedRow] : [];
+                    });
 
                     await processRows(rows);
                 } catch (err) {
@@ -1089,18 +1131,6 @@ export function useCareStaffPopulation({
         }
     };
 
-    const handleDownloadTemplate = () => {
-        const csvContent = "Student ID,Course,Year Level\n2026-1001,BS Information Technology,1st Year\n2026-1002,BS Civil Engineering,2nd Year\n2026-1003,BS Nursing,1st Year";
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "student_ids_template.csv";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    };
-
     // Derive unique departments from the departments table (always available)
     const departmentNames = (allDepartments || []).map((d: any) => d.name).sort() as string[];
 
@@ -1114,7 +1144,7 @@ export function useCareStaffPopulation({
 
     const schoolYearOptions = populationOverview.schoolYears;
 
-    const getStudentCourseYearForFilter = (student: any) => {
+    const getStudentCourseYearForFilter = useCallback((student: any) => {
         if (schoolYearFilter === 'All') {
             return {
                 course: student.course || '',
@@ -1128,7 +1158,7 @@ export function useCareStaffPopulation({
             yearLevel: snapshot?.year_level || '',
             snapshot
         };
-    };
+    }, [schoolYearFilter]);
 
     const courseRowsForManagement = (courseDeptFilter === 'All'
         ? allCourses
@@ -1160,16 +1190,14 @@ export function useCareStaffPopulation({
     useEffect(() => {
         if (schoolYearFilter !== 'All') {
             const nextSections = [...new Set(
-                historicalStudents
-                    .filter((student: any) => {
+                historicalStudents.flatMap((student: any) => {
                         const values = getStudentCourseYearForFilter(student);
                         const matchesSchoolYear = Boolean(values.snapshot);
                         const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
                         const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
-                        return matchesSchoolYear && matchesCourse && matchesYear;
+                        const section = student.section;
+                        return matchesSchoolYear && matchesCourse && matchesYear && section ? [section] : [];
                     })
-                    .map((student: any) => student.section)
-                    .filter(Boolean)
             )].sort() as string[];
             setAvailableSections(nextSections);
             return;
@@ -1178,7 +1206,7 @@ export function useCareStaffPopulation({
         if (qSections) {
             setAvailableSections(qSections);
         }
-    }, [courseFilter, yearFilter, schoolYearFilter, historicalStudents, qSections]);
+    }, [courseFilter, getStudentCourseYearForFilter, historicalStudents, qSections, schoolYearFilter, yearFilter]);
 
     const filteredArchivedStudents = archivedStudentsList.filter((student: any) => {
         const needle = archivedSearchTerm.trim().toLowerCase();
@@ -1350,7 +1378,7 @@ export function useCareStaffPopulation({
 
     const shouldUseServiceSearchOrder = schoolYearFilter === 'All' && debouncedSearchTerm.trim().length > 0;
 
-    const sortedStudents = shouldUseServiceSearchOrder ? visibleTableStudents : [...visibleTableStudents].sort((a, b) => {
+    const sortedStudents = shouldUseServiceSearchOrder ? visibleTableStudents : visibleTableStudents.toSorted((a, b) => {
         let aVal = a[sortConfig.key];
         let bVal = b[sortConfig.key];
         if (sortConfig.key === 'name') {
@@ -1380,9 +1408,10 @@ export function useCareStaffPopulation({
             : Math.min(itemsPerPage, Math.max(effectiveTotal - startIndex, 0));
     const endIndex = effectiveTotal === 0 ? 0 : Math.min(effectiveTotal, startIndex + visibleStudentCount);
 
-    const paginatedStudentIds = paginatedStudents
-        .map((student: any) => Number(student?.id))
-        .filter((id) => Number.isFinite(id) && id > 0);
+    const paginatedStudentIds = paginatedStudents.flatMap((student: any) => {
+        const id = Number(student?.id);
+        return Number.isFinite(id) && id > 0 ? [id] : [];
+    });
     const paginatedStudentIdsKey = paginatedStudentIds.join(',');
     const { data: qVisibleAnnotations = [] } = useQuery({
         queryKey: ['care_staff_population_visible_annotations', paginatedStudentIdsKey, tableRefreshTick],

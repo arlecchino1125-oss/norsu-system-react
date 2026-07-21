@@ -72,7 +72,6 @@ const FUNCTION_PERMISSIONS = [
 ] as const;
 
 const ACTION_PERMISSIONS = [
-    'reset_student_data',
     'export_data',
     'archive_records',
     'restore_records',
@@ -188,7 +187,6 @@ const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, string[
         ],
         feature: [...FEATURE_PERMISSIONS.careStaff],
         action: [
-            'reset_student_data',
             'export_data',
             'archive_records',
             'restore_records'
@@ -295,7 +293,7 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionType, Record<string, stri
         office_visit_reasons: 'Reference options for office-visit time-in reasons.'
     },
     function: {
-        'manage-student-accounts': 'Staff-only student account operations, resets, and student-auth maintenance.',
+        'manage-student-accounts': 'Staff-only student account operations and student-auth maintenance.',
         'manage-care-services': 'CARE counseling and support workflow management.',
         'manage-department-admissions': 'Department interview scheduling and admissions decisions.',
         'manage-department-services': 'Department counseling, support approvals, and referrals.'
@@ -331,7 +329,6 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionType, Record<string, stri
         registrar_portal: 'Dedicated portal for the Registrar.'
     },
     action: {
-        reset_student_data: 'Perform the CARE destructive student-data reset workflow.',
         export_data: 'Generate and download staff export files.',
         archive_records: 'Archive, close, deactivate, or retire records without hard deletion.',
         restore_records: 'Restore previously archived records back into active use.',

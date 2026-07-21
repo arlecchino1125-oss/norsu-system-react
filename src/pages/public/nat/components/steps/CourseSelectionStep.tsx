@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Calendar, Info } from 'lucide-react';
 import { FieldErrorText, NAT_ORANGE_INPUT_CLASS, NAT_ORANGE_SELECT_CLASS, ResolveNatInputClassName } from './shared';
 
@@ -34,7 +34,7 @@ export default function CourseSelectionStep({
   getCourseCapacityMeta
 }: NatCourseSelectionStepProps) {
   return (
-    <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+    <m.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
       <div className="nat-section-card group relative overflow-hidden rounded-3xl border border-white/50 bg-white/60 p-8 shadow-xl shadow-blue-900/5 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-900/10 backdrop-blur-md">
         <div className="absolute left-0 top-0 h-full w-1.5 bg-orange-500" />
         <h3 className="mb-6 flex items-center gap-3 text-xl font-bold text-gray-900">
@@ -48,8 +48,9 @@ export default function CourseSelectionStep({
         </div>
 
         <div className="mb-6 space-y-1.5">
-          <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Reason for Choosing NORSU <span className="text-red-500">*</span></label>
+          <label htmlFor="nat-course-reason" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Reason for Choosing NORSU <span className="text-red-500">*</span></label>
           <textarea
+            id="nat-course-reason"
             name="reason"
             value={formData.reason}
             onChange={handleChange}
@@ -65,8 +66,8 @@ export default function CourseSelectionStep({
           {availableCourses.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-1.5">
-                <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Priority Course (1st Choice) <span className="text-red-500">*</span></label>
-                <select required name="priorityCourse" value={formData.priorityCourse} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'priorityCourse')}>
+                <label htmlFor="priority-course" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Priority Course (1st Choice) <span className="text-red-500">*</span></label>
+                <select id="priority-course" required name="priorityCourse" value={formData.priorityCourse} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'priorityCourse')}>
                   <option value="">Select priority course</option>
                   {availableCourses.map((course) => {
                     const capacity = getCourseCapacityMeta(course);
@@ -80,35 +81,33 @@ export default function CourseSelectionStep({
                 <FieldErrorText message={fieldErrors.priorityCourse} />
               </div>
               <div className="space-y-1.5">
-                <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Alternative Course (2nd Choice) <span className="text-red-500">*</span></label>
-                <select required name="altCourse1" value={formData.altCourse1} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'altCourse1')}>
+                <label htmlFor="alternative-course-one" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Alternative Course (2nd Choice) <span className="text-red-500">*</span></label>
+                <select id="alternative-course-one" required name="altCourse1" value={formData.altCourse1} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'altCourse1')}>
                   <option value="">Select alternative course</option>
-                  {availableCourses
-                    .filter((course) => course.name !== formData.priorityCourse)
-                    .map((course) => {
+                  {availableCourses.flatMap((course) => {
+                      if (course.name === formData.priorityCourse) return [];
                       const capacity = getCourseCapacityMeta(course);
-                      return (
+                      return [(
                         <option key={course.name} value={course.name} disabled={!capacity.isSelectable}>
                           {course.name} {capacity.isClosed ? '(CLOSED)' : capacity.isFull ? '(FULL)' : `(${capacity.applicantCount}/${capacity.limit})`}
                         </option>
-                      );
+                      )];
                     })}
                 </select>
                 <FieldErrorText message={fieldErrors.altCourse1} />
               </div>
               <div className="space-y-1.5">
-                <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Alternative Course (3rd Choice) <span className="text-red-500">*</span></label>
-                <select required name="altCourse2" value={formData.altCourse2} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'altCourse2')}>
+                <label htmlFor="alternative-course-two" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Alternative Course (3rd Choice) <span className="text-red-500">*</span></label>
+                <select id="alternative-course-two" required name="altCourse2" value={formData.altCourse2} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_INPUT_CLASS, 'altCourse2')}>
                   <option value="">Select alternative course</option>
-                  {availableCourses
-                    .filter((course) => course.name !== formData.priorityCourse && course.name !== formData.altCourse1)
-                    .map((course) => {
+                  {availableCourses.flatMap((course) => {
+                      if (course.name === formData.priorityCourse || course.name === formData.altCourse1) return [];
                       const capacity = getCourseCapacityMeta(course);
-                      return (
+                      return [(
                         <option key={course.name} value={course.name} disabled={!capacity.isSelectable}>
                           {course.name} {capacity.isClosed ? '(CLOSED)' : capacity.isFull ? '(FULL)' : `(${capacity.applicantCount}/${capacity.limit})`}
                         </option>
-                      );
+                      )];
                     })}
                 </select>
                 <FieldErrorText message={fieldErrors.altCourse2} />
@@ -122,9 +121,9 @@ export default function CourseSelectionStep({
         </div>
 
         <div className="space-y-2">
-          <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Preferred Test Date <span className="text-red-500">*</span></label>
+          <label htmlFor="preferred-test-date" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Preferred Test Date <span className="text-red-500">*</span></label>
           {availableDates.length > 0 ? (
-            <select required name="testDate" value={formData.testDate} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_SELECT_CLASS, 'testDate')}>
+            <select id="preferred-test-date" required name="testDate" value={formData.testDate} onChange={handleChange} className={resolveInputClassName(NAT_ORANGE_SELECT_CLASS, 'testDate')}>
               <option value="">Select a date for examination</option>
               {availableDates.map((date) => {
                 const remaining = (date.slots || 0) - (date.applicantCount || 0);
@@ -146,8 +145,9 @@ export default function CourseSelectionStep({
 
           {supportsTestTime && formData.testDate && selectedDateTimeSlots.length > 0 ? (
             <div className="pt-2">
-              <label className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Preferred Test Time <span className="text-red-500">*</span></label>
+              <label htmlFor="preferred-test-time" className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-500">Preferred Test Time <span className="text-red-500">*</span></label>
               <select
+                id="preferred-test-time"
                 required
                 name="testTime"
                 value={formData.testTime}
@@ -166,6 +166,6 @@ export default function CourseSelectionStep({
           ) : null}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

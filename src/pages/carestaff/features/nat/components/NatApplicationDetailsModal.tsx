@@ -1,6 +1,6 @@
 import React from 'react';
 import { XCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { formatDate, formatDateTime, formatTime } from '../../../../../utils/formatters';
 import StatusBadge from '../../../../../components/StatusBadge';
 
@@ -18,13 +18,13 @@ const NatApplicationDetailsModal = ({
 }: any) => (
     <AnimatePresence>
         {showModal && selectedApp && (
-            <motion.div
+            <m.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 md:p-6 backdrop-blur-sm overflow-y-auto"
             >
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, scale: 0.95, y: 15 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -49,7 +49,8 @@ const NatApplicationDetailsModal = ({
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
                                 <StatusBadge status={selectedApp.status} />
-                                <button
+                                <button type="button"
+                                    aria-label="Close NAT application details"
                                     onClick={closeSelectedAppModal}
                                     className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white/40"
                                 >
@@ -83,17 +84,17 @@ const NatApplicationDetailsModal = ({
                                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100/80 p-5">
                                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Personal Information</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">First Name</label><p className="text-sm font-extrabold text-slate-800">{selectedApp.first_name || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Last Name</label><p className="text-sm font-extrabold text-slate-800">{selectedApp.last_name || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Middle Name</label><p className="text-sm font-semibold text-slate-700">{selectedApp.middle_name || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Suffix</label><p className="text-sm font-semibold text-slate-700">{selectedApp.suffix || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Date of Birth</label><p className="text-sm font-semibold text-slate-700">{selectedApp.dob || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Age</label><p className="text-sm font-semibold text-slate-700">{selectedApp.age || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Place of Birth</label><p className="text-sm font-semibold text-slate-700">{selectedApp.place_of_birth || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Nationality</label><p className="text-sm font-semibold text-slate-700">{selectedApp.nationality || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Sex</label><p className="text-sm font-semibold text-slate-700">{selectedApp.sex || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Gender Identity</label><p className="text-sm font-semibold text-slate-700">{selectedApp.gender_identity || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Civil Status</label><p className="text-sm font-semibold text-slate-700">{selectedApp.civil_status || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">First Name</p><p className="text-sm font-extrabold text-slate-800">{selectedApp.first_name || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Last Name</p><p className="text-sm font-extrabold text-slate-800">{selectedApp.last_name || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Middle Name</p><p className="text-sm font-semibold text-slate-700">{selectedApp.middle_name || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Suffix</p><p className="text-sm font-semibold text-slate-700">{selectedApp.suffix || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Date of Birth</p><p className="text-sm font-semibold text-slate-700">{selectedApp.dob || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Age</p><p className="text-sm font-semibold text-slate-700">{selectedApp.age || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Place of Birth</p><p className="text-sm font-semibold text-slate-700">{selectedApp.place_of_birth || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Nationality</p><p className="text-sm font-semibold text-slate-700">{selectedApp.nationality || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Sex</p><p className="text-sm font-semibold text-slate-700">{selectedApp.sex || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Gender Identity</p><p className="text-sm font-semibold text-slate-700">{selectedApp.gender_identity || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Civil Status</p><p className="text-sm font-semibold text-slate-700">{selectedApp.civil_status || '—'}</p></div>
                                     </div>
                                 </div>
 
@@ -101,10 +102,10 @@ const NatApplicationDetailsModal = ({
                                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100/80 p-5">
                                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Address</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Street</label><p className="text-sm font-semibold text-slate-700">{selectedApp.street || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">City/Municipality</label><p className="text-sm font-semibold text-slate-700">{selectedApp.city || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Province</label><p className="text-sm font-semibold text-slate-700">{selectedApp.province || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Zip Code</label><p className="text-sm font-semibold text-slate-700">{selectedApp.zip_code || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Street</p><p className="text-sm font-semibold text-slate-700">{selectedApp.street || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">City/Municipality</p><p className="text-sm font-semibold text-slate-700">{selectedApp.city || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Province</p><p className="text-sm font-semibold text-slate-700">{selectedApp.province || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Zip Code</p><p className="text-sm font-semibold text-slate-700">{selectedApp.zip_code || '—'}</p></div>
                                     </div>
                                 </div>
 
@@ -112,9 +113,9 @@ const NatApplicationDetailsModal = ({
                                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100/80 p-5">
                                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Contact Information</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Mobile</label><p className="text-sm font-semibold text-slate-700">{selectedApp.mobile || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Email</label><p className="text-sm font-semibold text-slate-700 break-all">{selectedApp.email || '—'}</p></div>
-                                        <div><label className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Facebook URL</label><p className="text-sm font-semibold text-slate-700 break-all">{selectedApp.facebook_url || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Mobile</p><p className="text-sm font-semibold text-slate-700">{selectedApp.mobile || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Email</p><p className="text-sm font-semibold text-slate-700 break-all">{selectedApp.email || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Facebook URL</p><p className="text-sm font-semibold text-slate-700 break-all">{selectedApp.facebook_url || '—'}</p></div>
                                     </div>
                                 </div>
 
@@ -122,7 +123,7 @@ const NatApplicationDetailsModal = ({
                                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100/80 p-5">
                                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Educational Background</h4>
                                     <div>
-                                        <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Reason for Applying</label>
+                                        <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Reason for Applying</p>
                                         <p className="text-sm font-semibold text-slate-700 leading-relaxed">{selectedApp.reason || '—'}</p>
                                     </div>
                                 </div>
@@ -132,20 +133,20 @@ const NatApplicationDetailsModal = ({
                                     <h4 className="text-xs font-extrabold text-purple-700 uppercase tracking-widest mb-4 border-b border-purple-100/40 pb-2">Course Preferences</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2">
-                                            <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1.5">Priority Course</label>
+                                            <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1.5">Priority Course</p>
                                             <span className="text-sm font-black text-purple-900 bg-purple-100/40 px-3 py-2 rounded-xl inline-block">{selectedApp.priority_course || '—'}</span>
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Alternative Course 1</label>
+                                            <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Alternative Course 1</p>
                                             <p className="text-sm font-bold text-slate-700">{selectedApp.alt_course_1 || '—'}</p>
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Alternative Course 2</label>
+                                            <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Alternative Course 2</p>
                                             <p className="text-sm font-bold text-slate-700">{selectedApp.alt_course_2 || '—'}</p>
                                         </div>
                                         {selectedApp.isArchivedRecord && (
                                             <div className="md:col-span-2 mt-2">
-                                                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1.5">Activated Course</label>
+                                                <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1.5">Activated Course</p>
                                                 <span className="text-sm font-black text-emerald-950 bg-emerald-100/40 px-3 py-2 rounded-xl inline-block">{selectedApp.activated_course || '—'}</span>
                                             </div>
                                         )}
@@ -157,28 +158,28 @@ const NatApplicationDetailsModal = ({
                                     <h4 className="text-xs font-extrabold text-blue-700 uppercase tracking-widest mb-4 border-b border-blue-100/30 pb-2">Test Schedule</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Test Date</label>
+                                            <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Test Date</p>
                                             <p className="text-sm font-extrabold text-blue-900">{formatDate(selectedApp.test_date)}</p>
                                         </div>
                                         {supportsAttendance ? (
                                             <>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Time In</label>
+                                                    <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Time In</p>
                                                     <p className="text-sm font-bold text-emerald-600 font-mono">{formatTime(selectedApp.time_in, '-')}</p>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Time Out</label>
+                                                    <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Time Out</p>
                                                     <p className="text-sm font-bold text-rose-500 font-mono">{formatTime(selectedApp.time_out, '-')}</p>
                                                 </div>
                                             </>
                                         ) : (
                                             <>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Test Slot</label>
+                                                    <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Test Slot</p>
                                                     <p className="text-sm font-bold text-slate-800">{formatAssignedSlot(selectedApp.test_time)}</p>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Current Status</label>
+                                                    <p className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Current Status</p>
                                                     <p className="text-sm font-bold text-slate-800">{selectedApp.status || 'Submitted'}</p>
                                                 </div>
                                             </>
@@ -194,6 +195,7 @@ const NatApplicationDetailsModal = ({
                         {!isNatFinalizedStatus(selectedApp.status) && !isLoadingSelectedApp && (
                             <div className="flex-1 flex gap-3">
                                 <button
+                                    type="button"
                                     disabled={!canMarkNatPassed(selectedApp)}
                                     onClick={() => updateStatus(selectedApp, PASS_STATUS)}
                                     className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all focus:outline-none focus:ring-2 ${canMarkNatPassed(selectedApp) ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/20 hover:from-emerald-600 hover:to-green-700 active:scale-[0.98] focus:ring-emerald-500/50' : 'cursor-not-allowed bg-slate-200 text-slate-400 focus:ring-slate-300'}`}
@@ -201,7 +203,7 @@ const NatApplicationDetailsModal = ({
                                 >
                                     Pass
                                 </button>
-                                <button
+                                <button type="button"
                                     onClick={() => updateStatus(selectedApp, FAIL_STATUS)}
                                     className="flex-1 py-3 bg-gradient-to-r from-rose-500 to-red-650 hover:from-rose-600 hover:to-red-750 text-white rounded-2xl font-bold text-sm shadow-lg shadow-rose-500/20 active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/50"
                                 >
@@ -209,15 +211,15 @@ const NatApplicationDetailsModal = ({
                                 </button>
                             </div>
                         )}
-                        <button
+                        <button type="button"
                             onClick={closeSelectedAppModal}
                             className={`${(!isNatFinalizedStatus(selectedApp.status) && !isLoadingSelectedApp) ? 'sm:w-32' : 'w-full'} py-3 bg-slate-200 hover:bg-slate-350/80 text-slate-700 rounded-2xl font-bold text-sm transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-slate-300`}
                         >
                             Close
                         </button>
                     </div>
-                </motion.div>
-            </motion.div>
+                </m.div>
+            </m.div>
         )}
     </AnimatePresence>
 );

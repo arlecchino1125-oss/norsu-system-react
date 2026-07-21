@@ -165,17 +165,19 @@ const collectIdsByEqualityColumns = async (
     columns: string[],
     value: unknown
 ) => {
-    const ids = new Set<string | number>();
-
-    for (const column of columns) {
+    const rowsByColumn = await Promise.all(columns.map(async (column) => {
         const { data, error } = await adminClient
             .from(table)
             .select(idColumn)
             .eq(column, value);
 
         if (error) throw error;
+        return data || [];
+    }));
 
-        for (const row of data || []) {
+    const ids = new Set<string | number>();
+    for (const rows of rowsByColumn) {
+        for (const row of rows) {
             const nextId = row?.[idColumn];
             if (nextId !== undefined && nextId !== null && String(nextId).trim()) {
                 ids.add(typeof nextId === 'number' ? nextId : String(nextId).trim());
@@ -235,6 +237,9 @@ const deleteNatApplication = async (adminClient: any, actor: any, body: Record<s
         'Application not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('applications')
         .delete()
@@ -360,6 +365,9 @@ const deleteNatRequirement = async (adminClient: any, actor: any, body: Record<s
         'NAT requirement not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('nat_requirements')
         .delete()
@@ -452,13 +460,13 @@ const deleteStudent = async (adminClient: any, actor: any, body: Record<string, 
         throw withStatus('Student ID is required.', 400);
     }
 
-    const dependencyHits: string[] = [];
-    for (const dependency of STUDENT_DELETE_DEPENDENCIES) {
-        const count = await countRowsByEquality(adminClient, dependency.table, dependency.column, studentId);
-        if (count > 0) {
-            dependencyHits.push(`${dependency.label} (${count})`);
-        }
-    }
+    const dependencyCounts = await Promise.all(STUDENT_DELETE_DEPENDENCIES.map(async (dependency) => ({
+        dependency,
+        count: await countRowsByEquality(adminClient, dependency.table, dependency.column, studentId)
+    })));
+    const dependencyHits = dependencyCounts.flatMap(({ dependency, count }) => (
+        count > 0 ? [`${dependency.label} (${count})`] : []
+    ));
 
     if (dependencyHits.length > 0) {
         throw withStatus(
@@ -524,6 +532,9 @@ const deleteEnrollmentKey = async (adminClient: any, actor: any, body: Record<st
         'Enrollment key not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
         .from('enrolled_students')
         .delete()
@@ -559,6 +570,9 @@ const deleteForm = async (adminClient: any, actor: any, body: Record<string, unk
         'Form not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { data: submissions, error: submissionsError } = await adminClient
         .from('submissions')
         .select('id')
@@ -566,9 +580,10 @@ const deleteForm = async (adminClient: any, actor: any, body: Record<string, unk
 
     if (submissionsError) throw submissionsError;
 
-    const submissionIds = (submissions || [])
-        .map((entry: { id?: number | null }) => Number(entry?.id || 0))
-        .filter((entry) => Number.isInteger(entry) && entry > 0);
+    const submissionIds = (submissions || []).flatMap((entry: { id?: number | null }) => {
+        const id = Number(entry?.id || 0);
+        return Number.isInteger(id) && id > 0 ? [id] : [];
+    });
 
     if (submissionIds.length > 0) {
         const { error: deleteAnswersError } = await adminClient
@@ -624,6 +639,9 @@ const deleteFormQuestion = async (adminClient: any, actor: any, body: Record<str
         'Question not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const answerCount = await countRowsByEquality(adminClient, 'answers', 'question_id', questionId);
     if (answerCount > 0) {
         throw withStatus(
@@ -665,6 +683,9 @@ const deleteScholarship = async (adminClient: any, actor: any, body: Record<stri
         'Scholarship not found.'
     );
 
+    // Ordered on purpose: the read above must run before the delete — it captures the
+    // row's details for the audit log (the row no longer exists afterwards) and guards existence.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const applicationCount = await countRowsByEquality(adminClient, 'scholarship_applications', 'scholarship_id', scholarshipId);
     if (applicationCount > 0) {
         throw withStatus(
@@ -696,17 +717,18 @@ const deleteScholarship = async (adminClient: any, actor: any, body: Record<stri
 
 const deleteEvent = async (adminClient: any, actor: any, body: Record<string, unknown>) => {
     const eventId = parsePositiveInt(body.eventId, 'Event ID');
-    const event = await maybeSingleOrThrow(
-        adminClient
-            .from('events')
-            .select('id, title, type')
-            .eq('id', eventId)
-            .maybeSingle(),
-        'Event not found.'
-    );
-
-    const attendanceCount = await countRowsByEquality(adminClient, 'event_attendance', 'event_id', eventId);
-    const feedbackCount = await countRowsByEquality(adminClient, 'event_feedback', 'event_id', eventId);
+    const [event, attendanceCount, feedbackCount] = await Promise.all([
+        maybeSingleOrThrow(
+            adminClient
+                .from('events')
+                .select('id, title, type')
+                .eq('id', eventId)
+                .maybeSingle(),
+            'Event not found.'
+        ),
+        countRowsByEquality(adminClient, 'event_attendance', 'event_id', eventId),
+        countRowsByEquality(adminClient, 'event_feedback', 'event_id', eventId)
+    ]);
     if (attendanceCount > 0 || feedbackCount > 0) {
         throw withStatus(
             'Cannot delete an event or announcement that already has attendance or feedback history. Archive it instead.',

@@ -16,15 +16,15 @@ export function DeptReferralModal(props: any) {
                                     <h3 className="font-bold text-lg">{forwardingToStaff ? 'Forward to CARE Staff — Referral Form' : 'NORSU Counseling Referral Form'}</h3>
                                     <p className="text-xs text-gray-400">Office of the Director, Counseling, Assessment, Resources, and Enhancement Center</p>
                                 </div>
-                                <button onClick={() => { setShowReferralModal(false); setForwardingToStaff(false); }} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
+                                <button type="button" aria-label="Close referral form" onClick={() => { setShowReferralModal(false); setForwardingToStaff(false); }} className="text-gray-400 hover:text-gray-600"><XCircle /></button>
                             </div>
                             <form onSubmit={handleReferralSubmit} className="p-6 space-y-5">
                                 {/* Student Selection (only for direct referrals) */}
                                 {!forwardingToStaff && (
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-500 mb-1">Name of Student <span className="text-red-400">*</span></label>
+                                        <label htmlFor="dept-referral-student-search" className="block text-xs font-bold text-gray-500 mb-1">Name of Student <span className="text-red-400">*</span></label>
                                         <div className="relative">
-                                            <input type="text" value={referralSearchQuery} onChange={(e) => { setReferralSearchQuery(e.target.value); if (referralForm.student) setReferralForm({ ...referralForm, student: '' }); }} placeholder="Search student name..." className="w-full px-4 py-2.5 border rounded-xl text-sm" />
+                                            <input id="dept-referral-student-search" type="text" value={referralSearchQuery} onChange={(e) => { setReferralSearchQuery(e.target.value); if (referralForm.student) setReferralForm({ ...referralForm, student: '' }); }} placeholder="Search student name..." className="w-full px-4 py-2.5 border rounded-xl text-sm" />
                                             {referralSearchQuery && !referralForm.student && (
                                                 <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-48 overflow-y-auto z-20">
                                                     {(referralStudentOptions || []).map((s: any) => (
@@ -52,37 +52,37 @@ export function DeptReferralModal(props: any) {
 
                                 {/* Referrer Info (auto-filled) */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Referred by</label><input readOnly value={data?.profile?.name || ''} className="w-full px-4 py-2.5 border rounded-xl text-sm bg-gray-100 cursor-not-allowed" /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Referrer Contact Number</label><input value={referralForm.referrer_contact_number} onChange={e => setReferralForm({ ...referralForm, referrer_contact_number: e.target.value })} className="w-full px-4 py-2.5 border rounded-xl text-sm" placeholder="Your contact number" /></div>
-                                    <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-500 mb-1">Relationship with Student</label><input value={referralForm.relationship_with_student} onChange={e => setReferralForm({ ...referralForm, relationship_with_student: e.target.value })} className="w-full px-4 py-2.5 border rounded-xl text-sm" placeholder="e.g. Dean, Faculty Adviser" /></div>
+                                    <div><label htmlFor="dept-referrer-name" className="block text-xs font-bold text-gray-500 mb-1">Referred by</label><input id="dept-referrer-name" readOnly value={data?.profile?.name || ''} className="w-full px-4 py-2.5 border rounded-xl text-sm bg-gray-100 cursor-not-allowed" /></div>
+                                    <div><label htmlFor="dept-referrer-contact" className="block text-xs font-bold text-gray-500 mb-1">Referrer Contact Number</label><input id="dept-referrer-contact" value={referralForm.referrer_contact_number} onChange={e => setReferralForm({ ...referralForm, referrer_contact_number: e.target.value })} className="w-full px-4 py-2.5 border rounded-xl text-sm" placeholder="Your contact number" /></div>
+                                    <div className="md:col-span-2"><label htmlFor="dept-referrer-relationship" className="block text-xs font-bold text-gray-500 mb-1">Relationship with Student</label><input id="dept-referrer-relationship" value={referralForm.relationship_with_student} onChange={e => setReferralForm({ ...referralForm, relationship_with_student: e.target.value })} className="w-full px-4 py-2.5 border rounded-xl text-sm" placeholder="e.g. Dean, Faculty Adviser" /></div>
                                 </div>
 
                                 {/* Reason for Referral */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Reason for Referral <span className="text-red-400">*</span></label>
-                                    <textarea value={referralForm.reason_for_referral} onChange={e => setReferralForm({ ...referralForm, reason_for_referral: e.target.value })} className="w-full px-4 py-3 border rounded-xl text-sm h-28" placeholder="Describe the reason for referring this student..." required></textarea>
+                                    <label htmlFor="dept-referral-reason" className="block text-xs font-bold text-gray-500 mb-1">Reason for Referral <span className="text-red-400">*</span></label>
+                                    <textarea id="dept-referral-reason" value={referralForm.reason_for_referral} onChange={e => setReferralForm({ ...referralForm, reason_for_referral: e.target.value })} className="w-full px-4 py-3 border rounded-xl text-sm h-28" placeholder="Describe the reason for referring this student..." required></textarea>
                                 </div>
 
                                 {/* Actions Made */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Actions Made by Referring Person</label>
-                                    <textarea value={referralForm.actions_made} onChange={e => setReferralForm({ ...referralForm, actions_made: e.target.value })} className="w-full px-4 py-3 border rounded-xl text-sm h-24" placeholder="What actions have you taken before referring this student?" required></textarea>
+                                    <label htmlFor="dept-referral-actions" className="block text-xs font-bold text-gray-500 mb-1">Actions Made by Referring Person</label>
+                                    <textarea id="dept-referral-actions" value={referralForm.actions_made} onChange={e => setReferralForm({ ...referralForm, actions_made: e.target.value })} className="w-full px-4 py-3 border rounded-xl text-sm h-24" placeholder="What actions have you taken before referring this student?" required></textarea>
                                 </div>
 
                                 {/* Date/Duration of Observations */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Observations</label>
-                                    <textarea value={referralForm.date_duration_of_observations} onChange={e => setReferralForm({ ...referralForm, date_duration_of_observations: e.target.value })} className="w-full px-4 py-3 border rounded-xl text-sm h-20" placeholder="e.g. Observed since February 2026, approximately 2 weeks"></textarea>
+                                    <label htmlFor="dept-referral-observation-duration" className="block text-xs font-bold text-gray-500 mb-1">Date / Duration of Observations</label>
+                                    <textarea id="dept-referral-observation-duration" value={referralForm.date_duration_of_observations} onChange={e => setReferralForm({ ...referralForm, date_duration_of_observations: e.target.value })} className="w-full px-4 py-3 border rounded-xl text-sm h-20" placeholder="e.g. Observed since February 2026, approximately 2 weeks"></textarea>
                                 </div>
 
                                 {/* Signature Pad */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Name and Signature of the Referring Person <span className="text-red-400">*</span></label>
+                                    <p className="block text-xs font-bold text-gray-500 mb-1">Name and Signature of the Referring Person <span className="text-red-400">*</span></p>
                                     <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-white">
                                         <SignatureCanvas
                                             ref={sigCanvasRef}
                                             penColor="#1a1a2e"
-                                            canvasProps={{ className: 'w-full', style: { width: '100%', height: '150px' } }}
+                                            canvasProps={{ 'aria-label': 'Referrer signature pad', className: 'w-full', style: { width: '100%', height: '150px' } }}
                                         />
                                     </div>
                                     <div className="flex justify-between items-center mt-1">

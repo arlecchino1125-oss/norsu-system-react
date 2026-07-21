@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { useAuth } from '../lib/useAuth';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 type ProtectedRouteProps = {
@@ -48,18 +48,21 @@ const ProtectedRoute = ({ children, allowedRoles = [] }: ProtectedRouteProps) =>
 
                     <div className="flex gap-3">
                         <button
+                            type="button"
                             onClick={() => window.history.back()}
                             className="flex-1 py-3 px-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors"
                         >
                             Go Back
                         </button>
                         <button
+                            type="button"
                             onClick={() => window.location.href = '/'}
                             className="flex-1 py-3 px-4 bg-white text-gray-700 border border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition-colors"
                         >
                             Home
                         </button>
                         <button
+                            type="button"
                             onClick={async () => { await logout(); window.location.href = '/'; }}
                             className="flex-1 py-3 px-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors"
                         >

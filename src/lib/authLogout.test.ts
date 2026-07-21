@@ -13,6 +13,8 @@ const seedSensitiveStorage = () => {
     localStorage.setItem(`${AUTH_STORAGE_KEY}-user`, 'user');
     localStorage.setItem('norsu_session', 'app-session');
     localStorage.setItem('care_staff_notes', 'private-notes');
+    localStorage.setItem('norsu_session:v1', 'app-session');
+    localStorage.setItem('care_staff_notes:v1', 'private-notes');
     localStorage.setItem('profile_completion_draft_2024-001', 'profile-draft');
     localStorage.setItem('profile_completion_step_2024-001', '3');
     localStorage.setItem('norsu_force_profile_completion_student_id', 'profile-handoff');
@@ -46,6 +48,8 @@ describe('secure browser logout', () => {
         expect(localStorage.getItem(`${AUTH_STORAGE_KEY}-user`)).toBeNull();
         expect(localStorage.getItem('norsu_session')).toBeNull();
         expect(localStorage.getItem('care_staff_notes')).toBeNull();
+        expect(localStorage.getItem('norsu_session:v1')).toBeNull();
+        expect(localStorage.getItem('care_staff_notes:v1')).toBeNull();
         expect(localStorage.getItem('profile_completion_draft_2024-001')).toBeNull();
         expect(localStorage.getItem('profile_completion_step_2024-001')).toBeNull();
         expect(localStorage.getItem('norsu_force_profile_completion_student_id')).toBeNull();

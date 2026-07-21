@@ -16,6 +16,12 @@ const VolunteerGuidelines = [
     }
 ];
 
+const getStatusTone = (status: string) => {
+    if (status === 'approved') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
+    if (status === 'rejected') return 'border-rose-100 bg-rose-50 text-rose-700';
+    return 'border-amber-100 bg-amber-50 text-amber-700';
+};
+
 export default function VolunteerView({
     formatFullDate,
     personalInfo,
@@ -24,14 +30,12 @@ export default function VolunteerView({
 }: StudentRemainingFlatViewProps) {
     const [applications, setApplications] = useState<any[]>([]);
     const [schoolYear, setSchoolYear] = useState('');
-    const [loading, setLoading] = useState(true);
     const [showFormModal, setShowFormModal] = useState(false);
     const [showReadFirstGuide, setShowReadFirstGuide] = useState(false);
     const [hasReadFirstAcknowledged, setHasReadFirstAcknowledged] = useState(false);
 
     const fetchApplications = useCallback(async () => {
         try {
-            setLoading(true);
             const { data: settings } = await supabase
                 .from('peer_facilitator_settings')
                 .select('school_year')
@@ -55,8 +59,6 @@ export default function VolunteerView({
         } catch (error: any) {
             console.error('Error fetching applications:', error);
             showToast?.('Unable to load volunteer applications.', 'error');
-        } finally {
-            setLoading(false);
         }
     }, [personalInfo.studentId, showToast]);
 
@@ -72,12 +74,6 @@ export default function VolunteerView({
     }, [fetchApplications]);
 
     const latestApplication = applications[0];
-
-    const getStatusTone = (status: string) => {
-        if (status === 'approved') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
-        if (status === 'rejected') return 'border-rose-100 bg-rose-50 text-rose-700';
-        return 'border-amber-100 bg-amber-50 text-amber-700';
-    };
 
     return (
         <div className="mx-auto max-w-6xl space-y-4 page-transition sm:space-y-5">

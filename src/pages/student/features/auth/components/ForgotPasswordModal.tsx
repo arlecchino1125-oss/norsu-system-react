@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Lock, Mail, User, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import type { StudentLoginMethod } from '../../../types';
 
 type ForgotPasswordOtpInfo = {
@@ -14,13 +14,15 @@ type ForgotPasswordModalProps = {
     otp: string;
     newPassword: string;
     confirmPassword: string;
-    showNewPassword: boolean;
-    showConfirmPassword: boolean;
+    status: {
+        showNewPassword: boolean;
+        showConfirmPassword: boolean;
+        isResendCoolingDown: boolean;
+        isRequestingOtp: boolean;
+        isResettingPassword: boolean;
+    };
     otpInfo: ForgotPasswordOtpInfo | null;
     otpHint: string;
-    isResendCoolingDown: boolean;
-    isRequestingOtp: boolean;
-    isResettingPassword: boolean;
     resendCountdown: string;
     onClose: () => void;
     onSelectMethod: (method: StudentLoginMethod) => void;
@@ -41,13 +43,9 @@ export function ForgotPasswordModal({
     otp,
     newPassword,
     confirmPassword,
-    showNewPassword,
-    showConfirmPassword,
+    status,
     otpInfo,
     otpHint,
-    isResendCoolingDown,
-    isRequestingOtp,
-    isResettingPassword,
     resendCountdown,
     onClose,
     onSelectMethod,
@@ -60,14 +58,15 @@ export function ForgotPasswordModal({
     onRequestOtp,
     onConfirmReset
 }: ForgotPasswordModalProps) {
+    const { showNewPassword, showConfirmPassword, isResendCoolingDown, isRequestingOtp, isResettingPassword } = status;
     return (
-        <motion.div
+        <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-stretch justify-stretch bg-transparent p-0 md:items-center md:justify-center md:p-4"
         >
-            <motion.div
+            <m.div
                 initial={{ scale: 0.95, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 20, opacity: 0 }}
@@ -88,6 +87,7 @@ export function ForgotPasswordModal({
                         </div>
                         <button
                             type="button"
+                            aria-label="Close password recovery"
                             onClick={onClose}
                             className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600"
                         >
@@ -168,8 +168,9 @@ export function ForgotPasswordModal({
                             <p className="text-sm font-semibold leading-relaxed text-emerald-800">{otpHint}</p>
                             <div className="mt-4 space-y-4">
                                 <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">OTP Code</label>
+                                    <label htmlFor="recovery-otp" className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">OTP Code</label>
                                     <input
+                                        id="recovery-otp"
                                         type="text"
                                         inputMode="numeric"
                                         maxLength={6}
@@ -180,9 +181,10 @@ export function ForgotPasswordModal({
                                     />
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">New Password</label>
+                                    <label htmlFor="recovery-new-password" className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">New Password</label>
                                     <div className="relative">
                                         <input
+                                            id="recovery-new-password"
                                             type={showNewPassword ? 'text' : 'password'}
                                             value={newPassword}
                                             onChange={(event) => onNewPasswordChange(event.target.value)}
@@ -191,6 +193,7 @@ export function ForgotPasswordModal({
                                         />
                                         <button
                                             type="button"
+                                            aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
                                             onClick={onToggleNewPassword}
                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors focus:outline-none"
                                         >
@@ -199,9 +202,10 @@ export function ForgotPasswordModal({
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Confirm Password</label>
+                                    <label htmlFor="recovery-confirm-password" className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Confirm Password</label>
                                     <div className="relative">
                                         <input
+                                            id="recovery-confirm-password"
                                             type={showConfirmPassword ? 'text' : 'password'}
                                             value={confirmPassword}
                                             onChange={(event) => onConfirmPasswordChange(event.target.value)}
@@ -210,6 +214,7 @@ export function ForgotPasswordModal({
                                         />
                                         <button
                                             type="button"
+                                            aria-label={showConfirmPassword ? 'Hide confirmed password' : 'Show confirmed password'}
                                             onClick={onToggleConfirmPassword}
                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors focus:outline-none"
                                         >
@@ -241,7 +246,7 @@ export function ForgotPasswordModal({
                         </button>
                     </div>
                 )}
-            </motion.div>
-        </motion.div>
+            </m.div>
+        </m.div>
     );
 }

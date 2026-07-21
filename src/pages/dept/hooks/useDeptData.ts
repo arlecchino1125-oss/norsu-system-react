@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { DEFAULT_PAGE_SIZE } from '../../../types/pagination';
@@ -19,13 +19,14 @@ import {
     getStudentsPage,
     getSupportRequestsPage
 } from '../../../services/deptService';
-import { useToast, type ToastType } from '../../../components/ui/toast/ToastProvider';
+import { useToast, type ToastType } from '../../../components/ui/toast/useToast';
 
 const localDateKey = (date = new Date()) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const DEFAULT_REFERRAL_REASONS = ['Academic Performance', 'Attendance Issues', 'Behavioral Concern', 'Career Guidance', 'Personal/Emotional'];
 const REFERRAL_REASONS_STORAGE_KEY = 'dept-referral-reasons-v1';
+const POPULATION_YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 
 // ponytail: localStorage persistence — per-browser only; move to a settings table if reasons must roam
 const readStoredReferralReasons = (): string[] => {
@@ -84,6 +85,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             }));
         }
         // ponytail: session?.id as dep avoids object reference churn
+        // react-doctor-disable-next-line react-doctor/exhaustive-deps
     }, [isAuthenticated, session?.id]);
 
     const [lastSeenSupportCount, setLastSeenSupportCount] = useState<number>(0);
@@ -112,23 +114,23 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
     const { showToast: pushSharedToast } = useToast();
     // Display is owned by the app-wide <ToastProvider>; the returned `toast`
     // stays null so the legacy DeptModals toast render no-ops.
-    const showToastMessage = (msg: string, type: string = 'success') => {
+    const showToastMessage = useCallback((msg: string, type: string = 'success') => {
         pushSharedToast(msg, type as ToastType);
-    };
+    }, [pushSharedToast]);
 
     // ── Students ──────────────────────────────────────────────────────────────
     const studentsQuery = useQuery({
         queryKey: ['dept_students', department, studentsPage, studentsPageSize, studentFilters],
         enabled: Boolean(department),
         queryFn: async () => {
-            const [map, courseOptions] = await Promise.all([
+            const [map, courseOptions, result] = await Promise.all([
                 getCourseDepartmentMap(),
-                getDepartmentCourseNames(department!)
+                getDepartmentCourseNames(department!),
+                getStudentsPage(
+                    { ...studentFilters, department },
+                    { page: studentsPage, pageSize: studentsPageSize }
+                )
             ]);
-            const result = await getStudentsPage(
-                { ...studentFilters, department },
-                { page: studentsPage, pageSize: studentsPageSize }
-            );
             const rows = result.rows.map((student: any) => ({
                 ...student,
                 row_id: student.id,
@@ -233,13 +235,18 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         }
     });
 
+    useEffect(() => {
+        if (admissionsQuery.data?.total === undefined) return;
+        const totalPages = Math.max(1, Math.ceil(admissionsQuery.data.total / admissionsPageSize));
+        if (admissionsPage > totalPages) setAdmissionsPage(totalPages);
+    }, [admissionsPage, admissionsPageSize, admissionsQuery.data?.total]);
+
     const [admissionApplicants, setAdmissionApplicants] = useState<any[]>([]);
     useEffect(() => {
         if (admissionsQuery.data) setAdmissionApplicants(admissionsQuery.data.rows);
     }, [admissionsQuery.data]);
 
     // ── Dashboard stats (department-wide counts; the paged lists above only hold one page) ──
-    const POPULATION_YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
     const statsQuery = useQuery({
         queryKey: ['dept_dashboard_stats', department],
         enabled: Boolean(department),
@@ -307,6 +314,10 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
     }, [data?.settings?.darkMode]);
 
     // ── Realtime → invalidate queries ─────────────────────────────────────────
+    // False positive: cleanup below does call supabase.removeChannel(channel) —
+    // the detector doesn't recognize Supabase's client.removeChannel() cleanup
+    // convention (it looks for .unsubscribe() on the subscribed object itself).
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (!department) return;
         const channel = supabase.channel('dept_students_realtime')
@@ -318,6 +329,8 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
     }, [department, queryClient]);
 
+    // False positive: same Supabase removeChannel() cleanup pattern as above.
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         const channel = supabase.channel('dept_events_realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
@@ -327,6 +340,8 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
     }, [queryClient]);
 
+    // False positive: same Supabase removeChannel() cleanup pattern as above.
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (!department) return;
         const channel = supabase.channel('dept_counseling_realtime')
@@ -337,8 +352,10 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             })
             .subscribe();
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
-    }, [department, queryClient]);
+    }, [department, queryClient, showToastMessage]);
 
+    // False positive: same Supabase removeChannel() cleanup pattern as above.
+    // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
     useEffect(() => {
         if (!department) return;
         const channel = supabase.channel('dept_support_realtime')
@@ -351,7 +368,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             })
             .subscribe();
         return () => { void supabase.removeChannel(channel).catch(() => undefined); };
-    }, [department, queryClient]);
+    }, [department, queryClient, showToastMessage]);
 
     // ── Refresh all (used by header refresh button — must be awaitable) ────────
     const refreshAllData = async () => {

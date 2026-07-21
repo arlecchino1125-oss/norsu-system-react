@@ -1,4 +1,10 @@
+import { APP_SESSION_STORAGE_KEY, CARE_STAFF_NOTES_STORAGE_KEY } from './storageKeys';
+
 const LOCAL_SENSITIVE_KEYS = [
+    APP_SESSION_STORAGE_KEY,
+    CARE_STAFF_NOTES_STORAGE_KEY,
+    // Legacy unversioned keys from builds before 2026-07; keep clearing them
+    // for users who last signed in on an old build.
     'norsu_session',
     'care_staff_notes',
     'norsu_force_profile_completion_student_id',
