@@ -18,7 +18,7 @@ describe('sendTransactionalEmailNotification', () => {
 
     it('returns a missing-email error without calling the edge function', async () => {
         const result = await sendTransactionalEmailNotification({
-            type: 'STAFF_ACCOUNT_CREATED',
+            type: 'SUPPORT_STATUS_UPDATE',
             email: ''
         });
 
@@ -31,14 +31,14 @@ describe('sendTransactionalEmailNotification', () => {
 
     it('normalizes the email and invokes send-email', async () => {
         const result = await sendTransactionalEmailNotification({
-            type: 'STAFF_ACCOUNT_CREATED',
+            type: 'SUPPORT_STATUS_UPDATE',
             email: ' TEST@Example.com ',
             name: 'Test User'
         }, 'Fallback send failure.');
 
         expect(invokeEdgeFunctionMock).toHaveBeenCalledWith('send-email', {
             body: {
-                type: 'STAFF_ACCOUNT_CREATED',
+                type: 'SUPPORT_STATUS_UPDATE',
                 email: 'test@example.com',
                 name: 'Test User'
             },

@@ -73,7 +73,9 @@ export const createEmptyEvent = (): Partial<SystemEvent> => ({
     attendance_required: false,
     allow_walk_ins: true,
     capacity: null,
-    registration_deadline: ''
+    registration_deadline: '',
+    require_photo: true,
+    require_geolocation: false
 });
 
 export const getEventTypeBadgeClass = (type: unknown) => {
@@ -279,6 +281,8 @@ export function useCareStaffEvents({ functions }: any) {
                 registration_deadline: participationMode === 'registration_required' && newEvent.registration_deadline
                     ? newEvent.registration_deadline
                     : null,
+                require_photo: isAttendanceActivity ? newEvent.require_photo !== false : true,
+                require_geolocation: isAttendanceActivity && Boolean(newEvent.require_geolocation),
                 is_archived: false
             };
 
@@ -320,7 +324,9 @@ export function useCareStaffEvents({ functions }: any) {
             attendance_required: Boolean(item.attendance_required),
             allow_walk_ins: item.allow_walk_ins ?? true,
             capacity: item.capacity || null,
-            registration_deadline: toDatetimeLocalInput(item.registration_deadline || '')
+            registration_deadline: toDatetimeLocalInput(item.registration_deadline || ''),
+            require_photo: item.require_photo !== false,
+            require_geolocation: Boolean(item.require_geolocation)
         });
         setEditingEventId(item.id || null);
         setShowEventModal(true);

@@ -95,7 +95,9 @@ const DEPT_EVENT_COLUMNS = [
     'attendance_required',
     'allow_walk_ins',
     'capacity',
-    'registration_deadline'
+    'registration_deadline',
+    'require_photo',
+    'require_geolocation'
 ].join(', ');
 
 const DEPT_ADMISSION_COLUMNS = [

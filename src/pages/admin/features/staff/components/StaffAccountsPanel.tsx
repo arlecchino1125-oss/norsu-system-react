@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { UserPlus, Archive } from 'lucide-react';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
-import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 import { getStaffRoleBadgeClass, isFunctionUnavailableError } from '../../../utils';
 import type { AdminPanelKey } from '../../../types';
 
@@ -132,7 +131,7 @@ export function StaffAccountsPanel({
 }: StaffAccountsPanelProps) {
     const [staffAccountsPage, setStaffAccountsPage] = useState(1);
     const [isCreatingAccount, setIsCreatingAccount] = useState<boolean>(false);
-    const [form, setForm] = useState<any>({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
+    const [form, setForm] = useState<any>({ username: '', full_name: '', role: 'Department Head', department: '', email: '' });
     const [emailDrafts, setEmailDrafts] = useState<Record<string, string>>({});
     const [savingAccountEmailId, setSavingAccountEmailId] = useState<string | null>(null);
     const [archivingAccountId, setArchivingAccountId] = useState<string | null>(null);
@@ -155,20 +154,15 @@ export function StaffAccountsPanel({
         setIsCreatingAccount(true);
 
         try {
-            const result = await invokeEdgeFunction('provision-staff-account', {
+            await invokeEdgeFunction('provision-staff-account', {
                 body: payload,
                 requireAuth: true,
                 non2xxMessage: 'Your admin session could not be verified. Sign in again.',
                 fallbackMessage: 'Failed to provision staff account.'
             });
 
-            showToast('Account created and linked to Supabase Auth.');
-            void sendTransactionalEmailNotification(result?.emailPayload, 'Failed to send credential email.').then((emailResult) => {
-                if (emailResult.emailSent === false) {
-                    showToast(`Account created, but credential email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
-                }
-            });
-            setForm({ username: '', password: '', full_name: '', role: 'Department Head', department: '', email: '' });
+            showToast(`Account created. Login credentials were emailed to ${payload.email}.`);
+            setForm({ username: '', full_name: '', role: 'Department Head', department: '', email: '' });
             refetchAccounts();
         } catch (error: any) {
             if (!isFunctionUnavailableError('', error?.status, error?.errorName)) {
@@ -304,12 +298,9 @@ export function StaffAccountsPanel({
                     <input id="staff-username" required className={inputClass} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} />
                         </div>
                         <div>
-                    <label htmlFor="staff-password" className={labelClass}>Password</label>
-                    <input id="staff-password" required type="password" autoComplete="new-password" className={inputClass} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-                        </div>
-                        <div>
                     <label htmlFor="staff-email" className={labelClass}>Email</label>
                     <input id="staff-email" required type="email" className={inputClass} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                    <p className="mt-1.5 text-[11px] text-slate-400">A password is generated automatically and emailed here. It is never shown to you.</p>
                         </div>
                         {form.role === 'Department Head' && (
                             <div>

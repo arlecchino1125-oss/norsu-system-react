@@ -461,7 +461,7 @@ return (
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    {canUseTimeIn && (
+                                    {canUseTimeIn && selectedEvent.require_photo !== false && (
                                         <>
                                             <p className="text-[11px] font-bold text-amber-600">Photo must be taken at the venue.</p>
                                             <input
@@ -632,7 +632,7 @@ const EventsListSection = ({
 
                             {isAttendanceActivity && (
                                 <div className="mt-3 flex flex-col gap-2" onClick={(event: any) => event.stopPropagation()}>
-                                    {!isTimedIn && canUseTimeIn && (
+                                    {!isTimedIn && canUseTimeIn && item.require_photo !== false && (
                                         <>
                                             <p className="text-[10px] font-bold text-amber-600">Photo must be taken at the venue.</p>
                                             <input

@@ -56,8 +56,10 @@ const getGeolocationErrorMessage = (error: any) => {
     return "Location check failed.";
 };
 
-// ponytail: geofence temporarily unwired per request (photo proof only). Flip to true to restore the 200m location gate.
-const GEOFENCE_ENFORCED = false;
+// Proof requirements are per-event toggles set by CARE staff on event creation.
+// Legacy events created before the toggles existed have no flags: photo stays required, geofence stays off.
+export const isPhotoRequired = (event: any) => event?.require_photo !== false;
+export const isGeofenceEnforced = (event: any) => Boolean(event?.require_geolocation);
 
 export function useStudentEventActions({
     personalInfo,
@@ -306,12 +308,12 @@ export function useStudentEventActions({
                 return;
             }
         }
-        if (!proofFile) {
+        if (isPhotoRequired(event) && !proofFile) {
             showToast("Upload a photo to time in.", 'error');
             return;
         }
 
-        if (GEOFENCE_ENFORCED && !navigator.geolocation) {
+        if (isGeofenceEnforced(event) && !navigator.geolocation) {
             showToast("Your browser doesn't support location services. by your browser.", 'error');
             return;
         }
@@ -336,7 +338,9 @@ export function useStudentEventActions({
                     return;
                 }
 
-                const proofReference = await uploadAttendanceProof(proofFile, Number(event.id));
+                const proofReference = isPhotoRequired(event) && proofFile
+                    ? await uploadAttendanceProof(proofFile, Number(event.id))
+                    : null;
 
                 const now = new Date().toISOString();
                 const { error } = await supabaseClient.from('event_attendance').insert([{
@@ -385,7 +389,7 @@ export function useStudentEventActions({
             }
         };
 
-        if (!GEOFENCE_ENFORCED) {
+        if (!isGeofenceEnforced(event)) {
             await completeTimeIn(null, null);
             return;
         }
@@ -428,7 +432,7 @@ export function useStudentEventActions({
             showToast("This event is not available for your student group.", 'error');
             return;
         }
-        if (GEOFENCE_ENFORCED && !navigator.geolocation) {
+        if (isGeofenceEnforced(event) && !navigator.geolocation) {
             showToast("Your browser doesn't support location services.", 'error');
             return;
         }
@@ -461,7 +465,7 @@ export function useStudentEventActions({
             }
         };
 
-        if (!GEOFENCE_ENFORCED) {
+        if (!isGeofenceEnforced(event)) {
             await completeTimeOut();
             return;
         }

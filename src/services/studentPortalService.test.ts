@@ -96,7 +96,7 @@ describe('studentPortalService', () => {
         await getEventsPage({ page: 1, pageSize: 25 });
 
         expect(eventsQueryMock.select).toHaveBeenCalledWith(
-            'id, created_at, title, description, type, location, event_date, event_time, end_time, attendees, latitude, longitude, participation_mode, audience_type, audience_departments, audience_courses, audience_year_levels, audience_sections, attendance_required, allow_walk_ins, capacity, registration_deadline',
+            'id, created_at, title, description, type, location, event_date, event_time, end_time, attendees, latitude, longitude, participation_mode, audience_type, audience_departments, audience_courses, audience_year_levels, audience_sections, attendance_required, allow_walk_ins, capacity, registration_deadline, require_photo, require_geolocation',
             { count: 'planned' }
         );
         expect(eventsQueryMock.eq).toHaveBeenCalledWith('is_archived', false);

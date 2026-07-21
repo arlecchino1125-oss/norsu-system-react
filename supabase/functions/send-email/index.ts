@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { buildPortalUrl, buildStudentPortalLoginUrl, escapeHtml, maskEmailAddress, sendEmail } from '../_shared/emailService.ts';
+import { buildStudentPortalLoginUrl, escapeHtml, maskEmailAddress, sendEmail } from '../_shared/emailService.ts';
 import { captureEdgeException } from '../_shared/sentry.ts';
 
 console.log("Email Function: Service started");
@@ -30,29 +30,12 @@ const toText = (value: unknown, fallback = '') => {
 // Escaped for safe HTML interpolation; use toText() instead when a raw value is needed (e.g. building a URL).
 const toSafeText = (value: unknown, fallback = '') => escapeHtml(toText(value, fallback));
 
-const buildStaffPortalLoginUrl = (details: Record<string, unknown>) => {
-  const role = toText(details.role);
-  const fallbackPath = role === 'Admin'
-    ? '/admin'
-    : role === 'Department Head'
-      ? '/department/login'
-      : role === 'Care Staff'
-        ? '/care-staff'
-        : '/';
-  const rawUrl =
-    toText(details.loginUrl)
-    || toText(Deno.env.get('STAFF_PORTAL_LOGIN_URL'))
-    || toText(Deno.env.get('APP_BASE_URL'));
-
-  return buildPortalUrl(rawUrl, fallbackPath);
-};
-
-// NAT_SUBMISSION and STUDENT_ACTIVATION are intentionally NOT handled here. Both used to
-// be sent by an anonymous browser call to this function (an unauthenticated relay that also
-// carried a plaintext password). They're now sent server-side, inline, by
-// submit-nat-application/index.ts and activate-student-account/index.ts respectively, using
-// values those functions already generated/validated themselves -- so this function no
-// longer needs to expose those two templates to an unauthenticated caller at all.
+// NAT_SUBMISSION, STUDENT_ACTIVATION and STAFF_ACCOUNT_CREATED are intentionally NOT handled
+// here. Each used to be sent by a browser call to this function -- a relay that carried a
+// plaintext password supplied by the caller. They're now sent server-side, inline, by
+// submit-nat-application/index.ts, activate-student-account/index.ts and
+// provision-staff-account/index.ts respectively, using passwords those functions generated
+// themselves -- so this function no longer needs to expose a credential template at all.
 const buildEmailTemplate = (type: string, name: string, details: Record<string, unknown>) => {
   const safeName = escapeHtml(name);
   let subject = '';
@@ -185,22 +168,6 @@ const buildEmailTemplate = (type: string, name: string, details: Record<string, 
           ${toText(details.schoolYear) ? `<p><strong>School Year:</strong> ${toSafeText(details.schoolYear)}</p>` : ''}
           <p>Please log in to the Student Portal to view your application status and any next steps from the CARE Office.</p>
           <p><a href="${escapeHtml(loginUrl)}">Login to Student Portal</a></p>
-        `;
-      break;
-    }
-    case 'STAFF_ACCOUNT_CREATED': {
-      const loginUrl = buildStaffPortalLoginUrl(details);
-      subject = `NORSU ${toText(details.role, 'Staff')} Account Created`;
-      html = `
-          <h2>NORSU Staff Account Created</h2>
-          <p>Dear ${safeName},</p>
-          <p>Your <strong>${toSafeText(details.role, 'Staff')}</strong> portal account has been created.</p>
-          ${toText(details.department) ? `<p><strong>Department:</strong> ${toSafeText(details.department)}</p>` : ''}
-          <hr />
-          <h3>Your Login Credentials</h3>
-          <p><strong>Username:</strong> ${toSafeText(details.username)}</p>
-          <p><strong>Password:</strong> ${toSafeText(details.password)}</p>
-          <p><a href="${escapeHtml(loginUrl)}">Open Staff Portal</a></p>
         `;
       break;
     }

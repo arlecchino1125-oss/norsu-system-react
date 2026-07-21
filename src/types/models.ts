@@ -30,6 +30,8 @@ export interface SystemEvent {
     allow_walk_ins?: boolean;
     capacity?: number | null;
     registration_deadline?: string | null;
+    require_photo?: boolean;
+    require_geolocation?: boolean;
 
     // Virtual fields appended by custom hooks like useEventsData
     attendees?: number;

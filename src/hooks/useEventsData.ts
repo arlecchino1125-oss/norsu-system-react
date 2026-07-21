@@ -25,6 +25,8 @@ const EVENT_COLUMNS = [
     'allow_walk_ins',
     'capacity',
     'registration_deadline',
+    'require_photo',
+    'require_geolocation',
     'is_archived',
     'archived_at'
 ].join(', ');

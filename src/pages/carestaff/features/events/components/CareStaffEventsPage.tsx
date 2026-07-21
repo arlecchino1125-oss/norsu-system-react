@@ -135,6 +135,15 @@ const EventFormModal = ({
                                         />
                                         Required attendance
                                     </label>
+                                    <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 text-xs font-bold text-gray-600">
+                                        <input
+                                            type="checkbox"
+                                            checked={newEvent.require_photo !== false}
+                                            onChange={e => setNewEvent({ ...newEvent, require_photo: e.target.checked })}
+                                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                        />
+                                        Require photo on time in
+                                    </label>
                                 </div>
 
                                 {isRegistrationEvent(newEvent) && (
@@ -188,7 +197,15 @@ const EventFormModal = ({
 
                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                                 <div className="flex justify-between items-center mb-2">
-                                    <p className="block text-xs font-bold text-blue-700">Geolocation</p>
+                                    <label className="flex items-center gap-2 text-xs font-bold text-blue-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={Boolean(newEvent.require_geolocation)}
+                                            onChange={e => setNewEvent({ ...newEvent, require_geolocation: e.target.checked })}
+                                            className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        Require geolocation (200m of venue)
+                                    </label>
                                     <div className="flex gap-3">
                                         <button type="button" onClick={getCurrentLocation} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"><MapPin size={12} /> Get My Location</button>
                                         <button type="button" onClick={() => setNewEvent({ ...newEvent, latitude: '9.306', longitude: '123.306' })} className="text-xs text-gray-500 hover:underline flex items-center gap-1"><MapPin size={12} /> Reset to Campus</button>

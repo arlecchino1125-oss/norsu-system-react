@@ -962,6 +962,8 @@ export type Database = {
           longitude: number | null
           participation_mode: string
           registration_deadline: string | null
+          require_geolocation: boolean
+          require_photo: boolean
           title: string
           type: string
         }
@@ -989,6 +991,8 @@ export type Database = {
           longitude?: number | null
           participation_mode?: string
           registration_deadline?: string | null
+          require_geolocation?: boolean
+          require_photo?: boolean
           title: string
           type: string
         }
@@ -1016,6 +1020,8 @@ export type Database = {
           longitude?: number | null
           participation_mode?: string
           registration_deadline?: string | null
+          require_geolocation?: boolean
+          require_photo?: boolean
           title?: string
           type?: string
         }
