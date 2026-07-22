@@ -87,7 +87,7 @@ export default function SearchableSelect({
                 <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-500' : 'text-slate-400'}`} />
             </button>
 
-            {typeof document !== 'undefined' && createPortal(
+            {createPortal(
                 <AnimatePresence>
                     {isOpen && (
                         <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">

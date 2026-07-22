@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, ClipboardList, CheckCircle, Trash2, XCircle, Download, UploadCloud, Archive, HeartHandshake } from 'lucide-react';
+import { Plus, ClipboardList, CheckCircle, Trash2, XCircle, Download, UploadCloud, Archive, HeartHandshake, Clock } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { supabase } from '../../../../../lib/supabase';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
@@ -9,6 +9,7 @@ import { Button } from '../../../../../components/ui/Button';
 import { Card, CardContent } from '../../../../../components/ui/Card';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import CareStaffVolunteerFormsTable from './CareStaffVolunteerFormsTable';
+import CareStaffFacilitatorHours from './CareStaffFacilitatorHours';
 
 interface CareStaffFormsPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
@@ -252,7 +253,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
     const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showInactiveModal, setShowInactiveModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'assessments' | 'volunteers'>('assessments');
+    const [activeTab, setActiveTab] = useState<'assessments' | 'volunteers' | 'hours'>('assessments');
 
     useEffect(() => {
         if (refreshSignal === lastExternalRefreshSignalRef.current) return;
@@ -426,6 +427,14 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                         <HeartHandshake size={16} /> Peer Facilitators
                     </div>
                 </button>
+                <button type="button"
+                    onClick={() => setActiveTab('hours')}
+                    className={`whitespace-nowrap px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'hours' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    <div className="flex items-center gap-2">
+                        <Clock size={16} /> Facilitator Hours
+                    </div>
+                </button>
             </div>
 
             {activeTab === 'assessments' ? (
@@ -477,8 +486,10 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                         <InactiveFormsModal forms={inactiveForms} onClose={() => setShowInactiveModal(false)} />
                     )}
                 </>
-            ) : (
+            ) : activeTab === 'volunteers' ? (
                 <CareStaffVolunteerFormsTable functions={functions} refreshSignal={refreshSignal} />
+            ) : (
+                <CareStaffFacilitatorHours refreshSignal={refreshSignal} />
             )}
         </div>
     );

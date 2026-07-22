@@ -1,9 +1,10 @@
-import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import React, { lazy, Suspense, useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../../../lib/supabase';
 import type { StudentRemainingFlatViewProps } from '../../../types';
 
 const StudentVolunteerForm = lazy(() => import('./StudentVolunteerForm'));
+const VolunteerTimeLog = lazy(() => import('./VolunteerTimeLog'));
 
 const VolunteerGuidelines = [
     {
@@ -28,21 +29,21 @@ export default function VolunteerView({
     showToast,
     Icons
 }: StudentRemainingFlatViewProps) {
-    const [applications, setApplications] = useState<any[]>([]);
-    const [schoolYear, setSchoolYear] = useState('');
     const [showFormModal, setShowFormModal] = useState(false);
     const [showReadFirstGuide, setShowReadFirstGuide] = useState(false);
     const [hasReadFirstAcknowledged, setHasReadFirstAcknowledged] = useState(false);
 
-    const fetchApplications = useCallback(async () => {
-        try {
+    // The active year and this student's applications for it move together, so
+    // one cached query covers both instead of refetching on every mount.
+    const { data, isError, refetch } = useQuery({
+        queryKey: ['student-volunteer-applications', personalInfo.studentId],
+        queryFn: async () => {
             const { data: settings } = await supabase
                 .from('peer_facilitator_settings')
                 .select('school_year')
                 .eq('id', 1)
                 .maybeSingle();
             const activeYear = settings?.school_year || '';
-            setSchoolYear(activeYear);
 
             let query = supabase
                 .from('peer_facilitator_applications')
@@ -52,28 +53,92 @@ export default function VolunteerView({
             if (activeYear) {
                 query = query.eq('school_year', activeYear);
             }
-            const { data, error } = await query;
-
+            const { data: rows, error } = await query;
             if (error) throw error;
-            setApplications(data || []);
-        } catch (error: any) {
-            console.error('Error fetching applications:', error);
-            showToast?.('Unable to load volunteer applications.', 'error');
-        }
-    }, [personalInfo.studentId, showToast]);
+            return { schoolYear: activeYear, applications: rows || [] };
+        },
+        staleTime: 60000
+    });
 
-    useEffect(() => {
-        fetchApplications();
-    }, [fetchApplications]);
+    const schoolYear = data?.schoolYear || '';
+    const applications = data?.applications || [];
 
     const openForm = () => setShowFormModal(true);
 
     const onSubmitted = useCallback(async () => {
         setShowFormModal(false);
-        await fetchApplications();
-    }, [fetchApplications]);
+        await refetch();
+    }, [refetch]);
 
     const latestApplication = applications[0];
+
+    // Without this the load failure looks identical to "you never applied".
+    if (isError) {
+        return (
+            <div className="mx-auto max-w-6xl page-transition">
+                <section className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4 text-center shadow-sm sm:p-5">
+                    <p className="text-sm font-bold text-rose-700">Unable to load volunteer applications.</p>
+                    <button
+                        type="button"
+                        onClick={() => refetch()}
+                        className="mt-2 text-[11px] font-black uppercase tracking-[0.12em] text-rose-500 underline transition hover:text-rose-700"
+                    >
+                        Try again
+                    </button>
+                </section>
+            </div>
+        );
+    }
+
+    // Once approved, the recruitment pitch and the application recap are noise —
+    // lead with the facilitator's standing and their time log instead.
+    if (latestApplication?.status === 'approved') {
+        return (
+            <div className="mx-auto max-w-6xl space-y-4 page-transition sm:space-y-5">
+                <section className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm sm:p-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">
+                            Peer Facilitator
+                        </span>
+                        {schoolYear && (
+                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">{schoolYear}</span>
+                        )}
+                    </div>
+                    <h2 className="mt-2 text-xl font-black leading-tight text-slate-950 sm:text-2xl">
+                        {[personalInfo.firstName, personalInfo.lastName].filter(Boolean).join(' ') || 'CARE Peer Facilitator'}
+                    </h2>
+                    <p className="mt-1 max-w-xl text-sm font-semibold leading-6 text-slate-500">
+                        You are an approved CARE Peer Facilitator. Time in and out below whenever you dedicate your time as a peer facilitator, and your hours are recorded for the CARE Office.
+                    </p>
+                </section>
+
+                <Suspense fallback={null}>
+                    <VolunteerTimeLog studentId={personalInfo.studentId} showToast={showToast} />
+                </Suspense>
+
+                {/* ponytail: native <details>, no disclosure state to manage */}
+                <details className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm sm:px-5">
+                    <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-600">
+                        Your application
+                    </summary>
+                    <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400">Submitted</p>
+                            <p className="mt-1 text-sm text-slate-700">{formatFullDate(new Date(latestApplication.created_at))}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400">Organizations</p>
+                            <p className="mt-1 text-sm text-slate-700">{latestApplication.organizations || 'None provided'}</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400">Motivation</p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{latestApplication.motivation || 'None provided'}</p>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        );
+    }
 
     return (
         <div className="mx-auto max-w-6xl space-y-4 page-transition sm:space-y-5">

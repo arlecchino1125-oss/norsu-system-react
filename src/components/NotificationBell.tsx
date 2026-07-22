@@ -195,13 +195,11 @@ const NotificationBell = ({
     };
 
     const handleToggleOpen = () => {
-        setIsOpen((current) => {
-            const nextOpen = !current;
-            if (nextOpen) {
-                onOpen?.();
-            }
-            return nextOpen;
-        });
+        const nextOpen = !isOpen;
+        setIsOpen(nextOpen);
+        if (nextOpen) {
+            onOpen?.();
+        }
     };
 
     return (

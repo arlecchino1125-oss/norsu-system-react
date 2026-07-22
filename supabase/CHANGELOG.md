@@ -1,5 +1,17 @@
 # Supabase Changelog
 
+## 2026-07-22 — Feature: Peer facilitator volunteer time log
+
+**Migration:** `20260722090000_peer_facilitator_attendance.sql`
+
+**Problem:** Approved CARE Peer Facilitators had no way to record the volunteer time they put in, and staff had no view of it. No existing table fit: `event_attendance` requires an `event_id` (facilitator help isn't an event) and `office_visits` is the counseling logbook with its own reason/status semantics.
+
+**Fix:** New `peer_facilitator_attendance` table (`student_id`, `time_in`, `time_out`). Hours are always derived from the pair, never stored. A partial unique index on `student_id WHERE time_out IS NULL` makes a second open session impossible at the database, so no app-side "already clocked in" check exists to drift. RLS: a student may insert only for themselves and only while holding an `approved` application in the *active* form year (last year's facilitators cannot keep logging), may read only their own rows, and may update a row only while `time_out IS NULL` — closing a session makes it immutable to them. Care Staff and Admin read all rows and may correct a bad one.
+
+RLS governs *which* row a student may write, not the values in it, so a crafted request could still have posted `time_in` hours in the past or `time_out` in the future and inflated the hours. `stamp_peer_facilitator_attendance_times` (BEFORE INSERT OR UPDATE) closes that: when the caller is a student it forces `time_in := now()` on insert, blanks any supplied `time_out` so a pre-closed row cannot be fabricated, and on update pins `time_in` to the stored value and rewrites `time_out` to the server clock. Non-students (Care Staff, Admin, service role) pass through untouched, keeping staff corrections possible. Frontend: approved facilitators get a Time In / Time Out card in the student portal Volunteer tab; Care Staff get a "Facilitator Hours" tab under Form Management with a date dropdown, per-day roster, and per-day totals.
+
+**Rollback:** `DROP TABLE public.peer_facilitator_attendance;` — no other table references it.
+
 ## 2026-07-20 — Security: Remove the CARE bulk student-data reset entirely
 
 **Migration:** `20260720120000_remove_student_data_reset.sql`

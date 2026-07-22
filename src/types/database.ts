@@ -1283,6 +1283,35 @@ export type Database = {
           },
         ]
       }
+      peer_facilitator_attendance: {
+        Row: {
+          id: number
+          student_id: string
+          time_in: string
+          time_out: string | null
+        }
+        Insert: {
+          id?: number
+          student_id: string
+          time_in?: string
+          time_out?: string | null
+        }
+        Update: {
+          id?: number
+          student_id?: string
+          time_in?: string
+          time_out?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_facilitator_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       peer_facilitator_applications: {
         Row: {
           commitment: string | null

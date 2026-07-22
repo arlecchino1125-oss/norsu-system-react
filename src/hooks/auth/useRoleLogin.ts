@@ -50,18 +50,20 @@ export function useRoleLogin(config: StaffLoginConfig) {
         e.preventDefault();
         setLoading(true);
 
-        const result = await login(username, password, config.authRole);
+        try {
+            const result = await login(username, password, config.authRole);
 
-        if (result.success) {
-            showToast(config.successMessage, 'success');
-            redirectTimerRef.current = setTimeout(() => {
-                navigate(config.successRedirect);
-            }, config.redirectDelayMs ?? 800);
-        } else {
-            showToast(result.error || 'Login failed.', 'error');
+            if (result.success) {
+                showToast(config.successMessage, 'success');
+                redirectTimerRef.current = setTimeout(() => {
+                    navigate(config.successRedirect);
+                }, config.redirectDelayMs ?? 800);
+            } else {
+                showToast(result.error || 'Login failed.', 'error');
+            }
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     }, [config.authRole, config.redirectDelayMs, config.successMessage, config.successRedirect, login, navigate, password, showToast, username]);
 
     return {

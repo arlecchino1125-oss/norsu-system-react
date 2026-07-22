@@ -98,7 +98,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
             </button>
 
             {/* Dropdown calendar */}
-            {typeof document !== 'undefined' && createPortal(
+            {createPortal(
                 <AnimatePresence>
                     {open && (
                         <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">

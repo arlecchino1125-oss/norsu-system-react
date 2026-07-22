@@ -56,6 +56,7 @@ export default function AssessmentFormModal({
             if (!isActive) return;
 
             if (error) {
+                setIsLoadingQuestions(false);
                 showToast('Failed to load questions.', 'error');
                 onClose();
                 return;

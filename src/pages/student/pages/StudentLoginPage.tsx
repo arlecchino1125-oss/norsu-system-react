@@ -290,15 +290,18 @@ export default function StudentLogin() {
     const handleLogin = async (e: any) => {
         e.preventDefault();
         setLoginLoading(true);
-        const result = await loginStudent(loginId, loginPassword, loginMethod);
+        try {
+            const result = await loginStudent(loginId, loginPassword, loginMethod);
 
-        if (result.success) {
-            showToast("Login Successful", 'success');
-            setTimeout(() => navigate('/student'), 1000);
-        } else {
-            showToast(result.error, 'error');
+            if (result.success) {
+                showToast("Login Successful", 'success');
+                setTimeout(() => navigate('/student'), 1000);
+            } else {
+                showToast(result.error, 'error');
+            }
+        } finally {
+            setLoginLoading(false);
         }
-        setLoginLoading(false);
     };
 
     return (

@@ -295,10 +295,8 @@ function useProfileCompletionForm({
             return;
         }
 
-        setProfilePhotoPreviewUrl((current) => {
-            if (current) URL.revokeObjectURL(current);
-            return URL.createObjectURL(file);
-        });
+        // The cleanup effect above revokes the previous URL when this value changes.
+        setProfilePhotoPreviewUrl(URL.createObjectURL(file));
         setFormData((prev: any) => ({ ...prev, profilePictureFile: file }));
     };
 

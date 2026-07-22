@@ -218,9 +218,9 @@ export default function PublicLandingV2() {
                                                     <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                                                 </div>
                                                 <h3 className="text-sm font-bold text-white sm:text-lg">{portal.title}</h3>
-                                                <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-white transition-all group-hover:gap-2 sm:mt-4 sm:gap-2 sm:text-sm sm:group-hover:gap-3">
+                                                <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-white sm:mt-4 sm:gap-2 sm:text-sm">
                                                     {portal.cta}
-                                                    <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
+                                                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 sm:h-4 sm:w-4 sm:group-hover:translate-x-1" aria-hidden="true" />
                                                 </div>
                                             </button>
                                         );
@@ -332,9 +332,9 @@ export default function PublicLandingV2() {
                                                 </div>
                                             </div>
                                             <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">{portal.bestFor}</p>
-                                            <div className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-blue-700 transition-all group-hover:gap-3 dark:text-sky-300">
+                                            <div className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-blue-700 dark:text-sky-300">
                                                 {portal.cta}
-                                                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                                             </div>
                                         </button>
                                     );
