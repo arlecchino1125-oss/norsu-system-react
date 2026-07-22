@@ -308,7 +308,9 @@ const isTimingOut = timingOutEventId === String(selectedEvent.id);
 const isAttendanceActivity = isAttendanceActivityType(selectedEvent.type);
 const { start, end } = getEventWindow(selectedEvent);
 const now = new Date();
-const canTimeIn = isAttendanceActivity && Boolean(start) && now >= (start as Date) && !isTimedIn;
+const isCheckInClosed = isAttendanceActivity && Boolean(end) && now > (end as Date);
+const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(end)
+    && now >= (start as Date) && !isCheckInClosed && !isTimedIn;
 const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
 const mustRegisterForTimeIn = isRegistrationEvent(selectedEvent) && !selectedEvent.allow_walk_ins;
 const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(selectedEvent, isTimedIn));
@@ -316,7 +318,9 @@ const timeInLabel = isTimingIn
     ? 'Processing...'
     : mustRegisterForTimeIn && !hasActiveRegistration(selectedEvent, isTimedIn)
         ? 'Register before Time In'
-        : (canTimeIn ? 'Time In' : `Check-in opens at ${formatTimeLabel(selectedEvent.event_time)}`);
+        : isCheckInClosed
+            ? 'Check-in closed'
+            : (canTimeIn ? 'Time In' : `Check-in opens at ${formatTimeLabel(selectedEvent.event_time)}`);
 
 return (
     <div
@@ -574,7 +578,9 @@ const EventsListSection = ({
                     const isAttendanceActivity = isAttendanceActivityType(item.type);
                     const { start, end } = getEventWindow(item);
                     const now = new Date();
-                    const canTimeIn = isAttendanceActivity && Boolean(start) && now >= (start as Date) && !isTimedIn;
+                    const isCheckInClosed = isAttendanceActivity && Boolean(end) && now > (end as Date);
+                    const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(end)
+                        && now >= (start as Date) && !isCheckInClosed && !isTimedIn;
                     const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
                     const mustRegisterForTimeIn = isRegistrationEvent(item) && !item.allow_walk_ins;
                     const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(item, isTimedIn));
@@ -584,7 +590,9 @@ const EventsListSection = ({
                             ? 'Processing...'
                             : mustRegisterForTimeIn && !hasActiveRegistration(item, isTimedIn)
                                 ? 'Register before Time In'
-                                : (start ? `Time In opens ${formatTimeLabel(item.event_time)}` : 'Time In unavailable');
+                                : isCheckInClosed
+                                    ? 'Check-in closed'
+                                    : (canTimeIn ? 'Time In' : (start ? `Time In opens ${formatTimeLabel(item.event_time)}` : 'Time In unavailable'));
 
                     return (
                         <div

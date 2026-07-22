@@ -419,7 +419,6 @@ export function useStudentPortal() {
         personalInfo,
         runDatasetRefresh,
         refreshEventsCached,
-        setEventsList,
         showToast,
         supabaseClient
     });

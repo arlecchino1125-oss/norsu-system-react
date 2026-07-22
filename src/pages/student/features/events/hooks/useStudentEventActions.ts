@@ -18,7 +18,6 @@ interface UseStudentEventActionsArgs {
     personalInfo: any;
     runDatasetRefresh: RunDatasetRefresh;
     refreshEventsCached: (options?: { force?: boolean }) => Promise<unknown>;
-    setEventsList: (updater: any) => void;
     showToast: (message: string, type?: string) => void;
     supabaseClient: any;
 }
@@ -65,7 +64,6 @@ export function useStudentEventActions({
     personalInfo,
     runDatasetRefresh,
     refreshEventsCached,
-    setEventsList,
     showToast,
     supabaseClient
 }: UseStudentEventActionsArgs) {
@@ -80,10 +78,6 @@ export function useStudentEventActions({
     const [registeringEventId, setRegisteringEventId] = useState<string | null>(null);
     const [cancellingRegistrationEventId, setCancellingRegistrationEventId] = useState<string | null>(null);
     const [isSubmittingEventRating, setIsSubmittingEventRating] = useState(false);
-
-    const getStudentDisplayName = useCallback(() => (
-        `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim() || 'Student'
-    ), [personalInfo.firstName, personalInfo.lastName]);
 
     const fetchHistory = useCallback(async () => {
         if (!personalInfo.studentId) return;
@@ -129,29 +123,6 @@ export function useStudentEventActions({
         (options?: { force?: boolean }) => runDatasetRefresh('history', fetchHistory, options),
         [fetchHistory, runDatasetRefresh]
     );
-
-    const syncEventAttendeeCount = useCallback(async (eventId: any) => {
-        const { count, error: countError } = await supabaseClient
-            .from('event_attendance')
-            .select('id', { count: 'exact', head: true })
-            .eq('event_id', eventId);
-
-        if (countError) throw countError;
-
-        const attendeeCount = count || 0;
-        const { error: updateError } = await supabaseClient
-            .from('events')
-            .update({ attendees: attendeeCount })
-            .eq('id', eventId);
-
-        if (updateError) throw updateError;
-
-        setEventsList((prev: any) => prev.map((item: any) => (
-            item.id === eventId
-                ? { ...item, attendees: attendeeCount }
-                : item
-        )));
-    }, [setEventsList, supabaseClient]);
 
     const handleRegisterEvent = useCallback(async (event: any) => {
         const eventId = String(event?.id || '').trim();
@@ -247,53 +218,6 @@ export function useStudentEventActions({
         supabaseClient
     ]);
 
-    const upsertEventRegistrationAttendanceStatus = useCallback(async (event: any) => {
-        if (!isRegistrationEvent(event) || !personalInfo.studentId) return;
-
-        const now = new Date().toISOString();
-        const payload = {
-            event_id: event.id,
-            student_id: personalInfo.studentId,
-            student_name: getStudentDisplayName(),
-            email: personalInfo.email || null,
-            department: personalInfo.department || null,
-            course: personalInfo.course || null,
-            year_level: personalInfo.year || personalInfo.year_level || null,
-            section: personalInfo.section || null,
-            status: 'Attended',
-            registered_at: registrationMap[String(event.id)]?.registered_at || now,
-            cancelled_at: null
-        };
-
-        const { data, error } = await supabaseClient
-            .from('event_registrations')
-            .upsert(payload, { onConflict: 'event_id,student_id' })
-            .select('id, event_id, student_id, student_name, email, department, course, year_level, section, status, registered_at, cancelled_at, updated_at')
-            .maybeSingle();
-
-        if (error && error.code !== '42P01') {
-            throw error;
-        }
-
-        if (data) {
-            setRegistrationMap((prev: any) => ({
-                ...prev,
-                [String(data.event_id)]: data
-            }));
-        }
-    }, [
-        getStudentDisplayName,
-        personalInfo.course,
-        personalInfo.department,
-        personalInfo.email,
-        personalInfo.section,
-        personalInfo.studentId,
-        personalInfo.year,
-        personalInfo.year_level,
-        registrationMap,
-        supabaseClient
-    ]);
-
     const handleTimeIn = useCallback(async (event: any) => {
         if (isTimingIn) return;
         if (!isStudentEligibleForEvent(event, personalInfo)) {
@@ -342,34 +266,25 @@ export function useStudentEventActions({
                     ? await uploadAttendanceProof(proofFile, Number(event.id))
                     : null;
 
-                const now = new Date().toISOString();
-                const { error } = await supabaseClient.from('event_attendance').insert([{
-                    event_id: event.id,
-                    student_id: personalInfo.studentId,
-                    student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
-                    time_in: now,
-                    proof_url: proofReference,
-                    latitude: userLat,
-                    longitude: userLng,
-                    department: personalInfo.department
-                }]);
+                const { data, error } = await supabaseClient.rpc('record_student_event_attendance', {
+                    p_event_id: Number(event.id),
+                    p_action: 'check_in',
+                    p_proof_url: proofReference,
+                    p_latitude: userLat,
+                    p_longitude: userLng
+                });
                 if (error) throw error;
 
-                try {
-                    await upsertEventRegistrationAttendanceStatus(event);
-                } catch (registrationStatusError) {
-                    console.warn('Failed to update event registration attendance status.', registrationStatusError);
-                }
+                const attendance = Array.isArray(data) ? data[0] : data;
+                if (!attendance) throw new Error('Attendance record was not returned.');
 
-                try {
-                    await syncEventAttendeeCount(event.id);
-                } catch (countSyncError) {
-                    console.warn('Failed to sync event attendee count after time in.', countSyncError);
-                }
-
-                setAttendanceMap((prev: any) => ({ ...prev, [event.id]: { event_id: event.id, time_in: now, time_out: null } }));
+                setAttendanceMap((prev: any) => ({ ...prev, [event.id]: attendance }));
                 setProofFile(null);
                 showToast("Time in successful.");
+                await Promise.all([
+                    fetchHistoryCached({ force: true }),
+                    refreshEventsCached({ force: true })
+                ]);
             } catch (err: any) {
                 if (err.code === '23505') {
                     showToast("You have already timed in for this event.", 'error');
@@ -416,13 +331,13 @@ export function useStudentEventActions({
         }, options);
     }, [
         isTimingIn,
+        fetchHistoryCached,
         personalInfo,
         proofFile,
+        refreshEventsCached,
         registrationMap,
         showToast,
-        supabaseClient,
-        syncEventAttendeeCount,
-        upsertEventRegistrationAttendanceStatus
+        supabaseClient
     ]);
 
     const handleTimeOut = useCallback(async (event: any) => {
@@ -440,21 +355,22 @@ export function useStudentEventActions({
             setTimingOutEventId(eventId);
         }
 
-        const completeTimeOut = async () => {
+        const completeTimeOut = async (userLat: number | null, userLng: number | null) => {
             try {
-                const now = new Date().toISOString();
-                const { data, error } = await supabaseClient.from('event_attendance')
-                    .update({ time_out: now })
-                    .eq('event_id', event.id)
-                    .eq('student_id', personalInfo.studentId)
-                    .select();
+                const { data, error } = await supabaseClient.rpc('record_student_event_attendance', {
+                    p_event_id: Number(event.id),
+                    p_action: 'check_out',
+                    p_latitude: userLat,
+                    p_longitude: userLng
+                });
 
                 if (error) throw error;
-                if (!data || data.length === 0) {
+                const attendance = Array.isArray(data) ? data[0] : data;
+                if (!attendance) {
                     showToast("No attendance record found. Please time in first.", 'error');
                     return;
                 }
-                setAttendanceMap((prev: any) => ({ ...prev, [event.id]: data[0] }));
+                setAttendanceMap((prev: any) => ({ ...prev, [event.id]: attendance }));
                 showToast("Time out successful.");
                 await fetchHistoryCached({ force: true });
             } catch (err: any) {
@@ -466,7 +382,7 @@ export function useStudentEventActions({
         };
 
         if (!isGeofenceEnforced(event)) {
-            await completeTimeOut();
+            await completeTimeOut(null, null);
             return;
         }
 
@@ -485,7 +401,7 @@ export function useStudentEventActions({
                 return;
             }
 
-            await completeTimeOut();
+            await completeTimeOut(userLat, userLng);
         }, () => {
             if (eventId) setTimingOutEventId(null);
             showToast("Location check failed. Enable location services.", 'error');
