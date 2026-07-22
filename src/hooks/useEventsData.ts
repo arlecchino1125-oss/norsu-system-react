@@ -61,7 +61,13 @@ function isEventExpired(event: SystemEvent): boolean {
     return false;
 }
 
-function isEventArchived(event: SystemEvent): boolean {
+/**
+ * Exported so the department portal classifies events exactly as the Care Staff
+ * portal does. An event counts as concluded when the archive flag is set OR its
+ * end time has passed -- staff see both as "Archived", so anything else here
+ * would tell two portals two different stories about the same event.
+ */
+export function isEventArchived(event: SystemEvent): boolean {
     return Boolean(event?.is_archived) || isEventExpired(event);
 }
 

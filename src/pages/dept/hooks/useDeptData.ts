@@ -2,6 +2,12 @@ import { useCallback, useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { DEFAULT_PAGE_SIZE } from '../../../types/pagination';
+import { isEventVisibleToDepartment } from '../../../utils/eventAudience';
+
+// Stable identities: fresh literals as query fallbacks change on every render
+// and retrigger every consumer downstream.
+const EMPTY_ROWS: any[] = [];
+const EMPTY_COUNTS = new Map<number, number>();
 import {
     COUNSELING_AWAITING_DEPT_STATUSES,
     COUNSELING_CALENDAR_STATUSES,
@@ -16,6 +22,8 @@ import {
     getDepartmentCourseNames,
     getCourseDepartmentMap,
     getEventsPage,
+    getDeptAttendanceEventsPage,
+    getDeptEventAttendanceCounts,
     getStudentsPage,
     getSupportRequestsPage
 } from '../../../services/deptService';
@@ -178,6 +186,25 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
                 return !(now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m));
             });
         }
+    });
+
+    // ── Attendance events (department events page) ────────────────────────────
+    // Separate from eventsQuery above: that one is "what is on today" for the
+    // home page, this one is the attendance history, so it keeps past and
+    // archived events and drops announcements.
+    const deptAttendanceEventsQuery = useQuery({
+        queryKey: ['dept_attendance_events', department],
+        enabled: Boolean(department),
+        queryFn: async () => {
+            const result = await getDeptAttendanceEventsPage({ page: 1, pageSize: 100 });
+            const events = (result.rows || []).filter((event: any) => isEventVisibleToDepartment(event, department));
+            const counts = await getDeptEventAttendanceCounts(
+                String(department),
+                events.map((event: any) => event.id).filter((id: any) => id != null)
+            );
+            return { events, counts };
+        },
+        staleTime: 2 * 60 * 1000
     });
 
     // ── Counseling ────────────────────────────────────────────────────────────
@@ -388,6 +415,9 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
         dashboardStats: statsQuery.data ?? null,
         todayCounselingSessions: todayCounselingQuery.data ?? [],
         eventsList: eventsQuery.data ?? [],
+        deptAttendanceEvents: deptAttendanceEventsQuery.data?.events ?? EMPTY_ROWS,
+        deptAttendanceCounts: deptAttendanceEventsQuery.data?.counts ?? EMPTY_COUNTS,
+        isLoadingDeptAttendanceEvents: deptAttendanceEventsQuery.isLoading,
         counselingRequests,
         setCounselingRequests,
         supportRequests,

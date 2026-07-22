@@ -105,6 +105,27 @@ export const isStudentEligibleForEvent = (event: AudienceEvent, student: Audienc
     );
 };
 
+/**
+ * Whether a department head should see an event at all.
+ *
+ * Wider than isStudentEligibleForEvent on purpose: a campus-wide event is the
+ * department's business too, because their students attend it and their
+ * attendance is what the department reviews. Course/year/section filters are
+ * ignored here -- narrowing an event to 2nd-year students does not make it stop
+ * belonging to their department.
+ */
+export const isEventVisibleToDepartment = (event: AudienceEvent, department: unknown) => {
+    if (getEventAudienceType(event) === 'all_students') return true;
+
+    const departments = getAudienceValues(event, 'audience_departments');
+    // No department named means every department is in scope (e.g. a graduating
+    // -students event restricted only by year level).
+    if (departments.length === 0) return true;
+
+    const target = normalize(department);
+    return departments.some((value) => normalize(value) === target);
+};
+
 export const getAudienceLabel = (event: AudienceEvent) => {
     const audienceType = getEventAudienceType(event);
     if (audienceType === 'all_students') return 'All students';

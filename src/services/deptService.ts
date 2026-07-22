@@ -97,7 +97,8 @@ const DEPT_EVENT_COLUMNS = [
     'capacity',
     'registration_deadline',
     'require_photo',
-    'require_geolocation'
+    'require_geolocation',
+    'is_archived'
 ].join(', ');
 
 const DEPT_ADMISSION_COLUMNS = [
@@ -337,6 +338,69 @@ export const getEventsPage = async (
     const { data, error, count } = await query;
     if (error) throw error;
     return toPageResult(data, count, pageParams);
+};
+
+/**
+ * Events a department reviews attendance for.
+ *
+ * Deliberately unlike getEventsPage above, which powers the "happening today"
+ * strip on the dept home page: attendance is reviewed AFTER an event, so this
+ * one keeps past dates and archived events (archiving hides an event from
+ * staff listings, it does not delete the attendance recorded against it).
+ * Announcements are excluded because nobody attends an announcement.
+ *
+ * ponytail: department scoping is applied by the caller via
+ * isEventVisibleToDepartment rather than in SQL. Matching "all_students OR
+ * audience_departments contains X" needs a Postgres array literal inside a
+ * PostgREST .or(), and department names carry spaces and parentheses that make
+ * that quoting fragile. Event volume is small (tens per school year) and the
+ * Care Staff page already filters events client-side. Push it into SQL if the
+ * table ever grows past a page or two.
+ */
+export const getDeptAttendanceEventsPage = async (
+    pageParams?: PageParams
+): Promise<PageResult<any>> => {
+    const { from, to } = resolvePageParams(pageParams);
+    const { data, error, count } = await supabase
+        .from('events')
+        .select(DEPT_EVENT_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
+        .neq('type', 'Announcement')
+        .order('event_date', { ascending: false, nullsFirst: false })
+        .range(from, to);
+
+    if (error) throw error;
+    return toPageResult(data, count, pageParams);
+};
+
+/**
+ * How many of this department's students attended each of the given events.
+ *
+ * ponytail: pulls the event_id column and tallies in JS rather than issuing one
+ * counting request per event. One request beats N, and the row cap is the
+ * department's own attendance records (RLS sees to that). Swap for a grouped
+ * count RPC if a department ever pushes this past a few thousand rows.
+ */
+export const getDeptEventAttendanceCounts = async (
+    department: string,
+    eventIds: number[]
+): Promise<Map<number, number>> => {
+    const counts = new Map<number, number>();
+    if (!department || eventIds.length === 0) return counts;
+
+    const { data, error } = await supabase
+        .from('event_attendance')
+        .select('event_id')
+        .eq('department', department)
+        .in('event_id', eventIds);
+
+    if (error) throw error;
+
+    for (const row of data ?? []) {
+        const eventId = (row as any).event_id;
+        if (eventId == null) continue;
+        counts.set(eventId, (counts.get(eventId) ?? 0) + 1);
+    }
+    return counts;
 };
 
 const applyAdmissionsFilters = (query: any, filters?: AdmissionsFilters) => {

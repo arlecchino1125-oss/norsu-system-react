@@ -48,7 +48,7 @@ export default function AssessmentFormModal({
             setIsLoadingQuestions(true);
 
             const { data, error } = await supabase
-                .from('questions')
+                .from('needs_assessment_questions')
                 .select('id, form_id, question_text, question_type, scale_min, scale_max, order_index')
                 .eq('form_id', form.id)
                 .order('order_index');
@@ -93,7 +93,7 @@ export default function AssessmentFormModal({
 
         try {
             const { data: submissionData, error: submissionError } = await supabase
-                .from('submissions')
+                .from('needs_assessment_submissions')
                 .insert([{
                     form_id: form.id,
                     student_id: studentId,
@@ -112,7 +112,7 @@ export default function AssessmentFormModal({
 
             if (answersPayload.length > 0) {
                 const { error: answersError } = await supabase
-                    .from('answers')
+                    .from('needs_assessment_answers')
                     .insert(answersPayload);
 
                 if (answersError) throw answersError;

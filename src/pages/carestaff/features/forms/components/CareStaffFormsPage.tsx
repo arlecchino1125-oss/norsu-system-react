@@ -208,7 +208,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
         queryKey: ['care-staff-active-forms'],
         queryFn: async () => {
             const { data, error } = await supabase
-                .from('forms')
+                .from('needs_assessment_forms')
                 .select(FORM_COLUMNS)
                 .eq('is_active', true)
                 .order('created_at', { ascending: false });
@@ -226,7 +226,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
         queryKey: ['care-staff-inactive-forms'],
         queryFn: async () => {
             const { data, error } = await supabase
-                .from('forms')
+                .from('needs_assessment_forms')
                 .select(FORM_COLUMNS)
                 .eq('is_active', false)
                 .order('created_at', { ascending: false });
@@ -265,7 +265,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
 
     const handlePreview = async (form) => {
         const { data: questions } = await supabase
-            .from('questions')
+            .from('needs_assessment_questions')
             .select(QUESTION_COLUMNS)
             .eq('form_id', form.id)
             .order('order_index', { ascending: true });
@@ -277,7 +277,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
     const handleEdit = async (form) => {
         setEditingForm({ ...form });
         const { data: questions } = await supabase
-            .from('questions')
+            .from('needs_assessment_questions')
             .select(QUESTION_COLUMNS)
             .eq('form_id', form.id)
             .order('order_index', { ascending: true });
@@ -303,7 +303,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
             if (editingForm.id) formPayload.id = editingForm.id;
 
             const { data: savedForm, error: formError } = await supabase
-                .from('forms')
+                .from('needs_assessment_forms')
                 .upsert([formPayload])
                 .select(FORM_COLUMNS)
                 .single();
@@ -323,7 +323,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                 });
 
                 const { error: qError } = await supabase
-                    .from('questions')
+                    .from('needs_assessment_questions')
                     .upsert(questionsPayload);
 
                 if (qError) throw qError;

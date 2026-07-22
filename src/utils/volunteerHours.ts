@@ -21,6 +21,15 @@ export const formatHours = (hours: number): string => {
     return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
 };
 
+/** Split by the half of the day a session started in — a DTR's AM / PM columns. */
+export const splitAmPm = <T extends VolunteerSession>(sessions: T[]) => {
+    const byStart = sessions.toSorted((a, b) => new Date(a.time_in).getTime() - new Date(b.time_in).getTime());
+    return {
+        morning: byStart.filter((s) => new Date(s.time_in).getHours() < 12),
+        afternoon: byStart.filter((s) => new Date(s.time_in).getHours() >= 12)
+    };
+};
+
 /** Local calendar day (YYYY-MM-DD) of a timestamp — the staff dropdown key. */
 export const sessionDate = (timestamp: string): string => {
     const d = new Date(timestamp);

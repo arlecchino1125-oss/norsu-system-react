@@ -66,10 +66,14 @@ const AUDIT_ENTITY_LABELS: Record<string, string> = {
     courses: 'course',
     enrolled_students: 'enrolled student',
     events: 'event',
-    forms: 'form',
+    // ponytail: the bare `forms`/`questions` keys are audit history, not dead code --
+    // rows written before the needs-assessment rename still carry the old table name.
+    forms: 'needs assessment form',
+    needs_assessment_forms: 'needs assessment form',
     nat_requirements: 'NAT requirement',
     office_visit_reasons: 'office visit reason',
     questions: 'question',
+    needs_assessment_questions: 'question',
     scholarships: 'scholarship',
     staff_accounts: 'staff account',
     student_activation_settings: 'student activation setting',
@@ -96,7 +100,7 @@ const formatAuditEntityName = (parsed: Record<string, unknown>) => {
     const baseLabel = AUDIT_ENTITY_LABELS[table] || formatKeyLabel(table).toLowerCase();
 
     if (label) {
-        if (table === 'questions' && /^\d+$/.test(label)) {
+        if ((table === 'questions' || table === 'needs_assessment_questions') && /^\d+$/.test(label)) {
             return `Question ${label}`;
         }
         return label;

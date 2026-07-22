@@ -487,7 +487,7 @@ const deactivateForm = async (adminClient: any, actor: any, body: Record<string,
     const formId = parsePositiveInt(body.formId, 'Form ID');
     const form = await maybeSingleOrThrow(
         adminClient
-            .from('forms')
+            .from('needs_assessment_forms')
             .select('id, title, is_active')
             .eq('id', formId)
             .maybeSingle(),
@@ -498,7 +498,7 @@ const deactivateForm = async (adminClient: any, actor: any, body: Record<string,
     // are recorded as previous* in the audit log, and it guards existence before the write.
     // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { error } = await adminClient
-        .from('forms')
+        .from('needs_assessment_forms')
         .update({ is_active: false })
         .eq('id', formId);
 
@@ -506,7 +506,7 @@ const deactivateForm = async (adminClient: any, actor: any, body: Record<string,
 
     await writeStaffAuditLog(adminClient, actor, {
         action: 'Deactivated form',
-        entityTable: 'forms',
+        entityTable: 'needs_assessment_forms',
         entityId: formId,
         details: {
             formTitle: form.title || null,

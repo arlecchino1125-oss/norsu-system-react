@@ -67,7 +67,7 @@ export default function DeptDashboard() {
         defaultTab: 'dashboard',
     });
     const {
-        data, setData, dashboardStats, todayCounselingSessions, eventsList, counselingRequests, setCounselingRequests,
+        data, setData, dashboardStats, todayCounselingSessions, eventsList, deptAttendanceEvents, deptAttendanceCounts, isLoadingDeptAttendanceEvents, counselingRequests, setCounselingRequests,
         supportRequests, setSupportRequests, admissionApplicants,
         refreshAllData, showToastMessage,
         admissionsState,
@@ -279,6 +279,9 @@ export default function DeptDashboard() {
                     supportRequests={supportRequests}
                     admissionApplicants={admissionApplicants}
                     eventsList={eventsList}
+                    deptAttendanceEvents={deptAttendanceEvents}
+                    deptAttendanceCounts={deptAttendanceCounts}
+                    isLoadingDeptAttendanceEvents={isLoadingDeptAttendanceEvents}
                     admissionsState={admissionsState}
                     studentsState={studentsState}
                     departmentAlertItems={departmentAlertItems}

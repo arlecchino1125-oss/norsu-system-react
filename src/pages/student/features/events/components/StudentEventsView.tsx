@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useStudentEventsData } from '../hooks/useStudentEventsData';
 import { getAudienceLabel, isAttendanceActivityType } from '../../../../../utils/eventAudience';
 import { getTextInputLimitProps } from '../../../../../utils/inputSecurity';
 import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
+import { getPendingEvaluationEventIds } from '../studentEvaluationService';
+import StudentEvaluationModal from './StudentEvaluationModal';
+
+// Stable identity: a fresh new Set() as a useQuery default would change on every
+// render and retrigger everything downstream of it.
+const EMPTY_EVALUATION_SET: Set<number> = new Set();
 
 const parseDateValue = (value: string) => {
     if (!value) return null;
@@ -292,7 +299,7 @@ const EventRatingModal = ({ ratingForm, setRatingForm, submitRating, isSubmittin
 );
 
 const EventDetailModal = ({
-    attendanceMap, timingOutEventId, isTimingIn, selectedEvent, setSelectedEvent, handleTimeIn, handleTimeOut, handleRateEvent, setProofFile, ratedEvents, showToast, Icons, renderRegistrationPanel, hasActiveRegistration
+    attendanceMap, timingOutEventId, isTimingIn, selectedEvent, setSelectedEvent, handleTimeIn, handleTimeOut, handleRateEvent, setProofFile, ratedEvents, showToast, Icons, renderRegistrationPanel, hasActiveRegistration, pendingEvaluations, onOpenEvaluation
 }: any) => {
 const record = attendanceMap[selectedEvent.id];
 const isTimedIn = Boolean(record?.time_in);
@@ -500,6 +507,21 @@ return (
                                     Rate this event
                                 </button>
                             )}
+
+                            {/* Separate from the rating above: staff may attach their own
+                                evaluation form, and both are filled independently. */}
+                            {isTimedOut && pendingEvaluations?.has(selectedEvent.id) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedEvent(null);
+                                        onOpenEvaluation(selectedEvent);
+                                    }}
+                                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-3 text-sm font-black text-purple-700 transition-colors hover:bg-purple-100"
+                                >
+                                    Answer evaluation form
+                                </button>
+                            )}
                         </section>
                     )}
                 </div>
@@ -510,7 +532,7 @@ return (
 };
 
 const EventsListSection = ({
-    Icons, attendanceMap, fetchHistory, filteredEvents, handleRateEvent, handleTimeIn, handleTimeOut, isTimingIn, pagedEvents, ratedEvents, renderRegistrationPanel, hasActiveRegistration, safeEventsPage, setEventsPage, setProofFile, setSelectedEvent, timingOutEventId, totalEventPages
+    Icons, attendanceMap, fetchHistory, filteredEvents, handleRateEvent, handleTimeIn, handleTimeOut, isTimingIn, pagedEvents, ratedEvents, renderRegistrationPanel, hasActiveRegistration, safeEventsPage, setEventsPage, setProofFile, setSelectedEvent, timingOutEventId, totalEventPages, pendingEvaluations, onOpenEvaluation
 }: any) => {
     const ratedEventIdSet = new Set(ratedEvents);
 
@@ -681,6 +703,15 @@ const EventsListSection = ({
                                             Rate
                                         </button>
                                     )}
+
+                                    {isTimedOut && pendingEvaluations?.has(item.id) && (
+                                        <button type="button"
+                                            onClick={() => onOpenEvaluation(item)}
+                                            className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-[11px] font-black text-purple-700 shadow-sm transition-all hover:bg-purple-100 sm:text-xs"
+                                        >
+                                            Evaluation Form
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
@@ -751,11 +782,21 @@ const StudentEventsView = ({
     Icons
 }: any) => {
     const [eventsPage, setEventsPage] = useState(1);
+    const [evaluationEvent, setEvaluationEvent] = useState<any>(null);
 
     // No mount-refetch: React Query fetches when the cache is empty and the
     // 2-minute staleness policy governs the rest. refetch() would bypass it.
     const { eventsList } = useStudentEventsData({
         personalInfo
+    });
+
+    // React Query rather than useState + useEffect: it is this project's only
+    // cache for server lists, and it keeps the fetch out of an effect body.
+    const { data: pendingEvaluations = EMPTY_EVALUATION_SET, refetch: refreshPendingEvaluations } = useQuery({
+        queryKey: ['student_pending_evaluations', personalInfo?.studentId],
+        queryFn: () => getPendingEvaluationEventIds(personalInfo.studentId),
+        enabled: Boolean(personalInfo?.studentId),
+        staleTime: 2 * 60 * 1000
     });
 
     const filteredEvents = (eventsList || []).filter((item: any) => {
@@ -897,6 +938,8 @@ const StudentEventsView = ({
                 setSelectedEvent={setSelectedEvent}
                 timingOutEventId={timingOutEventId}
                 totalEventPages={totalEventPages}
+                pendingEvaluations={pendingEvaluations}
+                onOpenEvaluation={setEvaluationEvent}
             />
             </div>
 
@@ -916,8 +959,22 @@ const StudentEventsView = ({
                     Icons={Icons}
                     renderRegistrationPanel={renderRegistrationPanel}
                     hasActiveRegistration={hasActiveRegistration}
+                    pendingEvaluations={pendingEvaluations}
+                    onOpenEvaluation={setEvaluationEvent}
                 />,
                 document.body
+            )}
+
+            {evaluationEvent && (
+                <StudentEvaluationModal
+                    open={Boolean(evaluationEvent)}
+                    eventId={evaluationEvent.id}
+                    eventTitle={evaluationEvent.title}
+                    personalInfo={personalInfo}
+                    onClose={() => setEvaluationEvent(null)}
+                    onSubmitted={async () => { await refreshPendingEvaluations(); }}
+                    showToast={notify}
+                />
             )}
 
             {showRatingModal && createPortal(

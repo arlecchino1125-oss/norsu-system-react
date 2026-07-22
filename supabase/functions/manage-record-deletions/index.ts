@@ -436,7 +436,7 @@ const STUDENT_DELETE_DEPENDENCIES = [
     { table: 'counseling_requests', column: 'student_id', label: 'counseling requests' },
     { table: 'support_requests', column: 'student_id', label: 'support requests' },
     { table: 'office_visits', column: 'student_id', label: 'office visit records' },
-    { table: 'submissions', column: 'student_id', label: 'form submissions' },
+    { table: 'needs_assessment_submissions', column: 'student_id', label: 'needs assessment submissions' },
     { table: 'scholarship_applications', column: 'student_id', label: 'scholarship applications' },
     { table: 'event_attendance', column: 'student_id', label: 'event attendance records' },
     { table: 'event_feedback', column: 'student_id', label: 'event feedback records' },
@@ -563,7 +563,7 @@ const deleteForm = async (adminClient: any, actor: any, body: Record<string, unk
     const formId = parsePositiveInt(body.formId, 'Form ID');
     const form = await maybeSingleOrThrow(
         adminClient
-            .from('forms')
+            .from('needs_assessment_forms')
             .select('id, title')
             .eq('id', formId)
             .maybeSingle(),
@@ -574,7 +574,7 @@ const deleteForm = async (adminClient: any, actor: any, body: Record<string, unk
     // row's details for the audit log (the row no longer exists afterwards) and guards existence.
     // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
     const { data: submissions, error: submissionsError } = await adminClient
-        .from('submissions')
+        .from('needs_assessment_submissions')
         .select('id')
         .eq('form_id', formId);
 
@@ -587,33 +587,33 @@ const deleteForm = async (adminClient: any, actor: any, body: Record<string, unk
 
     if (submissionIds.length > 0) {
         const { error: deleteAnswersError } = await adminClient
-            .from('answers')
+            .from('needs_assessment_answers')
             .delete()
             .in('submission_id', submissionIds);
         if (deleteAnswersError) throw deleteAnswersError;
     }
 
     const { error: deleteSubmissionsError } = await adminClient
-        .from('submissions')
+        .from('needs_assessment_submissions')
         .delete()
         .eq('form_id', formId);
     if (deleteSubmissionsError) throw deleteSubmissionsError;
 
     const { error: deleteQuestionsError } = await adminClient
-        .from('questions')
+        .from('needs_assessment_questions')
         .delete()
         .eq('form_id', formId);
     if (deleteQuestionsError) throw deleteQuestionsError;
 
     const { error: deleteFormError } = await adminClient
-        .from('forms')
+        .from('needs_assessment_forms')
         .delete()
         .eq('id', formId);
     if (deleteFormError) throw deleteFormError;
 
     await writeStaffAuditLog(adminClient, actor, {
         action: 'Deleted form and related submissions',
-        entityTable: 'forms',
+        entityTable: 'needs_assessment_forms',
         entityId: formId,
         details: {
             formTitle: form.title || null,
@@ -632,7 +632,7 @@ const deleteFormQuestion = async (adminClient: any, actor: any, body: Record<str
     const questionId = parsePositiveInt(body.questionId, 'Question ID');
     const question = await maybeSingleOrThrow(
         adminClient
-            .from('questions')
+            .from('needs_assessment_questions')
             .select('id, form_id, question_text')
             .eq('id', questionId)
             .maybeSingle(),
@@ -642,7 +642,7 @@ const deleteFormQuestion = async (adminClient: any, actor: any, body: Record<str
     // Ordered on purpose: the read above must run before the delete — it captures the
     // row's details for the audit log (the row no longer exists afterwards) and guards existence.
     // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
-    const answerCount = await countRowsByEquality(adminClient, 'answers', 'question_id', questionId);
+    const answerCount = await countRowsByEquality(adminClient, 'needs_assessment_answers', 'question_id', questionId);
     if (answerCount > 0) {
         throw withStatus(
             'Cannot delete a question that already has recorded answers. Delete the whole form instead if a hard delete is truly required.',
@@ -651,14 +651,14 @@ const deleteFormQuestion = async (adminClient: any, actor: any, body: Record<str
     }
 
     const { error } = await adminClient
-        .from('questions')
+        .from('needs_assessment_questions')
         .delete()
         .eq('id', questionId);
     if (error) throw error;
 
     await writeStaffAuditLog(adminClient, actor, {
         action: 'Deleted form question',
-        entityTable: 'questions',
+        entityTable: 'needs_assessment_questions',
         entityId: questionId,
         details: {
             formId: question.form_id || null,

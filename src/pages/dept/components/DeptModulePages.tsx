@@ -30,7 +30,7 @@ const moduleLoadingFallback = (
 export function DeptModulePages({
     activeModule, goToModule, showModuleAvailabilityView, activeModuleAccessState,
     data, setData, filteredData, chartData, dashboardStats, todayCounselingSessions,
-    counselingRequests, supportRequests, admissionApplicants, eventsList,
+    counselingRequests, supportRequests, admissionApplicants, eventsList, deptAttendanceEvents, deptAttendanceCounts, isLoadingDeptAttendanceEvents,
     admissionsState, studentsState, departmentAlertItems, showToastMessage, authEmail,
     filters, counseling, support, admissions, account, admissionsDashboard,
     settingsReasons, handleViewDeptAttendees, studentModals
@@ -38,6 +38,8 @@ export function DeptModulePages({
     const {
         studentSearch, setStudentSearch, counseledSearch, setCounseledSearch,
         counseledDate, setCounseledDate,
+        deptCourseFilter, setDeptCourseFilter, deptYearFilter, setYearLevelFilter,
+        deptSectionFilter, setDeptSectionFilter, deptCourses,
         matchesCascadeFilters, getStudentForRequest, cascadeFilterBar
     } = filters;
     const {
@@ -237,7 +239,9 @@ export function DeptModulePages({
             {!showModuleAvailabilityView && activeModule === 'events' && (
                 <DeptEventsPage
                     data={data}
-                    eventsList={eventsList}
+                    deptAttendanceEvents={deptAttendanceEvents}
+                    deptAttendanceCounts={deptAttendanceCounts}
+                    isLoadingDeptAttendanceEvents={isLoadingDeptAttendanceEvents}
                     handleViewDeptAttendees={handleViewDeptAttendees}
                 />
             )}
@@ -265,9 +269,15 @@ export function DeptModulePages({
                     setCounseledSearch={setCounseledSearch}
                     counseledDate={counseledDate}
                     setCounseledDate={setCounseledDate}
+                    deptCourseFilter={deptCourseFilter}
+                    setDeptCourseFilter={setDeptCourseFilter}
+                    deptYearFilter={deptYearFilter}
+                    setYearLevelFilter={setYearLevelFilter}
+                    deptSectionFilter={deptSectionFilter}
+                    setDeptSectionFilter={setDeptSectionFilter}
+                    deptCourses={deptCourses}
                     matchesCascadeFilters={matchesCascadeFilters}
                     getStudentForRequest={getStudentForRequest}
-                    cascadeFilterBar={cascadeFilterBar}
                     setSelectedHistoryStudent={setSelectedHistoryStudent}
                     setShowHistoryModal={setShowHistoryModal}
                 />

@@ -1,6 +1,8 @@
 import React from 'react';
-import { XCircle, MapPin } from 'lucide-react';
+import { GraduationCap, Mail, MapPin, Phone } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
+import Modal from '../../../../../components/ui/Modal';
+import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
 import { COUNSELING_STATUS, getCounselingScheduledDate, isCounselingAwaitingDept, isWithCareStaffCounseling } from '../../../../../utils/workflow';
 
 export function DeptViewFormModal(props: any) {
@@ -17,59 +19,109 @@ export function DeptViewFormModal(props: any) {
                     ].filter(Boolean).join(' ');
                     const isActive = String(selectedStudent.status || '').trim() === 'Active';
                     const address = [selectedStudent.street, selectedStudent.city, selectedStudent.province, selectedStudent.zip_code, selectedStudent.region].filter(Boolean).join(', ');
-                    const infoRows = [
-                        { label: 'Student ID No.', value: selectedStudent.student_id || selectedStudent.id },
+                    const enrollmentRows = [
                         { label: 'College', value: selectedStudent.department },
                         { label: 'Program', value: selectedStudent.course },
                         { label: 'Year Level', value: selectedStudent.year_level || selectedStudent.year },
-                        { label: 'Section', value: selectedStudent.section },
-                        { label: 'Contact Number', value: selectedStudent.mobile || selectedStudent.contact_number },
-                        { label: 'Sex Assigned at Birth', value: selectedStudent.sex },
+                        { label: 'Section', value: selectedStudent.section }
                     ];
+                    const personalRows = [
+                        { label: 'Contact Number', value: selectedStudent.mobile || selectedStudent.contact_number },
+                        { label: 'Sex Assigned at Birth', value: selectedStudent.sex }
+                    ];
+                    const displayValue = (value: unknown) => value
+                        ? String(value)
+                        : <span className="font-normal text-slate-400">Not provided</span>;
+                    const closeStudentProfile = () => setShowStudentModal(false);
+
                     return (
-                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[105] flex items-center justify-center p-4" onClick={() => setShowStudentModal(false)}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-                            <div className="relative bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-5">
-                                <button type="button" aria-label="Close student details" onClick={() => setShowStudentModal(false)} className="absolute top-4 right-4 text-white/80 hover:text-white transition">
-                                    <XCircle size={24} />
+                        <Modal
+                            open
+                            onClose={closeStudentProfile}
+                            title="Student profile"
+                            subtitle="Department directory record"
+                            size="lg"
+                            zIndex="z-[105]"
+                            footer={(
+                                <button
+                                    type="button"
+                                    aria-label="Close student profile"
+                                    onClick={closeStudentProfile}
+                                    className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                >
+                                    Close
                                 </button>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-white/20 ring-2 ring-white/40 text-white flex items-center justify-center font-black text-2xl shrink-0">
-                                        {(fullName || 'S').charAt(0)}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h3 className="text-xl font-bold text-white truncate">{fullName || 'Unnamed Student'}</h3>
-                                        <p className="text-sm text-emerald-50/90 truncate">{selectedStudent.email || 'No email provided'}</p>
-                                        <span className={`mt-1.5 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-900/20 text-white'}`}>
+                            )}
+                        >
+                            <section className="flex items-start gap-4 border-b border-slate-100 pb-5" aria-labelledby="dept-student-profile-name">
+                                <span className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-emerald-100 text-xl font-black text-emerald-800">
+                                    {(fullName || 'S').charAt(0).toUpperCase()}
+                                    {selectedStudent.profile_picture_url && (
+                                        <ResolvedProfileImage
+                                            storedValue={selectedStudent.profile_picture_url}
+                                            studentId={String(selectedStudent.student_id || selectedStudent.id || '')}
+                                            alt={`${fullName || 'Student'} profile`}
+                                            className="absolute inset-0 h-full w-full"
+                                            previewOnClick={false}
+                                            referrerPolicy="no-referrer"
+                                        />
+                                    )}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h2 id="dept-student-profile-name" className="text-xl font-bold text-slate-900">{fullName || 'Unnamed Student'}</h2>
+                                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                                             {selectedStudent.status || 'Unknown'}
                                         </span>
                                     </div>
+                                    <p className="mt-1 text-sm font-medium text-slate-500">
+                                        {selectedStudent.student_id || selectedStudent.id || 'Student ID not provided'}
+                                    </p>
+                                    <p className="mt-2 flex min-w-0 items-center gap-2 break-all text-sm text-slate-600">
+                                        <Mail size={15} className="shrink-0 text-slate-400" />
+                                        {selectedStudent.email || 'Email not provided'}
+                                    </p>
                                 </div>
-                            </div>
-                            <div className="p-6 overflow-y-auto">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Enrollment Details</p>
-                                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                                    {infoRows.map((row) => (
+                            </section>
+
+                            <section className="pt-5">
+                                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                                    <GraduationCap size={17} className="text-emerald-600" />
+                                    Enrollment
+                                </h3>
+                                <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                                    {enrollmentRows.map((row) => (
                                         <div key={row.label} className="min-w-0">
-                                            <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-0.5">{row.label}</dt>
-                                            <dd className="text-sm font-semibold text-gray-800 break-words">{row.value || <span className="text-gray-300 italic font-normal">—</span>}</dd>
+                                            <dt className="text-xs font-semibold text-slate-500">{row.label}</dt>
+                                            <dd className="mt-1 break-words text-sm font-semibold text-slate-800">{displayValue(row.value)}</dd>
                                         </div>
                                     ))}
                                 </dl>
-                                <div className="mt-5 pt-5 border-t border-gray-100">
-                                    <dt className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">
-                                        <MapPin size={13} /> Permanent Address
-                                    </dt>
-                                    <dd className="text-sm font-semibold text-gray-800 break-words">{address || <span className="text-gray-300 italic font-normal">—</span>}</dd>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
-                                <button type="button" onClick={() => setShowStudentModal(false)} className="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all">
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                            </section>
+
+                            <section className="mt-5 border-t border-slate-100 pt-5">
+                                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                                    <Phone size={16} className="text-emerald-600" />
+                                    Contact &amp; personal
+                                </h3>
+                                <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                                    {personalRows.map((row) => (
+                                        <div key={row.label} className="min-w-0">
+                                            <dt className="text-xs font-semibold text-slate-500">{row.label}</dt>
+                                            <dd className="mt-1 break-words text-sm font-semibold text-slate-800">{displayValue(row.value)}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </section>
+
+                            <section className="mt-5 border-t border-slate-100 pt-5">
+                                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                                    <MapPin size={16} className="text-emerald-600" />
+                                    Permanent address
+                                </h3>
+                                <p className="mt-2 break-words text-sm font-semibold text-slate-800">{displayValue(address)}</p>
+                            </section>
+                        </Modal>
                     );
                 })()
             }

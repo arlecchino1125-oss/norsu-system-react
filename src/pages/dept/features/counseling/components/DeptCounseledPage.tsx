@@ -1,7 +1,13 @@
+import { Search } from 'lucide-react';
 import {
     COUNSELING_STATUS,
     isWithCareStaffCounseling
 } from '../../../../../utils/workflow';
+
+const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+const SECTION_OPTIONS = ['A', 'B', 'C', 'D', 'E'];
+const getCounseledStudentKey = (request: any) => String(request?.student_id || request?.student_name || request?.id || '').trim().toLowerCase();
 
 const DeptCounseledPage = ({
     filteredData,
@@ -9,68 +15,167 @@ const DeptCounseledPage = ({
     setCounseledSearch,
     counseledDate,
     setCounseledDate,
+    deptCourseFilter,
+    setDeptCourseFilter,
+    deptYearFilter,
+    setYearLevelFilter,
+    deptSectionFilter,
+    setDeptSectionFilter,
+    deptCourses,
     matchesCascadeFilters,
     getStudentForRequest,
-    cascadeFilterBar,
     setSelectedHistoryStudent,
     setShowHistoryModal
 }: any) => {
     const counseledRows = (Array.isArray(filteredData?.requests) ? filteredData.requests : [])
-        .filter((r: any) => {
-            const status = String(r?.status || '').trim();
-            const studentName = String(r?.student_name || '').toLowerCase();
+        .filter((request: any) => {
+            const status = String(request?.status || '').trim();
+            const studentName = String(request?.student_name || '').toLowerCase();
             return (
                 (status === COUNSELING_STATUS.COMPLETED || isWithCareStaffCounseling(status))
                 && studentName.includes(String(counseledSearch || '').toLowerCase())
-                && (!counseledDate || String(r?.created_at || '').startsWith(counseledDate))
-                && matchesCascadeFilters(getStudentForRequest(r))
+                && (!counseledDate || String(request?.created_at || '').startsWith(counseledDate))
+                && matchesCascadeFilters(getStudentForRequest(request))
             );
         });
+    const groupedStudents = new Map<string, { request: any; recordCount: number }>();
+    counseledRows.forEach((request: any) => {
+        const studentKey = getCounseledStudentKey(request);
+        const existing = groupedStudents.get(studentKey);
+        if (existing) {
+            existing.recordCount += 1;
+        } else {
+            groupedStudents.set(studentKey, { request, recordCount: 1 });
+        }
+    });
+    const counseledStudents = Array.from(groupedStudents.values());
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-100/80 shadow-sm flex flex-col gap-3 card-hover">
-                <div className="flex gap-4">
-                    <input value={counseledSearch} onChange={(e) => setCounseledSearch(e.target.value)} className="flex-1 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" placeholder="Search by name..." />
-                    <input aria-label="Counseled date" type="date" value={counseledDate} onChange={(e) => setCounseledDate(e.target.value)} className="w-48 pl-4 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none" />
+        <div className="space-y-4 animate-fade-in">
+            <header className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(20rem,0.38fr)_minmax(0,1fr)] xl:items-start xl:gap-5">
+                <div className="xl:pt-1">
+                    <h1 className="text-2xl font-bold text-slate-900">Counseled Students</h1>
+                    <p className="mt-1 text-sm text-slate-500">Review counseling records without losing your place.</p>
                 </div>
-                {cascadeFilterBar}
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden card-hover">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-50 border-b border-gray-100 dark:bg-gray-700 dark:border-gray-600">
-                        <tr>
-                            <th className="p-4 font-semibold text-xs text-gray-500 uppercase dark:text-gray-300">Student Name</th>
-                            <th className="p-4 font-semibold text-xs text-gray-500 uppercase dark:text-gray-300">Date</th>
-                            <th className="p-4 font-semibold text-xs text-gray-500 uppercase dark:text-gray-300">Issue</th>
-                            <th className="p-4 font-semibold text-xs text-gray-500 uppercase dark:text-gray-300">Status</th>
-                            <th className="p-4 font-semibold text-xs text-gray-500 uppercase dark:text-gray-300">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {counseledRows
-                            .map((r: any) => (
-                                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                    <td className="p-4 font-medium text-gray-900 dark:text-white">{r.student_name || 'Student'}</td>
-                                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                                        {Number.isNaN(new Date(String(r.created_at || '')).getTime()) ? 'Date unavailable' : new Date(r.created_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold dark:bg-blue-900/30 dark:text-blue-300">{r.request_type || 'Counseling request'}</span></td>
-                                    <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${r.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}`}>{r.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : r.status}</span></td>
-                                    <td className="p-4">
-                                        <button type="button" onClick={() => { setSelectedHistoryStudent(r); setShowHistoryModal(true); }} className="text-blue-600 hover:text-blue-800 text-sm font-medium dark:text-blue-400 dark:hover:text-blue-300">View History</button>
-                                    </td>
-                                </tr>
-                            ))}
-                    </tbody>
-                </table>
-                {counseledRows.length === 0 && (
-                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">No counseled students found.</div>
-                )}
-            </div>
+
+                <section aria-label="Counseled student controls" className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.3fr)_minmax(10rem,0.8fr)_repeat(3,minmax(7rem,0.7fr))]">
+                        <label className="relative block">
+                            <span className="sr-only">Search counseled students</span>
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-600" />
+                            <input
+                                value={counseledSearch}
+                                onChange={(event) => setCounseledSearch(event.target.value)}
+                                className={`w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-3 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
+                                placeholder="Search by student name"
+                            />
+                        </label>
+
+                        <label>
+                            <span className="sr-only">Counseled date</span>
+                            <input
+                                aria-label="Counseled date"
+                                type="date"
+                                value={counseledDate}
+                                onChange={(event) => setCounseledDate(event.target.value)}
+                                className={`w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
+                            />
+                        </label>
+
+                        <select
+                            aria-label="Filter counseled students by course"
+                            value={deptCourseFilter}
+                            onChange={(event) => {
+                                setDeptCourseFilter(event.target.value);
+                                setYearLevelFilter('All');
+                                setDeptSectionFilter('All');
+                            }}
+                            className={`w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
+                        >
+                            <option value="All">All Courses</option>
+                            {deptCourses.map((course: string) => <option key={course} value={course}>{course}</option>)}
+                        </select>
+
+                        <select
+                            aria-label="Filter counseled students by year"
+                            value={deptYearFilter}
+                            onChange={(event) => {
+                                setYearLevelFilter(event.target.value);
+                                setDeptSectionFilter('All');
+                            }}
+                            className={`w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
+                        >
+                            <option value="All">All Years</option>
+                            {YEAR_OPTIONS.map((year) => <option key={year} value={year}>{year}</option>)}
+                        </select>
+
+                        <select
+                            aria-label="Filter counseled students by section"
+                            value={deptSectionFilter}
+                            onChange={(event) => setDeptSectionFilter(event.target.value)}
+                            className={`w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
+                        >
+                            <option value="All">All Sections</option>
+                            {SECTION_OPTIONS.map((section) => <option key={section} value={section}>Section {section}</option>)}
+                        </select>
+                    </div>
+
+                    <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-800">{counseledRows.length}</span> counseling record{counseledRows.length === 1 ? '' : 's'}
+                        <span className="mx-2 text-slate-300">&bull;</span>
+                        <span className="font-semibold text-slate-800">{counseledStudents.length}</span> student{counseledStudents.length === 1 ? '' : 's'}
+                    </p>
+                </section>
+            </header>
+
+            {counseledStudents.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-12 text-center">
+                    <h2 className="text-base font-bold text-slate-800">No counseled students found</h2>
+                    <p className="mt-2 text-sm text-slate-500">Adjust the search, date, or filters to find a record.</p>
+                </div>
+            ) : (
+                <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
+                    {counseledStudents.map(({ request, recordCount }) => {
+                        const studentName = request?.student_name || 'Student';
+                        const studentKey = getCounseledStudentKey(request);
+
+                        return (
+                            <article
+                                key={studentKey}
+                                aria-label={`${studentName} counseled student`}
+                                className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 px-4 py-4 transition-colors hover:bg-slate-50 md:grid-cols-[minmax(0,1.35fr)_minmax(10rem,0.55fr)_auto] md:items-center md:gap-x-5"
+                            >
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-800">
+                                        {String(studentName).charAt(0).toUpperCase()}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <h2 className="truncate font-bold text-slate-900">{studentName}</h2>
+                                        <p className="mt-1 truncate text-xs text-slate-500">{request?.student_id || 'Student record'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="col-start-1 min-w-0 md:col-start-auto">
+                                    <p className="text-sm font-semibold text-slate-700">{recordCount} counseling record{recordCount === 1 ? '' : 's'}</p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedHistoryStudent(request);
+                                        setShowHistoryModal(true);
+                                    }}
+                                    className={`col-start-2 row-start-1 rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 md:col-start-auto md:row-start-auto ${FOCUS_RING}`}
+                                >
+                                    View History
+                                </button>
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };
 
 export default DeptCounseledPage;
-

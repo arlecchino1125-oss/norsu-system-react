@@ -69,48 +69,6 @@ export type Database = {
         }
         Relationships: []
       }
-      answers: {
-        Row: {
-          answer_text: string | null
-          answer_value: number | null
-          created_at: string | null
-          id: number
-          question_id: number | null
-          submission_id: number | null
-        }
-        Insert: {
-          answer_text?: string | null
-          answer_value?: number | null
-          created_at?: string | null
-          id?: number
-          question_id?: number | null
-          submission_id?: number | null
-        }
-        Update: {
-          answer_text?: string | null
-          answer_value?: number | null
-          created_at?: string | null
-          id?: number
-          question_id?: number | null
-          submission_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "answers_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "questions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "answers_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "submissions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       application_archives: {
         Row: {
           activated_course: string | null
@@ -790,6 +748,178 @@ export type Database = {
           },
         ]
       }
+      event_evaluation_answers: {
+        Row: {
+          answer_text: string | null
+          answer_value: number | null
+          id: number
+          question_id: number
+          response_id: number
+        }
+        Insert: {
+          answer_text?: string | null
+          answer_value?: number | null
+          id?: number
+          question_id: number
+          response_id: number
+        }
+        Update: {
+          answer_text?: string | null
+          answer_value?: number | null
+          id?: number
+          question_id?: number
+          response_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_evaluation_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "event_evaluation_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_evaluation_answers_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "event_evaluation_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_evaluation_forms: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_id: number | null
+          id: number
+          is_active: boolean
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_id?: number | null
+          id?: number
+          is_active?: boolean
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_id?: number | null
+          id?: number
+          is_active?: boolean
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_evaluation_forms_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_evaluation_questions: {
+        Row: {
+          choices: string[]
+          form_id: number
+          id: number
+          is_required: boolean
+          order_index: number
+          question_text: string
+          question_type: string
+          scale_max: number | null
+          scale_max_label: string | null
+          scale_min: number | null
+          scale_min_label: string | null
+        }
+        Insert: {
+          choices?: string[]
+          form_id: number
+          id?: number
+          is_required?: boolean
+          order_index?: number
+          question_text: string
+          question_type: string
+          scale_max?: number | null
+          scale_max_label?: string | null
+          scale_min?: number | null
+          scale_min_label?: string | null
+        }
+        Update: {
+          choices?: string[]
+          form_id?: number
+          id?: number
+          is_required?: boolean
+          order_index?: number
+          question_text?: string
+          question_type?: string
+          scale_max?: number | null
+          scale_max_label?: string | null
+          scale_min?: number | null
+          scale_min_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_evaluation_questions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "event_evaluation_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_evaluation_responses: {
+        Row: {
+          course: string | null
+          department: string | null
+          form_id: number
+          id: number
+          student_id: string
+          student_name: string | null
+          submitted_at: string
+          year_level: string | null
+        }
+        Insert: {
+          course?: string | null
+          department?: string | null
+          form_id: number
+          id?: number
+          student_id: string
+          student_name?: string | null
+          submitted_at?: string
+          year_level?: string | null
+        }
+        Update: {
+          course?: string | null
+          department?: string | null
+          form_id?: number
+          id?: number
+          student_id?: string
+          student_name?: string | null
+          submitted_at?: string
+          year_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_evaluation_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "event_evaluation_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_evaluation_responses_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       event_feedback: {
         Row: {
           college: string | null
@@ -1027,30 +1157,6 @@ export type Database = {
         }
         Relationships: []
       }
-      forms: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: number
-          is_active: boolean | null
-          title: string
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: number
-          is_active?: boolean | null
-          title: string
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: number
-          is_active?: boolean | null
-          title?: string
-        }
-        Relationships: []
-      }
       general_feedback: {
         Row: {
           age: number | null
@@ -1185,6 +1291,149 @@ export type Database = {
         }
         Relationships: []
       }
+      needs_assessment_answers: {
+        Row: {
+          answer_text: string | null
+          answer_value: number | null
+          created_at: string | null
+          id: number
+          question_id: number | null
+          submission_id: number | null
+        }
+        Insert: {
+          answer_text?: string | null
+          answer_value?: number | null
+          created_at?: string | null
+          id?: number
+          question_id?: number | null
+          submission_id?: number | null
+        }
+        Update: {
+          answer_text?: string | null
+          answer_value?: number | null
+          created_at?: string | null
+          id?: number
+          question_id?: number | null
+          submission_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "needs_assessment_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "needs_assessment_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "needs_assessment_answers_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "needs_assessment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      needs_assessment_forms: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: number
+          is_active: boolean | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          title?: string
+        }
+        Relationships: []
+      }
+      needs_assessment_questions: {
+        Row: {
+          created_at: string | null
+          form_id: number | null
+          id: number
+          order_index: number | null
+          question_text: string
+          question_type: string | null
+          scale_max: number | null
+          scale_min: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          form_id?: number | null
+          id?: number
+          order_index?: number | null
+          question_text: string
+          question_type?: string | null
+          scale_max?: number | null
+          scale_min?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          form_id?: number | null
+          id?: number
+          order_index?: number | null
+          question_text?: string
+          question_type?: string | null
+          scale_max?: number | null
+          scale_min?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "needs_assessment_questions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "needs_assessment_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      needs_assessment_submissions: {
+        Row: {
+          form_id: number | null
+          id: number
+          student_id: string | null
+          submitted_at: string | null
+        }
+        Insert: {
+          form_id?: number | null
+          id?: number
+          student_id?: string | null
+          submitted_at?: string | null
+        }
+        Update: {
+          form_id?: number | null
+          id?: number
+          student_id?: string | null
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_needs_assessment_submissions_students"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "needs_assessment_submissions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "needs_assessment_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -1283,35 +1532,6 @@ export type Database = {
           },
         ]
       }
-      peer_facilitator_attendance: {
-        Row: {
-          id: number
-          student_id: string
-          time_in: string
-          time_out: string | null
-        }
-        Insert: {
-          id?: number
-          student_id: string
-          time_in?: string
-          time_out?: string | null
-        }
-        Update: {
-          id?: number
-          student_id?: string
-          time_in?: string
-          time_out?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "peer_facilitator_attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["student_id"]
-          },
-        ]
-      }
       peer_facilitator_applications: {
         Row: {
           commitment: string | null
@@ -1356,6 +1576,35 @@ export type Database = {
           },
         ]
       }
+      peer_facilitator_attendance: {
+        Row: {
+          id: number
+          student_id: string
+          time_in: string
+          time_out: string | null
+        }
+        Insert: {
+          id?: number
+          student_id: string
+          time_in?: string
+          time_out?: string | null
+        }
+        Update: {
+          id?: number
+          student_id?: string
+          time_in?: string
+          time_out?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_facilitator_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       peer_facilitator_settings: {
         Row: {
           id: number
@@ -1373,47 +1622,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      questions: {
-        Row: {
-          created_at: string | null
-          form_id: number | null
-          id: number
-          order_index: number | null
-          question_text: string
-          question_type: string | null
-          scale_max: number | null
-          scale_min: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          form_id?: number | null
-          id?: number
-          order_index?: number | null
-          question_text: string
-          question_type?: string | null
-          scale_max?: number | null
-          scale_min?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          form_id?: number | null
-          id?: number
-          order_index?: number | null
-          question_text?: string
-          question_type?: string | null
-          scale_max?: number | null
-          scale_min?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "questions_form_id_fkey"
-            columns: ["form_id"]
-            isOneToOne: false
-            referencedRelation: "forms"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       role_permissions: {
         Row: {
@@ -2107,42 +2315,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "enrolled_students"
             referencedColumns: ["student_id"]
-          },
-        ]
-      }
-      submissions: {
-        Row: {
-          form_id: number | null
-          id: number
-          student_id: string | null
-          submitted_at: string | null
-        }
-        Insert: {
-          form_id?: number | null
-          id?: number
-          student_id?: string | null
-          submitted_at?: string | null
-        }
-        Update: {
-          form_id?: number | null
-          id?: number
-          student_id?: string | null
-          submitted_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_submissions_students"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["student_id"]
-          },
-          {
-            foreignKeyName: "submissions_form_id_fkey"
-            columns: ["form_id"]
-            isOneToOne: false
-            referencedRelation: "forms"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -3029,6 +3201,10 @@ export type Database = {
         Returns: number
       }
       seed_student_role_permissions: { Args: never; Returns: number }
+      student_may_evaluate_form: {
+        Args: { p_form_id: number }
+        Returns: boolean
+      }
       swap_or_rename_student_ids: {
         Args: { p_source_id: string; p_target_id: string }
         Returns: Json

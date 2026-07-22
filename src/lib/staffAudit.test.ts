@@ -28,6 +28,20 @@ describe('staffAudit formatAuditDetails', () => {
         })).toBe('Question 44 (Published)');
     });
 
+    it('formats question status changes under the renamed table too', () => {
+        // Every audit row written from now on carries the renamed table; the row
+        // above carries the pre-rename name. Both must read the same to a human.
+        expect(formatAuditDetails({
+            source: 'db_trigger',
+            operation: 'UPDATE',
+            table: 'needs_assessment_questions',
+            record_id: '44',
+            label: '44',
+            previous_status: 'draft',
+            status: 'published'
+        })).toBe('Question 44 (Published)');
+    });
+
     it('keeps manual audit summaries when they are already plain text', () => {
         expect(formatAuditDetails({
             summary: 'Updated the staff password.'

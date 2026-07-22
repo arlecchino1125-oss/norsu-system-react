@@ -441,7 +441,7 @@ const AnalyticsHeader = ({
 const fetchAnalyticsSubmissions = async (selectedFormId: number | null) => {
     if (!selectedFormId) return { submissions: [], answers: [] };
     const { data: subs, error: subError } = await supabase
-        .from('submissions')
+        .from('needs_assessment_submissions')
         .select(SUBMISSION_COLUMNS)
         .eq('form_id', selectedFormId);
     if (subError) throw subError;
@@ -462,7 +462,7 @@ const fetchAnalyticsSubmissions = async (selectedFormId: number | null) => {
     let answers: any[] = [];
     if (subIds.length > 0) {
         const { data: ans, error: ansError } = await supabase
-            .from('answers')
+            .from('needs_assessment_answers')
             .select(ANSWER_COLUMNS)
             .in('submission_id', subIds);
         if (ansError) throw ansError;
@@ -510,7 +510,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const { data: qForms } = useQuery({
         queryKey: ['analytics_forms'],
         queryFn: async () => {
-            const { data, error } = await supabase.from('forms').select(FORM_COLUMNS).order('created_at', { ascending: false });
+            const { data, error } = await supabase.from('needs_assessment_forms').select(FORM_COLUMNS).order('created_at', { ascending: false });
             if (error) throw error;
             return data || [];
         }
@@ -532,7 +532,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
         queryFn: async () => {
             if (!selectedFormId) return [];
             const { data, error } = await supabase
-                .from('questions')
+                .from('needs_assessment_questions')
                 .select(QUESTION_COLUMNS)
                 .eq('form_id', selectedFormId)
                 .order('order_index');
@@ -630,7 +630,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 const prevEnd = new Date(start.getTime());
                 const prevStart = new Date(prevEnd.getTime() - duration);
                 const { data: prevSubs } = await supabase
-                    .from('submissions')
+                    .from('needs_assessment_submissions')
                     .select(SUBMISSION_COLUMNS)
                     .eq('form_id', selectedFormId)
                     .gte('submitted_at', prevStart.toISOString())

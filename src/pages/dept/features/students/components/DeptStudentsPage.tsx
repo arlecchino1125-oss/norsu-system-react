@@ -1,21 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    AlertTriangle,
-    BookOpen,
-    CheckCircle2,
     ChevronLeft,
     ChevronRight,
     Download,
-    Eye,
     Flag,
     FlagOff,
-    GraduationCap,
-    Mail,
     MessageSquarePlus,
+    MoreHorizontal,
     Search,
-    Users,
     X
 } from 'lucide-react';
+import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
 import { buildCsv } from '../../../../../utils/inputSecurity';
 import { getStudentsPage } from '../../../../../services/deptService';
 import {
@@ -49,6 +44,7 @@ const downloadCsv = (filename: string, headers: string[], rows: Array<Record<str
 
 const normalizeText = (value: unknown) => String(value || '').trim().toLowerCase();
 const getStudentKey = (student: any) => String(student?.student_id || student?.id || student?.email || student?.name || '');
+const closeStudentActionMenu = (event: React.MouseEvent<HTMLButtonElement>) => event.currentTarget.closest('details')?.removeAttribute('open');
 const getStudentDbId = (student: any) => {
     const value = Number(student?.row_id || student?.id);
     return Number.isFinite(value) && value > 0 ? value : null;
@@ -57,24 +53,20 @@ const getStudentDbId = (student: any) => {
 const DEPT_STUDENT_YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 
 const StudentsPaginationBar = ({ startIndex, endIndex, totalStudents, currentPage, totalPages, pageSize, onPageSizeChange, goToPage }: any) => (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="space-y-1">
-                <p className="text-sm font-semibold text-gray-800">
-                    Showing {startIndex + 1}-{endIndex} of {totalStudents} results
-                </p>
-                <p className="text-xs text-gray-500">
-                    Page {currentPage} of {totalPages}
-                </p>
-            </div>
+    <footer className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <p className="text-sm text-slate-600">
+                Showing <span className="font-semibold text-slate-900">{startIndex + 1}-{endIndex}</span> of {totalStudents} students
+                <span className="ml-2 text-slate-400">Page {currentPage} of {totalPages}</span>
+            </p>
 
-            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-                <label className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="font-semibold">Rows</span>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <span className="font-medium">Rows</span>
                     <select
                         value={pageSize}
                         onChange={(event) => onPageSizeChange(Number(event.target.value))}
-                        className={`rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                        className={`rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 ${FOCUS_RING}`}
                     >
                         {PAGE_SIZE_OPTIONS.map((option) => (
                             <option key={option} value={option}>{option}</option>
@@ -82,24 +74,24 @@ const StudentsPaginationBar = ({ startIndex, endIndex, totalStudents, currentPag
                     </select>
                 </label>
 
-                <label className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="font-semibold">Jump to</span>
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <span className="font-medium">Jump to</span>
                     <input
                         type="number"
                         min={1}
                         max={totalPages}
                         value={currentPage}
                         onChange={(event) => goToPage(Number(event.target.value) || 1)}
-                        className={`w-20 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 ${FOCUS_RING}`}
+                        className={`w-16 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 ${FOCUS_RING}`}
                     />
                 </label>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:ml-1">
                     <button
                         type="button"
                         onClick={() => goToPage(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
                     >
                         <ChevronLeft size={16} />
                         Previous
@@ -108,7 +100,7 @@ const StudentsPaginationBar = ({ startIndex, endIndex, totalStudents, currentPag
                         type="button"
                         onClick={() => goToPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className={`inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
                     >
                         Next
                         <ChevronRight size={16} />
@@ -116,136 +108,145 @@ const StudentsPaginationBar = ({ startIndex, endIndex, totalStudents, currentPag
                 </div>
             </div>
         </div>
-    </div>
+    </footer>
 );
 
-const DeptStudentCard = ({
+const StudentAvatar = ({ student }: any) => (
+    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-100 text-sm font-black text-emerald-800">
+        {(student?.name || 'S').charAt(0).toUpperCase()}
+        {student?.profile_picture_url && (
+            <ResolvedProfileImage
+                storedValue={student.profile_picture_url}
+                studentId={String(student.student_id || student.id || '')}
+                alt=""
+                className="absolute inset-0 h-full w-full"
+                previewOnClick={false}
+                referrerPolicy="no-referrer"
+            />
+        )}
+    </span>
+);
+
+const DeptStudentRow = ({
     student, cardState, counselingHistoryCount, savedNote,
     noteDraft, setNoteDraft,
     onToggleSelect, onViewProfile, onOpenNoteEditor, onSaveNote, onCancelNote, onToggleFlag
 }: any) => {
     const { isActive, isSelected, isFlagged, isEditingNote } = cardState;
+    const studentName = student?.name || 'Unnamed Student';
+    const noteId = `dept-student-note-${getStudentDbId(student) || 'student'}`;
+
     return (
-    <article className="bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-100/80 shadow-sm card-hover space-y-4">
-        <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4 min-w-0">
+        <article className={`relative transition-colors hover:bg-slate-50 ${isSelected ? 'bg-emerald-50/50' : 'bg-white'}`}>
+            <button
+                type="button"
+                aria-label={`View ${studentName} profile`}
+                onClick={onViewProfile}
+                className={`absolute inset-0 z-0 w-full cursor-pointer rounded-2xl ${FOCUS_RING}`}
+            />
+
+            <div className="pointer-events-none relative z-10 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 px-4 py-4 md:grid-cols-[auto_minmax(0,1.35fr)_minmax(12rem,1fr)_minmax(9.5rem,auto)_auto] md:items-center md:gap-x-5">
                 <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={onToggleSelect}
-                    aria-label={`Select ${student?.name || 'student'}`}
-                    className={`mt-2 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 ${FOCUS_RING}`}
+                    aria-label={`Select ${studentName}`}
+                    className={`pointer-events-auto mt-3 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 md:mt-0 ${FOCUS_RING}`}
                 />
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg ${isActive ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-200/60' : 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-slate-200/60'}`}>
-                    {(student?.name || 'S').charAt(0)}
+
+                <div className="flex min-w-0 items-center gap-3 pr-10 md:pr-0">
+                    <StudentAvatar student={student} />
+                    <div className="min-w-0">
+                        <h3 className="truncate font-bold text-slate-900">{studentName}</h3>
+                    </div>
                 </div>
-                <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-bold text-gray-900 truncate">{student?.name || 'Unnamed Student'}</h3>
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${isActive ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-slate-200 bg-slate-100 text-slate-600'}`}>
-                            {isActive ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
+
+                <div className="col-start-2 min-w-0 md:col-start-auto">
+                    <p className="truncate text-sm font-semibold text-slate-700">{student?.course || 'Program not provided'}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                        {student?.year_level || student?.year || 'Year not provided'}
+                        <span className="mx-1.5 text-slate-300">&bull;</span>
+                        Section {student?.section || 'N/A'}
+                    </p>
+                </div>
+
+                <div className="col-start-2 flex flex-wrap items-center gap-2 md:col-start-auto md:block">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                             {isActive ? 'Active' : String(student?.status || 'Inactive')}
                         </span>
                         {isFlagged && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
-                                <Flag size={12} />
-                                At-Risk
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                                <Flag size={11} /> At-Risk
                             </span>
                         )}
                     </div>
-                    <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-gray-500 break-all">
-                        <Mail size={12} />
-                        {student?.email || 'No email provided'}
+                    <p className="text-xs text-slate-500 md:mt-1.5">
+                        {counselingHistoryCount} counseling record{counselingHistoryCount === 1 ? '' : 's'}
+                        {savedNote && <span className="ml-2 text-emerald-700">&bull; Note added</span>}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-700">
-                            <BookOpen size={12} />
-                            {student?.course || 'Course N/A'}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-700">
-                            <GraduationCap size={12} />
-                            {student?.year_level || student?.year || 'Year N/A'}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-700">
-                            <Users size={12} />
-                            Section {student?.section || 'N/A'}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
-                            <MessageSquarePlus size={12} />
-                            {counselingHistoryCount} counseling record{counselingHistoryCount === 1 ? '' : 's'}
-                        </span>
+                </div>
+
+                <details className="pointer-events-auto absolute right-3 top-3 z-20 md:static" onClick={(event) => event.stopPropagation()}>
+                    <summary
+                        role="button"
+                        aria-label={`Actions for ${studentName}`}
+                        className={`flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 [&::-webkit-details-marker]:hidden ${FOCUS_RING}`}
+                    >
+                        <MoreHorizontal size={18} />
+                    </summary>
+                    <div role="menu" className="absolute right-0 top-11 z-30 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-md">
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={(event) => {
+                                closeStudentActionMenu(event);
+                                onOpenNoteEditor();
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 ${FOCUS_RING}`}
+                        >
+                            <MessageSquarePlus size={15} className="text-emerald-600" />
+                            {savedNote ? 'Edit note' : 'Add note'}
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={(event) => {
+                                closeStudentActionMenu(event);
+                                onToggleFlag();
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition hover:bg-slate-50 ${isFlagged ? 'text-slate-700' : 'text-amber-700'} ${FOCUS_RING}`}
+                        >
+                            {isFlagged ? <FlagOff size={15} /> : <Flag size={15} />}
+                            {isFlagged ? 'Remove at-risk flag' : 'Flag as at-risk'}
+                        </button>
+                    </div>
+                </details>
+            </div>
+
+            {isEditingNote && (
+                <div className="pointer-events-auto relative z-20 border-t border-slate-100 bg-slate-50/70 px-4 py-4 md:pl-16">
+                    <label htmlFor={noteId} className="block text-xs font-bold text-slate-700">Department note for {studentName}</label>
+                    <textarea
+                        id={noteId}
+                        rows={3}
+                        value={noteDraft}
+                        onChange={(event) => setNoteDraft(event.target.value)}
+                        className={`mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 ${FOCUS_RING}`}
+                        placeholder="Add a short faculty note for follow-up, mentoring, or academic risk tracking."
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={onSaveNote} className={`rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 ${FOCUS_RING}`}>
+                            Save note
+                        </button>
+                        <button type="button" onClick={onCancelNote} className={`rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50 ${FOCUS_RING}`}>
+                            Cancel
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        {savedNote && !isEditingNote && (
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Faculty Note</p>
-                <p className="mt-1 text-sm text-emerald-900 whitespace-pre-wrap">{savedNote}</p>
-            </div>
-        )}
-
-        {isEditingNote && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-3">
-                <label htmlFor="dept-student-note" className="block text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                    Department Note
-                </label>
-                <textarea
-                    id="dept-student-note"
-                    rows={3}
-                    value={noteDraft}
-                    onChange={(event) => setNoteDraft(event.target.value)}
-                    className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-gray-700 resize-none transition-all focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
-                    placeholder="Add a short faculty note for follow-up, mentoring, or academic risk tracking."
-                />
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        onClick={onSaveNote}
-                        className={`px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition ${FOCUS_RING}`}
-                    >
-                        Save Note
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onCancelNote}
-                        className={`px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:bg-gray-50 transition ${FOCUS_RING}`}
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-            <button
-                type="button"
-                onClick={onViewProfile}
-                className={`inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100 transition ${FOCUS_RING}`}
-            >
-                <Eye size={14} />
-                View Profile
-            </button>
-            <button
-                type="button"
-                onClick={onOpenNoteEditor}
-                className={`inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition ${FOCUS_RING}`}
-            >
-                <MessageSquarePlus size={14} />
-                {savedNote ? 'Edit Note' : 'Add Note'}
-            </button>
-            <button
-                type="button"
-                onClick={onToggleFlag}
-                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition ${isFlagged ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'} ${FOCUS_RING}`}
-            >
-                {isFlagged ? <FlagOff size={14} /> : <Flag size={14} />}
-                {isFlagged ? 'Remove At-Risk' : 'Flag as At-Risk'}
-            </button>
-        </div>
-    </article>
-);
+            )}
+        </article>
+    );
 };
 
 const StudentDirectoryToolbar = ({
@@ -255,134 +256,125 @@ const StudentDirectoryToolbar = ({
     onTogglePage, pageCount, allPageSelected, pageSelectedCount, onFlagSelected,
     exportMode, setExportMode, onExport, onResetFilters
 }: any) => (
-    <div className="bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-100/80 shadow-sm card-hover space-y-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-                <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-emerald-500 pl-3">Student Directory</h2>
-                <p className="text-sm text-gray-500 mt-1 pl-4">Filter by course, year level, and status while keeping quick student actions close at hand.</p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                    <Users size={14} />
-                    {totalStudents} filtered
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
-                    <AlertTriangle size={14} />
-                    {flaggedCount} flagged
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700">
-                    <CheckCircle2 size={14} />
-                    {selectedCount} selected on this page
-                </span>
-            </div>
+    <header className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(20rem,0.38fr)_minmax(0,1fr)] xl:items-start xl:gap-5">
+        <div className="xl:pt-1">
+            <h1 className="text-2xl font-bold text-slate-900">Student Directory</h1>
+            <p className="mt-1 text-sm text-slate-500">Find students and open a profile without losing your place.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,0.8fr))]">
-            <label className="relative block">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
-                <input
-                    value={studentSearch}
-                    onChange={(event) => setStudentSearch(event.target.value)}
-                    className={`w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 transition-all focus:bg-white focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
-                    placeholder="Search students, course, email, or ID"
-                />
-            </label>
+        <section aria-label="Student directory controls" className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(9rem,0.8fr))]">
+                <label className="relative block">
+                    <span className="sr-only">Search students</span>
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-600" />
+                    <input
+                        value={studentSearch}
+                        onChange={(event) => setStudentSearch(event.target.value)}
+                        className={`w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-3 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
+                        placeholder="Search name, email, program, or ID"
+                    />
+                </label>
 
-            <select
-                aria-label="Filter students by course"
-                value={courseFilter}
-                onChange={(event) => setCourseFilter(event.target.value)}
-                className={`w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 transition-all focus:bg-white focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
-            >
-                <option value="All">All Courses</option>
-                {uniqueCourses.map((course) => (
-                    <option key={course} value={course}>{course}</option>
-                ))}
-            </select>
-
-            <select
-                aria-label="Filter students by year level"
-                value={yearFilter}
-                onChange={(event) => setYearFilter(event.target.value)}
-                className={`w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 transition-all focus:bg-white focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
-            >
-                <option value="All">All Year Levels</option>
-                {DEPT_STUDENT_YEAR_OPTIONS.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                ))}
-            </select>
-
-            <select
-                aria-label="Filter students by status"
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className={`w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 transition-all focus:bg-white focus:ring-2 focus:ring-emerald-500/40 ${FOCUS_RING}`}
-            >
-                <option value="All">All Statuses</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Incomplete">Incomplete</option>
-            </select>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-            <button
-                type="button"
-                onClick={onTogglePage}
-                disabled={pageCount === 0}
-                className={`px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-sm font-bold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
-            >
-                {allPageSelected ? 'Clear Page' : `Select Page (${pageSelectedCount}/${pageCount})`}
-            </button>
-            <button
-                type="button"
-                onClick={onFlagSelected}
-                disabled={selectedCount === 0}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-bold transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
-            >
-                <Flag size={14} />
-                Flag Selected
-            </button>
-
-            <div className="inline-flex rounded-xl bg-slate-100 p-1">
-                <button
-                    type="button"
-                    onClick={() => setExportMode('selected')}
-                    className={`rounded-lg px-3 py-2 text-xs font-bold transition ${exportMode === 'selected' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'} ${FOCUS_RING}`}
+                <select
+                    aria-label="Filter students by course"
+                    value={courseFilter}
+                    onChange={(event) => setCourseFilter(event.target.value)}
+                    className={`w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
                 >
-                    Export Selected
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setExportMode('filtered')}
-                    className={`rounded-lg px-3 py-2 text-xs font-bold transition ${exportMode === 'filtered' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'} ${FOCUS_RING}`}
+                    <option value="All">All Programs</option>
+                    {uniqueCourses.map((course) => (
+                        <option key={course} value={course}>{course}</option>
+                    ))}
+                </select>
+
+                <select
+                    aria-label="Filter students by year level"
+                    value={yearFilter}
+                    onChange={(event) => setYearFilter(event.target.value)}
+                    className={`w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
                 >
-                    Export All Filtered
-                </button>
+                    <option value="All">All Year Levels</option>
+                    {DEPT_STUDENT_YEAR_OPTIONS.map((year) => (
+                        <option key={year} value={year}>{year}</option>
+                    ))}
+                </select>
+
+                <select
+                    aria-label="Filter students by status"
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    className={`w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition focus:bg-white ${FOCUS_RING}`}
+                >
+                    <option value="All">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Incomplete">Incomplete</option>
+                </select>
             </div>
 
-            <button
-                type="button"
-                onClick={() => void onExport()}
-                disabled={exportMode === 'selected' ? selectedCount === 0 : totalStudents === 0}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-sm font-bold transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
-            >
-                <Download size={14} />
-                Export CSV
-            </button>
-            {(courseFilter !== 'All' || yearFilter !== 'All' || statusFilter !== 'All') && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
                 <button
                     type="button"
-                    onClick={onResetFilters}
-                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm font-bold transition hover:bg-rose-100 ${FOCUS_RING}`}
+                    onClick={onTogglePage}
+                    disabled={pageCount === 0}
+                    className={`rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
                 >
-                    <X size={14} />
-                    Reset Filters
+                    {allPageSelected ? 'Clear page selection' : `Select page (${pageSelectedCount}/${pageCount})`}
                 </button>
-            )}
-        </div>
-    </div>
+
+                <p className="whitespace-nowrap text-xs text-slate-500">
+                    <span className="font-semibold text-slate-800">{totalStudents}</span> student{totalStudents === 1 ? '' : 's'}
+                    <span className="mx-2 text-slate-300">&bull;</span>
+                    <span className={flaggedCount > 0 ? 'font-semibold text-amber-700' : ''}>{flaggedCount} flagged</span>
+                    {selectedCount > 0 && <span className="ml-2 font-semibold text-emerald-700">&bull; {selectedCount} selected</span>}
+                </p>
+
+                {selectedCount > 0 && (
+                    <button
+                        type="button"
+                        onClick={onFlagSelected}
+                        className={`inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 ${FOCUS_RING}`}
+                    >
+                        <Flag size={14} />
+                        Flag selected
+                    </button>
+                )}
+
+                {(courseFilter !== 'All' || yearFilter !== 'All' || statusFilter !== 'All') && (
+                    <button
+                        type="button"
+                        onClick={onResetFilters}
+                        className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 ${FOCUS_RING}`}
+                    >
+                        <X size={14} />
+                        Clear filters
+                    </button>
+                )}
+
+                <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+                    <label className="sr-only" htmlFor="dept-student-export-scope">Export scope</label>
+                    <select
+                        id="dept-student-export-scope"
+                        value={exportMode}
+                        onChange={(event) => setExportMode(event.target.value as 'selected' | 'filtered')}
+                        className={`min-w-40 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-700 sm:flex-none ${FOCUS_RING}`}
+                    >
+                        <option value="selected">Selected students</option>
+                        <option value="filtered">All filtered students</option>
+                    </select>
+                    <button
+                        type="button"
+                        onClick={() => void onExport()}
+                        disabled={exportMode === 'selected' ? selectedCount === 0 : totalStudents === 0}
+                        className={`inline-flex items-center gap-2 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+                    >
+                        <Download size={14} />
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+        </section>
+    </header>
 );
 
 /** Department-scoped notes and at-risk flags for the visible student rows. */
@@ -730,7 +722,7 @@ const DeptStudentsPage = ({
     });
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-4 animate-fade-in">
             <StudentDirectoryToolbar
                 totalStudents={totalStudents}
                 flaggedCount={flaggedStudentIds.length}
@@ -756,13 +748,13 @@ const DeptStudentsPage = ({
             />
 
             {filteredStudents.length === 0 ? (
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-12 text-center">
-                    <h3 className="text-lg font-bold text-gray-900">{studentsState?.isLoading ? 'Loading students...' : 'No students match the current filters'}</h3>
-                    <p className="mt-2 text-sm text-gray-500">{studentsState?.isLoading ? 'Fetching the student directory for your department.' : 'Try clearing one or more filters or widening the search.'}</p>
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-12 text-center">
+                    <h2 className="text-base font-bold text-slate-800">{studentsState?.isLoading ? 'Loading students...' : 'No students match these filters'}</h2>
+                    <p className="mt-2 text-sm text-slate-500">{studentsState?.isLoading ? 'Preparing your department directory.' : 'Clear a filter or try a broader search.'}</p>
                 </div>
             ) : (
                 <>
-                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
+                <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
                     {paginatedStudents.map((student: any) => {
                         const studentId = getStudentKey(student);
                         const historyKey = String(student?.student_id || '').trim() || normalizeText(student?.name);
@@ -774,7 +766,7 @@ const DeptStudentsPage = ({
                         const savedNote = annotation?.note || '';
 
                         return (
-                            <DeptStudentCard
+                            <DeptStudentRow
                                 key={studentId}
                                 student={student}
                                 cardState={{

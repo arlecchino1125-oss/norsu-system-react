@@ -125,7 +125,7 @@ export const getActiveFormsPage = async (
 ): Promise<PageResult<any>> => {
     const { from, to } = resolvePageParams(pageParams);
     let query: any = supabase
-        .from('forms')
+        .from('needs_assessment_forms')
         .select(STUDENT_FORM_COLUMNS, { count: PAGED_LIST_COUNT_MODE })
         .eq('is_active', true);
 
@@ -139,7 +139,7 @@ export const getActiveFormsPage = async (
 
 export const getCompletedFormIds = async (studentId: string) => {
     const { data, error } = await supabase
-        .from('submissions')
+        .from('needs_assessment_submissions')
         .select('form_id')
         .eq('student_id', studentId);
     if (error) throw error;

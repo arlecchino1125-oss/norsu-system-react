@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, m } from 'framer-motion';
 import {
-    Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Archive, RefreshCw
+    Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList
 } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
@@ -25,6 +25,10 @@ import {
     isAttendanceActivityType
 } from '../../../../../utils/eventAudience';
 import type { CareStaffDashboardFunctions } from '../../../types';
+import EventEvaluationBuilderModal from './EventEvaluationBuilderModal';
+import EventEvaluationResultsModal from './EventEvaluationResultsModal';
+import EventEvaluationTemplatesModal from './EventEvaluationTemplatesModal';
+import { getEvaluationsForEvents, type EvaluationForm } from '../eventEvaluationService';
 import { useCareStaffEvents, createEmptyEvent, getEventTypeBadgeClass, getArchivedEventTypeBadgeClass, isVisibleForStaffFilter, getAudienceModeLabel, getAudienceBulletItems, isRegistrationEvent, formatRegistrationDeadline, getRegistrationStatusClass } from '../hooks/useCareStaffEvents';
 import type { CareStaffEventsPageProps } from '../hooks/useCareStaffEvents';
 
@@ -599,7 +603,7 @@ const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => (
 );
 
 const EventListSection = ({
-    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, handleViewAttendees, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent
+    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, handleViewAttendees, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
 }: any) => (
 <div className="space-y-4">
     {/* Active Events */}
@@ -642,6 +646,17 @@ const EventListSection = ({
                             <Button variant="secondary" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-500" />}>Reviews ({item.feedbackCount || 0})</Button>
                             {isRegistrationEvent(item) && <Button variant="secondary" size="sm" onClick={() => item.id && handleViewRegistrants(item)} leftIcon={<Users size={14} className="text-emerald-500" />}>Registrants ({item.registeredCount || 0})</Button>}
                             <Button variant="secondary" size="sm" onClick={() => item.id && handleViewAttendees(item)} leftIcon={<Users size={14} className="text-blue-500" />}>Attendees ({item.attendees || 0})</Button>
+                            {evaluations?.get(item.id)
+                                ? (
+                                    <Button variant="secondary" size="sm" onClick={() => item.id && handleViewEvaluationResults(item)} leftIcon={<ClipboardList size={14} className="text-purple-500" />}>
+                                        Evaluation ({evaluations.get(item.id).responseCount})
+                                    </Button>
+                                )
+                                : (
+                                    <Button variant="secondary" size="sm" onClick={() => item.id && handleBuildEvaluation(item)} leftIcon={<Plus size={14} className="text-purple-500" />}>
+                                        Create Evaluation
+                                    </Button>
+                                )}
                         </>
                     )}
                     <Button variant="secondary" size="sm" onClick={() => handleEditEvent(item)} leftIcon={<CheckCircle size={14} />} />
@@ -692,6 +707,11 @@ const EventListSection = ({
                         <Button variant="ghost" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-400" />}>Reviews ({item.feedbackCount || 0})</Button>
                         {isRegistrationEvent(item) && <Button variant="ghost" size="sm" onClick={() => item.id && handleViewRegistrants(item)} leftIcon={<Users size={14} className="text-emerald-400" />}>Registrants ({item.registeredCount || 0})</Button>}
                         <Button variant="ghost" size="sm" onClick={() => item.id && handleViewAttendees(item)} leftIcon={<Users size={14} className="text-blue-400" />}>Attendees ({item.attendees || 0})</Button>
+                        {evaluations?.get(item.id) && (
+                            <Button variant="ghost" size="sm" onClick={() => item.id && handleViewEvaluationResults(item)} leftIcon={<ClipboardList size={14} className="text-purple-400" />}>
+                                Evaluation ({evaluations.get(item.id).responseCount})
+                            </Button>
+                        )}
                     </>
                 )}
             </div>
@@ -773,6 +793,35 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         renderAudienceCheckboxGroup
     } = useCareStaffEvents({ functions });
 
+    const [evaluations, setEvaluations] = useState<Map<number, { form: EvaluationForm; responseCount: number }>>(new Map());
+    const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+    const [evaluationTarget, setEvaluationTarget] = useState<{ event: SystemEvent; form: EvaluationForm | null } | null>(null);
+    const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string } | null>(null);
+
+    const refreshEvaluations = useCallback(async () => {
+        const ids = [...events, ...archivedEvents]
+            .map((item: SystemEvent) => item.id)
+            .filter((id): id is number => typeof id === 'number');
+        try {
+            setEvaluations(await getEvaluationsForEvents(ids));
+        } catch {
+            showToast('Could not load event evaluations.', 'error');
+        }
+    }, [events, archivedEvents, showToast]);
+
+    useEffect(() => {
+        void refreshEvaluations();
+    }, [refreshEvaluations]);
+
+    const handleBuildEvaluation = (event: SystemEvent) => {
+        setEvaluationTarget({ event, form: evaluations.get(event.id as number)?.form ?? null });
+    };
+
+    const handleViewEvaluationResults = (event: SystemEvent) => {
+        const existing = evaluations.get(event.id as number);
+        if (existing) setResultsTarget({ formId: existing.form.id, title: event.title });
+    };
+
     const eventTabs = [
         { id: 'All Items', label: 'All Items', count: events.length },
         { id: 'Activities', label: 'Activities', count: events.filter((item) => isVisibleForStaffFilter(item, 'Activities')).length },
@@ -797,6 +846,13 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                             leftIcon={!isRefreshingData ? <RefreshCw size={16} /> : undefined}
                         >
                             {isRefreshingData ? 'Refreshing...' : 'Refresh Data'}
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={() => setShowTemplatesModal(true)}
+                            leftIcon={<ClipboardList size={16} />}
+                        >
+                            Evaluation Templates
                         </Button>
                         <Button
                             variant="primary"
@@ -859,6 +915,9 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     handleViewFeedback={handleViewFeedback}
                     setDetailEvent={setDetailEvent}
                     handleDeleteEvent={handleDeleteEvent}
+                    evaluations={evaluations}
+                    handleBuildEvaluation={handleBuildEvaluation}
+                    handleViewEvaluationResults={handleViewEvaluationResults}
                 />
             </div>
 
@@ -925,6 +984,36 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
 
             {detailEvent && (
                 <EventDetailModal detailEvent={detailEvent} setDetailEvent={setDetailEvent} />
+            )}
+
+            {showTemplatesModal && (
+                <EventEvaluationTemplatesModal
+                    open={showTemplatesModal}
+                    onClose={() => setShowTemplatesModal(false)}
+                    showToast={showToast}
+                />
+            )}
+
+            {evaluationTarget && (
+                <EventEvaluationBuilderModal
+                    open={Boolean(evaluationTarget)}
+                    onClose={() => setEvaluationTarget(null)}
+                    eventId={evaluationTarget.event.id as number}
+                    eventTitle={evaluationTarget.event.title}
+                    existingForm={evaluationTarget.form}
+                    showToast={showToast}
+                    onSaved={refreshEvaluations}
+                />
+            )}
+
+            {resultsTarget && (
+                <EventEvaluationResultsModal
+                    open={Boolean(resultsTarget)}
+                    onClose={() => setResultsTarget(null)}
+                    formId={resultsTarget.formId}
+                    eventTitle={resultsTarget.title}
+                    showToast={showToast}
+                />
             )}
 
             {/* Delete Confirmation Modal */}
