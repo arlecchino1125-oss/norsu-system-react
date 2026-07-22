@@ -576,6 +576,31 @@ const getChangedProfileFields = (beforeProfile: any, afterPayload: Record<string
     return changedFields;
 };
 
+const createProfileUpdateNotification = async (
+    adminClient: any,
+    beforeStudent: any,
+    afterStudent: any,
+    afterPayload: Record<string, unknown>
+) => {
+    const changedFields = getChangedProfileFields(beforeStudent, afterPayload);
+    if (changedFields.length === 0) return;
+
+    const studentId = String(afterStudent?.student_id || beforeStudent?.student_id || '').trim();
+    if (!studentId) return;
+
+    const fullName = `${afterStudent?.first_name || beforeStudent?.first_name || ''} ${afterStudent?.last_name || beforeStudent?.last_name || ''}`.trim() || 'Student';
+    const changedPreview = changedFields.slice(0, 6).join(', ');
+    const moreSuffix = changedFields.length > 6 ? ` (+${changedFields.length - 6} more)` : '';
+    const { error } = await adminClient
+        .from('notifications')
+        .insert([{
+            student_id: studentId,
+            message: `[PROFILE UPDATE] ${fullName} (${studentId}) modified: ${changedPreview}${moreSuffix}.`
+        }]);
+
+    if (error) console.warn('Profile update notification failed:', error.message);
+};
+
 const buildStudentAuthUpdatePayload = (student: any, email: string) => ({
     email,
     email_confirm: true,
@@ -918,7 +943,12 @@ const swapStudentIds = async (adminClient: any, request: Request, body: Record<s
     };
 };
 
-const syncStudentAuthEmail = async (adminClient: any, request: Request, nextEmailValue: unknown) => {
+const syncStudentAuthEmail = async (
+    adminClient: any,
+    request: Request,
+    nextEmailValue: unknown,
+    createNotification = true
+) => {
     const normalizedEmail = normalizeEmail(nextEmailValue);
     if (!isValidEmail(normalizedEmail)) {
         throw new Error('A valid email address is required.');
@@ -952,6 +982,15 @@ const syncStudentAuthEmail = async (adminClient: any, request: Request, nextEmai
         .eq('student_id', student.student_id);
 
     if (updateStudentError) throw updateStudentError;
+
+    if (createNotification) {
+        await createProfileUpdateNotification(
+            adminClient,
+            student,
+            { ...student, email: normalizedEmail },
+            { email: normalizedEmail }
+        );
+    }
 
     return {
         success: true,
@@ -1142,11 +1181,23 @@ const confirmStudentEmailChange = async (
     const { error: updateStudentError } = await adminClient.from('students').update({ email: normalizedEmail }).eq('student_id', student.student_id);
     if (updateStudentError) throw updateStudentError;
 
+    await createProfileUpdateNotification(
+        adminClient,
+        student,
+        { ...student, email: normalizedEmail },
+        { email: normalizedEmail }
+    );
+
     await markStudentSecurityOtpConsumed(adminClient, otpRecord.id);
     return { success: true, studentId: student.student_id, email: normalizedEmail, updated: true };
 };
 
-const updateCurrentStudent = async (adminClient: any, request: Request, patch: Record<string, unknown>) => {
+const updateCurrentStudent = async (
+    adminClient: any,
+    request: Request,
+    patch: Record<string, unknown>,
+    createNotification = false
+) => {
     const sanitizedPatch = sanitizeStudentPatch(patch);
 
     if (!Object.keys(sanitizedPatch).length) {
@@ -1177,6 +1228,10 @@ const updateCurrentStudent = async (adminClient: any, request: Request, patch: R
 
     if (error) throw error;
 
+    if (createNotification) {
+        await createProfileUpdateNotification(adminClient, student, updatedStudent, sanitizedPatch);
+    }
+
     return {
         success: true,
         studentId: updatedStudent?.student_id || student.student_id,
@@ -1202,29 +1257,12 @@ const updateStudentProfileCompletion = async (adminClient: any, request: Request
 
     let emailSynced = false;
     if (requestedEmail) {
-        const syncResult = await syncStudentAuthEmail(adminClient, request, requestedEmail);
+        const syncResult = await syncStudentAuthEmail(adminClient, request, requestedEmail, false);
         emailSynced = Boolean(syncResult.updated);
     }
 
     const result = await updateCurrentStudent(adminClient, request, completionPatch);
-    const changedFields = getChangedProfileFields(beforeProfile, completionPatch);
-
-    if (changedFields.length > 0) {
-        const fullName = `${result.student?.first_name || beforeProfile?.first_name || ''} ${result.student?.last_name || beforeProfile?.last_name || ''}`.trim() || 'Student';
-        const changedPreview = changedFields.slice(0, 6).join(', ');
-        const moreSuffix = changedFields.length > 6 ? ` (+${changedFields.length - 6} more)` : '';
-
-        const { error: notificationError } = await adminClient
-            .from('notifications')
-            .insert([{
-                student_id: student.student_id,
-                message: `[PROFILE UPDATE] ${fullName} (${student.student_id}) modified: ${changedPreview}${moreSuffix}.`
-            }]);
-
-        if (notificationError) {
-            console.warn('Profile completion notification failed:', notificationError.message);
-        }
-    }
+    await createProfileUpdateNotification(adminClient, beforeProfile, result.student, completionPatch);
 
     return {
         ...result,
@@ -1236,7 +1274,8 @@ const updateStudentProfile = async (adminClient: any, request: Request, payload:
     updateCurrentStudent(
         adminClient,
         request,
-        pickAllowedFields(payload, [...STUDENT_PROFILE_EDIT_FIELDS])
+        pickAllowedFields(payload, [...STUDENT_PROFILE_EDIT_FIELDS]),
+        true
     );
 
 const confirmCurrentStudentCourseYear = async (adminClient: any, request: Request, payload: unknown) => {
@@ -1275,7 +1314,7 @@ const updateCurrentStudentProfilePicture = async (adminClient: any, request: Req
 
     return updateCurrentStudent(adminClient, request, {
         profile_picture_url: nextUrl
-    });
+    }, true);
 };
 
 const markCurrentStudentTourSeen = async (adminClient: any, request: Request) =>

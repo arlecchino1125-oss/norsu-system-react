@@ -326,41 +326,6 @@ export function useStudentProfileForm({
         };
     }, []);
 
-    const logStudentProfileUpdate = async ({
-        action,
-        beforeProfile,
-        afterPayload,
-        fallbackName,
-        fallbackStudentId
-    }: {
-        action: string;
-        beforeProfile: any;
-        afterPayload: any;
-        fallbackName?: string;
-        fallbackStudentId?: string;
-    }) => {
-        try {
-            const changedFields = getChangedProfileFields(beforeProfile, afterPayload);
-            if (changedFields.length === 0) return;
-
-            const studentId = fallbackStudentId || personalInfo.studentId || session?.user?.id || 'unknown';
-            const fullName = (fallbackName || `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`).trim() || 'Student';
-            const changedPreview = changedFields.slice(0, 6).join(', ');
-            const moreSuffix = changedFields.length > 6 ? ` (+${changedFields.length - 6} more)` : '';
-            const details = `${fullName} (${studentId}) modified: ${changedPreview}${moreSuffix}.`;
-
-            const { error: notificationError } = await supabaseClient.from('notifications').insert([{
-                student_id: studentId,
-                message: `[PROFILE UPDATE] ${details}`
-            }]);
-            if (notificationError) {
-                console.warn('Profile update notification failed:', notificationError.message);
-            }
-        } catch (loggingError: any) {
-            console.warn('Unable to record profile update notification:', loggingError?.message || loggingError);
-        }
-    };
-
     const syncStudentSession = React.useCallback((studentPatch: any) => {
         if (!studentPatch || session?.userType !== 'student') return;
         updateSession?.((prev: any) => ({
@@ -1227,12 +1192,6 @@ export function useStudentProfileForm({
                 throw new Error('Please enter a valid email address (e.g., name@example.com).');
             }
 
-            const { data: beforeProfile } = await supabaseClient
-                .from('students')
-                .select(STUDENT_LIST_COLUMNS)
-                .eq('student_id', personalInfo.studentId)
-                .maybeSingle();
-
             await syncStudentAuthEmailIfNeeded(normalizedEmail);
 
             const updatePayload = {
@@ -1359,13 +1318,6 @@ export function useStudentProfileForm({
                 mode: 'update-profile',
                 payload: updatePayload
             });
-            await logStudentProfileUpdate({
-                action: 'Student Profile Updated',
-                beforeProfile,
-                afterPayload: updatePayload,
-                fallbackName: `${nextPersonalInfo.firstName || ''} ${nextPersonalInfo.lastName || ''}`.trim(),
-                fallbackStudentId: nextPersonalInfo.studentId
-            });
             await refreshStudentProfile(true);
             showToast("Profile updated.");
         } catch (err: any) {
@@ -1403,12 +1355,6 @@ export function useStudentProfileForm({
             throw new Error('Please enter a valid email address (e.g., name@example.com).');
         }
 
-        const { data: beforeProfile } = await supabaseClient
-            .from('students')
-            .select(STUDENT_LIST_COLUMNS)
-            .eq('student_id', personalInfo.studentId)
-            .maybeSingle();
-
         await invokeManagedStudentFunction({
             mode: 'confirm-email-change',
             otp: String(otp || '').trim(),
@@ -1429,14 +1375,6 @@ export function useStudentProfileForm({
             ...prev,
             email: normalizedEmail
         }));
-
-        await logStudentProfileUpdate({
-            action: 'Student Profile Updated',
-            beforeProfile,
-            afterPayload: { email: normalizedEmail },
-            fallbackName: `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim(),
-            fallbackStudentId: personalInfo.studentId
-        });
 
         await refreshStudentProfile(true);
     };
@@ -1465,13 +1403,6 @@ export function useStudentProfileForm({
             await invokeManagedStudentFunction({
                 mode: 'update-profile-picture',
                 profilePictureUrl: publicUrl
-            });
-            await logStudentProfileUpdate({
-                action: 'Student Profile Picture Updated',
-                beforeProfile: { profile_picture_url: personalInfo.profile_picture_url || null },
-                afterPayload: { profile_picture_url: publicUrl },
-                fallbackName: `${personalInfo.firstName || ''} ${personalInfo.lastName || ''}`.trim(),
-                fallbackStudentId: personalInfo.studentId
             });
             setPersonalInfo((prev: any) => ({ ...prev, profilePictureUrl: publicUrl, profile_picture_url: publicUrl }));
             void queryClient.invalidateQueries({ queryKey: ['student_profile'] });
@@ -1514,7 +1445,6 @@ export function useStudentProfileForm({
         normalizeProfileField,
         toProfileFieldLabel,
         getChangedProfileFields,
-        logStudentProfileUpdate,
         syncStudentSession,
         handleProfileCompletionSuccess,
         invokeManagedStudentFunction,
