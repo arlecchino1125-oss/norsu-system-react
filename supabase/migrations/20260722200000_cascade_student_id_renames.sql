@@ -37,6 +37,12 @@ ALTER TABLE public.peer_facilitator_attendance
 --
 -- No ON DELETE action, matching the ten sibling tables: student deletion is
 -- orchestrated by the manage-record-deletions edge function.
+-- Drop first so this is idempotent: the remote may already carry a
+-- general_feedback_student_id_fkey (base schema, or an earlier apply whose
+-- migration history was reset), which made the bare ADD below fail with 42710.
+ALTER TABLE public.general_feedback
+    DROP CONSTRAINT IF EXISTS general_feedback_student_id_fkey;
+
 ALTER TABLE public.general_feedback
     ADD CONSTRAINT general_feedback_student_id_fkey
     FOREIGN KEY (student_id) REFERENCES public.students(student_id)

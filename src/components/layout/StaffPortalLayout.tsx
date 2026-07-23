@@ -140,7 +140,7 @@ export default function StaffPortalLayout({
       </div>
 
       {/* Main Content */}
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <main id="staff-content-region" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header aria-label={`${headerTitle} page header`} className="relative z-10 flex h-[4.25rem] shrink-0 items-center justify-between px-6 lg:px-8 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all saturate-[1.05]">
           <div className="flex min-w-0 items-center gap-4">

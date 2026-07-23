@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, m } from 'framer-motion';
 import {
     Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList
@@ -256,8 +257,11 @@ const AttendeesModal = ({
     const resetFilters = () => { setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setAttendeeSearch(''); };
     const hasActiveFilters = attendeeFilter !== 'All' || yearLevelFilter !== 'All' || attendeeCourseFilter !== 'All' || attendeeSectionFilter !== 'All' || Boolean(attendeeQuery);
     const selectClass = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200';
-    return (
-        <div className="fixed inset-0 z-50 flex bg-black/30 p-2 backdrop-blur-sm sm:p-4">
+    return createPortal((
+        // Anchored to the content region (#staff-content-region) so it fills only the
+        // page area — right of the sidebar, below the header — and follows the sidebar
+        // when it collapses. z stays below the sidebar (z-30) so its toggle stays usable.
+        <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-black/30 p-2 backdrop-blur-sm sm:p-3">
             <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-4 sm:px-6">
@@ -395,7 +399,7 @@ const AttendeesModal = ({
                 </div>
             </div>
         </div>
-    );
+    ), document.getElementById('staff-content-region') || document.body);
 };
 
 const RegistrantsModal = ({
