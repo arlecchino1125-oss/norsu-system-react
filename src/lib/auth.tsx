@@ -137,14 +137,17 @@ export function AuthProvider({ children }: any) {
     /**
      * Login for Staff (Admin, Department Head, Care Staff)
      */
-    const loginStaff = useCallback(async (username: any, password: any, requiredRole: any) => {
+    const loginStaff = useCallback(async (identifier: any, password: any, requiredRole: any) => {
         setLoading(true);
         try {
-            const trimmedUsername = String(username || '').trim();
+            const trimmedIdentifier = String(identifier || '').trim();
+            const isEmail = trimmedIdentifier.includes('@');
             await prepareAuthSessionForLogin();
             const authData = await authenticateWithEdge({
                 mode: 'authenticate-staff-login',
-                username: trimmedUsername,
+                ...(isEmail
+                    ? { email: trimmedIdentifier }
+                    : { username: trimmedIdentifier }),
                 password: String(password || ''),
                 requiredRole
             });

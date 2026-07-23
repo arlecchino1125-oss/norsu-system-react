@@ -261,7 +261,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
 
     if (loading) {
         return (
-            <div className="space-y-8">
+            <div className="space-y-6">
                 <LoadingSkeleton type="stats" count={4} />
                 <LoadingSkeleton type="card" count={2} />
             </div>
@@ -273,7 +273,7 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="space-y-8 pb-10 overflow-x-hidden"
+            className="space-y-6 pb-10 overflow-x-hidden"
         >
             {/* Stat Cards - Kinetic Upgrade */}
             <m.div
@@ -283,13 +283,13 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                     hidden: { opacity: 0 },
                     show: { opacity: 1, transition: { staggerChildren: 0.1 } }
                 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
             >
                 {[
-                    { label: 'Active Students', value: counts.students, icon: <GraduationCap size={22} />, gradient: 'from-emerald-400 to-teal-600', shadow: 'shadow-emerald-500/30' },
-                    { label: 'Counselings (Active)', value: counts.counseling, icon: <Users size={22} />, gradient: 'from-blue-400 to-indigo-600', shadow: 'shadow-blue-500/30' },
-                    { label: 'Support Cases (Active)', value: counts.support, icon: <CheckCircle size={22} />, gradient: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
-                    { label: 'Total Events', value: counts.events, icon: <Calendar size={22} />, gradient: 'from-purple-400 to-violet-600', shadow: 'shadow-purple-500/30' },
+                    { label: 'Active Students', value: counts.students, icon: <GraduationCap size={18} />, gradient: 'from-emerald-400 to-teal-600', shadow: 'shadow-emerald-500/30' },
+                    { label: 'Counselings (Active)', value: counts.counseling, icon: <Users size={18} />, gradient: 'from-blue-400 to-indigo-600', shadow: 'shadow-blue-500/30' },
+                    { label: 'Support Cases (Active)', value: counts.support, icon: <CheckCircle size={18} />, gradient: 'from-amber-400 to-orange-500', shadow: 'shadow-amber-500/30' },
+                    { label: 'Total Events', value: counts.events, icon: <Calendar size={18} />, gradient: 'from-purple-400 to-violet-600', shadow: 'shadow-purple-500/30' },
                 ].map((card) => (
                     <m.div
                         key={card.label}
@@ -297,22 +297,22 @@ const CareStaffDashboardView: React.FC<CareStaffDashboardViewProps> = ({ setActi
                             hidden: { y: 20, opacity: 0, scale: 0.95 },
                             show: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
                         }}
-                        whileHover={{ y: -6, scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 20 } }}
-                        className="group relative flex flex-col justify-between h-36 bg-white rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-2xl hover:border-purple-200/60 transition-all duration-500 overflow-hidden p-6"
+                        whileHover={{ y: -3, scale: 1.01, transition: { type: "spring", stiffness: 400, damping: 20 } }}
+                        className="group relative flex h-28 flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/60 bg-white p-4 shadow-sm transition-[border-color,box-shadow] duration-500 hover:border-purple-200/60 hover:shadow-lg"
                     >
                         {/* Hover Ambient Glow */}
-                        <div className={`absolute -right-8 -top-8 w-32 h-32 bg-gradient-to-br ${card.gradient} rounded-full opacity-0 group-hover:opacity-10 group-hover:scale-[2] transition-all duration-700 ease-out`} />
+                        <div className={`absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${card.gradient} opacity-0 transition-[transform,opacity] duration-700 ease-out group-hover:scale-[2] group-hover:opacity-10`} />
 
-                        <div className="flex items-center justify-between relative z-10 w-full mb-2">
-                            <span className="text-slate-500 font-semibold text-[13px] uppercase tracking-wider">{card.label}</span>
+                        <div className="relative z-10 flex w-full items-center justify-between gap-3">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</span>
                             <m.div
                                 whileHover={{ scale: 1.15, rotate: 5 }}
-                                className={`w-12 h-12 flex items-center justify-center bg-gradient-to-br ${card.gradient} rounded-2xl text-white shadow-lg ${card.shadow} transition-transform`}
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${card.gradient} text-white shadow-lg ${card.shadow} transition-transform`}
                             >
                                 {card.icon}
                             </m.div>
                         </div>
-                        <h3 className="text-4xl font-extrabold text-slate-800 tracking-tight relative z-10 group-hover:text-purple-900 transition-colors">{card.value}</h3>
+                        <h3 className="relative z-10 text-3xl font-extrabold tracking-tight text-slate-800 transition-colors group-hover:text-purple-900">{card.value}</h3>
                     </m.div>
                 ))}
             </m.div>

@@ -1,5 +1,24 @@
 import { supabase } from '../../../../lib/supabase';
-import type { EvaluationAnswer, EvaluationQuestion, EvaluationQuestionType } from './evaluationSummary';
+
+export type EvaluationQuestionType = 'scale' | 'text' | 'choice';
+
+export interface EvaluationQuestion {
+    id: number;
+    question_text: string;
+    question_type: EvaluationQuestionType;
+    scale_min?: number | null;
+    scale_max?: number | null;
+    scale_min_label?: string | null;
+    scale_max_label?: string | null;
+    choices?: string[] | null;
+    order_index?: number | null;
+}
+
+export interface EvaluationAnswer {
+    question_id: number;
+    answer_value?: number | null;
+    answer_text?: string | null;
+}
 
 export interface EvaluationForm {
     id: number;
@@ -172,7 +191,8 @@ export const deleteEvaluation = async (formId: number) => {
 };
 
 export const getEvaluationResults = async (formId: number) => {
-    const [questionsResult, responsesResult] = await Promise.all([
+    const [formResult, questionsResult, responsesResult] = await Promise.all([
+        supabase.from('event_evaluation_forms').select(FORM_COLUMNS).eq('id', formId).single(),
         supabase.from('event_evaluation_questions').select(QUESTION_COLUMNS).eq('form_id', formId).order('order_index'),
         supabase
             .from('event_evaluation_responses')
@@ -181,12 +201,14 @@ export const getEvaluationResults = async (formId: number) => {
             .order('submitted_at', { ascending: false })
     ]);
 
+    if (formResult.error) throw formResult.error;
     if (questionsResult.error) throw questionsResult.error;
     if (responsesResult.error) throw responsesResult.error;
 
+    const form = formResult.data as unknown as EvaluationForm;
     const responses = (responsesResult.data ?? []) as unknown as EvaluationResponse[];
     if (responses.length === 0) {
-        return { questions: (questionsResult.data ?? []) as unknown as EvaluationQuestion[], responses, answers: [] as EvaluationAnswer[] };
+        return { form, questions: (questionsResult.data ?? []) as unknown as EvaluationQuestion[], responses, answers: [] as EvaluationAnswer[] };
     }
 
     const { data: answerRows, error: answerError } = await supabase
@@ -197,6 +219,7 @@ export const getEvaluationResults = async (formId: number) => {
     if (answerError) throw answerError;
 
     return {
+        form,
         questions: (questionsResult.data ?? []) as unknown as EvaluationQuestion[],
         responses,
         answers: (answerRows ?? []) as unknown as Array<EvaluationAnswer & { response_id: number }>

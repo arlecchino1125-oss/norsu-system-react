@@ -40,8 +40,7 @@ import {
 import { getDepartmentNameFromCourseRecords } from '../../../../../utils/courseDepartment';
 import { isR2Reference, openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../../../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../../../../utils/inputSecurity';
-
-declare const XLSX: any;
+import { loadXlsx } from '../../../../../lib/exportVendors';
 
 import { PROFILE_CATEGORIES } from '../profileCategories';
 import {
@@ -63,8 +62,7 @@ import {
     formatDateTimeDisplay,
     parseArchiveEntries,
     deriveSchoolYearLabel,
-    getArchivedSnapshotForSchoolYear,
-    isProfileIncompleteStep1
+    getArchivedSnapshotForSchoolYear
 } from '../utils';
 
 const POPULATION_SORT_COLUMN_MAP: Record<string, string> = {
@@ -1091,6 +1089,7 @@ export function useCareStaffPopulation({
             const reader = new FileReader();
             reader.onload = async (event: any) => {
                 try {
+                    const XLSX = await loadXlsx();
                     const data = new Uint8Array(event.target.result as ArrayBuffer);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const sheetName = workbook.SheetNames[0];
@@ -1178,8 +1177,8 @@ export function useCareStaffPopulation({
         const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
         const matchesStatus = statusFilter === 'All'
             || (statusFilter === 'Incomplete'
-                ? s.profile_completed === false || (s.profile_completed == null && isProfileIncompleteStep1(s))
-                : s.status === statusFilter);
+                ? s.status === 'Inactive' || s.profile_completed !== true
+                : s.status === 'Active' && s.profile_completed === true);
         const matchesSection = sectionFilter === 'All' || s.section === sectionFilter;
         const matchesSchoolYear = schoolYearFilter === 'All' || Boolean(values.snapshot);
         const matchesAnnotations = !annotationFilterActive || annotationStudentIdSet.has(Number(s.id));
@@ -1226,9 +1225,9 @@ export function useCareStaffPopulation({
     });
 
     const handleExportExcel = async () => {
-        if (typeof XLSX === 'undefined') { functions.showToast('Excel library not loaded. Please refresh the page.', 'error'); return; }
         functions.showToast('Preparing your Excel file...', 'info');
         try {
+            const XLSX = await loadXlsx();
             const allStudents = await getAllStudentsForExport();
             if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); return; }
 

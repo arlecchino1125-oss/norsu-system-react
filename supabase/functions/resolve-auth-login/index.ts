@@ -56,12 +56,12 @@ serve(async (request) => {
         return await handleAuthLogin(request, {
             responseHeaders: corsHeaders,
             dummyEmail: 'invalid-login@invalid.example',
-            findStaff: async (username) => {
-                const { data, error } = await adminClient
+            findStaff: async ({ username, email }) => {
+                let query = adminClient
                     .from('staff_accounts')
-                    .select('email, auth_user_id, role, is_archived')
-                    .eq('username', username)
-                    .maybeSingle();
+                    .select('email, auth_user_id, role, is_archived');
+                query = email ? query.ilike('email', email) : query.eq('username', username);
+                const { data, error } = await query.maybeSingle();
                 if (error) throw error;
                 return data ? {
                     email: normalizeEmail(data.email) || null,

@@ -102,13 +102,13 @@ export default function RegistrarLogin() {
                                 <form onSubmit={handleSubmit} className="space-y-5">
                                     {/* Username Input */}
                                     <div className="space-y-1.5">
-                                        <label htmlFor="registrar-username" className="text-sm font-semibold text-slate-700 block">Username</label>
+                                        <label htmlFor="registrar-username" className="text-sm font-semibold text-slate-700 block">Username or Email</label>
                                         <div className="relative group">
                                             <input
                                                 id="registrar-username"
                                                 required
                                                 className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all outline-none"
-                                                placeholder="Enter registrar ID"
+                                                placeholder="Enter registrar ID or email"
                                                 value={username}
                                                 onChange={e => setUsername(e.target.value)}
                                             />

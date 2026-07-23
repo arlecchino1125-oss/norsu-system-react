@@ -142,7 +142,7 @@ export default function StaffPortalLayout({
       {/* Main Content */}
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="relative z-10 flex h-[4.25rem] shrink-0 items-center justify-between px-6 lg:px-8 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all saturate-[1.05]">
+        <header aria-label={`${headerTitle} page header`} className="relative z-10 flex h-[4.25rem] shrink-0 items-center justify-between px-6 lg:px-8 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all saturate-[1.05]">
           <div className="flex min-w-0 items-center gap-4">
             {/* Mobile hamburger */}
             <button
@@ -157,19 +157,16 @@ export default function StaffPortalLayout({
             </button>
 
             <div className="min-w-0 flex items-center gap-2.5">
-              {/* CARE logo beside page title */}
+              {/* CARE logo beside portal label */}
               <img
                 src="/carecenter.png"
                 alt="CARE Center"
                 className="h-10 w-10 rounded-full object-cover bg-white shadow-md ring-2 ring-purple-200/40 shrink-0"
               />
-              <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 border border-purple-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-purple-500 mb-1">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400" />
-                  {portalLabel}
-                </span>
-                <h2 className="text-[1.3rem] font-bold text-slate-800 tracking-tight leading-none mt-0.5">{headerTitle}</h2>
-              </div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-purple-50 px-3.5 py-1.5 text-sm font-extrabold uppercase tracking-[0.14em] text-purple-600">
+                <span className="inline-block h-2 w-2 rounded-full bg-purple-400" />
+                {portalLabel}
+              </span>
             </div>
           </div>
 

@@ -64,8 +64,7 @@ import {
     formatDateTimeDisplay,
     parseArchiveEntries,
     deriveSchoolYearLabel,
-    getArchivedSnapshotForSchoolYear,
-    isProfileIncompleteStep1
+    getArchivedSnapshotForSchoolYear
 } from '../utils';
 
 
@@ -77,7 +76,7 @@ interface CareStaffPopulationPageProps {
 }
 
 const PopulationTables = ({
-    viewMode, courseYearCountsLoading, allCourses, courseYearCountMap, sortConfig, handleSort, isStudentTableLoading, effectiveTotal, paginatedStudents, studentAnnotationsById, schoolYearFilter, getArchivedSnapshotForSchoolYear, isProfileIncompleteStep1, canArchiveRecords, openProfileModal, openEditModal, setStudentToDelete, setShowDeleteModal, renderCareStudentPaddingRows, startIndex, endIndex, currentPage, setCurrentPage, totalPages, paginationItems
+    viewMode, courseYearCountsLoading, allCourses, courseYearCountMap, sortConfig, handleSort, isStudentTableLoading, effectiveTotal, paginatedStudents, studentAnnotationsById, schoolYearFilter, getArchivedSnapshotForSchoolYear, canArchiveRecords, openProfileModal, openEditModal, setStudentToDelete, setShowDeleteModal, renderCareStudentPaddingRows, startIndex, endIndex, currentPage, setCurrentPage, totalPages, paginationItems
 }: any) => (
 viewMode === 'stats' ? (
     <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} data-refresh-surface className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden p-8 mb-6">
@@ -120,9 +119,9 @@ viewMode === 'stats' ? (
         </div>
     </m.div>
 ) : (
-    <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} data-refresh-surface className={`${CARE_STUDENT_TABLE_SHELL_CLASS.replace('border-slate-200', 'border-white/60 ring-1 ring-slate-200/50 shadow-xl shadow-purple-500/5 bg-white/80 backdrop-blur-xl rounded-[2rem]')} overflow-hidden flex flex-col min-h-[500px] mb-6`}>
+    <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} data-refresh-surface className={`${CARE_STUDENT_TABLE_SHELL_CLASS} flex min-h-[500px] flex-col overflow-hidden rounded-xl bg-white shadow-sm`}>
         <div className="flex-1 overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full border-collapse text-left text-[13px]">
                 <thead className="bg-slate-50/80 border-b border-slate-200/60 text-[10px] uppercase text-slate-500 font-bold tracking-widest backdrop-blur-sm">
                     <tr>
                         <th scope="col" aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('name')}>Student <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
@@ -157,8 +156,8 @@ viewMode === 'stats' ? (
                                     transition={{ delay: idx * 0.02, type: 'spring', stiffness: 400, damping: 25 }}
                                     className="border-b border-transparent hover:border-purple-200 transition-colors"
                                 >
-                                    <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.first_name} {student.last_name}</span></td>
-                                    <td className="px-6 py-4 font-mono font-medium text-slate-500">{student.student_id}</td>
+                                    <td className="px-6 py-4"><span className="text-[13px] font-semibold text-slate-900">{student.first_name} {student.last_name}</span></td>
+                                    <td className="px-6 py-4 font-mono text-xs font-medium text-slate-500">{student.student_id}</td>
                                     <td className="px-6 py-4">
                                         {(() => {
                                             const filteredSnapshot = schoolYearFilter === 'All'
@@ -168,8 +167,8 @@ viewMode === 'stats' ? (
                                             const displayYear = filteredSnapshot?.year_level || student.year_level || '-';
                                             return (
                                                 <>
-                                                    <div className="font-medium text-slate-700">{displayCourse}</div>
-                                                    <div className="text-[11px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                                                    <div className="text-[13px] font-medium leading-snug text-slate-700">{displayCourse}</div>
+                                                    <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                                         {displayYear}{student.section ? ` — Sec ${student.section}` : ''}
                                                         {filteredSnapshot && <span className="ml-1 text-[10px] text-indigo-600">({schoolYearFilter})</span>}
                                                     </div>
@@ -179,7 +178,7 @@ viewMode === 'stats' ? (
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-wrap items-center gap-1.5">
-                                            {student.profile_completed === false || (student.profile_completed == null && isProfileIncompleteStep1(student)) ? (
+                                            {student.status === 'Inactive' || student.profile_completed !== true ? (
                                                 <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 border border-amber-200/50 shadow-inner">Incomplete</span>
                                             ) : (
                                                 <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-inner ${student.status === 'Active' ? 'bg-emerald-100 text-emerald-700 border-emerald-200/50' : 'bg-rose-100 text-rose-700 border-rose-200/50'}`}>{student.status}</span>
@@ -288,26 +287,29 @@ viewMode === 'stats' ? (
 );
 
 const PopulationFilters = ({
-    searchTerm, setSearchTerm, filtersExpanded, setFiltersExpanded, departmentFilter, setDepartmentFilter, courseFilter, setCourseFilter, schoolYearFilter, setSchoolYearFilter, sectionFilter, setSectionFilter, statusFilter, setStatusFilter, atRiskFilter, setAtRiskFilter, yearFilter, setYearFilter, hasNoteFilter, setHasNoteFilter, departmentNames, filteredCourseOptions, schoolYearOptions, availableSections, setCurrentPage, activeFilterCount
+    searchTerm, setSearchTerm, filtersExpanded, setFiltersExpanded, departmentFilter, setDepartmentFilter, courseFilter, setCourseFilter, schoolYearFilter, setSchoolYearFilter, sectionFilter, setSectionFilter, statusFilter, setStatusFilter, atRiskFilter, setAtRiskFilter, yearFilter, setYearFilter, hasNoteFilter, setHasNoteFilter, departmentNames, filteredCourseOptions, schoolYearOptions, availableSections, setCurrentPage, activeFilterCount, overviewLoading, populationOverview
 }: any) => (
-<m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} data-refresh-surface className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 p-5 mb-6 flex flex-col gap-3 shadow-lg shadow-purple-500/5 ring-1 ring-slate-200/50">
+<m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} data-refresh-surface className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
     {/* Search bar + filter toggle */}
-    <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:w-96">
+    <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="relative w-full shrink-0 xl:w-96">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <label htmlFor="population-search" className="sr-only">Search students by name or ID</label>
             <input
+                id="population-search"
                 type="text"
                 placeholder="Search by Name or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 transition-all"
+                className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm transition-[border-color,box-shadow] focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10"
             />
         </div>
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <PopulationStatCards overviewLoading={overviewLoading} populationOverview={populationOverview} />
+        <div className="flex shrink-0 items-center gap-2 self-end xl:self-auto">
             <button
                 type="button"
                 onClick={() => setFiltersExpanded(!filtersExpanded)}
-                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${filtersExpanded
+                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${filtersExpanded
                     ? 'border-purple-200 bg-purple-50 text-purple-700'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                     }`}
@@ -421,7 +423,6 @@ const PopulationFilters = ({
                 <select id="population-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 bg-white text-slate-700 w-[140px]">
                     <option value="All">All Statuses</option>
                     <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
                     <option value="Incomplete">Incomplete</option>
                 </select>
             </div>
@@ -501,38 +502,35 @@ const PopulationStatCards = ({ overviewLoading, populationOverview }: any) => (
         hidden: { opacity: 0 },
         show: { opacity: 1, transition: { staggerChildren: 0.1 } }
     }}
-    className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-3"
+    className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 xl:flex-1"
 >
-    <m.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-inner">
-            <Users size={24} />
+    <m.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }} data-refresh-surface className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <Users size={18} />
         </div>
-        <div className="min-w-0 z-10">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Total Population</p>
-            <p className="text-3xl font-black tracking-tight text-slate-900 group-hover:text-blue-700 mt-0.5 transition-colors">{overviewLoading ? '...' : populationOverview.totalPopulation}</p>
-        </div>
-    </m.div>
-
-    <m.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300">
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shadow-inner">
-            <TrendingUp size={24} />
-        </div>
-        <div className="min-w-0 z-10">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Active Students</p>
-            <p className="text-3xl font-black tracking-tight text-slate-900 group-hover:text-emerald-700 mt-0.5 transition-colors">{overviewLoading ? '...' : populationOverview.activeStudents}</p>
+        <div className="min-w-0">
+            <p className="truncate text-[9px] font-semibold uppercase tracking-wider text-slate-500">Total Population</p>
+            <p className="text-2xl font-black leading-none tracking-tight text-slate-900">{overviewLoading ? '...' : populationOverview.totalPopulation}</p>
         </div>
     </m.div>
 
-    <m.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -4, scale: 1.02 }} transition={{ type: "spring", stiffness: 400 }} data-refresh-surface className="group relative flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 group-hover:scale-110 group-hover:bg-amber-600 group-hover:text-white transition-all duration-300 shadow-inner">
-            <Archive size={24} />
+    <m.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }} data-refresh-surface className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <TrendingUp size={18} />
         </div>
-        <div className="min-w-0 z-10">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Archived Students</p>
-            <p className="text-3xl font-black tracking-tight text-slate-900 group-hover:text-amber-700 mt-0.5 transition-colors">{overviewLoading ? '...' : populationOverview.archivedStudents}</p>
+        <div className="min-w-0">
+            <p className="truncate text-[9px] font-semibold uppercase tracking-wider text-slate-500">Active Students</p>
+            <p className="text-2xl font-black leading-none tracking-tight text-slate-900">{overviewLoading ? '...' : populationOverview.activeStudents}</p>
+        </div>
+    </m.div>
+
+    <m.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }} data-refresh-surface className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <Archive size={18} />
+        </div>
+        <div className="min-w-0">
+            <p className="truncate text-[9px] font-semibold uppercase tracking-wider text-slate-500">Archived Students</p>
+            <p className="text-2xl font-black leading-none tracking-tight text-slate-900">{overviewLoading ? '...' : populationOverview.archivedStudents}</p>
         </div>
     </m.div>
 </m.div>
@@ -546,33 +544,37 @@ const PopulationHeader = ({
 <m.div
     initial={{ opacity: 0, y: -10 }}
     animate={{ opacity: 1, y: 0 }}
-    className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4"
+    className="flex flex-col items-start gap-4 lg:flex-row lg:items-start lg:gap-6"
 >
-    <div>
+    <div className="lg:w-[330px] lg:shrink-0">
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Student Population</h1>
         <p className="text-slate-500 text-sm mt-1">Comprehensive management and analytics for the student body.</p>
     </div>
-    <div className="flex flex-wrap gap-3">
-        <Button variant="secondary" onClick={handleRefreshData} disabled={isRefreshingData} leftIcon={<RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />} className="rounded-full shadow-sm hover:shadow-md transition-shadow">
-            {isRefreshingData ? 'Refreshing...' : 'Refresh'}
-        </Button>
-        <Button variant="secondary" onClick={handleExportExcel} leftIcon={<FileSpreadsheet size={16} />} className="rounded-full shadow-sm hover:shadow-md transition-shadow">
-            Export Excel
-        </Button>
-        {(canArchiveRecords || canRestoreRecords) && (
-            <Button variant="secondary" onClick={openArchivedStudentsModal} leftIcon={<Archive size={16} />} className="rounded-full shadow-sm transition-shadow text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100 hover:shadow-md">
-                Archived ({overviewLoading ? '...' : populationOverview.archivedStudents})
+    <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={handleRefreshData} disabled={isRefreshingData} leftIcon={<RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                {isRefreshingData ? 'Refreshing...' : 'Refresh'}
             </Button>
-        )}
-        <Button variant="secondary" onClick={() => setShowIdSwapModal(true)} leftIcon={<RefreshCw size={16} />} className="rounded-full shadow-sm hover:shadow-md transition-shadow">
-            Swap IDs
-        </Button>
-        <Button variant="primary" onClick={() => setShowEnrollmentModal(true)} leftIcon={<Settings size={16} />} className="rounded-full shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40 transition-all">
-            System Settings
-        </Button>
-        <Button variant="secondary" onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')} leftIcon={viewMode === 'list' ? <PieChart size={16} /> : <List size={16} />} className="rounded-full shadow-sm border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 hover:shadow-md transition-all">
-            {viewMode === 'list' ? 'View Stats' : 'View List'}
-        </Button>
+            <Button variant="secondary" onClick={handleExportExcel} leftIcon={<FileSpreadsheet size={16} />} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                Export Excel
+            </Button>
+            {(canArchiveRecords || canRestoreRecords) && (
+                <Button variant="secondary" onClick={openArchivedStudentsModal} leftIcon={<Archive size={16} />} className="rounded-xl shadow-sm transition-shadow text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100 hover:shadow-md">
+                    Archived ({overviewLoading ? '...' : populationOverview.archivedStudents})
+                </Button>
+            )}
+            <Button variant="secondary" onClick={() => setShowIdSwapModal(true)} leftIcon={<RefreshCw size={16} />} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                Swap IDs
+            </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+            <Button variant="primary" onClick={() => setShowEnrollmentModal(true)} leftIcon={<Settings size={16} />} className="rounded-xl shadow-md shadow-purple-500/30 hover:shadow-lg hover:shadow-purple-500/40 transition-[box-shadow]">
+                System Settings
+            </Button>
+            <Button variant="secondary" onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')} leftIcon={viewMode === 'list' ? <PieChart size={16} /> : <List size={16} />} className="rounded-xl shadow-sm border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 hover:shadow-md transition-[background-color,box-shadow]">
+                {viewMode === 'list' ? 'View Stats' : 'View List'}
+            </Button>
+        </div>
     </div>
 </m.div>
 );
@@ -614,7 +616,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
         courseYearCountMap, openArchivedStudentsModal,
     } = useCareStaffPopulation({ functions, pendingProfileId, onProfileOpened, refreshSignal });
     return (
-        <div className={`space-y-6 relative min-h-screen ${isRefreshingData ? 'care-student-refreshing' : ''}`}>
+        <div className={`relative min-h-screen space-y-4 ${isRefreshingData ? 'care-student-refreshing' : ''}`}>
             {isRefreshingData && <RefreshingOverlay />}
             <PopulationHeader
                 isRefreshingData={isRefreshingData}
@@ -630,8 +632,6 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 viewMode={viewMode}
                 setViewMode={setViewMode}
             />
-
-            <PopulationStatCards overviewLoading={overviewLoading} populationOverview={populationOverview} />
 
             <PopulationFilters
                 searchTerm={searchTerm}
@@ -660,6 +660,8 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 availableSections={availableSections}
                 setCurrentPage={setCurrentPage}
                 activeFilterCount={activeFilterCount}
+                overviewLoading={overviewLoading}
+                populationOverview={populationOverview}
             />
 
             <PopulationTables
@@ -675,7 +677,6 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 studentAnnotationsById={studentAnnotationsById}
                 schoolYearFilter={schoolYearFilter}
                 getArchivedSnapshotForSchoolYear={getArchivedSnapshotForSchoolYear}
-                isProfileIncompleteStep1={isProfileIncompleteStep1}
                 canArchiveRecords={canArchiveRecords}
                 openProfileModal={openProfileModal}
                 openEditModal={openEditModal}

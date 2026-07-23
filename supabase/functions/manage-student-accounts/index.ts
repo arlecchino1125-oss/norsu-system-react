@@ -219,6 +219,11 @@ const parseSecurityOtpPurpose = (value: unknown): 'password_change' | 'email_cha
     throw withStatus('Unsupported security OTP purpose.', 400);
 };
 
+// Profile completion is the student's first pass over their own record, so student_id,
+// department and course are settable here -- a wrong ID or program from activation has to be
+// fixable before the profile is locked in. They are NOT in STUDENT_PROFILE_EDIT_FIELDS below:
+// once the profile is complete, those three change only via staff swap-student-ids or the
+// windowed 'confirm-course-year' gate.
 const STUDENT_PROFILE_COMPLETION_FIELDS = [
     'student_id',
     'first_name',
@@ -345,7 +350,6 @@ const STUDENT_PROFILE_COMPLETION_FIELDS = [
 ] as const;
 
 const STUDENT_PROFILE_EDIT_FIELDS = [
-    'student_id',
     'first_name',
     'last_name',
     'middle_name',
@@ -369,8 +373,6 @@ const STUDENT_PROFILE_EDIT_FIELDS = [
     'school_last_attended',
     'year_level',
     'year_level_other',
-    'department',
-    'course',
     'supporter',
     'supporter_contact',
     'is_working_student',
@@ -1208,6 +1210,8 @@ const updateCurrentStudent = async (
     const oldStudentId = student.student_id;
     const newStudentId = sanitizedPatch.student_id as string | undefined;
 
+    // Only 'update-profile-completion' can still reach this: student_id is not in
+    // STUDENT_PROFILE_EDIT_FIELDS, so an edit of a finished profile never renames.
     if (newStudentId && newStudentId !== oldStudentId) {
         const { count } = await adminClient.from('students').select('*', { count: 'exact', head: true }).eq('student_id', newStudentId);
         if (count && count > 0) throw new Error(`The Student ID ${newStudentId} is already in use.`);

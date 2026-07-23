@@ -18,4 +18,37 @@ describe('StaffPortalLayout accessibility', () => {
 
     expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument();
   });
+
+  it('does not repeat the current page title in the top bar', () => {
+    render(
+      <StaffPortalLayout
+        sidebarSections={[]}
+        activeTab="population"
+        onTabChange={vi.fn()}
+        onLogout={vi.fn()}
+        headerTitle="Student Population"
+      >
+        Content
+      </StaffPortalLayout>,
+    );
+
+    expect(screen.getByRole('banner', { name: 'Student Population page header' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Student Population' })).not.toBeInTheDocument();
+  });
+
+  it('promotes the portal label in the top bar', () => {
+    render(
+      <StaffPortalLayout
+        sidebarSections={[]}
+        activeTab="population"
+        onTabChange={vi.fn()}
+        onLogout={vi.fn()}
+        headerTitle="Student Population"
+      >
+        Content
+      </StaffPortalLayout>,
+    );
+
+    expect(screen.getByText('NORSU-G CARE')).toHaveClass('text-sm');
+  });
 });

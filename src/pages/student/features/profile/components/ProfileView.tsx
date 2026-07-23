@@ -581,7 +581,7 @@ function ProfileViewContent(p: any) {
 
                         <Section cardClass={profileCardClass} icon={<Icons.Profile />} gradient="from-blue-500 to-sky-400" title="Basic Information">
                             <Field {...fp} label="Email Address" field="email" readOnly />
-                            <Field {...fp} label="Student ID No." field="studentId" />
+                            <Field {...fp} label="Student ID No." field="studentId" readOnly />
                             <Field {...fp} label="Last Name" field="lastName" />
                             <Field {...fp} label="Given Name" field="firstName" />
                             <Field {...fp} label="Middle Name" field="middleName" />
@@ -596,7 +596,7 @@ function ProfileViewContent(p: any) {
                             {activePersonalInfo.year === 'Other' && <Field {...fp} label="Specify Year Level" field="yearLevelOther" />}
                             <Field {...fp} label="Section" field="section" />
                             <Field {...fp} label="College" field="department" readOnly />
-                            <Field {...fp} label="Program" field="course" colSpan={2} type="select" options={[...new Set([activePersonalInfo.course, ...courseOptions].filter(Boolean))]} onChange={handleCourseChange} />
+                            <Field {...fp} label="Program" field="course" colSpan={2} readOnly type="select" options={[...new Set([activePersonalInfo.course, ...courseOptions].filter(Boolean))]} onChange={handleCourseChange} />
                             <Field {...fp} label="Place of Birth" field="placeOfBirth" />
                             <Field {...fp} label="Religion" field="religion" />
                         </Section>

@@ -18,7 +18,7 @@ export type StudentLoginAccount = {
 };
 
 export type AuthLoginDependencies = {
-    findStaff: (username: string) => Promise<StaffLoginAccount | null>;
+    findStaff: (input: { username: string; email: string }) => Promise<StaffLoginAccount | null>;
     findStudent: (input: { studentId: string; email: string }) => Promise<StudentLoginAccount | null>;
     authenticate: (email: string, password: string) => Promise<AuthenticatedLogin | null>;
     revokeSession: () => Promise<void>;
@@ -50,8 +50,11 @@ export const handleAuthLogin = async (request: Request, dependencies: AuthLoginD
 
     if (mode === 'authenticate-staff-login') {
         const username = String(body.username || '').trim();
+        const email = normalizeEmail(body.email);
         const requiredRole = String(body.requiredRole || '').trim();
-        account = username ? await dependencies.findStaff(username) : null;
+        account = username || email
+            ? await dependencies.findStaff({ username, email })
+            : null;
         accountAllowed = Boolean(
             account
             && !('isArchived' in account && account.isArchived)

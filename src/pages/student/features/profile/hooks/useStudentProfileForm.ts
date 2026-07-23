@@ -1194,21 +1194,20 @@ export function useStudentProfileForm({
 
             await syncStudentAuthEmailIfNeeded(normalizedEmail);
 
+            // student_id, department and course are omitted: the server no longer accepts
+            // them from a student session (staff swap-student-ids / confirm-course-year own them).
             const updatePayload = {
-                student_id: nextPersonalInfo.studentId || null,
                 first_name: nextPersonalInfo.firstName || null,
                 last_name: nextPersonalInfo.lastName || null,
                 middle_name: nextPersonalInfo.middleName || null,
                 suffix: nextPersonalInfo.suffix || null,
                 place_of_birth: nextPersonalInfo.placeOfBirth || null,
-                department: nextPersonalInfo.department || null,
                 street: nextPersonalInfo.street || null,
                 city: nextPersonalInfo.city || null,
                 province: nextPersonalInfo.province || null,
                 zip_code: nextPersonalInfo.zipCode || null,
                 region: nextPersonalInfo.region || null,
                 mobile: nextPersonalInfo.mobile || null,
-                course: nextPersonalInfo.course || null,
                 year_level: nextPersonalInfo.year || null,
                 email: normalizedEmail,
                 civil_status: nextPersonalInfo.civilStatus || null,

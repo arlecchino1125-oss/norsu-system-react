@@ -147,6 +147,29 @@ describe('careStaffService.getStudentsPage', () => {
         expect(queryMock.range).toHaveBeenCalledWith(10, 19);
     });
 
+    it('combines inactive and uncompleted profiles in the incomplete filter', async () => {
+        await getStudentsPage(
+            { status: 'Incomplete' },
+            { page: 1, pageSize: 5 }
+        );
+
+        expect(rpcMock).not.toHaveBeenCalled();
+        expect(queryMock.or).toHaveBeenCalledWith(
+            'status.eq.Inactive,profile_completed.is.false,profile_completed.is.null'
+        );
+    });
+
+    it('limits the active filter to completed active profiles', async () => {
+        await getStudentsPage(
+            { status: 'Active' },
+            { page: 1, pageSize: 5 }
+        );
+
+        expect(rpcMock).not.toHaveBeenCalled();
+        expect(queryMock.eq).toHaveBeenCalledWith('status', 'Active');
+        expect(queryMock.eq).toHaveBeenCalledWith('profile_completed', true);
+    });
+
     it('sanitizes punctuation that would break Supabase OR syntax', () => {
         expect(getStudentSearchTokens('Lastname, Nicolas')).toEqual(['Lastname', 'Nicolas']);
     });

@@ -97,6 +97,28 @@ describe('handleAuthLogin', () => {
         expect(response.status).toBe(401);
     });
 
+    it('resolves a staff login by email and authenticates with the linked account', async () => {
+        const findStaff = vi.fn().mockResolvedValue({
+            email: 'staff@example.edu',
+            authUserId: 'auth-user-1',
+            role: 'Care Staff',
+            isArchived: false
+        });
+        const deps = dependencies({ findStaff });
+
+        const response = await handleAuthLogin(post({
+            mode: 'authenticate-staff-login',
+            email: 'Staff@Example.edu',
+            password: 'correct',
+            requiredRole: 'Care Staff'
+        }), deps);
+
+        expect(findStaff).toHaveBeenCalledWith({ username: '', email: 'staff@example.edu' });
+        expect(deps.authenticate).toHaveBeenCalledWith('staff@example.edu', 'correct');
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ success: true, session });
+    });
+
     it('returns only the Supabase session after successful authentication', async () => {
         const deps = dependencies();
 

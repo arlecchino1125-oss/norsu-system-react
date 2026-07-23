@@ -182,8 +182,28 @@ const buildStaffPortalLoginUrl = (role: string) => {
     return buildPortalUrl(rawUrl, fallbackPath);
 };
 
+// A college's head is addressed by the designation the college gives them (Dean),
+// welcomed as the College Designate, and their portal is the "Department" portal
+// (never "Department Head"). Other staff roles keep a plain, formal salutation.
+const STAFF_HONORIFIC: Record<string, string> = {
+    'Department Head': 'Dean'
+};
+
+const STAFF_PORTAL_LABEL: Record<string, string> = {
+    'Department Head': 'Department'
+};
+
+const STAFF_DESIGNATION: Record<string, string> = {
+    'Department Head': ' as College Designate'
+};
+
+const buildStaffSalutation = (role: string, name: string) => {
+    const honorific = STAFF_HONORIFIC[role];
+    return honorific ? `${honorific} ${name}` : name;
+};
+
 // Sent server-side (not via the send-email relay) so the generated password reaches the
-// new staff member's inbox only -- it is never returned to the admin who created the
+// new staff member's inbox only -- it is never returned to the admin who set up the
 // account, and never travels back through the browser that requested provisioning.
 const sendStaffCredentialEmail = async (details: {
     email: string;
@@ -194,23 +214,45 @@ const sendStaffCredentialEmail = async (details: {
     department: string | null;
 }) => {
     const loginUrl = buildStaffPortalLoginUrl(details.role);
+    const salutation = escapeHtml(buildStaffSalutation(details.role, details.name));
+    const rawPortalLabel = STAFF_PORTAL_LABEL[details.role] || details.role;
+    const portalLabel = escapeHtml(rawPortalLabel);
+    const designation = STAFF_DESIGNATION[details.role] || '';
+    const portalUrl = escapeHtml(loginUrl);
 
     await sendEmail({
         to: details.email,
-        subject: `NORSU ${details.role} Account Created`,
+        subject: `NORSU G CARE CENTER System — ${rawPortalLabel} Portal Account`,
         html: `
-          <h2>NORSU Staff Account Created</h2>
-          <p>Dear ${escapeHtml(details.name)},</p>
-          <p>Your <strong>${escapeHtml(details.role)}</strong> portal account has been created.</p>
-          ${details.department ? `<p><strong>Department:</strong> ${escapeHtml(details.department)}</p>` : ''}
-          <hr />
-          <h3>Your Login Credentials</h3>
-          <p><strong>Username:</strong> ${escapeHtml(details.username)}</p>
-          <p><strong>Password:</strong> ${escapeHtml(details.password)}</p>
-          <p><em>This password was generated for you and sent only to this address -- no one else, including the admin who created the account, has a copy of it. Keep it private.</em></p>
-          <p><a href="${escapeHtml(loginUrl)}">Open Staff Portal</a></p>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">
+            <h2 style="color: #2563eb;">NORSU G CARE CENTER System</h2>
+            <p>Dear ${salutation},</p>
+            <p>We are pleased to welcome you to the NORSU G CARE CENTER System${designation}.</p>
+            <p>This is to inform you that your <strong>${portalLabel}</strong> portal account has been set up.</p>
+            ${details.department ? `<p><strong>Department:</strong> ${escapeHtml(details.department)}</p>` : ''}
+
+            <h3 style="color: #1e40af; margin-top: 24px;">Getting Started</h3>
+            <ol style="padding-left: 20px;">
+              <li>Open the portal using the button below.</li>
+              <li>Sign in with the username and password provided.</li>
+              <li>For your security, please change your password after logging in.</li>
+              <li>Keep these credentials confidential and do not share them with anyone.</li>
+            </ol>
+
+            <h3 style="color: #1e40af; margin-top: 24px;">Your Login Credentials</h3>
+            <p style="margin: 8px 0;"><strong>Username:</strong> ${escapeHtml(details.username)}</p>
+            <p style="margin: 8px 0;"><strong>Password:</strong> <code style="font-size: 16px;">${escapeHtml(details.password)}</code></p>
+            <p style="font-size: 13px; color: #6b7280;">This password was generated for you and sent only to this address &mdash; no one else, including the administrator who set up the account, has a copy of it. Please keep it private, and change it to a password of your own once you have logged in.</p>
+
+            <p style="text-align: center; margin: 28px 0;">
+              <a href="${portalUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">Open Portal</a>
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+            <p style="font-size: 14px; color: #6b7280;">If you encounter any problems accessing your account, please contact your system administrator for assistance.</p>
+          </div>
         `,
-        senderName: 'NORSU System',
+        senderName: 'NORSU G CARE CENTER',
         emailType: 'STAFF_ACCOUNT_CREATED'
     });
 };

@@ -121,7 +121,7 @@ export default function AdminLogin() {
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Username Input */}
                                     <div className="space-y-2">
-                                        <label htmlFor="admin-username" className="text-[10px] font-bold text-red-400 uppercase tracking-[0.2em] block">Admin_ID</label>
+                                        <label htmlFor="admin-username" className="text-[10px] font-bold text-red-400 uppercase tracking-[0.2em] block">Admin_ID / Email</label>
                                         <div className="relative group">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-red-500 transition-colors">
                                                 {'>'}
@@ -130,7 +130,7 @@ export default function AdminLogin() {
                                                 id="admin-username"
                                                 required
                                                 className="w-full pl-10 pr-4 py-4 bg-[#030712] border border-slate-800 rounded-lg text-red-50 placeholder-slate-600 focus:bg-slate-900 focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all outline-none"
-                                                placeholder="sysadmin"
+                                                placeholder="sysadmin or email"
                                                 value={username}
                                                 onChange={e => setUsername(e.target.value)}
                                             />

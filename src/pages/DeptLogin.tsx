@@ -124,7 +124,7 @@ export default function DeptLogin() {
                                 <form onSubmit={handleSubmit} className="space-y-5">
                                     <div className="space-y-2 text-left">
                                         <label htmlFor="dept-username" className="block pl-1 text-xs font-extrabold uppercase tracking-[0.18em] text-slate-600">
-                                            Username
+                                            Username or Email
                                         </label>
                                         <div className="relative group">
                                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-slate-400 transition-colors group-focus-within:text-teal-700">
@@ -135,7 +135,7 @@ export default function DeptLogin() {
                                                 required
                                                 autoComplete="username"
                                                 className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-4 pl-12 pr-5 font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-teal-600 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
-                                                placeholder="Department username"
+                                                placeholder="Department username or email"
                                                 value={username}
                                                 onChange={e => setUsername(e.target.value)}
                                             />

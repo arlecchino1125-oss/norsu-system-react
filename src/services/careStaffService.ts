@@ -275,70 +275,9 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
 
     if (filters.status && filters.status !== 'All') {
         if (filters.status === 'Incomplete') {
-            const fields = [
-                'profile_picture_url',
-                'student_id',
-                'first_name',
-                'last_name',
-                'middle_name',
-                'street',
-                'city',
-                'province',
-                'zip_code',
-                'region',
-                'mobile',
-                'dob',
-                'sex',
-                'gender_identity',
-                'nationality',
-                'facebook_url',
-                'place_of_birth',
-                'religion',
-                'year_level',
-                'department',
-                'course',
-                'civil_status'
-            ];
-            const orConditions = fields.flatMap(f => {
-                if (f === 'dob') {
-                    return [`${f}.is.null`];
-                }
-                return [`${f}.is.null`, `${f}.eq.`];
-            });
-            next = next.or(orConditions.join(','));
+            next = next.or('status.eq.Inactive,profile_completed.is.false,profile_completed.is.null');
         } else if (filters.status === 'Active') {
-            next = next.eq('status', 'Active');
-            const fields = [
-                'profile_picture_url',
-                'student_id',
-                'first_name',
-                'last_name',
-                'middle_name',
-                'street',
-                'city',
-                'province',
-                'zip_code',
-                'region',
-                'mobile',
-                'dob',
-                'sex',
-                'gender_identity',
-                'nationality',
-                'facebook_url',
-                'place_of_birth',
-                'religion',
-                'year_level',
-                'department',
-                'course',
-                'civil_status'
-            ];
-            fields.forEach(f => {
-                if (f === 'dob') {
-                    next = next.not(f, 'is', null);
-                } else {
-                    next = next.not(f, 'is', null).neq(f, '');
-                }
-            });
+            next = next.eq('status', 'Active').eq('profile_completed', true);
         } else {
             next = next.eq('status', filters.status);
         }
@@ -432,7 +371,7 @@ export const getStudentsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
-    if (filters?.annotationStudentIds) {
+    if (filters?.annotationStudentIds || filters?.status === 'Active' || filters?.status === 'Incomplete') {
         return getRestStudentsPage(filters, pageParams, sort);
     }
 

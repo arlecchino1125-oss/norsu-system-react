@@ -11,7 +11,7 @@ import {
     type DraftQuestion,
     type EvaluationForm
 } from '../eventEvaluationService';
-import type { EvaluationQuestionType } from '../evaluationSummary';
+import type { EvaluationQuestionType } from '../eventEvaluationService';
 
 interface EventEvaluationBuilderModalProps {
     open: boolean;
