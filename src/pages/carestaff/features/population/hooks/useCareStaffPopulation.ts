@@ -9,6 +9,7 @@ import {
 import { supabase } from '../../../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
 import { usePermissions } from '../../../../../hooks/usePermissions';
+import { useAuth } from '../../../../../lib/useAuth';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { Button } from '../../../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../../components/ui/Card';
@@ -116,9 +117,13 @@ export function useCareStaffPopulation({
 }) {
     const { showToast } = functions || {};
     const { canPerformAction } = usePermissions();
+    const { session } = useAuth();
     const queryClient = useQueryClient();
     const canArchiveRecords = canPerformAction('archive_records');
     const canRestoreRecords = canPerformAction('restore_records');
+    // Only Admin/Care Staff can actually read student rows (RLS); hide the export
+    // button from Registrar/Dept-Head so they don't click it for an empty file.
+    const canExportStudents = session?.role === 'Admin' || session?.role === 'Care Staff';
 
     const [populationOverview, setPopulationOverview] = useState<CareStudentPopulationOverview>(EMPTY_POPULATION_OVERVIEW);
     const [overviewLoading, setOverviewLoading] = useState(true);
@@ -1454,6 +1459,7 @@ export function useCareStaffPopulation({
         canPerformAction,
         canArchiveRecords,
         canRestoreRecords,
+        canExportStudents,
         populationOverview,
         setPopulationOverview,
         overviewLoading,

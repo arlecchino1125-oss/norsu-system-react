@@ -537,7 +537,7 @@ const PopulationStatCards = ({ overviewLoading, populationOverview }: any) => (
 );
 
 const PopulationHeader = ({
-    isRefreshingData, handleRefreshData, handleExportExcel, canArchiveRecords, canRestoreRecords,
+    isRefreshingData, handleRefreshData, handleExportExcel, canExportStudents, canArchiveRecords, canRestoreRecords,
     overviewLoading, populationOverview, openArchivedStudentsModal, setShowIdSwapModal,
     setShowEnrollmentModal, viewMode, setViewMode
 }: any) => (
@@ -555,9 +555,11 @@ const PopulationHeader = ({
             <Button variant="secondary" onClick={handleRefreshData} disabled={isRefreshingData} leftIcon={<RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
                 {isRefreshingData ? 'Refreshing...' : 'Refresh'}
             </Button>
-            <Button variant="secondary" onClick={handleExportExcel} leftIcon={<FileSpreadsheet size={16} />} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                Export Excel
-            </Button>
+            {canExportStudents && (
+                <Button variant="secondary" onClick={handleExportExcel} leftIcon={<FileSpreadsheet size={16} />} className="rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                    Export Excel
+                </Button>
+            )}
             {(canArchiveRecords || canRestoreRecords) && (
                 <Button variant="secondary" onClick={openArchivedStudentsModal} leftIcon={<Archive size={16} />} className="rounded-xl shadow-sm transition-shadow text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100 hover:shadow-md">
                     Archived ({overviewLoading ? '...' : populationOverview.archivedStudents})
@@ -610,7 +612,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
         cleanupExpiredCourseYearWindows, handleDeleteKey, handleGenerateKey, getCurrentStudentFilters, getBulkTargetStudents, updateStudentsByIds,
         applyBulkCourseYearWindow, clearBulkCourseYearWindow, syncEnrollmentKeysFromStudents, handleAddCourse, handleUpdateCourseLimit, handleBulkUpload,
         handleDownloadTemplate, departmentNames, filteredCourseOptions, schoolYearOptions, getStudentCourseYearForFilter, courseRowsForManagement,
-        filteredStudents, bulkTargetCount, filteredArchivedStudents, handleExportExcel, handleSwapIds, handleSort,
+        filteredStudents, bulkTargetCount, filteredArchivedStudents, handleExportExcel, canExportStudents, handleSwapIds, handleSort,
         visibleTableStudents, shouldUseServiceSearchOrder, sortedStudents, effectiveTotal, isStudentTableLoading, totalPages,
         startIndex, paginatedStudents, studentAnnotationsById, paginationItems, endIndex,
         courseYearCountMap, openArchivedStudentsModal,
@@ -622,6 +624,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 isRefreshingData={isRefreshingData}
                 handleRefreshData={handleRefreshData}
                 handleExportExcel={handleExportExcel}
+                canExportStudents={canExportStudents}
                 canArchiveRecords={canArchiveRecords}
                 canRestoreRecords={canRestoreRecords}
                 overviewLoading={overviewLoading}

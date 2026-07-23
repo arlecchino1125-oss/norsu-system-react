@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { DeptSidebar } from './dept/components/DeptSidebar';
+import { useState, useCallback, useEffect } from 'react';
+import { DeptSidebar, deptAccentKey } from './dept/components/DeptSidebar';
 import { DeptHeader } from './dept/components/DeptHeader';
 import { DeptModulePages } from './dept/components/DeptModulePages';
 import { useDeptEmails } from './dept/hooks/useDeptEmails';
@@ -77,7 +77,20 @@ export default function DeptDashboard() {
     } = useDeptData(session, isAuthenticated);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [deptNotifications] = useState<any[]>([]);
+
+    // Ctrl+\ toggles the desktop collapse rail (matches CARE Staff portal)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.key === '\\') {
+                e.preventDefault();
+                setSidebarCollapsed((prev) => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const account = useDeptAccount({ session, data, setData, showToastMessage });
     const {
@@ -241,18 +254,22 @@ export default function DeptDashboard() {
     }
 
     return (
-        <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 text-gray-800 font-sans overflow-hidden">
-            {/* Sidebar Overlay */}
-            {isSidebarOpen && <button type="button" aria-label="Close department navigation" className="fixed inset-0 bg-transparent z-20 animate-backdrop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400" onClick={() => setIsSidebarOpen(false)} />}
+        <div data-dept-accent={deptAccentKey(data?.profile?.department)} className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 text-gray-800 font-sans overflow-hidden">
+            {/* Mobile sidebar overlay */}
+            {isSidebarOpen && <button type="button" aria-label="Close department navigation" className="fixed inset-0 z-20 bg-black/20 backdrop-blur-sm lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400" onClick={() => setIsSidebarOpen(false)} />}
 
-            <DeptSidebar
-                data={data}
-                activeModule={activeModule}
-                setActiveModule={goToModule}
-                isSidebarOpen={isSidebarOpen}
-                setIsSidebarOpen={setIsSidebarOpen}
-                handleLogout={handleLogout}
-            />
+            {/* Sidebar — persistent on desktop, overlay on mobile */}
+            <div className={`fixed inset-y-0 left-0 z-30 transition-transform duration-300 ease-out lg:relative lg:translate-x-0 lg:h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+                <DeptSidebar
+                    data={data}
+                    activeModule={activeModule}
+                    setActiveModule={goToModule}
+                    setIsSidebarOpen={setIsSidebarOpen}
+                    handleLogout={handleLogout}
+                    isCollapsed={sidebarCollapsed}
+                    onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+                />
+            </div>
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full overflow-hidden">

@@ -1059,7 +1059,8 @@ const DeptAdmissionsPage = ({
     });
 
     return (
-        <div className="relative isolate space-y-4">
+        <div className="relative isolate">
+            <div className="dept-admissions-compact space-y-4">
             <AdmissionsToolbar
                 selectedFilteredApplicantCount={selectedFilteredApplicantCount} filteredDecisionApplicants={filteredDecisionApplicants} filteredSchedulableApplicants={filteredSchedulableApplicants} toggleCurrentPageSelectableApplicants={toggleCurrentPageSelectableApplicants}
                 filteredSelectableApplicants={filteredSelectableApplicants} isBulkBusy={isBulkBusy} allCurrentPageSelectableSelected={allCurrentPageSelectableSelected} selectedCurrentPageApplicantCount={selectedCurrentPageApplicantCount}
@@ -1123,6 +1124,7 @@ const DeptAdmissionsPage = ({
                     />
                     </>
                 )}
+            </div>
             </div>
 
             {selectedApplicantDetails && (

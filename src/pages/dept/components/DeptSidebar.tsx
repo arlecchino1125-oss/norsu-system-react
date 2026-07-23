@@ -1,96 +1,123 @@
-import React from 'react';
-import { LayoutDashboard, Users, UserCheck, CalendarDays, ClipboardList, BookOpen, AlertCircle, FileText, Settings, FileSpreadsheet, XCircle, LogOut } from 'lucide-react';
-import NorsuBrand from '../../../components/NorsuBrand';
+import { LayoutDashboard, Users, UserCheck, CalendarDays, ClipboardList, BookOpen, AlertCircle, FileText, Settings, FileSpreadsheet } from 'lucide-react';
+import Sidebar, { type NavSection, type SidebarAccent } from '../../../components/layout/Sidebar';
 
-const serviceNavItems = [
-    { id: 'admissions', icon: <UserCheck size={18} />, label: 'Admissions Screening', hasIndicator: true },
-    { id: 'interview_queue', icon: <ClipboardList size={18} />, label: 'Interview Queue' },
-    { id: 'counseling_queue', icon: <Users size={18} />, label: 'Counseling & Referrals' },
-    { id: 'support_approvals', icon: <AlertCircle size={18} />, label: 'Additional Support', hasIndicator: true }
-];
+// ── Per-college sidebar colors ──
+// Tailwind can't build class names from variables, so each color is spelled out.
+// To theme another college: add a preset below and map its code in COLLEGE_ACCENTS.
+const EMERALD: SidebarAccent = {
+    sidebar: 'bg-[linear-gradient(180deg,#052e16_0%,#064e3b_50%,#065f46_100%)] border-r border-emerald-500/10',
+    activeBg: 'bg-emerald-500/10 backdrop-blur-md', activeText: 'text-emerald-300 font-semibold', activeBarClass: 'bg-emerald-500',
+    sectionText: 'text-emerald-400/40', hoverBg: 'hover:bg-white/5', hoverText: 'hover:text-emerald-100', brandAccent: 'emerald',
+    pill: 'from-emerald-400/60 to-emerald-700/80 border-emerald-300/20', pillShadow: '0 4px 0 rgba(16,120,90,0.5), 0 6px 12px rgba(16,120,90,0.35)',
+};
+const BLUE: SidebarAccent = {
+    sidebar: 'bg-[linear-gradient(180deg,#0c1a2e_0%,#0f2a4a_50%,#0b3a63_100%)] border-r border-blue-500/10',
+    activeBg: 'bg-blue-500/10 backdrop-blur-md', activeText: 'text-blue-300 font-semibold', activeBarClass: 'bg-blue-500',
+    sectionText: 'text-blue-400/40', hoverBg: 'hover:bg-white/5', hoverText: 'hover:text-blue-100', brandAccent: 'blue',
+    pill: 'from-blue-400/60 to-blue-700/80 border-blue-300/20', pillShadow: '0 4px 0 rgba(40,80,160,0.5), 0 6px 12px rgba(40,80,160,0.35)',
+};
+const GREEN: SidebarAccent = {
+    sidebar: 'bg-[linear-gradient(180deg,#0a2e14_0%,#166534_50%,#15803d_100%)] border-r border-green-500/10',
+    activeBg: 'bg-green-500/10 backdrop-blur-md', activeText: 'text-green-300 font-semibold', activeBarClass: 'bg-green-500',
+    sectionText: 'text-green-400/40', hoverBg: 'hover:bg-white/5', hoverText: 'hover:text-green-100', brandAccent: 'emerald',
+    pill: 'from-green-400/60 to-green-700/80 border-green-300/20', pillShadow: '0 4px 0 rgba(30,130,60,0.5), 0 6px 12px rgba(30,130,60,0.35)',
+};
+const RED: SidebarAccent = {
+    sidebar: 'bg-[linear-gradient(180deg,#2e0a0a_0%,#4a0f0f_50%,#631b1b_100%)] border-r border-red-500/10',
+    activeBg: 'bg-red-500/10 backdrop-blur-md', activeText: 'text-red-300 font-semibold', activeBarClass: 'bg-red-500',
+    sectionText: 'text-red-400/40', hoverBg: 'hover:bg-white/5', hoverText: 'hover:text-red-100', brandAccent: 'purple',
+    pill: 'from-red-400/60 to-red-700/80 border-red-300/20', pillShadow: '0 4px 0 rgba(160,40,40,0.5), 0 6px 12px rgba(160,40,40,0.35)',
+};
+const PURPLE: SidebarAccent = {
+    sidebar: 'bg-[linear-gradient(180deg,#1a0b2e_0%,#2e1054_50%,#3b1466_100%)] border-r border-purple-500/10',
+    activeBg: 'bg-purple-500/10 backdrop-blur-md', activeText: 'text-purple-300 font-semibold', activeBarClass: 'bg-purple-500',
+    sectionText: 'text-purple-400/40', hoverBg: 'hover:bg-white/5', hoverText: 'hover:text-purple-100', brandAccent: 'purple',
+    pill: 'from-purple-400/60 to-purple-700/80 border-purple-300/20', pillShadow: '0 4px 0 rgba(120,60,180,0.5), 0 6px 12px rgba(120,60,180,0.35)',
+};
+const AMBER: SidebarAccent = {
+    sidebar: 'bg-[linear-gradient(180deg,#2e1e05_0%,#4a340f_50%,#63491b_100%)] border-r border-amber-500/10',
+    activeBg: 'bg-amber-500/10 backdrop-blur-md', activeText: 'text-amber-300 font-semibold', activeBarClass: 'bg-amber-500',
+    sectionText: 'text-amber-400/40', hoverBg: 'hover:bg-white/5', hoverText: 'hover:text-amber-100', brandAccent: 'purple',
+    pill: 'from-amber-400/60 to-amber-700/80 border-amber-300/20', pillShadow: '0 4px 0 rgba(160,120,40,0.5), 0 6px 12px rgba(160,120,40,0.35)',
+};
 
-const managementNavItems = [
-    { id: 'students', icon: <BookOpen size={18} />, label: 'Students Directory' },
-    { id: 'counseled', icon: <Users size={18} />, label: 'Counseled Students' },
-    { id: 'events', icon: <CalendarDays size={18} />, label: 'College Events' }
-];
+// Single source of truth: college code → accent key. The key drives BOTH the sidebar
+// preset (below) and the portal-wide retint (`data-dept-accent` on the dept root, whose
+// color values live in index.css). CAS is dark green (emerald); CAFF the brighter green.
+const CODE_TO_KEY: Record<string, string> = {
+    CAFF: 'green',
+    CAS: 'emerald',
+    CBA: 'amber',
+    CCJE: 'purple',
+    CIT: 'red',
+    CTED: 'blue',
+};
+const KEY_TO_ACCENT: Record<string, SidebarAccent> = {
+    green: GREEN, emerald: EMERALD, amber: AMBER, purple: PURPLE, red: RED, blue: BLUE,
+};
 
-const systemNavItems = [
-    { id: 'reports', icon: <FileText size={18} />, label: 'Reports' },
-    { id: 'export_center', icon: <FileSpreadsheet size={18} />, label: 'Export Center' },
-    { id: 'settings', icon: <Settings size={18} />, label: 'Settings' }
+/** Department strings look like "CCJE (College of Criminal Justice Education)" — key off the leading code. */
+export function deptAccentKey(department?: string): string {
+    const code = String(department || '').trim().split(/[\s(]/)[0].toUpperCase();
+    return CODE_TO_KEY[code] ?? 'emerald';
+}
+function getDeptAccent(department?: string): SidebarAccent {
+    return KEY_TO_ACCENT[deptAccentKey(department)];
+}
+
+const DEPT_SECTIONS: NavSection[] = [
+    { items: [{ id: 'dashboard', label: 'Home', icon: LayoutDashboard }] },
+    {
+        title: 'Services',
+        withDivider: true,
+        items: [
+            { id: 'admissions', label: 'Admissions Screening', icon: UserCheck, indicator: true },
+            { id: 'interview_queue', label: 'Interview Queue', icon: ClipboardList },
+            { id: 'counseling_queue', label: 'Counseling & Referrals', icon: Users },
+            { id: 'support_approvals', label: 'Additional Support', icon: AlertCircle, indicator: true },
+        ],
+    },
+    {
+        title: 'Management',
+        withDivider: true,
+        items: [
+            { id: 'students', label: 'Students Directory', icon: BookOpen },
+            { id: 'counseled', label: 'Counseled Students', icon: Users },
+            { id: 'events', label: 'College Events', icon: CalendarDays },
+        ],
+    },
+    {
+        title: 'System',
+        withDivider: true,
+        items: [
+            { id: 'reports', label: 'Reports', icon: FileText },
+            { id: 'export_center', label: 'Export Center', icon: FileSpreadsheet },
+            { id: 'settings', label: 'Settings', icon: Settings },
+        ],
+    },
 ];
 
 export function DeptSidebar({
     data,
     activeModule,
     setActiveModule,
-    isSidebarOpen,
     setIsSidebarOpen,
-    handleLogout
+    handleLogout,
+    isCollapsed,
+    onToggleCollapse,
 }: any) {
     return (
-        <aside className={`fixed inset-y-0 left-0 z-30 w-72 max-w-[calc(100vw-1rem)] bg-gradient-dept-sidebar transform transition-all duration-500 ease-out flex flex-col ${isSidebarOpen ? 'translate-x-0 shadow-2xl shadow-emerald-900/30' : '-translate-x-full'}`}>
-            {/* Logo Area */}
-            <div className="p-6 border-b border-white/10">
-                <div className="flex items-center justify-between">
-                    <div className="relative min-w-0 flex-1 group">
-                        <button type="button" aria-label="Open profile and settings" onClick={() => setActiveModule('settings')} className="absolute inset-0 z-10 cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300" />
-                        <div className="pointer-events-none">
-                            <NorsuBrand title={data?.profile?.name || 'Department'} subtitle={data?.profile?.department || 'Unassigned'} accent="emerald" size="sm" className="min-w-0" />
-                            <p className="mt-2 pl-[4.4rem] text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/50 transition-colors group-hover:text-emerald-100/80">Open Profile & Settings</p>
-                        </div>
-                    </div>
-                    <button type="button" aria-label="Close navigation" onClick={() => setIsSidebarOpen(false)} className="text-emerald-300/60 hover:text-white transition-colors"><XCircle size={20} /></button>
-                </div>
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                {[
-                    { id: 'dashboard', icon: <LayoutDashboard size={18} />, label: 'Home' },
-                ].map((item: any) => (
-                    <button type="button" key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                        {item.icon} {item.label}
-                    </button>
-                ))}
-
-                <div className="pt-5 mt-4 border-t border-white/5">
-                    <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Services</p>
-                    {serviceNavItems.map((item: any) => (
-                        <button type="button" key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                            {item.icon} {item.label}
-                            {item.hasIndicator && <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="pt-5 mt-4 border-t border-white/5">
-                    <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">Management</p>
-                    {managementNavItems.map((item: any) => (
-                        <button type="button" key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                            {item.icon} {item.label}
-                            {item.hasIndicator && <span className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="pt-5 mt-4 border-t border-white/5">
-                    <p className="px-4 text-[10px] font-bold text-emerald-400/50 uppercase tracking-[0.15em] mb-3">System</p>
-                    {systemNavItems.map((item: any) => (
-                        <button type="button" key={item.id} onClick={() => { setActiveModule(item.id); setIsSidebarOpen(false); }} className={`nav-item nav-item-dept w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all ${activeModule === item.id ? 'nav-item-active text-emerald-300' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                            {item.icon} {item.label}
-                        </button>
-                    ))}
-                </div>
-            </nav>
-
-            {/* Logout */}
-            <div className="p-4 border-t border-white/5">
-                <button type="button" onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-400/80 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all">
-                    <LogOut size={18} /> Logout
-                </button>
-            </div>
-        </aside>
+        <Sidebar
+            sections={DEPT_SECTIONS}
+            activeTab={activeModule}
+            onTabChange={(tab) => { setActiveModule(tab); setIsSidebarOpen(false); }}
+            onLogout={handleLogout}
+            accentStyle={getDeptAccent(data?.profile?.department)}
+            brandTitle={data?.profile?.department || 'NORSU G COLLEGE'}
+            brandCareSrc={null}
+            brandStacked
+            isCollapsed={isCollapsed}
+            onToggleCollapse={onToggleCollapse}
+        />
     );
 }

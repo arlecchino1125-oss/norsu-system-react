@@ -16,6 +16,84 @@
     --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
+/* ═══════════════════════════════════════════════════════
+   THEME PALETTE — emerald / green / teal as CSS vars.
+   Defaults below are stock Tailwind, so every portal looks
+   unchanged. The dept root re-points them per college via
+   [data-dept-accent="…"] so the whole dept UI retints.
+   ═══════════════════════════════════════════════════════ */
+:root {
+    --c-emerald-50: 236 253 245;  --c-emerald-100: 209 250 229; --c-emerald-200: 167 243 208;
+    --c-emerald-300: 110 231 183; --c-emerald-400: 52 211 153;  --c-emerald-500: 16 185 129;
+    --c-emerald-600: 5 150 105;   --c-emerald-700: 4 120 87;    --c-emerald-800: 6 95 70;
+    --c-emerald-900: 6 78 59;     --c-emerald-950: 2 44 34;
+    --c-green-50: 240 253 244;    --c-green-100: 220 252 231;   --c-green-200: 187 247 208;
+    --c-green-300: 134 239 172;   --c-green-400: 74 222 128;    --c-green-500: 34 197 94;
+    --c-green-600: 22 163 74;     --c-green-700: 21 128 61;     --c-green-800: 22 101 52;
+    --c-green-900: 20 83 45;      --c-green-950: 5 46 22;
+    --c-teal-50: 240 253 250;     --c-teal-100: 204 251 241;    --c-teal-200: 153 246 228;
+    --c-teal-300: 94 234 212;     --c-teal-400: 45 212 191;     --c-teal-500: 20 184 166;
+    --c-teal-600: 13 148 136;     --c-teal-700: 15 118 110;     --c-teal-800: 17 94 89;
+    --c-teal-900: 19 78 74;       --c-teal-950: 4 47 46;
+}
+
+/* For non-default colleges, green + teal follow the emerald override (one source of truth). */
+[data-dept-accent="green"],
+[data-dept-accent="red"],
+[data-dept-accent="purple"],
+[data-dept-accent="blue"],
+[data-dept-accent="amber"] {
+    --c-green-50: var(--c-emerald-50);   --c-green-100: var(--c-emerald-100); --c-green-200: var(--c-emerald-200);
+    --c-green-300: var(--c-emerald-300); --c-green-400: var(--c-emerald-400); --c-green-500: var(--c-emerald-500);
+    --c-green-600: var(--c-emerald-600); --c-green-700: var(--c-emerald-700); --c-green-800: var(--c-emerald-800);
+    --c-green-900: var(--c-emerald-900); --c-green-950: var(--c-emerald-950);
+    --c-teal-50: var(--c-emerald-50);    --c-teal-100: var(--c-emerald-100);  --c-teal-200: var(--c-emerald-200);
+    --c-teal-300: var(--c-emerald-300);  --c-teal-400: var(--c-emerald-400);  --c-teal-500: var(--c-emerald-500);
+    --c-teal-600: var(--c-emerald-600);  --c-teal-700: var(--c-emerald-700);  --c-teal-800: var(--c-emerald-800);
+    --c-teal-900: var(--c-emerald-900);  --c-teal-950: var(--c-emerald-950);
+}
+
+/* CAFF — nature green */
+[data-dept-accent="green"] {
+    --c-emerald-50: 240 253 244;  --c-emerald-100: 220 252 231; --c-emerald-200: 187 247 208;
+    --c-emerald-300: 134 239 172; --c-emerald-400: 74 222 128;  --c-emerald-500: 34 197 94;
+    --c-emerald-600: 22 163 74;   --c-emerald-700: 21 128 61;   --c-emerald-800: 22 101 52;
+    --c-emerald-900: 20 83 45;    --c-emerald-950: 5 46 22;
+}
+/* CIT — red */
+[data-dept-accent="red"] {
+    --c-emerald-50: 254 242 242;  --c-emerald-100: 254 226 226; --c-emerald-200: 254 202 202;
+    --c-emerald-300: 252 165 165; --c-emerald-400: 248 113 113; --c-emerald-500: 239 68 68;
+    --c-emerald-600: 220 38 38;   --c-emerald-700: 185 28 28;   --c-emerald-800: 153 27 27;
+    --c-emerald-900: 127 29 29;   --c-emerald-950: 69 10 10;
+}
+/* CCJE — purple */
+[data-dept-accent="purple"] {
+    --c-emerald-50: 250 245 255;  --c-emerald-100: 243 232 255; --c-emerald-200: 233 213 255;
+    --c-emerald-300: 216 180 254; --c-emerald-400: 192 132 252; --c-emerald-500: 168 85 247;
+    --c-emerald-600: 147 51 234;  --c-emerald-700: 126 34 206;  --c-emerald-800: 107 33 168;
+    --c-emerald-900: 88 28 135;   --c-emerald-950: 59 7 100;
+}
+/* CTED — blue */
+[data-dept-accent="blue"] {
+    --c-emerald-50: 239 246 255;  --c-emerald-100: 219 234 254; --c-emerald-200: 191 219 254;
+    --c-emerald-300: 147 197 253; --c-emerald-400: 96 165 250;  --c-emerald-500: 59 130 246;
+    --c-emerald-600: 37 99 235;   --c-emerald-700: 29 78 216;   --c-emerald-800: 30 64 175;
+    --c-emerald-900: 30 58 138;   --c-emerald-950: 23 37 84;
+}
+/* CBA — golden amber */
+[data-dept-accent="amber"] {
+    --c-emerald-50: 255 251 235;  --c-emerald-100: 254 243 199; --c-emerald-200: 253 230 138;
+    --c-emerald-300: 252 211 77;  --c-emerald-400: 251 191 36;  --c-emerald-500: 245 158 11;
+    --c-emerald-600: 217 119 6;   --c-emerald-700: 180 83 9;    --c-emerald-800: 146 64 14;
+    --c-emerald-900: 120 53 15;   --c-emerald-950: 69 26 3;
+}
+
+/* Admissions Screening: denser layout on desktop — scale the whole view to 70%. */
+@media (min-width: 1024px) {
+    .dept-admissions-compact { zoom: 0.7; }
+}
+
 /* Care staff student refresh animation */
 @keyframes careRefreshCardIn {
     from {
@@ -676,7 +754,7 @@
     }
 
     .gradient-text-green {
-        background: linear-gradient(135deg, #10b981, #34d399, #6ee7b7);
+        background: linear-gradient(135deg, rgb(var(--c-emerald-500)), rgb(var(--c-emerald-400)), rgb(var(--c-emerald-300)));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -689,7 +767,7 @@
         left: 0;
         right: 0;
         height: 2px;
-        background: linear-gradient(90deg, transparent, #10b981, #34d399, transparent);
+        background: linear-gradient(90deg, transparent, rgb(var(--c-emerald-500)), rgb(var(--c-emerald-400)), transparent);
         opacity: 0.5;
     }
 

@@ -8,6 +8,10 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   shortcut?: string;
+  /** Small pulsing dot after the label (e.g. pending items) */
+  indicator?: boolean;
+  /** Tailwind bg class for the indicator dot (default red) */
+  indicatorColor?: string;
 }
 
 export interface NavSection {
@@ -25,9 +29,17 @@ interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onOpenSettings?: () => void;
+  /** Brand title shown when expanded (default "NORSU G CARE") */
+  brandTitle?: string;
+  /** CARE seal src; pass null for a placeholder slot (default "/carecenter.png") */
+  brandCareSrc?: string | null;
+  /** Stack the brand title below the logos (for long names) */
+  brandStacked?: boolean;
+  /** Full accent-style override (bypasses the `accent` preset) */
+  accentStyle?: SidebarAccent;
 }
 
-const ACCENT_STYLES: Record<NonNullable<SidebarProps['accent']>, {
+export type SidebarAccent = {
   sidebar: string;
   activeBg: string;
   activeText: string;
@@ -35,8 +47,12 @@ const ACCENT_STYLES: Record<NonNullable<SidebarProps['accent']>, {
   sectionText: string;
   hoverBg: string;
   hoverText: string;
-  brandAccent: 'purple' | 'blue' | 'emerald';
-}> = {
+  brandAccent: 'purple' | 'blue' | 'emerald' | 'gold';
+  pill: string;
+  pillShadow: string;
+};
+
+const ACCENT_STYLES: Record<NonNullable<SidebarProps['accent']>, SidebarAccent> = {
   purple: {
     sidebar: 'bg-gradient-to-b from-[#1A0B2E] via-[#241042] to-[#120524] border-r border-purple-500/10',
     activeBg: 'bg-purple-500/15 backdrop-blur-md',
@@ -46,6 +62,8 @@ const ACCENT_STYLES: Record<NonNullable<SidebarProps['accent']>, {
     hoverBg: 'hover:bg-purple-500/10',
     hoverText: 'hover:text-purple-100',
     brandAccent: 'purple',
+    pill: 'from-purple-400/60 to-purple-700/80 border-purple-300/20',
+    pillShadow: '0 4px 0 rgba(80,40,160,0.5), 0 6px 12px rgba(80,40,160,0.35)',
   },
   blue: {
     sidebar: 'bg-[#080F1A] border-r border-white/5',
@@ -56,9 +74,11 @@ const ACCENT_STYLES: Record<NonNullable<SidebarProps['accent']>, {
     hoverBg: 'hover:bg-white/5',
     hoverText: 'hover:text-blue-100',
     brandAccent: 'blue',
+    pill: 'from-blue-400/60 to-blue-700/80 border-blue-300/20',
+    pillShadow: '0 4px 0 rgba(40,80,160,0.5), 0 6px 12px rgba(40,80,160,0.35)',
   },
   emerald: {
-    sidebar: 'bg-[#061410] border-r border-white/5',
+    sidebar: 'bg-[linear-gradient(180deg,#052e16_0%,#064e3b_50%,#065f46_100%)] border-r border-emerald-500/10',
     activeBg: 'bg-emerald-500/10 backdrop-blur-md',
     activeText: 'text-emerald-300 font-semibold',
     activeBarClass: 'bg-emerald-500',
@@ -66,6 +86,8 @@ const ACCENT_STYLES: Record<NonNullable<SidebarProps['accent']>, {
     hoverBg: 'hover:bg-white/5',
     hoverText: 'hover:text-emerald-100',
     brandAccent: 'emerald',
+    pill: 'from-emerald-400/60 to-emerald-700/80 border-emerald-300/20',
+    pillShadow: '0 4px 0 rgba(16,120,90,0.5), 0 6px 12px rgba(16,120,90,0.35)',
   },
 };
 
@@ -77,8 +99,12 @@ export default function Sidebar({
   accent = 'purple',
   isCollapsed,
   onToggleCollapse,
+  brandTitle = 'NORSU G CARE',
+  brandCareSrc = '/carecenter.png',
+  brandStacked = false,
+  accentStyle,
 }: SidebarProps) {
-  const styles = ACCENT_STYLES[accent];
+  const styles = accentStyle ?? ACCENT_STYLES[accent];
 
   // Split sections roughly in half so the toggle sits in the middle of nav
   const half = Math.ceil(sections.length / 2);
@@ -119,6 +145,9 @@ export default function Sidebar({
               {!isCollapsed && (
                 <>
                   <span className="flex-1 text-left tracking-wide">{item.label}</span>
+                  {item.indicator && (
+                    <span className={`h-2 w-2 shrink-0 rounded-full animate-pulse ${item.indicatorColor || 'bg-red-500'}`} />
+                  )}
                   {item.shortcut && (
                     <kbd className={`hidden rounded border px-1.5 py-0.5 text-[10px] font-semibold transition-colors lg:inline-block ${isActive ? 'border-purple-400/30 text-purple-300/80' : 'border-white/10 text-slate-500/60'}`}>
                       {item.shortcut}
@@ -146,9 +175,9 @@ export default function Sidebar({
         onClick={onToggleCollapse}
         title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         style={{
-          boxShadow: '0 4px 0 rgba(80,40,160,0.5), 0 6px 12px rgba(80,40,160,0.35)',
+          boxShadow: styles.pillShadow,
         }}
-        className="absolute -right-[1.05rem] top-1/2 -translate-y-1/2 z-30 flex h-12 w-[1.8rem] items-center justify-center rounded-lg bg-gradient-to-b from-purple-400/60 to-purple-700/80 border border-purple-300/20 text-white transition-all hover:-translate-y-[calc(50%+2px)] hover:shadow-none active:translate-y-[calc(-50%+3px)] active:shadow-none"
+        className={`absolute -right-[1.05rem] top-1/2 -translate-y-1/2 z-30 flex h-12 w-[1.8rem] items-center justify-center rounded-lg bg-gradient-to-b ${styles.pill} border text-white transition-all hover:-translate-y-[calc(50%+2px)] hover:shadow-none active:translate-y-[calc(-50%+3px)] active:shadow-none`}
       >
         {isCollapsed ? <ChevronRight size={17} strokeWidth={2.5} /> : <ChevronLeft size={17} strokeWidth={2.5} />}
       </button>
@@ -165,10 +194,12 @@ export default function Sidebar({
           </div>
         ) : (
           <NorsuBrand
-            title="NORSU G CARE"
+            title={brandTitle}
+            careSrc={brandCareSrc}
+            stacked={brandStacked}
             accent={styles.brandAccent}
             size="sm"
-            className="min-w-0 scale-95 origin-left"
+            className={brandStacked ? 'w-full' : 'min-w-0 scale-95 origin-left'}
           />
         )}
       </div>

@@ -6,6 +6,10 @@ type NorsuBrandProps = {
     accent?: 'blue' | 'emerald' | 'purple' | 'gold';
     size?: 'sm' | 'md' | 'lg';
     className?: string;
+    /** CARE seal image src. Pass null to render an empty placeholder slot (subject for replacement). */
+    careSrc?: string | null;
+    /** Stack the title below the logos (useful for long names) instead of beside them. */
+    stacked?: boolean;
 };
 
 const ACCENT_STYLES = {
@@ -28,15 +32,17 @@ export default function NorsuBrand({
     accent = 'blue',
     size = 'md',
     className = '',
+    careSrc = '/carecenter.png',
+    stacked = false,
 }: NorsuBrandProps) {
     const [showSeal, setShowSeal] = React.useState(true);
     const accentStyles = ACCENT_STYLES[accent];
     const sizeStyles = SIZE_STYLES[size];
 
     return (
-        <div className={`flex items-center gap-3 ${className}`}>
+        <div className={`flex ${stacked ? 'flex-col items-center text-center gap-2' : 'items-center gap-3'} ${className}`}>
             {/* Logo stack — CARE logo rendered bigger and on top */}
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0">
                 {showSeal && (
                     <img
                         src="/norsu.png"
@@ -45,14 +51,21 @@ export default function NorsuBrand({
                         onError={() => setShowSeal(false)}
                     />
                 )}
-                <img
-                    src="/carecenter.png"
-                    alt="CARE Center"
-                    className={`${sizeStyles.care} rounded-full object-cover bg-white shadow-xl ${accentStyles.ring} relative z-10`}
-                />
+                {careSrc ? (
+                    <img
+                        src={careSrc}
+                        alt="CARE Center"
+                        className={`${sizeStyles.care} rounded-full object-cover bg-white shadow-xl ${accentStyles.ring} relative z-10`}
+                    />
+                ) : (
+                    <div
+                        aria-hidden="true"
+                        className={`${sizeStyles.care} rounded-full bg-white shadow-xl ${accentStyles.ring} relative z-10`}
+                    />
+                )}
             </div>
 
-            <div className="min-w-0">
+            <div className={stacked ? 'w-full min-w-0' : 'min-w-0'}>
                 <h1 className={`font-extrabold tracking-tight leading-tight ${sizeStyles.title} ${accentStyles.title}`}>
                     {title}
                 </h1>
