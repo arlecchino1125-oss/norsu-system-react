@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { SystemEvent } from '../types/models';
 import { useQuery } from '@tanstack/react-query';
+import { isEventConcluded } from '../utils/eventWindows';
 
 const EVENT_COLUMNS = [
     'id',
@@ -32,43 +33,13 @@ const EVENT_COLUMNS = [
 ].join(', ');
 
 /**
- * Returns true if the event's date (and optional end_time) have passed.
- * An event is "expired" when:
- *  - event_date is before today, OR
- *  - event_date is today AND end_time has passed (if set), OR
- *  - event_date is today AND no end_time is set AND the day is over (23:59)
- */
-function isEventExpired(event: SystemEvent): boolean {
-    if (!event.event_date) return false;
-
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
-
-    // Past date → expired
-    if (event.event_date < todayStr) return true;
-
-    // Future date → not expired
-    if (event.event_date > todayStr) return false;
-
-    // Same day — check end_time
-    if (event.end_time) {
-        const [h, m] = event.end_time.split(':').map(Number);
-        if (now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
  * Exported so the department portal classifies events exactly as the Care Staff
- * portal does. An event counts as concluded when the archive flag is set OR its
- * end time has passed -- staff see both as "Archived", so anything else here
- * would tell two portals two different stories about the same event.
+ * portal does. An event counts as concluded when the archive flag is set OR it is
+ * past its 2h time-out grace (see utils/eventWindows) -- staff and students must
+ * tell the same story about the same event.
  */
 export function isEventArchived(event: SystemEvent): boolean {
-    return Boolean(event?.is_archived) || isEventExpired(event);
+    return isEventConcluded(event);
 }
 
 export function useEventsData() {

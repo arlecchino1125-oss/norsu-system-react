@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useStudentEventsData } from '../hooks/useStudentEventsData';
 import { getAudienceLabel, isAttendanceActivityType } from '../../../../../utils/eventAudience';
+import { getEventWindows } from '../../../../../utils/eventWindows';
 import { getTextInputLimitProps } from '../../../../../utils/inputSecurity';
 import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
 import { getPendingEvaluationEventIds } from '../studentEvaluationService';
@@ -31,16 +32,6 @@ const parseTimeValue = (value: string) => {
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return null;
 
     return { hour, minute, second };
-};
-
-const combineDateAndTime = (dateValue: string, timeValue: string) => {
-    const date = parseDateValue(dateValue);
-    const time = parseTimeValue(timeValue);
-    if (!date || !time) return null;
-
-    const combined = new Date(date);
-    combined.setHours(time.hour, time.minute, time.second, 0);
-    return combined;
 };
 
 const formatDateLabel = (value: string) => {
@@ -86,14 +77,10 @@ const formatAttendanceTimestamp = (value: string) => {
 };
 
 const getEventWindow = (item: any) => {
-    if (!isAttendanceActivityType(item?.type)) return { start: null, end: null };
-
-    const start = combineDateAndTime(item.event_date, item.event_time);
-    if (!start) return { start: null, end: null };
-
-    const explicitEnd = combineDateAndTime(item.event_date, item.end_time);
-    const end = explicitEnd || new Date(start.getTime() + 2 * 60 * 60 * 1000);
-    return { start, end };
+    if (!isAttendanceActivityType(item?.type)) {
+        return { start: null, end: null, checkInClose: null, timeoutClose: null };
+    }
+    return getEventWindows(item);
 };
 
 const getDisplayDate = (item: any) => formatDateLabel(item?.event_date || item?.created_at || '');
@@ -306,12 +293,13 @@ const isTimedIn = Boolean(record?.time_in);
 const isTimedOut = Boolean(record?.time_out);
 const isTimingOut = timingOutEventId === String(selectedEvent.id);
 const isAttendanceActivity = isAttendanceActivityType(selectedEvent.type);
-const { start, end } = getEventWindow(selectedEvent);
+const { start, end, checkInClose, timeoutClose } = getEventWindow(selectedEvent);
 const now = new Date();
-const isCheckInClosed = isAttendanceActivity && Boolean(end) && now > (end as Date);
-const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(end)
+const isCheckInClosed = isAttendanceActivity && Boolean(checkInClose) && now > (checkInClose as Date);
+const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(checkInClose)
     && now >= (start as Date) && !isCheckInClosed && !isTimedIn;
-const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
+const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut
+    && now >= (end as Date) && (!timeoutClose || now <= (timeoutClose as Date));
 const mustRegisterForTimeIn = isRegistrationEvent(selectedEvent) && !selectedEvent.allow_walk_ins;
 const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(selectedEvent, isTimedIn));
 const timeInLabel = isTimingIn
@@ -576,12 +564,13 @@ const EventsListSection = ({
                     const isTimedOut = Boolean(record?.time_out);
                     const isTimingOut = timingOutEventId === String(item.id);
                     const isAttendanceActivity = isAttendanceActivityType(item.type);
-                    const { start, end } = getEventWindow(item);
+                    const { start, end, checkInClose, timeoutClose } = getEventWindow(item);
                     const now = new Date();
-                    const isCheckInClosed = isAttendanceActivity && Boolean(end) && now > (end as Date);
-                    const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(end)
+                    const isCheckInClosed = isAttendanceActivity && Boolean(checkInClose) && now > (checkInClose as Date);
+                    const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(checkInClose)
                         && now >= (start as Date) && !isCheckInClosed && !isTimedIn;
-                    const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut && now >= (end as Date);
+                    const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut
+                        && now >= (end as Date) && (!timeoutClose || now <= (timeoutClose as Date));
                     const mustRegisterForTimeIn = isRegistrationEvent(item) && !item.allow_walk_ins;
                     const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(item, isTimedIn));
                     const timeInLabel = isTimedIn

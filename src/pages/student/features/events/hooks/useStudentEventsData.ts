@@ -2,32 +2,10 @@ import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getEventsPage } from '../../../../../services/studentPortalService';
 import { isStudentEligibleForEvent } from '../../../../../utils/eventAudience';
+import { isEventConcluded } from '../../../../../utils/eventWindows';
 
 interface UseStudentEventsDataArgs {
     personalInfo?: any;
-}
-
-/**
- * Returns true if the event's date (and optional end_time) have passed.
- */
-function isEventExpired(event: any): boolean {
-    if (!event.event_date) return false;
-
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-
-    if (event.event_date < todayStr) return true;
-    if (event.event_date > todayStr) return false;
-
-    // Same day — check end_time
-    if (event.end_time) {
-        const [h, m] = event.end_time.split(':').map(Number);
-        if (now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m)) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 export const useStudentEventsData = ({ personalInfo }: UseStudentEventsDataArgs) => {
@@ -54,7 +32,7 @@ export const useStudentEventsData = ({ personalInfo }: UseStudentEventsDataArgs)
                 status: personalInfo?.status
             };
             const activeEvents = rawEvents.filter((ev: any) => (
-                !isEventExpired(ev) && isStudentEligibleForEvent(ev, studentAudienceProfile)
+                !isEventConcluded(ev) && isStudentEligibleForEvent(ev, studentAudienceProfile)
             ));
             return activeEvents;
         } catch (error) {

@@ -236,6 +236,7 @@ const EventFormModal = ({
 const AttendeesModal = ({
     showToast, attendees, expectedStudents, selectedAttendanceEvent, attendeeFilter, setAttendeeFilter, yearLevelFilter, setYearLevelFilter, attendeeCourseFilter, setAttendeeCourseFilter, attendeeSectionFilter, setAttendeeSectionFilter, setShowAttendeesModal, selectedEventTitle, setExpectedStudents, setSelectedAttendanceEvent
 }: any) => {
+    const [attendeeSearch, setAttendeeSearch] = useState('');
     const depts = [...new Set(attendees.flatMap((a: any) => a.department ? [a.department] : []))].sort() as string[];
     const yearLevels = [...new Set(attendees.flatMap((a: any) => a.year_level ? [a.year_level] : []))].sort() as string[];
     const courses = [...new Set(attendees.flatMap((a: any) => a.course ? [a.course] : []))].sort() as string[];
@@ -244,98 +245,107 @@ const AttendeesModal = ({
     if (attendeeCourseFilter !== 'All') filtered = filtered.filter(a => a.course === attendeeCourseFilter);
     if (yearLevelFilter !== 'All') filtered = filtered.filter(a => a.year_level === yearLevelFilter);
     if (attendeeSectionFilter !== 'All') filtered = filtered.filter(a => a.section === attendeeSectionFilter);
+    const attendeeQuery = attendeeSearch.trim().toLowerCase();
+    if (attendeeQuery) filtered = filtered.filter(a => String(a.student_name || '').toLowerCase().includes(attendeeQuery));
     const completedCount = attendees.filter(a => a.time_out).length;
     const attendeeByStudentId = new Map<string, any>(attendees.map((att: any) => [String(att.student_id || ''), att]));
     const absentStudents = expectedStudents.filter((student: any) => !attendeeByStudentId.has(String(student.student_id || '')));
     const attendanceRate = expectedStudents.length > 0
         ? Math.round((attendees.length / expectedStudents.length) * 100)
         : null;
+    const resetFilters = () => { setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setAttendeeSearch(''); };
+    const hasActiveFilters = attendeeFilter !== 'All' || yearLevelFilter !== 'All' || attendeeCourseFilter !== 'All' || attendeeSectionFilter !== 'All' || Boolean(attendeeQuery);
+    const selectClass = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200';
     return (
-        <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[80vh]">
-                <div className="p-6 border-b bg-gray-50 rounded-t-2xl">
-                    <div className="flex justify-between items-center mb-3">
-                        <div><h3 className="font-bold text-lg">Attendees List</h3><p className="text-xs text-gray-500">{selectedEventTitle}</p></div>
-                        <div className="flex items-center gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => {
-                                if (filtered.length === 0 && expectedStudents.length === 0) return;
-                                const headers = ['Student Name', 'Department', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
-                                const rows = expectedStudents.length > 0
-                                    ? expectedStudents.map((student: any) => {
-                                        const attendance = attendeeByStudentId.get(String(student.student_id || ''));
-                                        return [
-                                            attendance?.student_name || getStudentName(student),
-                                            student.department || attendance?.department || '',
-                                            student.course || attendance?.course || '',
-                                            student.year_level || attendance?.year_level || '',
-                                            student.section || attendance?.section || '',
-                                            attendance?.time_in ? new Date(attendance.time_in).toLocaleString() : '-',
-                                            attendance?.time_out ? new Date(attendance.time_out).toLocaleString() : '-',
-                                            attendance ? (attendance.time_out ? 'Completed' : 'Still In') : (selectedAttendanceEvent?.attendance_required ? 'Absent' : 'Not attended')
-                                        ];
-                                    })
-                                    : filtered.map(a => [a.student_name, a.department || '', a.course || '', a.year_level || '', a.section || '', new Date(a.time_in).toLocaleString(), a.time_out ? new Date(a.time_out).toLocaleString() : '-', a.time_out ? 'Completed' : 'Still In']);
-                                exportToExcel(headers, rows, `${selectedEventTitle || 'event'}_attendees`);
-                            }} disabled={filtered.length === 0 && expectedStudents.length === 0} leftIcon={<Download size={14} />}>
-                                Export Excel
-                            </Button>
-                            <button type="button" aria-label="Close attendees" onClick={() => { setShowAttendeesModal(false); setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setExpectedStudents([]); setSelectedAttendanceEvent(null); }}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
-                        </div>
+        <div className="fixed inset-0 z-50 flex bg-black/30 p-2 backdrop-blur-sm sm:p-4">
+            <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-4 sm:px-6">
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-gray-900">Attendees List</h3>
+                        <p className="truncate text-xs text-gray-500">
+                            {selectedEventTitle}
+                            {selectedAttendanceEvent && expectedStudents.length > 0 ? ` · Audience: ${getAudienceLabel(selectedAttendanceEvent)}` : ''}
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3 text-xs mb-3">
-                        <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-bold">{attendees.length} Total</span>
-                        <span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-bold">{completedCount} Completed</span>
-                        <span className="bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-bold">{attendees.length - completedCount} Still In</span>
-                        {expectedStudents.length > 0 && <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-bold">{expectedStudents.length} Expected</span>}
-                        {expectedStudents.length > 0 && <span className="bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-bold">{absentStudents.length} {selectedAttendanceEvent?.attendance_required ? 'Absent' : 'Not attended'}</span>}
-                        {attendanceRate !== null && <span className="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-bold">{attendanceRate}% Attendance</span>}
+                    <div className="flex shrink-0 items-center gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => {
+                            if (filtered.length === 0 && expectedStudents.length === 0) return;
+                            const headers = ['Student Name', 'Department', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
+                            const rows = expectedStudents.length > 0
+                                ? expectedStudents.map((student: any) => {
+                                    const attendance = attendeeByStudentId.get(String(student.student_id || ''));
+                                    return [
+                                        attendance?.student_name || getStudentName(student),
+                                        student.department || attendance?.department || '',
+                                        student.course || attendance?.course || '',
+                                        student.year_level || attendance?.year_level || '',
+                                        student.section || attendance?.section || '',
+                                        attendance?.time_in ? new Date(attendance.time_in).toLocaleString() : '-',
+                                        attendance?.time_out ? new Date(attendance.time_out).toLocaleString() : '-',
+                                        attendance ? (attendance.time_out ? 'Completed' : 'Still In') : (selectedAttendanceEvent?.attendance_required ? 'Absent' : 'Not attended')
+                                    ];
+                                })
+                                : filtered.map(a => [a.student_name, a.department || '', a.course || '', a.year_level || '', a.section || '', new Date(a.time_in).toLocaleString(), a.time_out ? new Date(a.time_out).toLocaleString() : '-', a.time_out ? 'Completed' : 'Still In']);
+                            exportToExcel(headers, rows, `${selectedEventTitle || 'event'}_attendees`);
+                        }} disabled={filtered.length === 0 && expectedStudents.length === 0} leftIcon={<Download size={14} />}>
+                            Export Excel
+                        </Button>
+                        <button type="button" aria-label="Close attendees" onClick={() => { setShowAttendeesModal(false); resetFilters(); setExpectedStudents([]); setSelectedAttendanceEvent(null); }}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
                     </div>
-                    {selectedAttendanceEvent && expectedStudents.length > 0 && (
-                        <p className="mb-3 text-xs font-semibold text-gray-500">Audience: {getAudienceLabel(selectedAttendanceEvent)}</p>
-                    )}
-                    {depts.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Dept:</span>
-                            <button type="button" onClick={() => setAttendeeFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeFilter === 'All' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All ({attendees.length})</button>
-                            {depts.map(dept => {
-                                const count = attendees.filter(a => a.department === dept).length;
-                                return <button type="button" key={dept} onClick={() => setAttendeeFilter(dept)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeFilter === dept ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{dept} ({count})</button>;
-                            })}
-                        </div>
-                    )}
-                    {yearLevels.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Year:</span>
-                            <button type="button" onClick={() => setYearLevelFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === 'All' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
-                            {yearLevels.map(yl => {
-                                const count = attendees.filter(a => a.year_level === yl).length;
-                                return <button type="button" key={yl} onClick={() => setYearLevelFilter(yl)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${yearLevelFilter === yl ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{yl} ({count})</button>;
-                            })}
-                        </div>
-                    )}
-                    {courses.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Course:</span>
-                            <button type="button" onClick={() => setAttendeeCourseFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeCourseFilter === 'All' ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
-                            {courses.map(c => {
-                                const count = attendees.filter(a => a.course === c).length;
-                                return <button type="button" key={c} onClick={() => setAttendeeCourseFilter(c)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeCourseFilter === c ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{c} ({count})</button>;
-                            })}
-                        </div>
-                    )}
-                    {sections.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase mr-1 self-center">Section:</span>
-                            <button type="button" onClick={() => setAttendeeSectionFilter('All')} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeSectionFilter === 'All' ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>All</button>
-                            {sections.map(s => {
-                                const count = attendees.filter(a => a.section === s).length;
-                                return <button type="button" key={s} onClick={() => setAttendeeSectionFilter(s)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${attendeeSectionFilter === s ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>Sec {s} ({count})</button>;
-                            })}
+                </div>
+
+                {/* Stats + filters */}
+                <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-4 sm:px-6">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full bg-blue-100 px-2.5 py-1 font-bold text-blue-700">{attendees.length} Total</span>
+                        <span className="rounded-full bg-green-100 px-2.5 py-1 font-bold text-green-700">{completedCount} Completed</span>
+                        <span className="rounded-full bg-yellow-100 px-2.5 py-1 font-bold text-yellow-700">{attendees.length - completedCount} Still In</span>
+                        {expectedStudents.length > 0 && <span className="rounded-full bg-slate-100 px-2.5 py-1 font-bold text-slate-700">{expectedStudents.length} Expected</span>}
+                        {expectedStudents.length > 0 && <span className="rounded-full bg-red-100 px-2.5 py-1 font-bold text-red-700">{absentStudents.length} {selectedAttendanceEvent?.attendance_required ? 'Absent' : 'Not attended'}</span>}
+                        {attendanceRate !== null && <span className="rounded-full bg-indigo-100 px-2.5 py-1 font-bold text-indigo-700">{attendanceRate}% Attendance</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                        <input
+                            value={attendeeSearch}
+                            onChange={(e) => setAttendeeSearch(e.target.value)}
+                            placeholder="Search name…"
+                            className="col-span-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200 sm:col-span-1"
+                        />
+                        {depts.length > 0 && (
+                            <select value={attendeeFilter} onChange={(e) => setAttendeeFilter(e.target.value)} className={selectClass}>
+                                <option value="All">All Depts ({attendees.length})</option>
+                                {depts.map((dept) => <option key={dept} value={dept}>{dept} ({attendees.filter(a => a.department === dept).length})</option>)}
+                            </select>
+                        )}
+                        {yearLevels.length > 0 && (
+                            <select value={yearLevelFilter} onChange={(e) => setYearLevelFilter(e.target.value)} className={selectClass}>
+                                <option value="All">All Years</option>
+                                {yearLevels.map((yl) => <option key={yl} value={yl}>{yl} ({attendees.filter(a => a.year_level === yl).length})</option>)}
+                            </select>
+                        )}
+                        {courses.length > 0 && (
+                            <select value={attendeeCourseFilter} onChange={(e) => setAttendeeCourseFilter(e.target.value)} className={selectClass}>
+                                <option value="All">All Courses</option>
+                                {courses.map((c) => <option key={c} value={c}>{c} ({attendees.filter(a => a.course === c).length})</option>)}
+                            </select>
+                        )}
+                        {sections.length > 0 && (
+                            <select value={attendeeSectionFilter} onChange={(e) => setAttendeeSectionFilter(e.target.value)} className={selectClass}>
+                                <option value="All">All Sections</option>
+                                {sections.map((s) => <option key={s} value={s}>Sec {s} ({attendees.filter(a => a.section === s).length})</option>)}
+                            </select>
+                        )}
+                    </div>
+                    {hasActiveFilters && (
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span>Showing {filtered.length} of {attendees.length}</span>
+                            <button type="button" onClick={resetFilters} className="font-bold text-purple-600 hover:text-purple-700">Clear filters</button>
                         </div>
                     )}
                 </div>
                 <div className="p-0 overflow-y-auto flex-1">
-                    {filtered.length === 0 ? <p className="text-center py-8 text-gray-500">No attendees yet.</p> : (
+                    {filtered.length === 0 ? <p className="text-center py-8 text-gray-500">{hasActiveFilters ? 'No attendees match the filters.' : 'No attendees yet.'}</p> : (
                         <table className="w-full text-left text-sm">
                             <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0"><tr><th className="px-6 py-3">Student</th><th className="px-6 py-3">Course</th><th className="px-6 py-3">Year / Sec</th><th className="px-6 py-3">Time In</th><th className="px-6 py-3">Time Out</th><th className="px-6 py-3">Location</th><th className="px-6 py-3">Proof</th></tr></thead>
                             <tbody className="divide-y divide-gray-100">
