@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Download } from 'lucide-react';
 import Modal from './ui/Modal';
 import {
     DOCUMENT_PREVIEW_EVENT,
@@ -146,6 +147,29 @@ export default function DocumentPreviewModal() {
             size="full"
             className="max-h-[92vh]"
             zIndex="z-[10020]"
+            footer={
+                <div className="flex w-full justify-between items-center gap-3">
+                    {request && (
+                        <a
+                            href={request.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={request.label}
+                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700 transition"
+                        >
+                            <Download size={16} />
+                            Download File
+                        </a>
+                    )}
+                    <button
+                        type="button"
+                        onClick={close}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                        Close
+                    </button>
+                </div>
+            }
         >
             <div className="relative flex min-h-[45vh] items-center justify-center overflow-hidden rounded-xl bg-slate-100">
                 {(isPreparing || isContentLoading) && (
@@ -164,7 +188,7 @@ export default function DocumentPreviewModal() {
                     <img src={convertedUrl} alt={request.label} onLoad={finishLoading} onError={failLoading} className={`max-h-[60vh] max-w-full object-contain ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
                 )}
                 {!isPreparing && !error && request && isPdf && (
-                    <iframe src={request.url} title={request.label} sandbox="" onLoad={finishLoading} onError={failLoading} className={`h-[60vh] w-full border-0 bg-white ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
+                    <iframe src={request.url} title={request.label} onLoad={finishLoading} onError={failLoading} className={`h-[60vh] w-full border-0 bg-white ${isContentLoading ? 'opacity-0' : 'opacity-100'}`} />
                 )}
                 {!isPreparing && !error && request && !isDirectImage && !isConvertedImage && !isPdf && (
                     <p role="alert" className="px-6 text-center text-sm font-semibold text-slate-700">This file type cannot be previewed in the portal.</p>

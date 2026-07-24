@@ -36,7 +36,7 @@ describe('DocumentPreviewModal', () => {
         });
     });
 
-    it('shows an ordinary image in the portal without a download control', () => {
+    it('shows an ordinary image in the portal with a download control', () => {
         renderModal();
 
         openPreview({
@@ -54,7 +54,7 @@ describe('DocumentPreviewModal', () => {
         fireEvent.load(image);
 
         expect(screen.queryByRole('status', { name: 'Loading file preview' })).not.toBeInTheDocument();
-        expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /download/i })).toHaveAttribute('href', 'https://r2.example/photo.jpg?signature=test');
     });
 
     it('converts HEIC to an object URL and revokes it when closed', async () => {
@@ -73,7 +73,7 @@ describe('DocumentPreviewModal', () => {
         expect(await screen.findByRole('img', { name: 'drive-document.heic' })).toHaveAttribute('src', 'blob:converted-preview');
         expect(heicTo).toHaveBeenCalledWith({ blob: original, type: 'image/jpeg', quality: 0.9 });
 
-        fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+        fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
         await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:converted-preview'));
     });
 
@@ -93,7 +93,7 @@ describe('DocumentPreviewModal', () => {
         fireEvent.load(frame);
 
         expect(screen.queryByRole('status', { name: 'Loading file preview' })).not.toBeInTheDocument();
-        expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /download/i })).toHaveAttribute('href', 'https://r2.example/document.pdf?signature=test');
     });
 
     it('shows a useful error when HEIC conversion fails', async () => {
