@@ -15,6 +15,7 @@ export const ACTIVE_TABS = [
     'calendar',
     'scholarship',
     'forms',
+    'peer_facilitators',
     'feedback',
     'export_center',
     'settings',

@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admission_schedules: {
@@ -1233,7 +1208,15 @@ export type Database = {
           student_name?: string
           suggestions?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "general_feedback_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
       }
       nat_applicant_sessions: {
         Row: {
@@ -1607,21 +1590,75 @@ export type Database = {
       }
       peer_facilitator_settings: {
         Row: {
+          applications_open: boolean
           id: number
           school_year: string
+          time_in_enabled: boolean
           updated_at: string
         }
         Insert: {
+          applications_open?: boolean
           id?: number
           school_year?: string
+          time_in_enabled?: boolean
           updated_at?: string
         }
         Update: {
+          applications_open?: boolean
           id?: number
           school_year?: string
+          time_in_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
+      }
+      peer_facilitators: {
+        Row: {
+          added_by: string | null
+          application_id: string | null
+          archived_at: string | null
+          created_at: string
+          id: string
+          peer_year: string
+          source: string
+          student_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          application_id?: string | null
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          peer_year: string
+          source?: string
+          student_id: string
+        }
+        Update: {
+          added_by?: string | null
+          application_id?: string | null
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          peer_year?: string
+          source?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_facilitators_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "peer_facilitator_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "peer_facilitators_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
       }
       role_permissions: {
         Row: {
@@ -2933,6 +2970,34 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      record_student_event_attendance: {
+        Args: {
+          p_action: string
+          p_event_id: number
+          p_latitude?: number
+          p_longitude?: number
+          p_proof_url?: string
+        }
+        Returns: {
+          checked_in_at: string | null
+          department: string | null
+          event_id: number | null
+          id: number
+          latitude: number | null
+          longitude: number | null
+          proof_url: string | null
+          student_id: string
+          student_name: string | null
+          time_in: string | null
+          time_out: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "event_attendance"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       register_student_for_event: {
         Args: { p_event_id: number }
         Returns: {
@@ -3201,6 +3266,10 @@ export type Database = {
         Returns: number
       }
       seed_student_role_permissions: { Args: never; Returns: number }
+      student_in_current_staff_department: {
+        Args: { p_student_id: number }
+        Returns: boolean
+      }
       student_may_evaluate_form: {
         Args: { p_form_id: number }
         Returns: boolean
@@ -3337,9 +3406,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

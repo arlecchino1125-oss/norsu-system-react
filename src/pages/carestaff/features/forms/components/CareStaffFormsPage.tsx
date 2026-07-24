@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, ClipboardList, CheckCircle, Trash2, XCircle, Download, UploadCloud, Archive, HeartHandshake, Clock } from 'lucide-react';
+import { Plus, ClipboardList, CheckCircle, Trash2, XCircle, Download, UploadCloud, Archive } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { supabase } from '../../../../../lib/supabase';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
@@ -8,8 +8,6 @@ import { managedDeleteService } from '../../../../../services/managedDeleteServi
 import { Button } from '../../../../../components/ui/Button';
 import { Card, CardContent } from '../../../../../components/ui/Card';
 import type { CareStaffDashboardFunctions } from '../../../types';
-import CareStaffVolunteerFormsTable from './CareStaffVolunteerFormsTable';
-import CareStaffFacilitatorHours from './CareStaffFacilitatorHours';
 
 interface CareStaffFormsPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
@@ -253,15 +251,12 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
     const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showInactiveModal, setShowInactiveModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'assessments' | 'volunteers' | 'hours'>('assessments');
 
     useEffect(() => {
         if (refreshSignal === lastExternalRefreshSignalRef.current) return;
         lastExternalRefreshSignalRef.current = refreshSignal;
-        if (activeTab === 'assessments') {
-            void fetchForms();
-        }
-    }, [activeTab, fetchForms, refreshSignal]);
+        void fetchForms();
+    }, [fetchForms, refreshSignal]);
 
     const handlePreview = async (form) => {
         const { data: questions } = await supabase
@@ -395,50 +390,20 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
         <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Form Management</h1>
-                    <p className="mt-1 text-sm text-gray-500">Manage assessment forms and peer facilitator applications.</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Needs Assessments</h1>
+                    <p className="mt-1 text-sm text-gray-500">Manage needs assessment forms.</p>
                 </div>
-                {activeTab === 'assessments' && (
-                    <div className="flex items-center gap-3">
-                        <Button variant="secondary" leftIcon={<Archive size={16} />} onClick={() => setShowInactiveModal(true)}>
-                            Inactive Forms ({inactiveForms.length})
-                        </Button>
-                        <Button variant="primary" leftIcon={<Plus size={16} />} onClick={handleCreate}>
-                            Create New Form
-                        </Button>
-                    </div>
-                )}
+                <div className="flex items-center gap-3">
+                    <Button variant="secondary" leftIcon={<Archive size={16} />} onClick={() => setShowInactiveModal(true)}>
+                        Inactive Forms ({inactiveForms.length})
+                    </Button>
+                    <Button variant="primary" leftIcon={<Plus size={16} />} onClick={handleCreate}>
+                        Create New Form
+                    </Button>
+                </div>
             </div>
 
-            <div className="mb-6 flex gap-2 border-b border-gray-200 overflow-x-auto">
-                <button type="button"
-                    onClick={() => setActiveTab('assessments')}
-                    className={`whitespace-nowrap px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'assessments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <ClipboardList size={16} /> Needs Assessments
-                    </div>
-                </button>
-                <button type="button"
-                    onClick={() => setActiveTab('volunteers')}
-                    className={`whitespace-nowrap px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'volunteers' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <HeartHandshake size={16} /> Peer Facilitators
-                    </div>
-                </button>
-                <button type="button"
-                    onClick={() => setActiveTab('hours')}
-                    className={`whitespace-nowrap px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'hours' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <Clock size={16} /> Facilitator Hours
-                    </div>
-                </button>
-            </div>
-
-            {activeTab === 'assessments' ? (
-                <>
+            <>
                     {loading ? <div className="text-center py-12 text-gray-500">Loading forms...</div> : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {forms.map(form => (
@@ -486,11 +451,6 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                         <InactiveFormsModal forms={inactiveForms} onClose={() => setShowInactiveModal(false)} />
                     )}
                 </>
-            ) : activeTab === 'volunteers' ? (
-                <CareStaffVolunteerFormsTable functions={functions} refreshSignal={refreshSignal} />
-            ) : (
-                <CareStaffFacilitatorHours refreshSignal={refreshSignal} />
-            )}
         </div>
     );
 };

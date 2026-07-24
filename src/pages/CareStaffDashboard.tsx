@@ -36,6 +36,7 @@ const CareStaffCounselingPage = lazy(() => import('./carestaff/features/counseli
 const CareStaffEventsPage = lazy(() => import('./carestaff/features/events/components/CareStaffEventsPage'));
 const CareStaffFeedbackPage = lazy(() => import('./carestaff/features/feedback/components/CareStaffFeedbackPage'));
 const CareStaffFormsPage = lazy(() => import('./carestaff/features/forms/components/CareStaffFormsPage'));
+const CareStaffPeerFacilitatorsPage = lazy(() => import('./carestaff/features/peerfacilitators/components/CareStaffPeerFacilitatorsPage'));
 const CareStaffNatPage = lazy(() => import('./carestaff/features/nat/components/CareStaffNatPage'));
 const CareStaffLogbookPage = lazy(() => import('./carestaff/features/logbook/components/CareStaffLogbookPage'));
 const CareStaffScholarshipPage = lazy(() => import('./carestaff/features/scholarship/components/CareStaffScholarshipPage'));
@@ -206,6 +207,8 @@ const CareStaffDashboard = () => {
                 return <CareStaffScholarshipPage functions={functions} />;
             case 'forms':
                 return <CareStaffFormsPage functions={functions} refreshSignal={viewRefreshSignal} />;
+            case 'peer_facilitators':
+                return <CareStaffPeerFacilitatorsPage functions={functions} refreshSignal={viewRefreshSignal} />;
             case 'feedback':
                 return <CareStaffFeedbackPage functions={functions} />;
             case 'settings':

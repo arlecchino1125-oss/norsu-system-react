@@ -33,35 +33,54 @@ export default function VolunteerView({
     const [showReadFirstGuide, setShowReadFirstGuide] = useState(false);
     const [hasReadFirstAcknowledged, setHasReadFirstAcknowledged] = useState(false);
 
-    // The active year and this student's applications for it move together, so
-    // one cached query covers both instead of refetching on every mount.
+    // Standing comes from the active-facilitator roster, never from the year --
+    // that decoupling is what stops a year change from hiding a whole cohort.
+    // Roster membership, the student's latest application (any year), and the
+    // office toggles all load together in one cached query.
     const { data, isError, refetch } = useQuery({
-        queryKey: ['student-volunteer-applications', personalInfo.studentId],
+        queryKey: ['student-volunteer-status', personalInfo.studentId],
         queryFn: async () => {
-            const { data: settings } = await supabase
-                .from('peer_facilitator_settings')
-                .select('school_year')
-                .eq('id', 1)
-                .maybeSingle();
-            const activeYear = settings?.school_year || '';
-
-            let query = supabase
-                .from('peer_facilitator_applications')
-                .select('*')
-                .eq('student_id', personalInfo.studentId)
-                .order('created_at', { ascending: false });
-            if (activeYear) {
-                query = query.eq('school_year', activeYear);
-            }
-            const { data: rows, error } = await query;
-            if (error) throw error;
-            return { schoolYear: activeYear, applications: rows || [] };
+            const [settingsRes, rosterRes, appRes] = await Promise.all([
+                supabase
+                    .from('peer_facilitator_settings')
+                    .select('school_year, applications_open, time_in_enabled')
+                    .eq('id', 1)
+                    .maybeSingle(),
+                supabase
+                    .from('peer_facilitators')
+                    .select('peer_year')
+                    .eq('student_id', personalInfo.studentId)
+                    .is('archived_at', null)
+                    .maybeSingle(),
+                supabase
+                    .from('peer_facilitator_applications')
+                    .select('*')
+                    .eq('student_id', personalInfo.studentId)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+            ]);
+            if (settingsRes.error) throw settingsRes.error;
+            if (rosterRes.error) throw rosterRes.error;
+            if (appRes.error) throw appRes.error;
+            return {
+                schoolYear: settingsRes.data?.school_year || '',
+                applicationsOpen: settingsRes.data?.applications_open ?? true,
+                timeInEnabled: settingsRes.data?.time_in_enabled ?? true,
+                isFacilitator: !!rosterRes.data,
+                facilitatorYear: rosterRes.data?.peer_year || '',
+                latestApplication: appRes.data || null
+            };
         },
         staleTime: 60000
     });
 
     const schoolYear = data?.schoolYear || '';
-    const applications = data?.applications || [];
+    const applicationsOpen = data?.applicationsOpen ?? true;
+    const timeInEnabled = data?.timeInEnabled ?? true;
+    const isFacilitator = data?.isFacilitator ?? false;
+    const facilitatorYear = data?.facilitatorYear || '';
+    const latestApplication = data?.latestApplication || null;
 
     const openForm = () => setShowFormModal(true);
 
@@ -69,8 +88,6 @@ export default function VolunteerView({
         setShowFormModal(false);
         await refetch();
     }, [refetch]);
-
-    const latestApplication = applications[0];
 
     // Without this the load failure looks identical to "you never applied".
     if (isError) {
@@ -90,9 +107,10 @@ export default function VolunteerView({
         );
     }
 
-    // Once approved, the recruitment pitch and the application recap are noise —
-    // lead with the facilitator's standing and their time log instead.
-    if (latestApplication?.status === 'approved') {
+    // Active facilitators lead with their standing and time log. Membership is
+    // the roster, so a manually-added facilitator (no application) lands here too.
+    if (isFacilitator) {
+        const facilitatorBadgeYear = facilitatorYear || schoolYear;
         return (
             <div className="mx-auto max-w-6xl space-y-4 page-transition sm:space-y-5">
                 <section className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm sm:p-5">
@@ -100,42 +118,44 @@ export default function VolunteerView({
                         <span className="rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">
                             Peer Facilitator
                         </span>
-                        {schoolYear && (
-                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">{schoolYear}</span>
+                        {facilitatorBadgeYear && (
+                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">{facilitatorBadgeYear}</span>
                         )}
                     </div>
                     <h2 className="mt-2 text-xl font-black leading-tight text-slate-950 sm:text-2xl">
                         {[personalInfo.firstName, personalInfo.lastName].filter(Boolean).join(' ') || 'CARE Peer Facilitator'}
                     </h2>
                     <p className="mt-1 max-w-xl text-sm font-semibold leading-6 text-slate-500">
-                        You are an approved CARE Peer Facilitator. Time in and out below whenever you dedicate your time as a peer facilitator, and your hours are recorded for the CARE Office.
+                        You are an active CARE Peer Facilitator. Time in and out below whenever you dedicate your time as a peer facilitator, and your hours are recorded for the CARE Office.
                     </p>
                 </section>
 
                 <Suspense fallback={null}>
-                    <VolunteerTimeLog studentId={personalInfo.studentId} showToast={showToast} />
+                    <VolunteerTimeLog studentId={personalInfo.studentId} showToast={showToast} timeInEnabled={timeInEnabled} />
                 </Suspense>
 
-                {/* ponytail: native <details>, no disclosure state to manage */}
-                <details className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm sm:px-5">
-                    <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-600">
-                        Your application
-                    </summary>
-                    <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-400">Submitted</p>
-                            <p className="mt-1 text-sm text-slate-700">{formatFullDate(new Date(latestApplication.created_at))}</p>
+                {latestApplication && (
+                    /* ponytail: native <details>, no disclosure state to manage */
+                    <details className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm sm:px-5">
+                        <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-600">
+                            Your application
+                        </summary>
+                        <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400">Submitted</p>
+                                <p className="mt-1 text-sm text-slate-700">{formatFullDate(new Date(latestApplication.created_at))}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400">Organizations</p>
+                                <p className="mt-1 text-sm text-slate-700">{latestApplication.organizations || 'None provided'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400">Motivation</p>
+                                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{latestApplication.motivation || 'None provided'}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-400">Organizations</p>
-                            <p className="mt-1 text-sm text-slate-700">{latestApplication.organizations || 'None provided'}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase text-slate-400">Motivation</p>
-                            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{latestApplication.motivation || 'None provided'}</p>
-                        </div>
-                    </div>
-                </details>
+                    </details>
+                )}
             </div>
         );
     }
@@ -155,7 +175,7 @@ export default function VolunteerView({
                 </div>
             </section>
 
-            {!latestApplication ? (
+            {!latestApplication ? (applicationsOpen ? (
                 <section className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm sm:p-4">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -218,6 +238,11 @@ export default function VolunteerView({
                     )}
                 </section>
             ) : (
+                <section className="rounded-2xl border border-slate-200/80 bg-white p-4 text-center shadow-sm sm:p-5">
+                    <p className="text-sm font-black text-slate-700">Applications are currently closed.</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Please check back later — the CARE Office opens the Peer Facilitator form each recruitment period.</p>
+                </section>
+            )) : (
                 <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
                     <div className="mb-3">
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Current Status</p>

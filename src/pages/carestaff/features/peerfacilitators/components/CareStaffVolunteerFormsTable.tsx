@@ -6,7 +6,10 @@ import { supabase } from '../../../../../lib/supabase';
 import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import PaginationControls from '../../../../../components/PaginationControls';
 import { buildPeerFacilitatorStatusEmailPayload } from '../peerFacilitatorEmail';
+
+const APPLICATIONS_PAGE_SIZE = 10;
 
 interface CareStaffVolunteerFormsTableProps {
     functions: { showToast: (msg: string, type?: any) => void };
@@ -116,13 +119,14 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
     const [showModal, setShowModal] = useState(false);
     const [yearFilter, setYearFilter] = useState<string | null>(null);
     const [yearDraft, setYearDraft] = useState('');
+    const [page, setPage] = useState(1);
 
     const { data: settings } = useQuery({
         queryKey: ['peer-facilitator-settings', refreshSignal],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('peer_facilitator_settings')
-                .select('school_year')
+                .select('*')
                 .eq('id', 1)
                 .maybeSingle();
             if (error) throw error;
@@ -130,7 +134,23 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         }
     });
     const activeYear = settings?.school_year || '';
+    const applicationsOpen = settings?.applications_open ?? true;
     const selectedYear = yearFilter ?? activeYear;
+
+    const toggleApplicationsMutation = useMutation({
+        mutationFn: async (next: boolean) => {
+            const { error } = await supabase
+                .from('peer_facilitator_settings')
+                .update({ applications_open: next })
+                .eq('id', 1);
+            if (error) throw error;
+        },
+        onSuccess: (_data, next) => {
+            queryClient.invalidateQueries({ queryKey: ['peer-facilitator-settings'] });
+            functions.showToast(next ? 'Application form opened to students.' : 'Application form closed.', 'success');
+        },
+        onError: () => functions.showToast('Failed to update the application form.', 'error')
+    });
 
     const saveYearMutation = useMutation({
         mutationFn: async (school_year: string) => {
@@ -186,9 +206,28 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                 .update({ status })
                 .eq('id', id);
             if (error) throw error;
+
+            // Approving puts the student on the active roster automatically, so
+            // approved applicants and staff-added facilitators live in one list.
+            if (status === 'approved' && selectedApplication) {
+                const { data: userData } = await supabase.auth.getUser();
+                const { error: rosterError } = await supabase
+                    .from('peer_facilitators')
+                    .upsert({
+                        student_id: selectedApplication.student_id,
+                        peer_year: selectedApplication.school_year || '',
+                        source: 'application',
+                        application_id: selectedApplication.id,
+                        added_by: userData.user?.id ?? null,
+                        // Re-approving un-archives a previously archived facilitator.
+                        archived_at: null
+                    }, { onConflict: 'student_id' });
+                if (rosterError) throw rosterError;
+            }
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['care-staff-volunteer-apps'] });
+            queryClient.invalidateQueries({ queryKey: ['care-staff-active-facilitators'] });
             functions.showToast('Application status updated successfully.', 'success');
             void sendTransactionalEmailNotification(
                 buildPeerFacilitatorStatusEmailPayload(selectedApplication, variables.status),
@@ -210,6 +249,9 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
     ));
 
     const filteredApplications = applications.filter(app => {
+        // Approved applicants are promoted to the Active Facilitators roster, so
+        // their application drops out of this review list (the record is kept).
+        if (app.status === 'approved') return false;
         const studentName = `${app.students?.first_name || ''} ${app.students?.last_name || ''}`.toLowerCase();
         const matchesSearch = studentName.includes(searchQuery.toLowerCase()) ||
             app.student_id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -217,6 +259,10 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         const matchesYear = !selectedYear || app.school_year === selectedYear;
         return matchesSearch && matchesStatus && matchesYear;
     });
+
+    const totalPages = Math.max(1, Math.ceil(filteredApplications.length / APPLICATIONS_PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const pagedApplications = filteredApplications.slice((safePage - 1) * APPLICATIONS_PAGE_SIZE, safePage * APPLICATIONS_PAGE_SIZE);
 
     const openApplication = (app: any) => {
         setSelectedApplication(app);
@@ -226,26 +272,40 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
     return (
         <div className="space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <label htmlFor="care-volunteer-form-year" className="text-xs font-bold text-gray-500 whitespace-nowrap">Form Year (active)</label>
-                    <div className="flex items-center gap-2">
-                        <input
-                            id="care-volunteer-form-year"
-                            type="text"
-                            value={yearDraft}
-                            onChange={(e) => setYearDraft(e.target.value)}
-                            placeholder={activeYear || 'e.g., 2026-2027'}
-                            className="w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => yearDraft.trim() && saveYearMutation.mutate(yearDraft.trim())}
-                            isLoading={saveYearMutation.isPending}
-                            disabled={!yearDraft.trim() || yearDraft.trim() === activeYear}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <label htmlFor="care-volunteer-form-year" className="text-xs font-bold text-gray-500 whitespace-nowrap">Current application year</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                id="care-volunteer-form-year"
+                                type="text"
+                                value={yearDraft}
+                                onChange={(e) => setYearDraft(e.target.value)}
+                                placeholder={activeYear || 'e.g., 2026-2027'}
+                                className="w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => yearDraft.trim() && saveYearMutation.mutate(yearDraft.trim())}
+                                isLoading={saveYearMutation.isPending}
+                                disabled={!yearDraft.trim() || yearDraft.trim() === activeYear}
+                            >
+                                Save
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 sm:border-l sm:border-slate-200 sm:pl-4">
+                        <span className="text-xs font-bold text-gray-500 whitespace-nowrap">Application form</span>
+                        <button
+                            type="button"
+                            onClick={() => toggleApplicationsMutation.mutate(!applicationsOpen)}
+                            disabled={toggleApplicationsMutation.isPending}
+                            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition disabled:opacity-60 ${applicationsOpen ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
                         >
-                            Save
-                        </Button>
+                            <span className={`h-2 w-2 rounded-full ${applicationsOpen ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                            {applicationsOpen ? 'Open to students' : 'Closed'}
+                        </button>
                     </div>
                 </div>
                 {yearOptions.length > 0 && (
@@ -254,7 +314,7 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                         <select
                             id="care-volunteer-viewing-year"
                             value={selectedYear}
-                            onChange={(e) => setYearFilter(e.target.value)}
+                            onChange={(e) => { setYearFilter(e.target.value); setPage(1); }}
                             className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                             {yearOptions.map((year) => (
@@ -272,15 +332,15 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                         type="text"
                         placeholder="Search by student name or ID..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
                 <div className="flex gap-2">
-                    {['all', 'pending', 'approved', 'rejected'].map(status => (
+                    {['all', 'pending', 'rejected'].map(status => (
                         <button type="button"
                             key={status}
-                            onClick={() => setStatusFilter(status)}
+                            onClick={() => { setStatusFilter(status); setPage(1); }}
                             className={`px-4 py-2 text-xs font-bold rounded-lg border capitalize transition-all ${statusFilter === status
                                 ? 'bg-blue-600 text-white border-blue-600'
                                 : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
@@ -310,7 +370,7 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                             ) : filteredApplications.length === 0 ? (
                                 <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No applications found.</td></tr>
                             ) : (
-                                filteredApplications.map(app => (
+                                pagedApplications.map(app => (
                                     <tr key={app.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-gray-900">{app.students?.first_name} {app.students?.last_name}</div>
@@ -338,6 +398,14 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                         </tbody>
                     </table>
                 </div>
+                {filteredApplications.length > 0 && (
+                    <PaginationControls
+                        page={safePage}
+                        pageSize={APPLICATIONS_PAGE_SIZE}
+                        total={filteredApplications.length}
+                        onPageChange={setPage}
+                    />
+                )}
             </Card>
 
             {showModal && selectedApplication && createPortal(

@@ -11,9 +11,10 @@ const formatClock = (timestamp: string) =>
 interface VolunteerTimeLogProps {
     studentId: string;
     showToast?: (message: string, type?: string) => void;
+    timeInEnabled?: boolean;
 }
 
-export default function VolunteerTimeLog({ studentId, showToast }: VolunteerTimeLogProps) {
+export default function VolunteerTimeLog({ studentId, showToast, timeInEnabled = true }: VolunteerTimeLogProps) {
     const { data: sessions = [], isLoading, isError, refetch } = useQuery({
         queryKey: ['student-facilitator-hours', studentId],
         queryFn: async () => {
@@ -73,8 +74,13 @@ export default function VolunteerTimeLog({ studentId, showToast }: VolunteerTime
                 </div>
                 {openSession ? (
                     <Button variant="danger" onClick={handleTimeOut} className="shrink-0">Time Out</Button>
-                ) : (
+                ) : timeInEnabled ? (
                     <Button variant="primary" onClick={handleTimeIn} className="shrink-0">Time In</Button>
+                ) : (
+                    <div className="shrink-0 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-center">
+                        <p className="text-[11px] font-black uppercase tracking-[0.12em] text-amber-600">Paused</p>
+                        <p className="text-[11px] font-semibold text-amber-700">Hours logging is off right now.</p>
+                    </div>
                 )}
             </div>
 

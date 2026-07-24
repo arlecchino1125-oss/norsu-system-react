@@ -8,6 +8,7 @@ import {
     ClipboardList,
     Download,
     FileText,
+    HeartHandshake,
     LayoutDashboard,
     Shield,
     Star,
@@ -31,6 +32,7 @@ export const CARE_STAFF_TAB_FEATURES: Partial<Record<ActiveTab, string>> = {
     calendar: 'calendar',
     scholarship: 'scholarships',
     forms: 'forms',
+    peer_facilitators: 'forms',
     feedback: 'feedback',
     export_center: 'export_center',
     settings: 'settings',
@@ -44,6 +46,7 @@ export const CARE_STAFF_REFRESHABLE_TABS = new Set<ActiveTab>([
     'counseling',
     'support',
     'forms',
+    'peer_facilitators',
     'audit'
 ]);
 
@@ -80,6 +83,7 @@ export const NAV_SECTIONS: NavSection[] = [
         withDivider: true,
         items: [
             { tab: 'forms', icon: ClipboardList, label: 'Forms' },
+            { tab: 'peer_facilitators', icon: HeartHandshake, label: 'Peer Facilitators' },
             { tab: 'feedback', icon: Star, label: 'Feedback' },
             { tab: 'settings', icon: Shield, label: 'Settings' },
             { tab: 'audit', icon: Shield, label: 'Audit Logs' },
@@ -101,6 +105,7 @@ export const HEADER_TITLES: Record<ActiveTab, string> = {
     scholarship: 'Scholarships',
     export_center: 'Export Center',
     forms: 'Forms',
+    peer_facilitators: 'Peer Facilitators',
     feedback: 'Feedback',
     settings: 'Settings',
     audit: 'Audit Logs',
