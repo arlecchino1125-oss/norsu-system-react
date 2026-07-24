@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     getAttendanceHistory,
     getRatedEventIds
@@ -67,6 +68,7 @@ export function useStudentEventActions({
     showToast,
     supabaseClient
 }: UseStudentEventActionsArgs) {
+    const queryClient = useQueryClient();
     const [attendanceMap, setAttendanceMap] = useState<Record<string, any>>({});
     const [registrationMap, setRegistrationMap] = useState<Record<string, any>>({});
     const [ratedEvents, setRatedEvents] = useState<any[]>([]);
@@ -373,6 +375,8 @@ export function useStudentEventActions({
                 setAttendanceMap((prev: any) => ({ ...prev, [event.id]: attendance }));
                 showToast("Time out successful.");
                 await fetchHistoryCached({ force: true });
+                // Invalidate so the evaluation button appears without waiting for staleTime.
+                void queryClient.invalidateQueries({ queryKey: ['student_pending_evaluations', personalInfo.studentId] });
             } catch (err: any) {
                 console.error("Time Out Error:", err);
                 showToast('Something went wrong.', 'error');
