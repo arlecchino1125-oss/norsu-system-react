@@ -55,7 +55,7 @@ const EvaluationFormModal = ({ evaluation, printRef, criteriaLabels, onPrint, on
                         </div>
                     </div>
                     <div className="info-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
-                                <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Respondent</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>Anonymous</p></div>
+                                <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Name</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{evaluation.student_name}</p></div>
                                 <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Sex</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{evaluation.sex || '—'}</p></div>
                                 <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>College / Course</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{evaluation.college || '—'}</p></div>
                                 <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Date of Activity</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{formatDate(evaluation.date_of_activity)}</p></div>
@@ -129,7 +129,7 @@ const CsmFeedbackModal = ({ feedback, ccQuestions, getCcAnswerText, onClose }: a
                     <div>
                         <p className="text-[10px] uppercase tracking-widest text-blue-200 mb-1">Client Satisfaction Measurement</p>
                         <h3 className="text-lg font-extrabold leading-tight">{feedback.service_availed || 'General Feedback'}</h3>
-                        <p className="text-xs text-blue-200 mt-1">Submitted anonymously</p>
+                        <p className="text-xs text-blue-200 mt-1">Submitted by {feedback.student_name}</p>
                     </div>
                     <Button variant="ghost" size="sm" onClick={onClose} className="!bg-white/15 hover:!bg-white/25 !text-white !rounded-xl">✕</Button>
                 </div>
@@ -146,6 +146,12 @@ const CsmFeedbackModal = ({ feedback, ccQuestions, getCcAnswerText, onClose }: a
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Date</p><p className="text-sm font-bold">{formatDate(feedback.created_at)}</p></div>
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Region</p><p className="text-sm font-bold">{feedback.region || '-'}</p></div>
                                 <div><p className="text-[10px] font-bold text-gray-400 uppercase">Service Availed</p><p className="text-sm font-bold">{feedback.service_availed || '-'}</p></div>
+                                {feedback.email && (
+                                    <div className="col-span-2">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Email</p>
+                                        <p className="break-all text-sm font-bold text-blue-600">{feedback.email}</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -253,16 +259,16 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                         if (items.length === 0) return;
                         if (currentView === 'Events' && rawEventData.length > 0) {
                             const eventExportRows = filteredEventRows;
-                            const headers = ['Sex', 'College', 'Event', 'Date of Activity', 'Avg Rating', 'Q1-Relevance', 'Q2-Quality', 'Q3-Timeliness', 'Q4-Management', 'Q5-Organization', 'Q6-Assessment', 'Q7-Facilitator', 'What They Liked Best', 'Suggestions', 'Other Comments', 'Submitted'];
-                            const rows = eventExportRows.map(d => [d.sex || '', d.college || '', getEventName(d), d.date_of_activity || '', getEventRating(d) || '', d.q1_score || '', d.q2_score || '', d.q3_score || '', d.q4_score || '', d.q5_score || '', d.q6_score || '', d.q7_score || '', d.open_best || '', d.open_suggestions || '', d.open_comments || d.feedback || d.comments || '', formatDateTime(d.submitted_at || d.created_at)]);
+                            const headers = ['Student', 'Sex', 'College', 'Event', 'Date of Activity', 'Avg Rating', 'Q1-Relevance', 'Q2-Quality', 'Q3-Timeliness', 'Q4-Management', 'Q5-Organization', 'Q6-Assessment', 'Q7-Facilitator', 'What They Liked Best', 'Suggestions', 'Other Comments', 'Submitted'];
+                            const rows = eventExportRows.map(d => [d.student_name, d.sex || '', d.college || '', getEventName(d), d.date_of_activity || '', getEventRating(d) || '', d.q1_score || '', d.q2_score || '', d.q3_score || '', d.q4_score || '', d.q5_score || '', d.q6_score || '', d.q7_score || '', d.open_best || '', d.open_suggestions || '', d.open_comments || d.feedback || d.comments || '', formatDateTime(d.submitted_at || d.created_at)]);
                             exportToExcel(headers, rows, generateExportFilename('event_evaluations', 'xlsx').replace('.xlsx', ''));
                         } else if (currentView === 'General' && rawGeneralData.length > 0) {
-                            const headers = ['Client Type', 'Sex', 'Age', 'Region', 'Service Availed', 'CC1', 'CC2', 'CC3', 'SQD0', 'SQD1', 'SQD2', 'SQD3', 'SQD4', 'SQD5', 'SQD6', 'SQD7', 'SQD8', 'Suggestions', 'Date'];
-                            const rows = rawGeneralData.map(d => [d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', formatDateTime(d.created_at)]);
+                            const headers = ['Student', 'Client Type', 'Sex', 'Age', 'Region', 'Service Availed', 'CC1', 'CC2', 'CC3', 'SQD0', 'SQD1', 'SQD2', 'SQD3', 'SQD4', 'SQD5', 'SQD6', 'SQD7', 'SQD8', 'Suggestions', 'Email', 'Date'];
+                            const rows = rawGeneralData.map(d => [d.student_name, d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', d.email || '', formatDateTime(d.created_at)]);
                             exportToExcel(headers, rows, generateExportFilename('general_csm_feedback', 'xlsx').replace('.xlsx', ''));
                         } else {
-                            const headers = ['Client Type', 'Sex', 'Age', 'Region', 'Service Availed', 'CC1', 'CC2', 'CC3', 'SQD0', 'SQD1', 'SQD2', 'SQD3', 'SQD4', 'SQD5', 'SQD6', 'SQD7', 'SQD8', 'Suggestions', 'Date'];
-                            const rows = rawGeneralData.map(d => [d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', formatDateTime(d.created_at)]);
+                            const headers = ['Student', 'Client Type', 'Sex', 'Age', 'Region', 'Service Availed', 'CC1', 'CC2', 'CC3', 'SQD0', 'SQD1', 'SQD2', 'SQD3', 'SQD4', 'SQD5', 'SQD6', 'SQD7', 'SQD8', 'Suggestions', 'Email', 'Date'];
+                            const rows = rawGeneralData.map(d => [d.student_name, d.client_type || '', d.sex || '', d.age || '', d.region || '', d.service_availed || '', d.cc1 || '', d.cc2 || '', d.cc3 || '', d.sqd0 ?? '', d.sqd1 ?? '', d.sqd2 ?? '', d.sqd3 ?? '', d.sqd4 ?? '', d.sqd5 ?? '', d.sqd6 ?? '', d.sqd7 ?? '', d.sqd8 ?? '', d.suggestions || '', d.email || '', formatDateTime(d.created_at)]);
                             exportToExcel(headers, rows, generateExportFilename('general_csm_feedback', 'xlsx').replace('.xlsx', ''));
                         }
                     }}
@@ -412,9 +418,9 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                         >
                             <div className="flex justify-between items-center mb-2">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs">A</div>
+                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs">{item.student.charAt(0)}</div>
                                     <div>
-                                        <h4 className="font-bold text-gray-900 text-xs">Anonymous</h4>
+                                        <h4 className="font-bold text-gray-900 text-xs">{item.student}</h4>
                                         <p className="text-[10px] text-gray-400">{formatDate(item.date)}</p>
                                     </div>
                                 </div>

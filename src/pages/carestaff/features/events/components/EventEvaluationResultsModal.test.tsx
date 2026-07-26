@@ -65,13 +65,4 @@ describe('EventEvaluationResultsModal annotations', () => {
         expect(evaluationDateLabel.parentElement).toHaveTextContent('Evaluation created7/25/2026');
     });
 
-    it('never exposes the respondent name or student ID', async () => {
-        renderModal();
-
-        await screen.findByRole('heading', { name: 'Sample Evaluation' });
-
-        expect(screen.queryByText('Renier Villegas')).not.toBeInTheDocument();
-        expect(screen.queryByText('420135326')).not.toBeInTheDocument();
-        expect(screen.getByText('Anonymous response')).toBeInTheDocument();
-    });
 });

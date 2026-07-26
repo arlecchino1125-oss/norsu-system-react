@@ -469,7 +469,7 @@ export function useStudentEventActions({
             const { error } = await supabaseClient.from('event_feedback').insert([{
                 event_id: ratingForm.eventId,
                 student_id: personalInfo.studentId,
-                student_name: 'Anonymous',
+                student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
                 rating: avgRating,
                 feedback: commentCheck.value,
                 submitted_at: new Date().toISOString(),

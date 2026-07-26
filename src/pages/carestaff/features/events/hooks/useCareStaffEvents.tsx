@@ -34,6 +34,8 @@ const EVENT_REGISTRATION_COLUMNS = 'id, event_id, student_id, student_name, emai
 const EVENT_FEEDBACK_COLUMNS = [
     'id',
     'event_id',
+    'student_id',
+    'student_name',
     'sex',
     'college',
     'date_of_activity',

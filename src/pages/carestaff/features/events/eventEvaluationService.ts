@@ -45,6 +45,8 @@ export interface DraftQuestion {
 
 export interface EvaluationResponse {
     id: number;
+    student_id: string;
+    student_name: string | null;
     department: string | null;
     course: string | null;
     year_level: string | null;
@@ -195,7 +197,7 @@ export const getEvaluationResults = async (formId: number) => {
         supabase.from('event_evaluation_questions').select(QUESTION_COLUMNS).eq('form_id', formId).order('order_index'),
         supabase
             .from('event_evaluation_responses')
-            .select('id, department, course, year_level, submitted_at')
+            .select('id, student_id, student_name, department, course, year_level, submitted_at')
             .eq('form_id', formId)
             .order('submitted_at', { ascending: false })
     ]);

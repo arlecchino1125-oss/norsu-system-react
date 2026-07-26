@@ -210,7 +210,7 @@ const SqdStep = ({ form, updateForm }: any) => (
     </div>
 );
 
-const CommentsStep = ({ form, updateForm }: any) => (
+const CommentsStep = ({ form, updateForm, profileEmail }: any) => (
     <div className={sectionCardClass} style={{ animationDelay: '80ms' }}>
         <h3 className={`${sectionTitleClass} mb-4`}><span className={sectionNumberClass}>4</span> Additional Comments</h3>
         <div className="space-y-3">
@@ -218,9 +218,17 @@ const CommentsStep = ({ form, updateForm }: any) => (
                 <label htmlFor="service-feedback-suggestions" className={fieldLabelClass}>Suggestions on how we can further improve our services (optional)</label>
                 <textarea id="service-feedback-suggestions" value={form.suggestions} {...getTextInputLimitProps('notes')} onChange={e => updateForm('suggestions', e.target.value)} rows={3} className={`${inputClass} resize-none leading-5`} placeholder="Your suggestions..." />
             </div>
-            <p className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-[11px] font-semibold text-blue-700 sm:text-xs">
-                Your name, student ID, and email are hidden from feedback reviewers.
-            </p>
+            <div>
+                <label htmlFor="service-feedback-email" className={fieldLabelClass}>Email address (optional)</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                    <input id="service-feedback-email" type="email" {...getTextInputLimitProps('email')} value={form.email} onChange={e => updateForm('email', e.target.value)} className={`${inputClass} flex-1`} placeholder="your.email@example.com" />
+                    {profileEmail && !form.email && (
+                        <button type="button" onClick={() => updateForm('email', profileEmail)} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-100 bg-blue-50 px-4 py-2.5 text-[12px] font-black text-blue-700 transition-all hover:bg-blue-100 sm:justify-start">
+                            <span>📧</span> Fill from profile
+                        </button>
+                    )}
+                </div>
+            </div>
         </div>
     </div>
 );
@@ -246,8 +254,8 @@ const ReviewStep = ({ form, ccStepComplete, answeredSqdCount }: any) => (
                 <p className="mt-1 text-[12px] font-black text-slate-900">{answeredSqdCount}/{SQD_KEYS.length}</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Respondent</p>
-                <p className="mt-1 truncate text-[12px] font-black text-slate-900">Anonymous</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Email</p>
+                <p className="mt-1 truncate text-[12px] font-black text-slate-900">{form.email || 'Not provided'}</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                 <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Profile</p>
@@ -273,12 +281,13 @@ export function FeedbackView({
     const [activeStep, setActiveStep] = React.useState(0);
     const profileSex = personalInfo?.sex || '';
     const profileAge = personalInfo?.age || '';
+    const profileEmail = personalInfo?.email || '';
 
     const [form, setForm] = React.useState<any>({
         client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '',
         cc1: '', cc2: '', cc3: '',
         sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '',
-        suggestions: ''
+        suggestions: '', email: ''
     });
 
     const updateForm = (field: string, value: any) => {
@@ -343,6 +352,12 @@ export function FeedbackView({
                 setFormNotice({ type: 'error', message: suggestionsCheck.error || 'Suggestions are invalid.' });
                 return false;
             }
+            const emailCheck = validateTextInput(form.email, 'email', { label: 'Email address' });
+            if (form.email && !emailCheck.valid) {
+                setActiveStep(3);
+                setFormNotice({ type: 'error', message: emailCheck.error || 'Email address is invalid.' });
+                return false;
+            }
         }
         return true;
     };
@@ -353,11 +368,12 @@ export function FeedbackView({
             if (!validateStep(step)) return;
         }
         const suggestionsCheck = validateTextInput(form.suggestions, 'notes', { multiline: true, label: 'Suggestions' });
+        const emailCheck = validateTextInput(form.email, 'email', { label: 'Email address' });
         setSubmitting(true);
         try {
             const payload = {
                 student_id: personalInfo.studentId,
-                student_name: 'Anonymous',
+                student_name: personalInfo.fullName || personalInfo.name || 'Anonymous',
                 client_type: form.client_type,
                 sex: form.sex || null,
                 age: form.age ? parseInt(form.age) : null,
@@ -370,6 +386,7 @@ export function FeedbackView({
                 sqd3: parseInt(form.sqd3), sqd4: parseInt(form.sqd4), sqd5: parseInt(form.sqd5),
                 sqd6: parseInt(form.sqd6), sqd7: parseInt(form.sqd7), sqd8: parseInt(form.sqd8),
                 suggestions: suggestionsCheck.value || null,
+                email: emailCheck.value || null,
             };
             await createGeneralFeedback(payload);
 
@@ -394,7 +411,7 @@ export function FeedbackView({
 
             setSubmitted(true);
             setActiveStep(0);
-            setForm({ client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '', cc1: '', cc2: '', cc3: '', sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '', suggestions: '' });
+            setForm({ client_type: '', sex: profileSex, age: String(profileAge), region: '', service_availed: '', cc1: '', cc2: '', cc3: '', sqd0: '', sqd1: '', sqd2: '', sqd3: '', sqd4: '', sqd5: '', sqd6: '', sqd7: '', sqd8: '', suggestions: '', email: '' });
             if (setFeedbackPrefill) setFeedbackPrefill(null);
         } catch {
             setFormNotice({ type: 'error', message: `Couldn't submit feedback..` });
@@ -502,7 +519,7 @@ export function FeedbackView({
             {activeStep === 0 && <ClientInfoStep form={form} updateForm={updateForm} />}
             {activeStep === 1 && <CcQuestionsStep form={form} updateForm={updateForm} handleCc1Change={handleCc1Change} cc1IsAware={cc1IsAware} />}
             {activeStep === 2 && <SqdStep form={form} updateForm={updateForm} />}
-            {activeStep === 3 && <CommentsStep form={form} updateForm={updateForm} />}
+            {activeStep === 3 && <CommentsStep form={form} updateForm={updateForm} profileEmail={profileEmail} />}
             {activeStep === 4 && <ReviewStep form={form} ccStepComplete={ccStepComplete} answeredSqdCount={answeredSqdCount} />}
 
             {/* Step actions */}
