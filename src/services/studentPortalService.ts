@@ -233,11 +233,10 @@ export const getAttendanceHistory = async (studentId: string) => {
     return data || [];
 };
 
-export const getRatedEventIds = async (studentId: string) => {
+export const getRatedEventIds = async (_studentId: string) => {
     const { data, error } = await supabase
         .from('event_feedback')
-        .select('event_id')
-        .eq('student_id', studentId);
+        .select('event_id');
     if (error) throw error;
     return (data || []).map((row: any) => row.event_id);
 };
@@ -246,20 +245,19 @@ export const createGeneralFeedback = async (payload: Record<string, unknown>) =>
     const regionCheck = validateTextInput(payload.region, 'shortText', { label: 'Region' });
     const serviceCheck = validateTextInput(payload.service_availed, 'mediumText', { label: 'Service availed' });
     const suggestionsCheck = validateTextInput(payload.suggestions, 'notes', { multiline: true, label: 'Suggestions' });
-    const emailCheck = validateTextInput(payload.email, 'email', { label: 'Email' });
-    const invalidText = [regionCheck, serviceCheck, suggestionsCheck, emailCheck].find((check) => !check.valid);
+    const invalidText = [regionCheck, serviceCheck, suggestionsCheck].find((check) => !check.valid);
 
     if (invalidText?.error) {
         throw new Error(invalidText.error);
     }
 
-    // payload is validated at runtime; student_id/student_name arrive via the spread
     const row = {
         ...payload,
+        student_name: 'Anonymous',
         region: regionCheck.value || null,
         service_availed: serviceCheck.value || null,
         suggestions: suggestionsCheck.value || null,
-        email: emailCheck.value || null,
+        email: null,
     } as Database['public']['Tables']['general_feedback']['Insert'];
 
     const { error } = await supabase

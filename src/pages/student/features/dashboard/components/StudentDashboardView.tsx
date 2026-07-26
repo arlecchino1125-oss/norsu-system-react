@@ -60,7 +60,7 @@ function TimeOutFeedbackModal({ personalInfo, timeOutVisitReason, onClose, showT
         try {
             const payload = {
                 student_id: personalInfo.studentId,
-                student_name: `${personalInfo.firstName} ${personalInfo.lastName}`,
+                student_name: 'Anonymous',
                 client_type: form.client_type,
                 sex: form.sex || null,
                 age: form.age ? parseInt(form.age) : null,

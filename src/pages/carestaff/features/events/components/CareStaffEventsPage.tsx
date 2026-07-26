@@ -2,13 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, m } from 'framer-motion';
 import {
-    Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList
+    Plus, Calendar, Clock, MapPin, Users, UserX, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { supabase } from '../../../../../lib/supabase';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
+import { formatDate } from '../../../../../utils/formatters';
 import { Button } from '../../../../../components/ui/Button';
+import Modal from '../../../../../components/ui/Modal';
 import { Card, CardContent, CardHeader } from '../../../../../components/ui/Card';
 import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
 import { useEventsData } from '../../../../../hooks/useEventsData';
@@ -34,6 +36,19 @@ import { useCareStaffEvents, createEmptyEvent, getEventTypeBadgeClass, getArchiv
 import type { CareStaffEventsPageProps } from '../hooks/useCareStaffEvents';
 
 const REGISTRANT_STATUS_OPTIONS = ['All', 'Registered', 'Attended', 'Absent', 'Cancelled'];
+const ITEMS_PER_PAGE = 20;
+
+const ListPager = ({ page, totalPages, totalItems, onPageChange, itemLabel = 'students' }: { page: number; totalPages: number; totalItems: number; onPageChange: (page: number) => void; itemLabel?: string }) => (
+    totalPages > 1 ? (
+        <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/70 px-4 py-2 text-xs text-gray-500">
+            <span>{totalItems} {itemLabel} · Page {page} of {totalPages}</span>
+            <div className="flex items-center gap-1">
+                <button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => onPageChange(page - 1)} className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white"><ChevronLeft size={14} /></button>
+                <button type="button" aria-label="Next page" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white"><ChevronRight size={14} /></button>
+            </div>
+        </div>
+    ) : null
+);
 const getStudentName = (student: any) => [student.first_name, student.middle_name, student.last_name, student.suffix]
     .map((part) => String(part || '').trim())
     .filter(Boolean)
@@ -235,9 +250,10 @@ const EventFormModal = ({
 );
 
 const AttendeesModal = ({
-    showToast, attendees, expectedStudents, selectedAttendanceEvent, attendeeFilter, setAttendeeFilter, yearLevelFilter, setYearLevelFilter, attendeeCourseFilter, setAttendeeCourseFilter, attendeeSectionFilter, setAttendeeSectionFilter, setShowAttendeesModal, selectedEventTitle, setExpectedStudents, setSelectedAttendanceEvent
+    showToast, isLoading, attendees, expectedStudents, selectedAttendanceEvent, attendeeFilter, setAttendeeFilter, yearLevelFilter, setYearLevelFilter, attendeeCourseFilter, setAttendeeCourseFilter, attendeeSectionFilter, setAttendeeSectionFilter, setShowAttendeesModal, selectedEventTitle, setExpectedStudents, setSelectedAttendanceEvent
 }: any) => {
     const [attendeeSearch, setAttendeeSearch] = useState('');
+    const [page, setPage] = useState(1);
     const depts = [...new Set(attendees.flatMap((a: any) => a.department ? [a.department] : []))].sort() as string[];
     const yearLevels = [...new Set(attendees.flatMap((a: any) => a.year_level ? [a.year_level] : []))].sort() as string[];
     const courses = [...new Set(attendees.flatMap((a: any) => a.course ? [a.course] : []))].sort() as string[];
@@ -254,8 +270,11 @@ const AttendeesModal = ({
     const attendanceRate = expectedStudents.length > 0
         ? Math.round((attendees.length / expectedStudents.length) * 100)
         : null;
-    const resetFilters = () => { setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setAttendeeSearch(''); };
+    const resetFilters = () => { setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setAttendeeSearch(''); setPage(1); };
     const hasActiveFilters = attendeeFilter !== 'All' || yearLevelFilter !== 'All' || attendeeCourseFilter !== 'All' || attendeeSectionFilter !== 'All' || Boolean(attendeeQuery);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+    const pageItems = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
     const selectClass = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200';
     return createPortal((
         // Anchored to the content region (#staff-content-region) so it fills only the
@@ -269,7 +288,7 @@ const AttendeesModal = ({
                         <h3 className="text-lg font-bold text-gray-900">Attendees List</h3>
                         <p className="truncate text-xs text-gray-500">
                             {selectedEventTitle}
-                            {selectedAttendanceEvent && expectedStudents.length > 0 ? ` · Audience: ${getAudienceLabel(selectedAttendanceEvent)}` : ''}
+                            {selectedAttendanceEvent ? ` · Audience: ${getAudienceLabel(selectedAttendanceEvent)}` : ''}
                         </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -299,8 +318,33 @@ const AttendeesModal = ({
                     </div>
                 </div>
 
-                {/* Stats + filters */}
-                <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-4 sm:px-6">
+                {isLoading ? (
+                    <div role="status" aria-label="Loading attendees" className="flex flex-1 flex-col animate-pulse">
+                        <div aria-hidden="true" className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-4 sm:px-6">
+                            <div className="flex gap-2">
+                                <div className="h-6 w-16 rounded-full bg-slate-200" />
+                                <div className="h-6 w-24 rounded-full bg-slate-200" />
+                                <div className="h-6 w-20 rounded-full bg-slate-200" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                                {Array.from({ length: 5 }, (_, index) => <div key={index} className="h-9 rounded-lg bg-slate-200" />)}
+                            </div>
+                        </div>
+                        <div aria-hidden="true" className="flex-1">
+                            <div className="grid grid-cols-7 gap-4 bg-green-50 px-4 py-3">
+                                {Array.from({ length: 7 }, (_, index) => <div key={index} className="h-3 rounded bg-green-100" />)}
+                            </div>
+                            {Array.from({ length: 8 }, (_, row) => (
+                                <div key={row} className="grid grid-cols-7 gap-4 border-b border-gray-100 px-4 py-3">
+                                    {Array.from({ length: 7 }, (_, column) => <div key={column} className="h-3 rounded bg-slate-100" />)}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                    {/* Stats + filters */}
+                    <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-4 sm:px-6">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="rounded-full bg-blue-100 px-2.5 py-1 font-bold text-blue-700">{attendees.length} Total</span>
                         <span className="rounded-full bg-green-100 px-2.5 py-1 font-bold text-green-700">{completedCount} Completed</span>
@@ -312,30 +356,30 @@ const AttendeesModal = ({
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                         <input
                             value={attendeeSearch}
-                            onChange={(e) => setAttendeeSearch(e.target.value)}
+                            onChange={(e) => { setAttendeeSearch(e.target.value); setPage(1); }}
                             placeholder="Search name…"
                             className="col-span-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200 sm:col-span-1"
                         />
                         {depts.length > 0 && (
-                            <select value={attendeeFilter} onChange={(e) => setAttendeeFilter(e.target.value)} className={selectClass}>
+                            <select value={attendeeFilter} onChange={(e) => { setAttendeeFilter(e.target.value); setPage(1); }} className={selectClass}>
                                 <option value="All">All Depts ({attendees.length})</option>
                                 {depts.map((dept) => <option key={dept} value={dept}>{dept} ({attendees.filter(a => a.department === dept).length})</option>)}
                             </select>
                         )}
                         {yearLevels.length > 0 && (
-                            <select value={yearLevelFilter} onChange={(e) => setYearLevelFilter(e.target.value)} className={selectClass}>
+                            <select value={yearLevelFilter} onChange={(e) => { setYearLevelFilter(e.target.value); setPage(1); }} className={selectClass}>
                                 <option value="All">All Years</option>
                                 {yearLevels.map((yl) => <option key={yl} value={yl}>{yl} ({attendees.filter(a => a.year_level === yl).length})</option>)}
                             </select>
                         )}
                         {courses.length > 0 && (
-                            <select value={attendeeCourseFilter} onChange={(e) => setAttendeeCourseFilter(e.target.value)} className={selectClass}>
+                            <select value={attendeeCourseFilter} onChange={(e) => { setAttendeeCourseFilter(e.target.value); setPage(1); }} className={selectClass}>
                                 <option value="All">All Courses</option>
                                 {courses.map((c) => <option key={c} value={c}>{c} ({attendees.filter(a => a.course === c).length})</option>)}
                             </select>
                         )}
                         {sections.length > 0 && (
-                            <select value={attendeeSectionFilter} onChange={(e) => setAttendeeSectionFilter(e.target.value)} className={selectClass}>
+                            <select value={attendeeSectionFilter} onChange={(e) => { setAttendeeSectionFilter(e.target.value); setPage(1); }} className={selectClass}>
                                 <option value="All">All Sections</option>
                                 {sections.map((s) => <option key={s} value={s}>Sec {s} ({attendees.filter(a => a.section === s).length})</option>)}
                             </select>
@@ -350,20 +394,20 @@ const AttendeesModal = ({
                 </div>
                 <div className="p-0 overflow-y-auto flex-1">
                     {filtered.length === 0 ? <p className="text-center py-8 text-gray-500">{hasActiveFilters ? 'No attendees match the filters.' : 'No attendees yet.'}</p> : (
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0"><tr><th className="px-6 py-3">Student</th><th className="px-6 py-3">Course</th><th className="px-6 py-3">Year / Sec</th><th className="px-6 py-3">Time In</th><th className="px-6 py-3">Time Out</th><th className="px-6 py-3">Location</th><th className="px-6 py-3">Proof</th></tr></thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filtered.map((att) => (
-                                    <tr key={att.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-3"><p className="font-bold text-gray-900">{att.student_name}</p><p className="text-xs text-gray-500">{att.department}</p></td>
-                                        <td className="px-6 py-3 text-gray-600 text-xs font-medium">{att.course || '-'}</td>
-                                        <td className="px-6 py-3 text-gray-600 text-xs font-medium">{att.year_level || '-'}{att.section ? ` — ${att.section}` : ''}</td>
-                                        <td className="px-6 py-3 text-gray-600">{new Date(att.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                                        <td className="px-6 py-3">{att.time_out ? <span className="text-green-600 font-medium">{new Date(att.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : <span className="text-yellow-600 text-xs font-bold">Still In</span>}</td>
-                                        <td className="px-6 py-3 text-xs">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-green-50 text-green-700 sticky top-0"><tr><th className="px-4 py-2">Student</th><th className="px-4 py-2">Course</th><th className="px-4 py-2">Year / Sec</th><th className="px-4 py-2">Time In</th><th className="px-4 py-2">Time Out</th><th className="px-4 py-2">Location</th><th className="px-4 py-2">Proof</th></tr></thead>
+                            <tbody className="divide-y divide-green-50">
+                                {pageItems.map((att) => (
+                                    <tr key={att.id} className="bg-green-50/20 hover:bg-green-50/60">
+                                        <td className="px-4 py-2"><p className="font-bold text-gray-900">{att.student_name}</p><p className="text-[10px] text-gray-500">{att.department}</p></td>
+                                        <td className="px-4 py-2 text-gray-600 font-medium">{att.course || '-'}</td>
+                                        <td className="px-4 py-2 text-gray-600 font-medium">{att.year_level || '-'}{att.section ? ` — ${att.section}` : ''}</td>
+                                        <td className="px-4 py-2 text-gray-600">{new Date(att.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                        <td className="px-4 py-2">{att.time_out ? <span className="text-green-600 font-medium">{new Date(att.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : <span className="text-yellow-600 font-bold">Still In</span>}</td>
+                                        <td className="px-4 py-2">
                                             {att.latitude ? <a href={`https://maps.google.com/?q=${att.latitude},${att.longitude}`} target="_blank" className="text-blue-600 hover:underline flex items-center gap-1"><MapPin size={12} />Map</a> : '-'}
                                         </td>
-                                        <td className="px-6 py-3 text-xs">
+                                        <td className="px-4 py-2">
                                             <AttendanceProofButton
                                                 storedReference={att.proof_url}
                                                 attendanceId={Number(att.id)}
@@ -375,28 +419,147 @@ const AttendeesModal = ({
                             </tbody>
                         </table>
                     )}
-                    {expectedStudents.length > 0 && absentStudents.length > 0 && (
-                        <div className="border-t border-gray-100 bg-red-50/40 p-5">
-                            <h4 className="mb-3 text-xs font-bold uppercase text-red-700">
-                                {selectedAttendanceEvent?.attendance_required ? 'Absent Students' : 'Expected Students Not Yet Attended'}
-                            </h4>
-                            <div className="max-h-56 overflow-y-auto rounded-xl border border-red-100 bg-white">
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-red-50 text-red-700"><tr><th className="px-4 py-2">Student</th><th className="px-4 py-2">Course</th><th className="px-4 py-2">Year / Sec</th></tr></thead>
-                                    <tbody className="divide-y divide-red-50">
-                                        {absentStudents.map((student: any) => (
-                                            <tr key={student.student_id}>
-                                                <td className="px-4 py-2"><p className="font-bold text-gray-800">{getStudentName(student)}</p><p className="text-[10px] text-gray-500">{student.student_id} | {student.department || '-'}</p></td>
-                                                <td className="px-4 py-2 text-gray-600">{student.course || '-'}</td>
-                                                <td className="px-4 py-2 text-gray-600">{student.year_level || '-'}{student.section ? ` - ${student.section}` : ''}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                    </div>
+                    <ListPager page={safePage} totalPages={totalPages} totalItems={filtered.length} onPageChange={setPage} />
+                    </>
+                )}
+            </div>
+        </div>
+    ), document.getElementById('staff-content-region') || document.body);
+};
+
+const AbsentModal = ({
+    isLoading, attendees, expectedStudents, selectedAttendanceEvent, selectedEventTitle, setShowAbsentModal, setExpectedStudents, setSelectedAttendanceEvent
+}: any) => {
+    const [search, setSearch] = useState('');
+    const [deptFilter, setDeptFilter] = useState('All');
+    const [courseFilter, setCourseFilter] = useState('All');
+    const [yearFilter, setYearFilter] = useState('All');
+    const [page, setPage] = useState(1);
+    const attendedIds = new Set(attendees.map((att: any) => String(att.student_id || '')));
+    const absentStudents = expectedStudents.filter((student: any) => !attendedIds.has(String(student.student_id || '')));
+    const depts = [...new Set(absentStudents.flatMap((s: any) => s.department ? [s.department] : []))].sort() as string[];
+    const courses = [...new Set(absentStudents.flatMap((s: any) => s.course ? [s.course] : []))].sort() as string[];
+    const years = [...new Set(absentStudents.flatMap((s: any) => s.year_level ? [s.year_level] : []))].sort() as string[];
+    let filtered = deptFilter === 'All' ? absentStudents : absentStudents.filter((s: any) => s.department === deptFilter);
+    if (courseFilter !== 'All') filtered = filtered.filter((s: any) => s.course === courseFilter);
+    if (yearFilter !== 'All') filtered = filtered.filter((s: any) => s.year_level === yearFilter);
+    const query = search.trim().toLowerCase();
+    if (query) filtered = filtered.filter((s: any) => getStudentName(s).toLowerCase().includes(query));
+    const attendanceRate = expectedStudents.length > 0 ? Math.round((attendees.length / expectedStudents.length) * 100) : null;
+    const absentLabel = selectedAttendanceEvent?.attendance_required ? 'Absent' : 'Not attended';
+    const resetFilters = () => { setSearch(''); setDeptFilter('All'); setCourseFilter('All'); setYearFilter('All'); setPage(1); };
+    const hasActiveFilters = deptFilter !== 'All' || courseFilter !== 'All' || yearFilter !== 'All' || Boolean(query);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+    const pageItems = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+    const selectClass = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-red-300 focus:outline-none focus:ring-2 focus:ring-red-200';
+    return createPortal((
+        <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-black/30 p-2 backdrop-blur-sm sm:p-3">
+            <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-4 sm:px-6">
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-gray-900">{absentLabel === 'Absent' ? 'Absent Students' : 'Expected Students Not Yet Attended'}</h3>
+                        <p className="truncate text-xs text-gray-500">
+                            {selectedEventTitle}
+                            {selectedAttendanceEvent ? ` · Audience: ${getAudienceLabel(selectedAttendanceEvent)}` : ''}
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => {
+                            const headers = ['Student Name', 'Student ID', 'Department', 'Course', 'Year Level'];
+                            const rows = filtered.map((s: any) => [getStudentName(s), s.student_id || '', s.department || '', s.course || '', s.year_level || '']);
+                            exportToExcel(headers, rows, `${selectedEventTitle || 'event'}_absent`);
+                        }} disabled={filtered.length === 0} leftIcon={<Download size={14} />}>
+                            Export Excel
+                        </Button>
+                        <button type="button" aria-label="Close absent list" onClick={() => { setShowAbsentModal(false); setExpectedStudents([]); setSelectedAttendanceEvent(null); }}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+                    </div>
+                </div>
+                {isLoading ? (
+                    <div role="status" aria-label="Loading absent students" className="flex flex-1 flex-col animate-pulse">
+                        <div aria-hidden="true" className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-4 sm:px-6">
+                            <div className="flex gap-2">
+                                <div className="h-6 w-20 rounded-full bg-slate-200" />
+                                <div className="h-6 w-16 rounded-full bg-slate-200" />
+                                <div className="h-6 w-20 rounded-full bg-slate-200" />
                             </div>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-9 rounded-lg bg-slate-200" />)}
+                            </div>
+                        </div>
+                        <div aria-hidden="true" className="flex-1">
+                            <div className="grid grid-cols-3 gap-4 bg-red-50 px-4 py-3">
+                                {Array.from({ length: 3 }, (_, index) => <div key={index} className="h-3 rounded bg-red-100" />)}
+                            </div>
+                            {Array.from({ length: 8 }, (_, row) => (
+                                <div key={row} className="grid grid-cols-3 gap-4 border-b border-gray-100 px-4 py-3">
+                                    {Array.from({ length: 3 }, (_, column) => <div key={column} className="h-3 rounded bg-slate-100" />)}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                    <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-4 sm:px-6">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 font-bold text-slate-700">{expectedStudents.length} Expected</span>
+                        <span className="rounded-full bg-green-100 px-2.5 py-1 font-bold text-green-700">{attendees.length} Present</span>
+                        <span className="rounded-full bg-red-100 px-2.5 py-1 font-bold text-red-700">{absentStudents.length} {absentLabel}</span>
+                        {attendanceRate !== null && <span className="rounded-full bg-indigo-100 px-2.5 py-1 font-bold text-indigo-700">{attendanceRate}% Attendance</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <input
+                            value={search}
+                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                            placeholder="Search name…"
+                            className="col-span-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-red-300 focus:outline-none focus:ring-2 focus:ring-red-200 sm:col-span-1"
+                        />
+                        {depts.length > 0 && (
+                            <select value={deptFilter} onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                <option value="All">All Depts ({absentStudents.length})</option>
+                                {depts.map((dept) => <option key={dept} value={dept}>{dept} ({absentStudents.filter((s: any) => s.department === dept).length})</option>)}
+                            </select>
+                        )}
+                        {years.length > 0 && (
+                            <select value={yearFilter} onChange={(e) => { setYearFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                <option value="All">All Years</option>
+                                {years.map((yl) => <option key={yl} value={yl}>{yl} ({absentStudents.filter((s: any) => s.year_level === yl).length})</option>)}
+                            </select>
+                        )}
+                        {courses.length > 0 && (
+                            <select value={courseFilter} onChange={(e) => { setCourseFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                <option value="All">All Courses</option>
+                                {courses.map((c) => <option key={c} value={c}>{c} ({absentStudents.filter((s: any) => s.course === c).length})</option>)}
+                            </select>
+                        )}
+                    </div>
+                    {hasActiveFilters && (
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span>Showing {filtered.length} of {absentStudents.length}</span>
+                            <button type="button" onClick={resetFilters} className="font-bold text-red-600 hover:text-red-700">Clear filters</button>
                         </div>
                     )}
                 </div>
+                <div className="p-0 overflow-y-auto flex-1">
+                    {filtered.length === 0 ? <p className="text-center py-8 text-gray-500">{hasActiveFilters ? 'No absent students match the filters.' : `No ${absentLabel.toLowerCase()} students.`}</p> : (
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-red-50 text-red-700 sticky top-0"><tr><th className="px-4 py-2">Student</th><th className="px-4 py-2">Course</th><th className="px-4 py-2">Year</th></tr></thead>
+                            <tbody className="divide-y divide-red-50">
+                                {pageItems.map((student: any) => (
+                                    <tr key={student.student_id} className="hover:bg-red-50/40">
+                                        <td className="px-4 py-2"><p className="font-bold text-gray-800">{getStudentName(student)}</p><p className="text-[10px] text-gray-500">{student.student_id} | {student.department || '-'}</p></td>
+                                        <td className="px-4 py-2 text-gray-600">{student.course || '-'}</td>
+                                        <td className="px-4 py-2 text-gray-600">{student.year_level || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                    </div>
+                    <ListPager page={safePage} totalPages={totalPages} totalItems={filtered.length} onPageChange={setPage} />
+                    </>
+                )}
             </div>
         </div>
     ), document.getElementById('staff-content-region') || document.body);
@@ -522,16 +685,40 @@ const RegistrantsModal = ({
 };
 
 const FeedbackModal = ({
-    selectedEventTitle, feedbackList, setShowFeedbackModal
-}: any) => (
-    <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[80vh]">
-            <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
-                <div><h3 className="font-bold text-lg">Event Feedback</h3><p className="text-xs text-gray-500">{selectedEventTitle}</p></div>
-                <button type="button" aria-label="Close event feedback" onClick={() => setShowFeedbackModal(false)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                {feedbackList.length === 0 ? <p className="text-center text-gray-500">No feedback submitted yet.</p> : feedbackList.map((fb) => {
+    selectedEventTitle, eventDate, evaluationCreatedAt, feedbackList, setShowFeedbackModal
+}: any) => {
+    const [page, setPage] = useState(1);
+    const totalPages = Math.max(1, Math.ceil(feedbackList.length / ITEMS_PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+    const pageItems = feedbackList.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+
+    return (
+        <Modal
+            open
+            onClose={() => setShowFeedbackModal(false)}
+            size="full"
+            anchorId="staff-content-region"
+            title="Event Feedback"
+            subtitle={selectedEventTitle}
+            headerMeta={
+                <dl className="flex flex-wrap gap-x-5 gap-y-2 text-xs sm:justify-end sm:text-right">
+                    <div>
+                        <dt className="font-semibold text-slate-500">Event date</dt>
+                        <dd className="font-bold text-slate-900">{formatDate(eventDate)}</dd>
+                    </div>
+                    <div>
+                        <dt className="font-semibold text-slate-500">Evaluation created</dt>
+                        <dd className="font-bold text-slate-900">{formatDate(evaluationCreatedAt)}</dd>
+                    </div>
+                </dl>
+            }
+        >
+            {feedbackList.length === 0 ? (
+                <p className="py-10 text-center text-sm text-gray-500">No feedback submitted yet.</p>
+            ) : (
+                <div className="overflow-hidden rounded-xl border border-gray-200">
+                    <ul className="divide-y divide-gray-100">
+                    {pageItems.map((fb: any) => {
                     const criteriaScores = [fb.q1_score, fb.q2_score, fb.q3_score, fb.q4_score, fb.q5_score, fb.q6_score, fb.q7_score]
                         .map((value) => Number(value))
                         .filter((score) => Number.isFinite(score) && score >= 1 && score <= 5);
@@ -541,29 +728,39 @@ const FeedbackModal = ({
                         : (criteriaScores.length > 0 ? Number((criteriaScores.reduce((sum, score) => sum + score, 0) / criteriaScores.length).toFixed(1)) : 0);
                     const roundedRating = Math.round(displayRating);
                     const mainComment = fb.open_comments || fb.feedback || fb.comments || '';
+                    const submittedAt = fb.submitted_at || fb.created_at;
                     return (
-                        <div key={fb.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                            <div className="flex items-center gap-1 text-yellow-500 mb-2">
-                                {[1, 2, 3, 4, 5].map((idx) => (
-                                    <Star key={idx} size={14} fill={idx <= roundedRating ? 'currentColor' : 'none'} className={idx <= roundedRating ? 'text-yellow-500' : 'text-gray-300'} />
-                                ))}
-                                <span className="text-xs font-bold text-gray-600 ml-2">{displayRating ? `${displayRating}/5` : 'No rating'}</span>
+                        <li key={fb.id} className="px-3 py-2 sm:px-4">
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                <div className="flex items-center gap-1 text-yellow-500">
+                                    {[1, 2, 3, 4, 5].map((idx) => (
+                                        <Star key={idx} size={12} fill={idx <= roundedRating ? 'currentColor' : 'none'} className={idx <= roundedRating ? 'text-yellow-500' : 'text-gray-300'} />
+                                    ))}
+                                    <span className="ml-1 text-[11px] font-bold text-gray-600">{displayRating ? `${displayRating}/5` : 'No rating'}</span>
+                                </div>
+                                <time className="text-[11px] text-gray-400">{submittedAt ? new Date(submittedAt).toLocaleDateString() : '—'}</time>
                             </div>
-                            {mainComment ? <p className="text-sm text-gray-700 italic mb-2">"{mainComment}"</p> : <p className="text-xs text-gray-400 mb-2">No comment provided.</p>}
-                            {fb.open_best && <p className="text-xs text-gray-600"><span className="font-bold text-gray-700">Liked best:</span> {fb.open_best}</p>}
-                            {fb.open_suggestions && <p className="text-xs text-gray-600 mt-1"><span className="font-bold text-gray-700">Suggestion:</span> {fb.open_suggestions}</p>}
-                            <p className="text-xs text-gray-400 mt-2 text-right">{new Date(fb.submitted_at || fb.created_at || Date.now()).toLocaleDateString()}</p>
-                        </div>
+                            <div className="mt-1 flex flex-wrap items-baseline gap-x-5 gap-y-0.5 text-[11px] leading-4 text-gray-600">
+                                {mainComment
+                                    ? <p className="min-w-48 flex-1 text-xs italic text-gray-700">"{mainComment}"</p>
+                                    : <p className="min-w-48 flex-1 text-gray-400">No comment provided.</p>}
+                                {fb.open_best && <p><span className="font-bold text-gray-700">Liked best:</span> {fb.open_best}</p>}
+                                {fb.open_suggestions && <p><span className="font-bold text-gray-700">Suggestion:</span> {fb.open_suggestions}</p>}
+                            </div>
+                        </li>
                     );
-                })}
-            </div>
-        </div>
-    </div>
-);
+                    })}
+                    </ul>
+                    <ListPager page={safePage} totalPages={totalPages} totalItems={feedbackList.length} onPageChange={setPage} itemLabel="reviews" />
+                </div>
+            )}
+        </Modal>
+    );
+};
 
-const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => (
-<div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4 sm:p-6" onClick={() => setDetailEvent(null)}>
-    <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[92vh] overflow-hidden animate-scale-in flex flex-col" onClick={(event) => event.stopPropagation()}>
+const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => createPortal((
+<div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-black/30 p-2 backdrop-blur-sm sm:p-3" onClick={() => setDetailEvent(null)}>
+    <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="px-6 py-5 sm:px-8 border-b bg-gray-50 rounded-t-2xl flex items-start justify-between gap-4">
             <div className="min-w-0">
                 <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getEventTypeBadgeClass(detailEvent.type)}`}>
@@ -579,7 +776,7 @@ const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => (
             </div>
             <button type="button" aria-label="Close event details" onClick={() => setDetailEvent(null)}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
         </div>
-        <div className="p-6 sm:p-8 space-y-5 overflow-y-auto">
+        <div className="flex-1 p-6 sm:p-8 space-y-5 overflow-y-auto">
             <section className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
                 <h4 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Description</h4>
                 <div className="max-h-72 overflow-y-auto pr-1">
@@ -614,16 +811,16 @@ const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => (
         </div>
     </div>
 </div>
-);
+), document.getElementById('staff-content-region') || document.body);
 
 const EventListSection = ({
-    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, handleViewAttendees, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
+    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
 }: any) => (
 <div className="space-y-4">
     {/* Active Events */}
     {eventFilter !== 'Archived' && events.flatMap(item => (
         eventFilter === 'All Items' || isVisibleForStaffFilter(item, eventFilter) ? [(
-            <div key={item.id} className="card-hover bg-white/80 backdrop-blur-sm border border-gray-100/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden group">
+            <div key={item.id} className="card-hover bg-white/80 backdrop-blur-sm border border-gray-100/80 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden group">
                 <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <button type="button" aria-label={`View details for ${item.title}`} className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => setDetailEvent(item)} />
                 <div className="pointer-events-none relative z-10 min-w-0 flex-1">
@@ -633,7 +830,7 @@ const EventListSection = ({
                         {isRegistrationEvent(item) && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Registration</span>}
                     </div>
                     <h3 className="font-bold text-gray-900 text-lg">{item.title}</h3>
-                    <p className="mt-2 max-w-5xl whitespace-pre-wrap break-words text-sm leading-6 text-gray-600 line-clamp-2">
+                    <p className="mt-1 max-w-5xl whitespace-pre-wrap break-words text-sm leading-6 text-gray-600 line-clamp-2">
                         {item.description || 'No description provided.'}
                     </p>
                     <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
@@ -646,7 +843,7 @@ const EventListSection = ({
                         {isAttendanceActivityType(item.type) && item.avgRating && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Star size={12} />{item.avgRating} <span className="font-normal opacity-75">({item.feedbackCount})</span></span>}
                     </div>
                     {isAttendanceActivityType(item.type) && (
-                        <div className="mt-3 max-w-5xl rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold leading-5 text-slate-700">
+                        <div className="mt-2 max-w-5xl rounded-xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-semibold leading-5 text-slate-700">
                             <div className="flex items-start gap-2">
                                 <Users size={13} className="mt-0.5 shrink-0 text-slate-500" />
                                 <span className="min-w-0 break-words">{getAudienceModeLabel(item)}</span>
@@ -660,6 +857,7 @@ const EventListSection = ({
                             <Button variant="secondary" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-500" />}>Reviews ({item.feedbackCount || 0})</Button>
                             {isRegistrationEvent(item) && <Button variant="secondary" size="sm" onClick={() => item.id && handleViewRegistrants(item)} leftIcon={<Users size={14} className="text-emerald-500" />}>Registrants ({item.registeredCount || 0})</Button>}
                             <Button variant="secondary" size="sm" onClick={() => item.id && handleViewAttendees(item)} leftIcon={<Users size={14} className="text-blue-500" />}>Attendees ({item.attendees || 0})</Button>
+                            <Button variant="secondary" size="sm" onClick={() => item.id && handleViewAbsent(item)} leftIcon={<UserX size={14} className="text-red-500" />}>Absent</Button>
                             {evaluations?.get(item.id)
                                 ? (
                                     <Button variant="secondary" size="sm" onClick={() => item.id && handleViewEvaluationResults(item)} leftIcon={<ClipboardList size={14} className="text-purple-500" />}>
@@ -721,6 +919,7 @@ const EventListSection = ({
                         <Button variant="ghost" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-400" />}>Reviews ({item.feedbackCount || 0})</Button>
                         {isRegistrationEvent(item) && <Button variant="ghost" size="sm" onClick={() => item.id && handleViewRegistrants(item)} leftIcon={<Users size={14} className="text-emerald-400" />}>Registrants ({item.registeredCount || 0})</Button>}
                         <Button variant="ghost" size="sm" onClick={() => item.id && handleViewAttendees(item)} leftIcon={<Users size={14} className="text-blue-400" />}>Attendees ({item.attendees || 0})</Button>
+                        <Button variant="ghost" size="sm" onClick={() => item.id && handleViewAbsent(item)} leftIcon={<UserX size={14} className="text-red-400" />}>Absent</Button>
                         {evaluations?.get(item.id) && (
                             <Button variant="ghost" size="sm" onClick={() => item.id && handleViewEvaluationResults(item)} leftIcon={<ClipboardList size={14} className="text-purple-400" />}>
                                 Evaluation ({evaluations.get(item.id).responseCount})
@@ -755,10 +954,13 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         setShowDeleteEventModal,
         showAttendeesModal,
         setShowAttendeesModal,
+        showAbsentModal,
+        setShowAbsentModal,
         showRegistrantsModal,
         setShowRegistrantsModal,
         showFeedbackModal,
         setShowFeedbackModal,
+        isAttendanceLoading,
         detailEvent,
         setDetailEvent,
         editingEventId,
@@ -783,6 +985,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         setSelectedEventTitle,
         selectedAttendanceEvent,
         setSelectedAttendanceEvent,
+        selectedFeedbackEvent,
         selectedRegistrationEvent,
         setSelectedRegistrationEvent,
         attendeeFilter,
@@ -810,7 +1013,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
     const [evaluations, setEvaluations] = useState<Map<number, { form: EvaluationForm; responseCount: number }>>(new Map());
     const [showTemplatesModal, setShowTemplatesModal] = useState(false);
     const [evaluationTarget, setEvaluationTarget] = useState<{ event: SystemEvent; form: EvaluationForm | null } | null>(null);
-    const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string } | null>(null);
+    const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string; eventDate?: string | null } | null>(null);
 
     const refreshEvaluations = useCallback(async () => {
         const ids = [...events, ...archivedEvents]
@@ -833,7 +1036,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
 
     const handleViewEvaluationResults = (event: SystemEvent) => {
         const existing = evaluations.get(event.id as number);
-        if (existing) setResultsTarget({ formId: existing.form.id, title: event.title });
+        if (existing) setResultsTarget({ formId: existing.form.id, title: event.title, eventDate: event.event_date });
     };
 
     const eventTabs = [
@@ -925,6 +1128,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     canArchiveRecords={canArchiveRecords}
                     handleEditEvent={handleEditEvent}
                     handleViewAttendees={handleViewAttendees}
+                    handleViewAbsent={(item: SystemEvent) => handleViewAttendees(item, 'absent')}
                     handleViewRegistrants={handleViewRegistrants}
                     handleViewFeedback={handleViewFeedback}
                     setDetailEvent={setDetailEvent}
@@ -955,6 +1159,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
             {showAttendeesModal && (
                 <AttendeesModal
                     showToast={showToast}
+                    isLoading={isAttendanceLoading}
                     attendees={attendees}
                     expectedStudents={expectedStudents}
                     selectedAttendanceEvent={selectedAttendanceEvent}
@@ -968,6 +1173,20 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     setAttendeeSectionFilter={setAttendeeSectionFilter}
                     setShowAttendeesModal={setShowAttendeesModal}
                     selectedEventTitle={selectedEventTitle}
+                    setExpectedStudents={setExpectedStudents}
+                    setSelectedAttendanceEvent={setSelectedAttendanceEvent}
+                />
+            )}
+
+            {/* Absent Students Modal */}
+            {showAbsentModal && (
+                <AbsentModal
+                    isLoading={isAttendanceLoading}
+                    attendees={attendees}
+                    expectedStudents={expectedStudents}
+                    selectedAttendanceEvent={selectedAttendanceEvent}
+                    selectedEventTitle={selectedEventTitle}
+                    setShowAbsentModal={setShowAbsentModal}
                     setExpectedStudents={setExpectedStudents}
                     setSelectedAttendanceEvent={setSelectedAttendanceEvent}
                 />
@@ -991,6 +1210,8 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
             {showFeedbackModal && (
                 <FeedbackModal
                     selectedEventTitle={selectedEventTitle}
+                    eventDate={selectedFeedbackEvent?.event_date}
+                    evaluationCreatedAt={evaluations.get(selectedFeedbackEvent?.id as number)?.form.created_at}
                     feedbackList={feedbackList}
                     setShowFeedbackModal={setShowFeedbackModal}
                 />
@@ -1026,6 +1247,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     onClose={() => setResultsTarget(null)}
                     formId={resultsTarget.formId}
                     eventTitle={resultsTarget.title}
+                    eventDate={resultsTarget.eventDate}
                     showToast={showToast}
                 />
             )}

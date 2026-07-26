@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, Users, XCircle } from 'lucide-react';
+import { Clock, Users } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
-import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import Modal from '../../../../../components/ui/Modal';
 import { formatHours, sessionDate, sessionHours, splitAmPm, totalHours } from '../../../../../utils/volunteerHours';
 
 const COLUMNS = `
@@ -53,17 +52,14 @@ const DtrColumn = ({ label, sessions }: { label: string; sessions: any[] }) => (
 const FacilitatorDtrModal = ({ entry, day, onClose }: any) => {
     const { morning, afternoon } = splitAmPm(entry.sessions);
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent p-4 care-modal-overlay">
-            <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-                <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50 px-6 py-4">
-                    <div className="min-w-0">
-                        <h3 className="truncate text-lg font-bold text-gray-900">{entry.name}</h3>
-                        <p className="text-xs text-gray-500">{entry.student_id} · {formatDayLabel(day)}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={onClose}><XCircle size={20} /></Button>
-                </div>
-
-                <div className="flex-1 space-y-4 overflow-y-auto p-6">
+        <Modal
+            open
+            anchorId="staff-content-region"
+            title={entry.name}
+            subtitle={`${entry.student_id} · ${formatDayLabel(day)}`}
+            onClose={onClose}
+        >
+                <div className="mx-auto w-full max-w-4xl space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <DtrColumn label="Morning" sessions={morning} />
                         <DtrColumn label="Afternoon" sessions={afternoon} />
@@ -73,8 +69,7 @@ const FacilitatorDtrModal = ({ entry, day, onClose }: any) => {
                         <span className="text-base font-black text-emerald-800">{formatHours(totalHours(entry.sessions))}</span>
                     </div>
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 };
 
@@ -202,9 +197,8 @@ export default function CareStaffFacilitatorHours({ refreshSignal = 0 }: CareSta
                 </div>
             </Card>
 
-            {openEntry && createPortal(
-                <FacilitatorDtrModal entry={openEntry} day={activeDay} onClose={() => setOpenEntry(null)} />,
-                document.body
+            {openEntry && (
+                <FacilitatorDtrModal entry={openEntry} day={activeDay} onClose={() => setOpenEntry(null)} />
             )}
         </div>
     );

@@ -1,6 +1,6 @@
 import { m, AnimatePresence } from 'framer-motion';
 import {
-    FileText, CheckCircle, Send, AlertTriangle,
+    CheckCircle, Send,
     Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip, RefreshCw
 } from 'lucide-react';
 import StatusBadge from '../../../../../components/StatusBadge';
@@ -19,19 +19,6 @@ import { useCareStaffSupport } from '../hooks/useCareStaffSupport';
 import type { CareStaffSupportPageProps } from '../hooks/useCareStaffSupport';
 import { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
 import { SUPPORT_DOCUMENT_ACCEPT } from '../../../../../utils/inputSecurity';
-
-const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: { staggerChildren: 0.05 }
-    }
-} as const;
-
-const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 380, damping: 28 } }
-} as const;
 
 const modalVariants = {
     hidden: { opacity: 0, scale: 0.95, y: 20 },
@@ -262,7 +249,6 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
     const {
         showToast,
         supportTotal,
-        supportCounts,
         currentPage,
         setCurrentPage,
         supportLoading,
@@ -295,8 +281,8 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
 
     return (
         <>
-            <div>
-                <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-h-full flex-col">
+                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
                             <ClipboardList size={24} className="text-purple-600" />
@@ -316,132 +302,94 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                     </Button>
                 </div>
 
-                {/* Stats Row */}
-                <m.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="show"
-                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8"
-                >
-                    {[
-                        { label: 'Submitted', value: supportCounts[SUPPORT_STATUS.SUBMITTED] || 0, icon: <FileText size={24} />, color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-200/50' },
-                        { label: 'Forwarded to Dept', value: supportCounts[SUPPORT_STATUS.FORWARDED_TO_DEPT] || 0, icon: <Send size={24} />, color: 'text-yellow-500', bg: 'bg-yellow-500/10', border: 'border-yellow-200/50' },
-                        { label: 'Visit Scheduled', value: supportCounts[SUPPORT_STATUS.VISIT_SCHEDULED] || 0, icon: <AlertTriangle size={24} />, color: 'text-indigo-500', bg: 'bg-indigo-500/10', border: 'border-indigo-200/50' },
-                        { label: 'Dept Updates', value: supportCounts.dept_updates || 0, icon: <ClipboardList size={24} />, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-200/50' },
-                        { label: 'Completed', value: supportCounts[SUPPORT_STATUS.COMPLETED] || 0, icon: <CheckCircle size={24} />, color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-200/50' },
-                    ].map((stat) => (
-                        <m.div
-                            key={stat.label}
-                            variants={itemVariants}
-                            className={`bg-white/80 backdrop-blur-xl rounded-[2rem] p-6 border ${stat.border} shadow-sm relative overflow-hidden`}
-                        >
-                            <div className={`absolute -right-4 -top-4 w-24 h-24 ${stat.bg} rounded-full blur-2xl opacity-60 pointer-events-none`}></div>
-                            <div className={`w-12 h-12 rounded-2xl ${stat.bg} flex items-center justify-center mb-4 ${stat.color}`}>
-                                {stat.icon}
-                            </div>
-                            <p className="text-gray-500 text-sm font-medium mb-1">{stat.label}</p>
-                            <p className="text-3xl font-black text-gray-900 tracking-tight">{stat.value}</p>
-                        </m.div>
-                    ))}
-                </m.div>
+                <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="max-w-full overflow-x-auto">
+                        <div className="inline-flex min-w-max items-center gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-sm">
+                            {supportTabs.map((tab) => {
+                                const isActive = supportTab === tab.id;
+                                return (
+                                    <button
+                                        type="button"
+                                        key={tab.id}
+                                        onClick={() => setSupportTab(tab.id)}
+                                        className={`rounded-full px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 ${isActive ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}
+                                    >
+                                        {tab.label}
+                                        <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{tab.count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-                {/* Tabs */}
-                <div className="bg-white/60 backdrop-blur-xl border border-gray-200/60 rounded-full p-1.5 flex items-center justify-start gap-1 mb-8 overflow-x-auto max-w-fit shadow-sm relative z-10">
-                    <AnimatePresence>
-                        {supportTabs.map((tab) => {
-                            const isActive = supportTab === tab.id;
-                            return (
-                                <button type="button"
-                                    key={tab.id}
-                                    onClick={() => setSupportTab(tab.id)}
-                                    className={`relative px-6 py-2.5 rounded-full text-sm font-bold transition-colors z-10 ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800'}`}
-                                >
-                                    {isActive && (
-                                        <m.div
-                                            layoutId="supportTabBubble"
-                                            className="absolute inset-0 bg-purple-600 rounded-full -z-10 shadow-md shadow-purple-200"
-                                            transition={{ type: "spring", stiffness: 450, damping: 30 }}
-                                        />
-                                    )}
-                                    <span className="relative z-10">{tab.label} <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{tab.count}</span></span>
-                                </button>
-                            );
-                        })}
-                    </AnimatePresence>
-                </div>
-
-                {/* Category Filter */}
-                <div className="flex items-center gap-3 mb-8 bg-white/80 backdrop-blur-xl p-3 px-4 rounded-2xl border border-gray-200/60 w-fit shadow-sm">
-                    <Filter size={18} className="text-gray-400" />
-                <select aria-label="Filter support requests by category" value={supportCategory} onChange={e => setSupportCategory(e.target.value)} className="text-sm font-bold text-gray-700 focus:outline-none bg-transparent cursor-pointer">
-                        {['All', 'Working Student Support', 'Indigenous Persons Support', 'Orphan Support', 'Financial Hardship'].map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <label className="flex w-fit items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
+                        <Filter size={16} className="text-gray-400" />
+                        <span className="sr-only">Support category</span>
+                        <select aria-label="Filter support requests by category" value={supportCategory} onChange={e => setSupportCategory(e.target.value)} className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 focus:outline-none">
+                            {['All', 'Working Student Support', 'Indigenous Persons Support', 'Orphan Support', 'Financial Hardship'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </label>
                 </div>
 
                 {supportLoading ? (
-                    <LoadingSkeleton type="card" count={4} />
-                ) : (
-                    <m.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="show"
-                        className="grid grid-cols-1 xl:grid-cols-2 gap-6"
-                    >
-                        <AnimatePresence>
-                            {visibleSupportReqs.map(req => (
-                                <m.div
-                                    key={req.id}
-                                    variants={itemVariants}
-                                    layout
-                                    whileHover={{ scale: 1.01, y: -2 }}
-                                    transition={{ type: "spring", stiffness: 380, damping: 28 }}
-                                    className="bg-white/90 backdrop-blur-xl p-6 md:p-8 rounded-[2.5rem] border border-gray-200/60 shadow-sm flex flex-col justify-between group overflow-hidden relative"
-                                >
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                                    <div className="relative z-10">
-                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
-                                            <div className="flex items-start gap-4">
-                                                <div className="w-14 h-14 bg-gradient-to-br from-purple-100 to-indigo-50 rounded-2xl flex items-center justify-center shadow-inner border border-purple-100/50">
-                                                    <GraduationCap size={24} className="text-purple-600" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-gray-900 text-lg">{req.student_name}</h4>
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                        <span className="text-sm text-gray-500 font-medium">{req.student_id}</span>
-                                                        <span className="text-gray-300">•</span>
-                                                        <span className="text-sm text-gray-500 font-medium">{formatDate(req.created_at)}</span>
+                    <LoadingSkeleton type="table" count={5} />
+                ) : visibleSupportReqs.length > 0 ? (
+                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[800px] text-left text-sm">
+                                <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    <tr>
+                                        <th scope="col" className="px-4 py-3">Student</th>
+                                        <th scope="col" className="px-4 py-3">Support categories</th>
+                                        <th scope="col" className="whitespace-nowrap px-4 py-3">Date filed</th>
+                                        <th scope="col" className="px-4 py-3">Status</th>
+                                        <th scope="col" className="px-4 py-3 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {visibleSupportReqs.map(req => (
+                                        <tr key={req.id} className="transition-colors hover:bg-gray-50/80">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-purple-100 bg-purple-50">
+                                                        <GraduationCap size={17} className="text-purple-600" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-semibold text-gray-900">{req.student_name}</p>
+                                                        <p className="text-xs text-gray-500">{req.student_id}</p>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <StatusBadge status={req.status} className="!text-sm !px-3 !py-1.5 shadow-sm" />
-                                        </div>
-
-                                        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 mb-6">
-                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Support Categories</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {req.support_type ? req.support_type.split(', ').map((cat: string) => (
-                                                    <span key={cat} className="bg-white shadow-sm border border-gray-200/60 px-3 py-1 rounded-lg text-xs font-semibold text-gray-700">{cat}</span>
-                                                )) : <span className="text-sm text-gray-500">None specified</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-3 pt-2 relative z-10">
-                                        <Button
-                                            variant="primary"
-                                            onClick={() => openSupportModal(req)}
-                                            leftIcon={<ClipboardList size={18} />}
-                                            className="w-full !py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 !shadow-lg hover:!shadow-purple-400/30 !transition-all !duration-300 !rounded-2xl text-base"
-                                        >
-                                            Manage Request
-                                        </Button>
-                                    </div>
-                                </m.div>
-                            ))}
-                        </AnimatePresence>
-                    </m.div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex max-w-md flex-wrap gap-1">
+                                                    {req.support_type ? req.support_type.split(', ').map((cat: string) => (
+                                                        <span key={cat} className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">{cat}</span>
+                                                    )) : <span className="text-xs text-gray-500">None specified</span>}
+                                                </div>
+                                            </td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-gray-600">{formatDate(req.created_at)}</td>
+                                            <td className="whitespace-nowrap px-4 py-3"><StatusBadge status={req.status} /></td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-right">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => openSupportModal(req)}
+                                                    leftIcon={<ClipboardList size={14} />}
+                                                    className="min-h-9 hover:text-purple-600"
+                                                >
+                                                    Manage
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : (
+                    <p className="rounded-xl border border-dashed border-gray-200 bg-white py-10 text-center text-sm text-gray-500">No requests found in this stage.</p>
                 )}
-                {!supportLoading && visibleSupportReqs.length === 0 && <p className="text-center text-gray-500 py-8">No requests found in this stage.</p>}
-                <div className="mt-6 rounded-xl border border-gray-100 shadow-sm">
+                <div className="mt-auto rounded-xl border border-gray-100 shadow-sm">
                     <PaginationControls
                         page={currentPage}
                         pageSize={SUPPORT_REQUESTS_PAGE_SIZE}

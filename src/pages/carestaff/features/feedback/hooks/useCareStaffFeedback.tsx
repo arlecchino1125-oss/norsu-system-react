@@ -17,8 +17,6 @@ export const FEEDBACK_PAGE_SIZE = 12;
 const EVENT_FEEDBACK_COLUMNS = [
     'id',
     'event_id',
-    'student_id',
-    'student_name',
     'sex',
     'college',
     'date_of_activity',
@@ -117,8 +115,6 @@ const computeStats = (list: any[]) => {
 
 const GENERAL_FEEDBACK_COLUMNS = [
     'id',
-    'student_id',
-    'student_name',
     'client_type',
     'sex',
     'age',
@@ -137,7 +133,6 @@ const GENERAL_FEEDBACK_COLUMNS = [
     'sqd7',
     'sqd8',
     'suggestions',
-    'email',
     'created_at'
 ].join(', ');
 
@@ -184,7 +179,7 @@ export function useCareStaffFeedback({ functions }: any) {
                 const eventRows = (data || []) as any[];
                 const items = eventRows.map(d => ({
                     id: d.id,
-                    student: d.student_name,
+                    student: 'Anonymous',
                     rating: getEventRating(d),
                     comment: d.open_comments || d.feedback || d.comments || '',
                     date: d.submitted_at,
@@ -205,7 +200,7 @@ export function useCareStaffFeedback({ functions }: any) {
                     const avg = sqdScores.length > 0 ? Math.round(sqdScores.reduce((a, b) => a + b, 0) / sqdScores.length) : 0;
                     return {
                         id: d.id,
-                        student: d.student_name,
+                        student: 'Anonymous',
                         rating: avg,
                         comment: d.suggestions,
                         date: d.created_at,

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Search, User } from 'lucide-react';
+import { CheckCircle, XCircle, Search } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
 import { buildPeerFacilitatorStatusEmailPayload } from '../peerFacilitatorEmail';
 
@@ -14,6 +15,7 @@ const APPLICATIONS_PAGE_SIZE = 10;
 interface CareStaffVolunteerFormsTableProps {
     functions: { showToast: (msg: string, type?: any) => void };
     refreshSignal?: number;
+    toolbarHost?: HTMLElement | null;
 }
 
 const getStatusStyle = (status: string) => {
@@ -23,18 +25,29 @@ const getStatusStyle = (status: string) => {
 };
 
 const ApplicationReviewModal = ({ application, isUpdating, onClose, onReject, onApprove }: any) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent care-modal-overlay">
-        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-                <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
-                    <User className="h-5 w-5 text-blue-600" /> Application Details
-                </h3>
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${getStatusStyle(application.status)}`}>
-                    {application.status}
-                </span>
+    <Modal
+        open
+        anchorId="staff-content-region"
+        title="Application Details"
+        headerMeta={(
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${getStatusStyle(application.status)}`}>
+                {application.status}
+            </span>
+        )}
+        onClose={onClose}
+        footer={(
+            <div className="flex w-full items-center justify-between gap-3">
+                <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Close</Button>
+                {application.status === 'pending' && (
+                    <div className="flex gap-3">
+                        <Button variant="danger" leftIcon={<XCircle size={16} />} onClick={onReject} isLoading={isUpdating}>Reject</Button>
+                        <Button variant="primary" leftIcon={<CheckCircle size={16} />} onClick={onApprove} isLoading={isUpdating} className="!bg-emerald-600 hover:!bg-emerald-700">Approve</Button>
+                    </div>
+                )}
             </div>
-
-            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        )}
+    >
+            <div className="space-y-6">
                 <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
                     <h4 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3">Applicant Details</h4>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -79,39 +92,10 @@ const ApplicationReviewModal = ({ application, isUpdating, onClose, onReject, on
                     </div>
                 </div>
             </div>
-
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between shrink-0">
-                <Button variant="secondary" onClick={onClose} disabled={isUpdating}>
-                    Close
-                </Button>
-
-                {application.status === 'pending' && (
-                    <div className="flex gap-3">
-                        <Button
-                            variant="danger"
-                            leftIcon={<XCircle size={16} />}
-                            onClick={onReject}
-                            isLoading={isUpdating}
-                        >
-                            Reject
-                        </Button>
-                        <Button
-                            variant="primary"
-                            leftIcon={<CheckCircle size={16} />}
-                            onClick={onApprove}
-                            isLoading={isUpdating}
-                            className="!bg-emerald-600 hover:!bg-emerald-700"
-                        >
-                            Approve
-                        </Button>
-                    </div>
-                )}
-            </div>
-        </div>
-    </div>
+    </Modal>
 );
 
-export default function CareStaffVolunteerFormsTable({ functions, refreshSignal = 0 }: CareStaffVolunteerFormsTableProps) {
+export default function CareStaffVolunteerFormsTable({ functions, refreshSignal = 0, toolbarHost }: CareStaffVolunteerFormsTableProps) {
     const queryClient = useQueryClient();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -269,66 +253,65 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
         setShowModal(true);
     };
 
+    const applicationControls = (
+        <div className="flex flex-wrap items-center justify-end gap-2 2xl:flex-nowrap">
+            <label htmlFor="care-volunteer-form-year" className="whitespace-nowrap text-xs font-bold text-gray-500">Application year</label>
+            <input
+                id="care-volunteer-form-year"
+                aria-label="Current application year"
+                type="text"
+                value={yearDraft}
+                onChange={(e) => setYearDraft(e.target.value)}
+                placeholder={activeYear || 'e.g., 2026-2027'}
+                className="w-28 rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            />
+            <Button
+                variant="primary"
+                size="sm"
+                onClick={() => yearDraft.trim() && saveYearMutation.mutate(yearDraft.trim())}
+                isLoading={saveYearMutation.isPending}
+                disabled={!yearDraft.trim() || yearDraft.trim() === activeYear}
+            >
+                Save
+            </Button>
+            <span className="whitespace-nowrap border-l border-slate-200 pl-3 text-xs font-bold text-gray-500">Application form</span>
+            <button
+                type="button"
+                onClick={() => toggleApplicationsMutation.mutate(!applicationsOpen)}
+                disabled={toggleApplicationsMutation.isPending}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-60 ${applicationsOpen ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
+            >
+                <span className={`h-2 w-2 rounded-full ${applicationsOpen ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                {applicationsOpen ? 'Open' : 'Closed'}
+            </button>
+            {yearOptions.length > 0 && (
+                <>
+                    <label htmlFor="care-volunteer-viewing-year" className="whitespace-nowrap text-xs font-bold text-gray-500">Viewing window</label>
+                    <select
+                        id="care-volunteer-viewing-year"
+                        value={selectedYear}
+                        onChange={(e) => { setYearFilter(e.target.value); setPage(1); }}
+                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    >
+                        {yearOptions.map((year) => (
+                            <option key={year} value={year}>{year}{year === activeYear ? ' (active)' : ''}</option>
+                        ))}
+                    </select>
+                </>
+            )}
+        </div>
+    );
+
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <label htmlFor="care-volunteer-form-year" className="text-xs font-bold text-gray-500 whitespace-nowrap">Current application year</label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                id="care-volunteer-form-year"
-                                type="text"
-                                value={yearDraft}
-                                onChange={(e) => setYearDraft(e.target.value)}
-                                placeholder={activeYear || 'e.g., 2026-2027'}
-                                className="w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={() => yearDraft.trim() && saveYearMutation.mutate(yearDraft.trim())}
-                                isLoading={saveYearMutation.isPending}
-                                disabled={!yearDraft.trim() || yearDraft.trim() === activeYear}
-                            >
-                                Save
-                            </Button>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 sm:border-l sm:border-slate-200 sm:pl-4">
-                        <span className="text-xs font-bold text-gray-500 whitespace-nowrap">Application form</span>
-                        <button
-                            type="button"
-                            onClick={() => toggleApplicationsMutation.mutate(!applicationsOpen)}
-                            disabled={toggleApplicationsMutation.isPending}
-                            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition disabled:opacity-60 ${applicationsOpen ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
-                        >
-                            <span className={`h-2 w-2 rounded-full ${applicationsOpen ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                            {applicationsOpen ? 'Open to students' : 'Closed'}
-                        </button>
-                    </div>
-                </div>
-                {yearOptions.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="care-volunteer-viewing-year" className="text-xs font-bold text-gray-500 whitespace-nowrap">Viewing window</label>
-                        <select
-                            id="care-volunteer-viewing-year"
-                            value={selectedYear}
-                            onChange={(e) => { setYearFilter(e.target.value); setPage(1); }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            {yearOptions.map((year) => (
-                                <option key={year} value={year}>{year}{year === activeYear ? ' (active)' : ''}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-            </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
+            {toolbarHost && createPortal(applicationControls, toolbarHost)}
 
             <div className="flex flex-col sm:flex-row justify-between gap-4">
                 <div className="relative flex-1 max-w-md">
+                    <label htmlFor="peer-application-search" className="sr-only">Search applications by student name or ID</label>
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
+                        id="peer-application-search"
                         type="text"
                         placeholder="Search by student name or ID..."
                         value={searchQuery}
@@ -352,8 +335,8 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                 </div>
             </div>
 
-            <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
+            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-50 text-gray-500 uppercase text-xs border-b">
                             <tr>

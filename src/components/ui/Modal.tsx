@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { AnimatePresence, m } from 'framer-motion';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -8,6 +9,7 @@ export interface ModalProps {
   onClose: () => void;
   title?: string;
   subtitle?: string;
+  headerMeta?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -15,6 +17,8 @@ export interface ModalProps {
   showCloseButton?: boolean;
   className?: string;
   zIndex?: string;
+  /** Element id to anchor into (e.g. 'staff-content-region'): the modal portals there and fills it, like the attendees list. */
+  anchorId?: string;
 }
 
 const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -46,6 +50,7 @@ export default function Modal({
   onClose,
   title,
   subtitle,
+  headerMeta,
   size = 'md',
   children,
   footer,
@@ -53,6 +58,7 @@ export default function Modal({
   showCloseButton = true,
   className = '',
   zIndex = 'z-50',
+  anchorId,
 }: ModalProps) {
   const titleId = useId();
   const trapRef = useFocusTrap<HTMLDivElement>(open);
@@ -73,10 +79,14 @@ export default function Modal({
     }
   }, [open, handleKeyDown]);
 
-  return (
+  const content = (
     <AnimatePresence>
       {open && (
-        <div className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4`}>
+        // Anchored mode mirrors the attendees-list layout: fills the content region
+        // below its 4.25rem header, z below the sidebar so its toggle stays usable.
+        <div className={anchorId
+          ? 'absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex p-2 sm:p-3'
+          : `fixed inset-0 ${zIndex} flex items-center justify-center p-4`}>
           {/* Backdrop */}
           <m.div
             className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
@@ -99,7 +109,7 @@ export default function Modal({
             aria-labelledby={title ? titleId : undefined}
             aria-label={title ? undefined : 'Dialog'}
             tabIndex={-1}
-            className={`relative w-full ${SIZE_CLASSES[size]} overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl focus:outline-none ${className}`}
+            className={`relative ${anchorId ? 'flex h-full w-full flex-col' : `w-full ${SIZE_CLASSES[size]}`} overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl focus:outline-none ${className}`}
             variants={panelVariants}
             initial="hidden"
             animate="visible"
@@ -107,8 +117,8 @@ export default function Modal({
           >
             {/* Header */}
             {(title || showCloseButton) && (
-              <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
-                <div className="min-w-0 flex-1 pr-4">
+              <div className="flex flex-wrap items-start gap-4 border-b border-slate-100 px-6 py-5">
+                <div className="min-w-0 flex-1">
                   {title && (
                     <h2 id={titleId} className="text-lg font-bold text-slate-900">{title}</h2>
                   )}
@@ -116,6 +126,9 @@ export default function Modal({
                     <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
                   )}
                 </div>
+                {headerMeta && (
+                  <div className="order-3 w-full sm:order-none sm:w-auto">{headerMeta}</div>
+                )}
                 {showCloseButton && (
                   <button
                     type="button"
@@ -130,7 +143,7 @@ export default function Modal({
             )}
 
             {/* Body */}
-            <div className="max-h-[65vh] overflow-y-auto px-6 py-5">{children}</div>
+            <div className={`${anchorId ? 'flex-1' : 'max-h-[65vh]'} overflow-y-auto px-6 py-5`}>{children}</div>
 
             {/* Footer */}
             {footer && (
@@ -143,4 +156,7 @@ export default function Modal({
       )}
     </AnimatePresence>
   );
+
+  if (anchorId) return createPortal(content, document.getElementById(anchorId) || document.body);
+  return content;
 }

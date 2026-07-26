@@ -41,8 +41,7 @@ export const getPendingEvaluationEventIds = async (studentId: string): Promise<S
 
     const { data: answered, error: answeredError } = await supabase
         .from('event_evaluation_responses')
-        .select('form_id')
-        .eq('student_id', studentId);
+        .select('form_id');
 
     if (answeredError) throw answeredError;
 
@@ -81,8 +80,8 @@ export const getEvaluationForEvent = async (eventId: number) => {
 
 /**
  * Identity columns are deliberately not sent: a database trigger stamps
- * student_id, name, department, course and year from the students table, so the
- * client cannot submit under another student's details.
+ * student_id, department, course and year from the students table while keeping
+ * the respondent name anonymous.
  */
 export const submitEvaluation = async (
     formId: number,

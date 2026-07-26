@@ -1,8 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Award, Trash2, XCircle, Download, RefreshCw, Archive, Edit } from 'lucide-react';
-import { usePermissions } from '../../../../../hooks/usePermissions';
+import { useState } from 'react';
 import { supabase } from '../../../../../lib/supabase';
-import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
 import { useSupabaseData } from '../../../../../hooks/useSupabaseData';
 import { Scholarship } from '../../../../../types/models';
@@ -10,10 +7,6 @@ import { splitFullName } from '../../../../../utils/nameUtils';
 import { buildStudentAddress } from '../../../../../utils/studentFields';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import { parseScholarship, serializeRequirements } from '../../../../../utils/scholarshipHelpers';
-import { Button } from '../../../../../components/ui/Button';
-import { Card } from '../../../../../components/ui/Card';
-
-
 export interface ScholarshipApplicantStudent {
     student_id: string;
     first_name?: string | null;
@@ -135,8 +128,6 @@ const getParentParts = (student: ScholarshipApplicantStudent | null | undefined,
 
 export function useCareStaffScholarship({ functions }: any) {
     const { showToast } = functions || {};
-    const { canPerformAction } = usePermissions();
-    const canArchiveRecords = canPerformAction('archive_records');
 
     // Data States from Custom Hook
     const { data: scholarships, refetch: fetchScholarships } = useSupabaseData<Scholarship>({
@@ -161,7 +152,6 @@ export function useCareStaffScholarship({ functions }: any) {
     // Modal State
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);
     const [showApplicantModal, setShowApplicantModal] = useState(false);
-    const [showClosedModal, setShowClosedModal] = useState(false);
     const [applicantsLoading, setApplicantsLoading] = useState(false);
     const [applicantsError, setApplicantsError] = useState('');
 
@@ -342,28 +332,15 @@ export function useCareStaffScholarship({ functions }: any) {
         try {
             const rows = await fetchApplicantsByScholarship(scholarship.id);
             exportApplicantRows(rows, scholarship.title || 'Scholarship');
-        } catch (err: any) {
+        } catch {
             if (showToast) showToast("Couldn't export applicants. ", "error");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDeleteScholarship = async (id: string) => {
-        if (!window.confirm("Close this scholarship and remove it from active student listings?")) return;
-        try {
-            await managedArchiveService.closeScholarship(id);
-            if (showToast) showToast("Scholarship closed.");
-            await Promise.all([fetchScholarships(), fetchClosedScholarships()]);
-        } catch (err: any) {
-            if (showToast) showToast(err.message, "error");
-        }
-    };
-
     return {
         showToast,
-        canPerformAction,
-        canArchiveRecords,
         scholarships,
         fetchScholarships,
         closedScholarships,
@@ -380,8 +357,6 @@ export function useCareStaffScholarship({ functions }: any) {
         setShowScholarshipModal,
         showApplicantModal,
         setShowApplicantModal,
-        showClosedModal,
-        setShowClosedModal,
         applicantsLoading,
         setApplicantsLoading,
         applicantsError,
@@ -408,7 +383,6 @@ export function useCareStaffScholarship({ functions }: any) {
         getParentParts,
         exportApplicantRows,
         handleExportApplicants,
-        handleExportApplicantsForScholarship,
-        handleDeleteScholarship
+        handleExportApplicantsForScholarship
     };
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronRight, Download, Search } from 'lucide-react';
 import Modal from '../../../../../components/ui/Modal';
 import { Button } from '../../../../../components/ui/Button';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
+import { formatDate } from '../../../../../utils/formatters';
 import {
     getEvaluationResults,
     type EvaluationAnswer,
@@ -17,12 +18,13 @@ interface EventEvaluationResultsModalProps {
     onClose: () => void;
     formId: number;
     eventTitle: string;
+    eventDate?: string | null;
     showToast: (message: string, type?: string) => void;
 }
 
 type AnswerRow = EvaluationAnswer & { response_id: number };
 
-const IDENTITY_HEADERS = ['Student ID', 'Name', 'Department', 'Course', 'Year', 'Submitted'];
+const RESPONSE_HEADERS = ['Response', 'Department', 'Course', 'Year', 'Submitted'];
 
 const selectClass =
     'rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-200';
@@ -38,6 +40,7 @@ export default function EventEvaluationResultsModal({
     onClose,
     formId,
     eventTitle,
+    eventDate,
     showToast
 }: EventEvaluationResultsModalProps) {
     const [form, setForm] = useState<EvaluationForm | null>(null);
@@ -96,7 +99,7 @@ export default function EventEvaluationResultsModal({
             if (courseFilter !== 'All' && row.course !== courseFilter) return false;
             if (yearFilter !== 'All' && row.year_level !== yearFilter) return false;
             if (!term) return true;
-            return `${row.student_name ?? ''} ${row.student_id ?? ''}`.toLowerCase().includes(term);
+            return `${row.id} ${row.department ?? ''} ${row.course ?? ''} ${row.year_level ?? ''}`.toLowerCase().includes(term);
         });
     }, [responses, departmentFilter, courseFilter, yearFilter, search]);
 
@@ -124,16 +127,13 @@ export default function EventEvaluationResultsModal({
         setSearch('');
     };
 
-    /** Export carries the full answers the table deliberately hides -- the screen
-     *  is for finding a student, the spreadsheet is for reading everyone at once. */
     const handleExport = async () => {
         try {
-            const headers = [...IDENTITY_HEADERS, ...orderedQuestions.map((q) => q.question_text)];
+            const headers = [...RESPONSE_HEADERS, ...orderedQuestions.map((q) => q.question_text)];
             const rows = filtered.map((response) => {
                 const row = answersByResponse.get(response.id);
                 return [
-                    response.student_id,
-                    response.student_name ?? '',
+                    `Response ${response.id}`,
                     response.department ?? '',
                     response.course ?? '',
                     response.year_level ?? '',
@@ -160,7 +160,20 @@ export default function EventEvaluationResultsModal({
             open={open}
             onClose={handleClose}
             size="full"
-            title={selected ? (selected.student_name ?? selected.student_id) : (form?.title || 'Evaluation Results')}
+            anchorId="staff-content-region"
+            title={selected ? 'Anonymous response' : (form?.title || 'Evaluation Results')}
+            headerMeta={
+                <dl className="flex flex-wrap gap-x-5 gap-y-2 text-xs sm:justify-end sm:text-right">
+                    <div>
+                        <dt className="font-semibold text-slate-500">Event date</dt>
+                        <dd className="font-bold text-slate-900">{formatDate(eventDate)}</dd>
+                    </div>
+                    <div>
+                        <dt className="font-semibold text-slate-500">Evaluation created</dt>
+                        <dd className="font-bold text-slate-900">{formatDate(form?.created_at)}</dd>
+                    </div>
+                </dl>
+            }
             subtitle={
                 selected
                     ? `${selected.course ?? ''}${selected.year_level ? ` — ${selected.year_level}` : ''}`
@@ -186,7 +199,7 @@ export default function EventEvaluationResultsModal({
             ) : selected ? (
                 <div className="space-y-3">
                     <dl className="grid grid-cols-2 gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-xs sm:grid-cols-4">
-                        <div><dt className="font-semibold text-gray-400">Student ID</dt><dd className="font-bold text-gray-900">{selected.student_id}</dd></div>
+                        <div><dt className="font-semibold text-gray-400">Respondent</dt><dd className="font-bold text-gray-900">Anonymous</dd></div>
                         <div><dt className="font-semibold text-gray-400">Department</dt><dd className="font-bold text-gray-900">{selected.department || '—'}</dd></div>
                         <div><dt className="font-semibold text-gray-400">Course</dt><dd className="font-bold text-gray-900">{selected.course || '—'}</dd></div>
                         <div><dt className="font-semibold text-gray-400">Submitted</dt><dd className="font-bold text-gray-900">{new Date(selected.submitted_at).toLocaleString()}</dd></div>
@@ -223,8 +236,8 @@ export default function EventEvaluationResultsModal({
                             <input
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Search name or ID"
-                                aria-label="Search respondents by name or ID"
+                                placeholder="Search response details"
+                                aria-label="Search response details"
                                 className="w-48 rounded-lg border border-gray-200 py-1.5 pl-7 pr-2.5 text-xs font-semibold text-gray-700 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-200"
                             />
                         </div>
@@ -255,7 +268,7 @@ export default function EventEvaluationResultsModal({
                             <table className="min-w-full text-left text-xs">
                                 <thead className="bg-gray-50 text-gray-500">
                                     <tr>
-                                        {IDENTITY_HEADERS.map((header) => (
+                                        {['Response', 'Course', 'Year', 'Submitted'].map((header) => (
                                             <th key={header} scope="col" className="whitespace-nowrap px-3 py-2 font-bold">{header}</th>
                                         ))}
                                         <th scope="col" className="px-3 py-2"><span className="sr-only">View answers</span></th>
@@ -268,9 +281,7 @@ export default function EventEvaluationResultsModal({
                                             onClick={() => setSelected(response)}
                                             className="cursor-pointer transition hover:bg-purple-50/60"
                                         >
-                                            <td className="whitespace-nowrap px-3 py-2 font-semibold text-gray-900">{response.student_id}</td>
-                                            <td className="whitespace-nowrap px-3 py-2 text-gray-700">{response.student_name}</td>
-                                            <td className="max-w-[14rem] px-3 py-2 text-gray-500"><span className="block truncate" title={response.department ?? undefined}>{response.department}</span></td>
+                                            <td className="whitespace-nowrap px-3 py-2 font-semibold text-gray-900">Anonymous response</td>
                                             <td className="max-w-[16rem] px-3 py-2 text-gray-500"><span className="block truncate" title={response.course ?? undefined}>{response.course}</span></td>
                                             <td className="whitespace-nowrap px-3 py-2 text-gray-500">{response.year_level}</td>
                                             <td className="whitespace-nowrap px-3 py-2 text-gray-400">{new Date(response.submitted_at).toLocaleDateString()}</td>

@@ -4,6 +4,7 @@ const {
     eventsQueryMock,
     counselingQueryMock,
     attendanceQueryMock,
+    generalFeedbackQueryMock,
     notificationsQueryMock,
     supportQueryMock,
     fromMock
@@ -23,6 +24,9 @@ const {
     attendanceQueryMock: {
         select: vi.fn(),
         eq: vi.fn()
+    } as any,
+    generalFeedbackQueryMock: {
+        insert: vi.fn()
     } as any,
     notificationsQueryMock: {
         select: vi.fn(),
@@ -67,6 +71,8 @@ const resetMocks = () => {
     attendanceQueryMock.select.mockReturnValue(attendanceQueryMock);
     attendanceQueryMock.eq.mockResolvedValue({ data: [], error: null });
 
+    generalFeedbackQueryMock.insert.mockResolvedValue({ error: null });
+
     notificationsQueryMock.select.mockReturnValue(notificationsQueryMock);
     notificationsQueryMock.eq.mockReturnValue(notificationsQueryMock);
     notificationsQueryMock.order.mockReturnValue(notificationsQueryMock);
@@ -86,6 +92,7 @@ describe('studentPortalService', () => {
             if (table === 'events') return eventsQueryMock;
             if (table === 'counseling_requests') return counselingQueryMock;
             if (table === 'event_attendance') return attendanceQueryMock;
+            if (table === 'general_feedback') return generalFeedbackQueryMock;
             if (table === 'notifications') return notificationsQueryMock;
             if (table === 'support_requests') return supportQueryMock;
             throw new Error(`Unexpected table: ${table}`);
@@ -139,5 +146,24 @@ describe('studentPortalService', () => {
             { count: 'planned' }
         );
         expect(supportQueryMock.eq).toHaveBeenCalledWith('student_id', '202600001');
+    });
+
+    it('submits general feedback without respondent identity', async () => {
+        const { createGeneralFeedback } = await import('./studentPortalService');
+
+        await createGeneralFeedback({
+            student_id: '202600001',
+            student_name: 'Named Student',
+            client_type: 'Student',
+            suggestions: 'More appointment slots',
+            email: 'student@example.com'
+        });
+
+        expect(generalFeedbackQueryMock.insert).toHaveBeenCalledWith(expect.objectContaining({
+            student_id: '202600001',
+            student_name: 'Anonymous',
+            suggestions: 'More appointment slots',
+            email: null
+        }));
     });
 });

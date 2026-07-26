@@ -7,6 +7,7 @@ import {
     PASS_STATUS,
     UNSUCCESSFUL_STATUS
 } from './constants';
+import { getDepartmentNameFromCourseRecords } from '../../../../utils/courseDepartment';
 
 export const getTotalPages = (totalItems: number) => Math.max(1, Math.ceil(Math.max(0, totalItems) / NAT_PAGE_SIZE));
 
@@ -15,6 +16,15 @@ export const paginateLocalRows = <T,>(rows: T[], page: number) => {
     const safePage = Math.max(1, page);
     const start = (safePage - 1) * NAT_PAGE_SIZE;
     return safeRows.slice(start, start + NAT_PAGE_SIZE);
+};
+
+export const getNatCourseDepartment = (course: any) =>
+    getDepartmentNameFromCourseRecords(course?.name, course ? [course] : []);
+
+export const filterNatCoursesByDepartment = (courses: any[], department: string) => {
+    const safeCourses = Array.isArray(courses) ? courses : [];
+    if (!department || department === 'All') return safeCourses;
+    return safeCourses.filter((course) => getNatCourseDepartment(course) === department);
 };
 
 export const buildPaginationItems = (page: number, totalPages: number) => {
@@ -35,14 +45,6 @@ export const buildPaginationItems = (page: number, totalPages: number) => {
     items.push(totalPages);
     return items;
 };
-
-export const renderTablePaddingRows = (columnCount: number, visibleRowCount: number) => (
-    Array.from({ length: Math.max(0, NAT_PAGE_SIZE - visibleRowCount) }, (_, index) => (
-        <tr key={`table-padding-${columnCount}-${index}`} aria-hidden="true">
-            <td colSpan={columnCount} className="h-[72px] bg-white">&nbsp;</td>
-        </tr>
-    ))
-);
 
 export const isNatFinalizedStatus = (status: unknown) => {
     const value = String(status || '');

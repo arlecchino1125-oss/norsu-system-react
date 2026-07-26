@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, UserPlus, Archive, XCircle, Users } from 'lucide-react';
+import { Search, UserPlus, Archive, Users } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
 
 interface CareStaffActiveFacilitatorsTableProps {
@@ -59,16 +59,28 @@ const AddFacilitatorModal = ({
     const available = results.filter((s: any) => !existingIds.has(s.student_id));
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent care-modal-overlay">
-            <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-                    <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
-                        <UserPlus className="h-5 w-5 text-blue-600" /> Add Peer Facilitator
-                    </h3>
-                    <Button variant="ghost" size="sm" onClick={onClose}><XCircle size={20} /></Button>
-                </div>
-
-                <div className="p-6 overflow-y-auto flex-1 space-y-4">
+        <Modal
+            open
+            anchorId="staff-content-region"
+            title="Add Peer Facilitator"
+            subtitle="Find a student and add them directly to the active roster."
+            onClose={onClose}
+            footer={(
+                <>
+                    <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+                    <Button
+                        variant="primary"
+                        leftIcon={<UserPlus size={16} />}
+                        isLoading={isSaving}
+                        disabled={!selected || !year.trim()}
+                        onClick={() => selected && year.trim() && onAdd(selected.student_id, year.trim())}
+                    >
+                        Add to Active
+                    </Button>
+                </>
+            )}
+        >
+                <div className="mx-auto w-full max-w-2xl space-y-4">
                     {selected ? (
                         <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
                             <div className="min-w-0">
@@ -129,21 +141,7 @@ const AddFacilitatorModal = ({
                         <p className="mt-1 text-[11px] text-slate-400">A label for which year they served — it does not limit their access.</p>
                     </div>
                 </div>
-
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
-                    <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
-                    <Button
-                        variant="primary"
-                        leftIcon={<UserPlus size={16} />}
-                        isLoading={isSaving}
-                        disabled={!selected || !year.trim()}
-                        onClick={() => selected && year.trim() && onAdd(selected.student_id, year.trim())}
-                    >
-                        Add to Active
-                    </Button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 };
 
@@ -252,7 +250,7 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
     const pendingArchive = facilitators.find((f: any) => f.id === pendingArchiveId);
 
     return (
-        <div className="space-y-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
             <div className="flex flex-col gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-gray-500 whitespace-nowrap">Student hours logging</span>
@@ -273,8 +271,10 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
 
             <div className="flex flex-col sm:flex-row justify-between gap-4">
                 <div className="relative flex-1 max-w-md">
+                    <label htmlFor="active-facilitator-search" className="sr-only">Search active facilitators by name or ID</label>
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
+                        id="active-facilitator-search"
                         type="text"
                         placeholder="Search by name or ID..."
                         value={searchQuery}
@@ -298,8 +298,8 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
                 </div>
             </div>
 
-            <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
+            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-50 text-gray-500 uppercase text-xs border-b">
                             <tr>
@@ -363,40 +363,43 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
                 )}
             </Card>
 
-            {showAdd && createPortal(
+            {showAdd && (
                 <AddFacilitatorModal
                     existingIds={existingIds}
                     defaultYear={defaultYear}
                     isSaving={addMutation.isPending}
                     onClose={() => setShowAdd(false)}
                     onAdd={(studentId, peerYear) => addMutation.mutate({ studentId, peerYear })}
-                />,
-                document.body
+                />
             )}
 
-            {pendingArchive && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent care-modal-overlay">
-                    <Card className="shadow-2xl w-full max-w-md p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center flex-shrink-0"><Archive size={22} /></div>
-                            <div>
-                                <h3 className="font-bold text-lg text-gray-900">Archive Facilitator</h3>
-                                <p className="text-sm text-gray-500">They come off the active roster and hours logging pauses. You can restore them anytime by adding or re-approving them.</p>
-                            </div>
+            {pendingArchive && (
+                <Modal
+                    open
+                    anchorId="staff-content-region"
+                    title="Archive Facilitator"
+                    subtitle="Remove this student from the active roster without deleting their record."
+                    onClose={() => setPendingArchiveId(null)}
+                    footer={(
+                        <>
+                            <Button variant="secondary" onClick={() => setPendingArchiveId(null)} disabled={archiveMutation.isPending}>Cancel</Button>
+                            <Button variant="primary" leftIcon={<Archive size={14} />} isLoading={archiveMutation.isPending} onClick={() => archiveMutation.mutate((pendingArchive as any).id)}>
+                                Archive
+                            </Button>
+                        </>
+                    )}
+                >
+                    <div className="mx-auto w-full max-w-2xl">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"><Archive size={20} /></div>
+                            <p className="text-sm text-gray-600">They come off the active roster and hours logging pauses. You can restore them anytime by adding or re-approving them.</p>
                         </div>
-                        <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 mb-6">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
                             <p className="text-sm font-bold text-slate-800">{fullName((pendingArchive as any).students)}</p>
                             <p className="text-xs text-slate-500 mt-1">Nothing is deleted — the record is kept.</p>
                         </div>
-                        <div className="flex gap-3">
-                            <Button variant="secondary" className="flex-1" onClick={() => setPendingArchiveId(null)} disabled={archiveMutation.isPending}>Cancel</Button>
-                            <Button variant="primary" className="flex-1" leftIcon={<Archive size={14} />} isLoading={archiveMutation.isPending} onClick={() => archiveMutation.mutate((pendingArchive as any).id)}>
-                                Archive
-                            </Button>
-                        </div>
-                    </Card>
-                </div>,
-                document.body
+                    </div>
+                </Modal>
             )}
         </div>
     );

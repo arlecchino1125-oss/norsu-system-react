@@ -21,10 +21,10 @@ const NatPaginationControls = ({
             : Math.min(NAT_PAGE_SIZE, Math.max(totalItems - startItem + 1, 0));
     const endItem = totalItems === 0 ? 0 : Math.min(totalItems, startItem + visibleCount - 1);
     const paginationItems = buildPaginationItems(safePage, totalPages);
-    const navButtonClass = 'inline-flex h-8 min-w-8 items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition hover:border-purple-300 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm';
+    const navButtonClass = 'inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition hover:border-purple-300 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40';
 
     return (
-        <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/40 px-6 py-4 text-xs md:flex-row md:items-center md:justify-between rounded-b-[2.5rem]">
+        <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 text-xs md:flex-row md:items-center md:justify-between">
             <span className="font-semibold text-slate-500">
                 {totalItems === 0
                     ? `No ${itemLabel} found.`
@@ -55,8 +55,8 @@ const NatPaginationControls = ({
                             key={`page-${item}`}
                             type="button"
                             onClick={() => onPageChange(item)}
-                            className={`inline-flex h-8 min-w-8 items-center justify-center rounded-xl border px-2.5 text-xs font-bold transition ${item === safePage
-                                ? 'border-purple-650 bg-gradient-to-r from-purple-600 to-indigo-650 text-white shadow-md shadow-purple-500/20'
+                            className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2.5 text-xs font-bold transition ${item === safePage
+                                ? 'border-purple-600 bg-purple-600 text-white'
                                 : 'border-slate-200 bg-white text-slate-600 hover:border-purple-305 hover:text-purple-700'
                                 }`}
                             aria-current={item === safePage ? 'page' : undefined}

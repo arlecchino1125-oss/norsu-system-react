@@ -34,8 +34,6 @@ const EVENT_REGISTRATION_COLUMNS = 'id, event_id, student_id, student_name, emai
 const EVENT_FEEDBACK_COLUMNS = [
     'id',
     'event_id',
-    'student_id',
-    'student_name',
     'sex',
     'college',
     'date_of_activity',
@@ -195,8 +193,10 @@ export function useCareStaffEvents({ functions }: any) {
     const [showEventModal, setShowEventModal] = useState(false);
     const [showDeleteEventModal, setShowDeleteEventModal] = useState(false);
     const [showAttendeesModal, setShowAttendeesModal] = useState(false);
+    const [showAbsentModal, setShowAbsentModal] = useState(false);
     const [showRegistrantsModal, setShowRegistrantsModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [isAttendanceLoading, setIsAttendanceLoading] = useState(false);
     const [detailEvent, setDetailEvent] = useState<SystemEvent | null>(null);
 
     // Target Item States
@@ -213,6 +213,7 @@ export function useCareStaffEvents({ functions }: any) {
     const [feedbackList, setFeedbackList] = useState<any[]>([]);
     const [selectedEventTitle, setSelectedEventTitle] = useState<string>('');
     const [selectedAttendanceEvent, setSelectedAttendanceEvent] = useState<SystemEvent | null>(null);
+    const [selectedFeedbackEvent, setSelectedFeedbackEvent] = useState<SystemEvent | null>(null);
     const [selectedRegistrationEvent, setSelectedRegistrationEvent] = useState<SystemEvent | null>(null);
 
     // Attendee Filters
@@ -352,9 +353,17 @@ export function useCareStaffEvents({ functions }: any) {
         }
     };
 
-    const handleViewAttendees = async (item: SystemEvent) => {
+    const handleViewAttendees = async (item: SystemEvent, target: 'attendees' | 'absent' = 'attendees') => {
         setSelectedEventTitle(item.title);
         setSelectedAttendanceEvent(item);
+        setAttendees([]);
+        setExpectedStudents([]);
+        setIsAttendanceLoading(true);
+        if (target === 'absent') setShowAbsentModal(true);
+        else setShowAttendeesModal(true);
+        setYearLevelFilter('All');
+        setAttendeeCourseFilter('All');
+        setAttendeeSectionFilter('All');
         try {
             const { data, error } = await supabase.from('event_attendance').select(EVENT_ATTENDANCE_COLUMNS).eq('event_id', item.id).order('time_in', { ascending: false });
             if (error) throw error;
@@ -379,28 +388,32 @@ export function useCareStaffEvents({ functions }: any) {
 
             let expected: any[] = [];
             const shouldLoadExpectedStudents = isAttendanceActivityType(item.type)
-                && (Boolean(item.attendance_required) || getEventAudienceType(item) !== 'all_students');
+                && (target === 'absent' || Boolean(item.attendance_required) || getEventAudienceType(item) !== 'all_students');
             if (shouldLoadExpectedStudents) {
-                let expectedQuery: any = supabase
-                    .from('students')
-                    .select('student_id, first_name, middle_name, last_name, suffix, email, department, course, year_level, section, status')
-                    .eq('is_archived', false)
-                    .eq('status', 'Active');
-
-                expectedQuery = applyEventAudienceQuery(expectedQuery, item);
-                const { data: expectedData, error: expectedError } = await expectedQuery.order('last_name', { ascending: true });
-                if (expectedError) throw expectedError;
-                expected = expectedData || [];
+                // Page past Supabase's 1000-row cap so the expected/absent counts are real
+                const pageSize = 1000;
+                for (let from = 0; ; from += pageSize) {
+                    let expectedQuery: any = supabase
+                        .from('students')
+                        .select('student_id, first_name, middle_name, last_name, suffix, email, department, course, year_level, section, status')
+                        .eq('is_archived', false)
+                        .eq('status', 'Active');
+                    expectedQuery = applyEventAudienceQuery(expectedQuery, item);
+                    const { data: expectedData, error: expectedError } = await expectedQuery
+                        .order('last_name', { ascending: true })
+                        .range(from, from + pageSize - 1);
+                    if (expectedError) throw expectedError;
+                    expected = expected.concat(expectedData || []);
+                    if (!expectedData || expectedData.length < pageSize) break;
+                }
             }
 
             setAttendees(enriched);
             setExpectedStudents(expected);
-            setShowAttendeesModal(true);
-            setYearLevelFilter('All');
-            setAttendeeCourseFilter('All');
-            setAttendeeSectionFilter('All');
         } catch (err: any) {
             if (showToast) showToast(err.message, 'error');
+        } finally {
+            setIsAttendanceLoading(false);
         }
     };
 
@@ -448,6 +461,7 @@ export function useCareStaffEvents({ functions }: any) {
 
     const handleViewFeedback = async (item: SystemEvent) => {
         setSelectedEventTitle(item.title);
+        setSelectedFeedbackEvent(item);
         try {
             const { data, error } = await supabase.from('event_feedback').select(EVENT_FEEDBACK_COLUMNS).eq('event_id', item.id).order('submitted_at', { ascending: false });
             if (error) throw error;
@@ -534,10 +548,13 @@ export function useCareStaffEvents({ functions }: any) {
         setShowDeleteEventModal,
         showAttendeesModal,
         setShowAttendeesModal,
+        showAbsentModal,
+        setShowAbsentModal,
         showRegistrantsModal,
         setShowRegistrantsModal,
         showFeedbackModal,
         setShowFeedbackModal,
+        isAttendanceLoading,
         detailEvent,
         setDetailEvent,
         editingEventId,
@@ -562,6 +579,8 @@ export function useCareStaffEvents({ functions }: any) {
         setSelectedEventTitle,
         selectedAttendanceEvent,
         setSelectedAttendanceEvent,
+        selectedFeedbackEvent,
+        setSelectedFeedbackEvent,
         selectedRegistrationEvent,
         setSelectedRegistrationEvent,
         attendeeFilter,

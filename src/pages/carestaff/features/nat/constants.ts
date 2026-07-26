@@ -5,5 +5,5 @@ export const ENROLLED_STATUS = 'Enrolled';
 export const INTERVIEW_STATUS = 'Interview Scheduled';
 export const UNSUCCESSFUL_STATUS = 'Application Unsuccessful';
 export const BULK_PASS_TEMPLATE_HEADERS = ['reference_id', 'applicant_name'];
-export const NAT_PAGE_SIZE = 5;
-export const NAT_TABLE_SHELL_CLASS = 'bg-white/80 backdrop-blur-xl border border-white/60 ring-1 ring-slate-200/50 shadow-xl shadow-purple-500/5 rounded-[2.5rem] overflow-hidden flex min-h-[18rem] flex-col';
+export const NAT_PAGE_SIZE = 25;
+export const NAT_TABLE_SHELL_CLASS = 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm';

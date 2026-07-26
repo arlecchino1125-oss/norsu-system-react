@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, ClipboardList, CheckCircle, Trash2, XCircle, Download, UploadCloud, Archive } from 'lucide-react';
+import { Plus, ClipboardList, Trash2, XCircle, Download, UploadCloud, Archive, Eye, Pencil } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { supabase } from '../../../../../lib/supabase';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
@@ -31,18 +31,18 @@ const handleDownloadTemplate = () => {
 };
 
 const FormCard = ({ form, canArchiveRecords, onEdit, onPreview, onDeactivate }: any) => (
-    <Card className="hover:shadow-md transition-shadow duration-200">
-        <CardContent>
-            <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-xl"><ClipboardList size={24} /></div>
-                <span className="text-xs text-gray-400">Updated: {form.lastUpdated}</span>
+    <Card className="h-full transition-shadow duration-200 hover:shadow-md">
+        <CardContent className="flex h-full flex-col !p-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600"><ClipboardList size={20} /></div>
+                <span className="text-xs font-medium text-gray-500">Updated {form.lastUpdated}</span>
             </div>
-            <h3 className="font-bold text-lg text-gray-900 mb-6">{form.title}</h3>
-            <div className="flex gap-3">
-                <Button variant="primary" size="md" className="flex-1" onClick={onEdit}>Edit Form</Button>
-                <Button variant="secondary" size="md" onClick={onPreview} title="Preview"><CheckCircle size={16} /></Button>
+            <h3 className="mb-4 flex-1 text-base font-bold text-gray-900">{form.title}</h3>
+            <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+                <Button variant="primary" size="sm" className="flex-1 whitespace-nowrap" leftIcon={<Pencil size={14} />} onClick={onEdit}>Edit</Button>
+                <Button variant="secondary" size="sm" className="flex-1 whitespace-nowrap" leftIcon={<Eye size={14} />} onClick={onPreview}>Preview</Button>
                 {canArchiveRecords && (
-                    <Button variant="danger" size="md" onClick={onDeactivate} title="Deactivate Form"><Trash2 size={16} /></Button>
+                    <Button variant="ghost" size="sm" className="flex-1 whitespace-nowrap text-amber-700 hover:bg-amber-50 hover:text-amber-800" leftIcon={<Archive size={14} />} onClick={onDeactivate} aria-label="Deactivate Form">Deactivate</Button>
                 )}
             </div>
         </CardContent>
@@ -53,21 +53,21 @@ const FormEditorModal = ({
     form, setForm, questions, canDeleteRecords,
     onQuestionChange, onAddQuestion, onRemoveQuestion, onBulkUpload, onClose, onSave
 }: any) => (
-    <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
-        <Card className="shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+    <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-slate-950/30 p-2 backdrop-blur-[2px] sm:p-3">
+        <Card className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
                 <h3 className="font-bold text-lg text-gray-900">{form.id ? 'Edit Form' : 'Create Form'}</h3>
-                <Button variant="ghost" size="sm" onClick={onClose}><XCircle size={20} /></Button>
+                <Button variant="ghost" size="sm" aria-label="Close form editor" onClick={onClose}><XCircle size={20} /></Button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                 <div className="mb-6"><label htmlFor="care-form-title" className="block text-xs font-bold text-gray-700 mb-1">Form Title</label><input id="care-form-title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="e.g. Student Satisfaction Survey" /></div>
                 <div className="mb-6"><label htmlFor="care-form-description" className="block text-xs font-bold text-gray-700 mb-1">Description</label><textarea id="care-form-description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={2} placeholder="Purpose of this form..."></textarea></div>
-                <div className="flex justify-between items-center mb-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="block text-xs font-bold text-gray-700">Questions (Likert Scale 1-5)</p>
-                    <div className="flex gap-3">
-                        <Button variant="ghost" size="sm" leftIcon={<Download size={14} />} onClick={handleDownloadTemplate}>Template</Button>
-                        <label className="text-xs text-purple-600 font-bold hover:underline cursor-pointer flex items-center"><UploadCloud size={14} className="mr-1" /> Upload List<input type="file" accept=".txt,.csv" className="hidden" onChange={onBulkUpload} /></label>
-                        <Button variant="ghost" size="sm" onClick={onAddQuestion}>+ Add Question</Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="ghost" size="sm" leftIcon={<Download size={14} />} onClick={handleDownloadTemplate}>Download Template</Button>
+                        <label className="flex min-h-8 cursor-pointer items-center rounded-lg px-3 text-xs font-bold text-purple-600 hover:bg-purple-50"><UploadCloud size={14} className="mr-1.5" /> Upload Questions<input type="file" accept=".txt,.csv" className="hidden" onChange={onBulkUpload} /></label>
+                        <Button variant="ghost" size="sm" leftIcon={<Plus size={14} />} onClick={onAddQuestion}>Add Question</Button>
                     </div>
                 </div>
                 <div className="space-y-2">
@@ -76,9 +76,9 @@ const FormEditorModal = ({
                         return (
                             <div key={q.id ?? q.clientId} className="flex gap-2 items-center">
                                 <div className="bg-gray-100 px-3 py-2 rounded-l-lg border border-r-0 border-gray-300 text-gray-500 text-xs flex items-center h-full">{idx + 1}</div>
-                                <input value={q.question_text} onChange={e => onQuestionChange(idx, e.target.value)} className={`flex-1 px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-blue-600 ${canRemoveQuestion ? 'rounded-r-none' : 'rounded-r-lg'}`} placeholder="Enter question text..." />
+                                <input aria-label={`Question ${idx + 1}`} value={q.question_text} onChange={e => onQuestionChange(idx, e.target.value)} className={`flex-1 px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-blue-600 ${canRemoveQuestion ? 'rounded-r-none' : 'rounded-r-lg'}`} placeholder="Enter question text..." />
                                 {canRemoveQuestion && (
-                                    <Button variant="danger" size="sm" className="border-l-0 rounded-l-none rounded-r-lg" onClick={() => onRemoveQuestion(idx)}><Trash2 size={14} /></Button>
+                                    <Button variant="danger" size="sm" className="border-l-0 rounded-l-none rounded-r-lg" aria-label={`Remove question ${idx + 1}`} onClick={() => onRemoveQuestion(idx)}><Trash2 size={14} /></Button>
                                 )}
                             </div>
                         );
@@ -86,7 +86,7 @@ const FormEditorModal = ({
                     {questions.length === 0 && <p className="text-sm text-gray-400 italic text-center py-4">No questions added yet.</p>}
                 </div>
             </div>
-            <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
+            <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-gray-50/50 px-6 py-4">
                 <Button variant="secondary" onClick={onClose}>Cancel</Button>
                 <Button variant="primary" onClick={onSave}>Save Changes</Button>
             </div>
@@ -95,14 +95,14 @@ const FormEditorModal = ({
 );
 
 const FormPreviewModal = ({ form, onClose }: any) => (
-    <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
-        <Card className="shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+    <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-slate-950/30 p-2 backdrop-blur-[2px] sm:p-3">
+        <Card className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
                 <h3 className="font-bold text-lg text-gray-900">Preview: {form.title}</h3>
-                <Button variant="ghost" size="sm" onClick={onClose}><XCircle size={20} /></Button>
+                <Button variant="ghost" size="sm" aria-label="Close form preview" onClick={onClose}><XCircle size={20} /></Button>
             </div>
-            <div className="p-8 overflow-y-auto flex-1 bg-gray-50">
-                <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50/60 px-6 py-5">
+                <div className="mx-auto max-w-3xl rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">{form.title}</h2>
                     <p className="text-gray-500 mb-8">{form.description}</p>
                     <div className="space-y-6">
@@ -125,7 +125,7 @@ const FormPreviewModal = ({ form, onClose }: any) => (
                     </div>
                 </div>
             </div>
-            <div className="p-4 border-t bg-gray-50 flex justify-end">
+            <div className="flex shrink-0 justify-end border-t border-gray-100 bg-gray-50/50 px-6 py-4">
                 <Button variant="secondary" onClick={onClose}>Close Preview</Button>
             </div>
         </Card>
@@ -133,27 +133,29 @@ const FormPreviewModal = ({ form, onClose }: any) => (
 );
 
 const DeactivateFormModal = ({ form, isDeleting, onCancel, onConfirm }: any) => (
-    <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
-        <Card className="shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center flex-shrink-0"><Trash2 size={24} /></div>
-                <div>
+    <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-slate-950/30 p-2 backdrop-blur-[2px] sm:p-3">
+        <Card className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-6 py-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600"><Archive size={20} /></div>
+                <div className="min-w-0">
                     <h3 className="font-bold text-lg text-gray-900">Deactivate Form</h3>
                     <p className="text-sm text-gray-500">Students will no longer see this form in the portal.</p>
                 </div>
             </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-6">
-                <p className="text-sm text-amber-700 font-medium mb-1">You are about to deactivate:</p>
-                <p className="text-sm font-bold text-amber-800">&ldquo;{form.title}&rdquo;</p>
-                <ul className="text-xs text-amber-700 mt-2 space-y-1 list-disc list-inside">
-                    <li>The form stops appearing in student views</li>
-                    <li>Existing questions remain stored</li>
-                    <li>Existing submissions and answers stay available</li>
-                </ul>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                <div className="mx-auto max-w-2xl rounded-xl border border-amber-100 bg-amber-50 p-5">
+                    <p className="mb-1 text-sm font-medium text-amber-700">You are about to deactivate:</p>
+                    <p className="text-sm font-bold text-amber-800">&ldquo;{form.title}&rdquo;</p>
+                    <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-amber-700">
+                        <li>The form stops appearing in student views</li>
+                        <li>Existing questions remain stored</li>
+                        <li>Existing submissions and answers stay available</li>
+                    </ul>
+                </div>
             </div>
-            <div className="flex gap-3">
-                <Button variant="secondary" className="flex-1" onClick={onCancel} disabled={isDeleting}>Cancel</Button>
-                <Button variant="danger" className="flex-1" onClick={onConfirm} isLoading={isDeleting} leftIcon={<Trash2 size={14} />}>
+            <div className="flex shrink-0 justify-end gap-3 border-t border-gray-100 bg-gray-50/50 px-6 py-4">
+                <Button variant="secondary" onClick={onCancel} disabled={isDeleting}>Cancel</Button>
+                <Button variant="danger" onClick={onConfirm} isLoading={isDeleting} leftIcon={<Archive size={14} />}>
                     Deactivate Form
                 </Button>
             </div>
@@ -162,20 +164,20 @@ const DeactivateFormModal = ({ form, isDeleting, onCancel, onConfirm }: any) => 
 );
 
 const InactiveFormsModal = ({ forms, onClose }: any) => (
-    <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4">
-        <Card className="shadow-2xl w-full max-w-3xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+    <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-slate-950/30 p-2 backdrop-blur-[2px] sm:p-3">
+        <Card className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
                 <div>
                     <h3 className="font-bold text-lg text-gray-900">Inactive Forms</h3>
                     <p className="text-sm text-gray-500 mt-1">These forms are hidden from students but kept with their questions, submissions, and answers.</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={onClose}><XCircle size={20} /></Button>
+                <Button variant="ghost" size="sm" aria-label="Close inactive forms" onClick={onClose}><XCircle size={20} /></Button>
             </div>
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                 {forms.length === 0 ? (
                     <p className="text-sm text-gray-500 text-center py-8">No inactive forms yet.</p>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {forms.map((form: any) => (
                             <div key={`inactive-form-${form.id}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                                 <div className="flex justify-between items-start gap-3">
@@ -393,7 +395,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                     <h1 className="text-2xl font-bold text-gray-900">Needs Assessments</h1>
                     <p className="mt-1 text-sm text-gray-500">Manage needs assessment forms.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                     <Button variant="secondary" leftIcon={<Archive size={16} />} onClick={() => setShowInactiveModal(true)}>
                         Inactive Forms ({inactiveForms.length})
                     </Button>
@@ -405,7 +407,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
 
             <>
                     {loading ? <div className="text-center py-12 text-gray-500">Loading forms...</div> : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {forms.map(form => (
                                 <FormCard
                                     key={form.id}

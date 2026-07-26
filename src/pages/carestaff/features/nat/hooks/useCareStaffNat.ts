@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, FileText, Pencil, Plus, RefreshCw, Trash2, Upload, XCircle } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
-import type { TablesUpdate } from '../../../../../types/database';
 import { loadJsPdfAutoTable, loadXlsx } from '../../../../../lib/exportVendors';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
@@ -30,7 +29,6 @@ import {
     getTotalPages,
     paginateLocalRows,
     buildPaginationItems,
-    renderTablePaddingRows,
     isNatFinalizedStatus,
     hasTakenNatStatus,
     isNatForwardedStatus,
@@ -483,40 +481,6 @@ export function useCareStaffNat({ showToast }: any) {
         }
     };
 
-    const handleUpdateLimit = async (id, field, value) => {
-        try {
-            if (field === 'status') {
-                const nextStatus = value === 'Closed' ? 'Closed' : 'Open';
-                await managedArchiveService.setNatCourseStatus(Number(id), nextStatus);
-                showToast(`Course ${nextStatus === 'Closed' ? 'closed' : 'reopened'}.`, 'success');
-            } else {
-                await supabase.from('courses').update({ [field]: value } as TablesUpdate<'courses'>).eq('id', id);
-                showToast("Limit updated!");
-            }
-            await fetchData();
-        } catch (err) { showToast(err.message, 'error'); }
-    };
-
-    const handleDeleteCourse = async (courseName: string, id: number) => {
-        const confirmClose = window.confirm(
-            `Close the course "${courseName}" for new NAT activity?\n\n` +
-            `This keeps current records intact and hides the course from active use until it is reopened.`
-        );
-        if (!confirmClose) return;
-
-        setLoading(true);
-        try {
-            await managedArchiveService.setNatCourseStatus(id, 'Closed');
-            showToast(`Course "${courseName}" closed.`, 'success');
-            await fetchData();
-        } catch (err: any) {
-            console.error("Close sequence failed:", err);
-            showToast(`Couldn't close course..`, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleAddRequirement = async (e: any) => {
         e.preventDefault();
         const nextName = String(newRequirementName || '').trim();
@@ -946,11 +910,6 @@ export function useCareStaffNat({ showToast }: any) {
         () => paginateLocalRows(natRequirements, requirementsPage),
         [natRequirements, requirementsPage]
     );
-    const paginatedCourseLimits = useMemo(
-        () => paginateLocalRows(courseLimits, limitsPage),
-        [courseLimits, limitsPage]
-    );
-
     useEffect(() => {
         setStatusBoardPage((prev) => Math.min(prev, getTotalPages(activeStatusRows.length)));
     }, [activeStatusRows.length]);
@@ -1061,8 +1020,6 @@ export function useCareStaffNat({ showToast }: any) {
         updateTimeSlotRow,
         removeTimeSlotRow,
         toggleSchedule,
-        handleUpdateLimit,
-        handleDeleteCourse,
         handleAddRequirement,
         handleDeleteRequirement,
         filteredApplications,
@@ -1088,7 +1045,6 @@ export function useCareStaffNat({ showToast }: any) {
         activeStatusSection,
         activeStatusRows,
         paginatedStatusRows,
-        paginatedRequirements,
-        paginatedCourseLimits
+        paginatedRequirements
     };
 }

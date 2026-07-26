@@ -26,6 +26,7 @@ export interface EvaluationForm {
     title: string;
     description: string | null;
     is_active: boolean;
+    created_at?: string | null;
 }
 
 /** A question being edited. `id` is absent until it has been saved once. */
@@ -44,15 +45,13 @@ export interface DraftQuestion {
 
 export interface EvaluationResponse {
     id: number;
-    student_id: string;
-    student_name: string | null;
     department: string | null;
     course: string | null;
     year_level: string | null;
     submitted_at: string;
 }
 
-const FORM_COLUMNS = 'id, event_id, title, description, is_active';
+const FORM_COLUMNS = 'id, event_id, title, description, is_active, created_at';
 const QUESTION_COLUMNS =
     'id, form_id, order_index, question_text, question_type, scale_min, scale_max, scale_min_label, scale_max_label, choices, is_required';
 
@@ -196,7 +195,7 @@ export const getEvaluationResults = async (formId: number) => {
         supabase.from('event_evaluation_questions').select(QUESTION_COLUMNS).eq('form_id', formId).order('order_index'),
         supabase
             .from('event_evaluation_responses')
-            .select('id, student_id, student_name, department, course, year_level, submitted_at')
+            .select('id, department, course, year_level, submitted_at')
             .eq('form_id', formId)
             .order('submitted_at', { ascending: false })
     ]);
