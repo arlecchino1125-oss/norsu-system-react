@@ -53,10 +53,12 @@ const getStudentDbId = (student: any) => {
 const DEPT_STUDENT_YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 
 const StudentsPaginationBar = ({ startIndex, endIndex, totalStudents, currentPage, totalPages, pageSize, onPageSizeChange, goToPage }: any) => (
-    <footer className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+    // Sits on the bottom edge of the list card rather than as its own card, so the
+    // page label and actions stay put while the rows scroll behind them.
+    <footer className="shrink-0 border-t border-slate-200 bg-slate-50/70 px-4 py-2.5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <p className="text-sm text-slate-600">
-                Showing <span className="font-semibold text-slate-900">{startIndex + 1}-{endIndex}</span> of {totalStudents} students
+                Showing <span className="font-semibold text-slate-900">{totalStudents === 0 ? 0 : startIndex + 1}-{endIndex}</span> of {totalStudents} students
                 <span className="ml-2 text-slate-400">Page {currentPage} of {totalPages}</span>
             </p>
 
@@ -113,13 +115,19 @@ const StudentsPaginationBar = ({ startIndex, endIndex, totalStudents, currentPag
 
 const StudentAvatar = ({ student }: any) => (
     <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-100 text-sm font-black text-emerald-800">
-        {(student?.name || 'S').charAt(0).toUpperCase()}
+        {/* Initial is the layer underneath, so it still shows when the photo is
+            missing or fails to resolve. The photo cannot be positioned with
+            `absolute` here: ResolvedProfileImage sets `relative` on the same
+            element and Tailwind emits `.relative` last, so it wins the tie. */}
+        <span className="absolute inset-0 flex items-center justify-center">
+            {(student?.name || 'S').charAt(0).toUpperCase()}
+        </span>
         {student?.profile_picture_url && (
             <ResolvedProfileImage
                 storedValue={student.profile_picture_url}
                 studentId={String(student.student_id || student.id || '')}
                 alt=""
-                className="absolute inset-0 h-full w-full"
+                className="z-10 h-full w-full"
                 previewOnClick={false}
                 referrerPolicy="no-referrer"
             />
@@ -132,7 +140,7 @@ const DeptStudentRow = ({
     noteDraft, setNoteDraft,
     onToggleSelect, onViewProfile, onOpenNoteEditor, onSaveNote, onCancelNote, onToggleFlag
 }: any) => {
-    const { isActive, isSelected, isFlagged, isEditingNote } = cardState;
+    const { isActive, isSelected, isFlagged, isEditingNote, isProfileIncomplete } = cardState;
     const studentName = student?.name || 'Unnamed Student';
     const noteId = `dept-student-note-${getStudentDbId(student) || 'student'}`;
 
@@ -175,6 +183,11 @@ const DeptStudentRow = ({
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                             {isActive ? 'Active' : String(student?.status || 'Inactive')}
                         </span>
+                        {isProfileIncomplete && (
+                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                                Incomplete
+                            </span>
+                        )}
                         {isFlagged && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
                                 <Flag size={11} /> At-Risk
@@ -307,8 +320,7 @@ const StudentDirectoryToolbar = ({
                 >
                     <option value="All">All Statuses</option>
                     <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Incomplete">Incomplete</option>
+                    <option value="InactiveOrIncomplete">Inactive / Incomplete</option>
                 </select>
             </div>
 
@@ -722,7 +734,9 @@ const DeptStudentsPage = ({
     });
 
     return (
-        <div className="space-y-4 animate-fade-in">
+        // Full height of the content region so the pager sits on the bottom edge and
+        // only the rows scroll, instead of the whole page scrolling past it.
+        <div className="flex h-full flex-col gap-4 animate-fade-in">
             <StudentDirectoryToolbar
                 totalStudents={totalStudents}
                 flaggedCount={flaggedStudentIds.length}
@@ -747,14 +761,15 @@ const DeptStudentsPage = ({
                 onResetFilters={resetFilters}
             />
 
-            {filteredStudents.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-12 text-center">
-                    <h2 className="text-base font-bold text-slate-800">{studentsState?.isLoading ? 'Loading students...' : 'No students match these filters'}</h2>
-                    <p className="mt-2 text-sm text-slate-500">{studentsState?.isLoading ? 'Preparing your department directory.' : 'Clear a filter or try a broader search.'}</p>
-                </div>
-            ) : (
-                <>
-                <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                    {filteredStudents.length === 0 ? (
+                        <div className="p-12 text-center">
+                            <h2 className="text-base font-bold text-slate-800">{studentsState?.isLoading ? 'Loading students...' : 'No students match these filters'}</h2>
+                            <p className="mt-2 text-sm text-slate-500">{studentsState?.isLoading ? 'Preparing your department directory.' : 'Clear a filter or try a broader search.'}</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-slate-100">
                     {paginatedStudents.map((student: any) => {
                         const studentId = getStudentKey(student);
                         const historyKey = String(student?.student_id || '').trim() || normalizeText(student?.name);
@@ -773,6 +788,9 @@ const DeptStudentsPage = ({
                                     isActive,
                                     isSelected,
                                     isFlagged,
+                                    // Same rule the "Inactive / Incomplete" filter uses, so a row
+                                    // always shows why it matched.
+                                    isProfileIncomplete: student?.profile_completed !== true,
                                     isEditingNote: editingStudentId === studentId
                                 }}
                                 counselingHistoryCount={counselingHistoryCount}
@@ -794,7 +812,10 @@ const DeptStudentsPage = ({
                             />
                         );
                     })}
+                        </div>
+                    )}
                 </div>
+
                 <StudentsPaginationBar
                     startIndex={startIndex}
                     endIndex={endIndex}
@@ -808,8 +829,7 @@ const DeptStudentsPage = ({
                     }}
                     goToPage={goToPage}
                 />
-                </>
-            )}
+            </div>
         </div>
     );
 };

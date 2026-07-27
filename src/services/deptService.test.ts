@@ -48,21 +48,32 @@ describe('deptService.getStudentsPage', () => {
 
         expect(fromMock).toHaveBeenCalledWith('students_directory');
         expect(queryMock.select).toHaveBeenCalledWith(
-            'id, student_id, first_name, middle_name, last_name, suffix, email, mobile, sex, address, street, city, province, zip_code, year_level, status, profile_completed, department, course, section',
+            'id, student_id, first_name, middle_name, last_name, suffix, email, mobile, sex, address, street, city, province, zip_code, year_level, status, profile_completed, profile_picture_url, department, course, section',
             { count: 'exact' }
         );
         expect(queryMock.eq).toHaveBeenCalledWith('department', 'CAS');
         expect(queryMock.or).toHaveBeenCalled();
     });
 
-    it('filters incomplete students by profile completion state', async () => {
+    it('filters the combined inactive/incomplete bucket by status and profile completion', async () => {
         await getStudentsPage(
-            { status: 'Incomplete', department: 'CAS' },
+            { status: 'InactiveOrIncomplete', department: 'CAS' },
             { page: 1, pageSize: 10 }
         );
 
-        expect(queryMock.or).toHaveBeenCalledWith('profile_completed.eq.false,profile_completed.is.null');
-        expect(queryMock.eq).not.toHaveBeenCalledWith('status', 'Incomplete');
+        // Null status must be caught explicitly — PostgREST's neq skips nulls.
+        expect(queryMock.or).toHaveBeenCalledWith('status.neq.Active,status.is.null,profile_completed.eq.false,profile_completed.is.null');
+        expect(queryMock.eq).not.toHaveBeenCalledWith('status', 'InactiveOrIncomplete');
+    });
+
+    it('still matches a plain status filter exactly', async () => {
+        await getStudentsPage(
+            { status: 'Active', department: 'CAS' },
+            { page: 1, pageSize: 10 }
+        );
+
+        expect(queryMock.eq).toHaveBeenCalledWith('status', 'Active');
+        expect(queryMock.or).not.toHaveBeenCalled();
     });
 
     it('strips PostgREST filter delimiters from student search terms', async () => {

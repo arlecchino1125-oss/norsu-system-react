@@ -55,13 +55,18 @@ export function DeptViewFormModal(props: any) {
                         >
                             <section className="flex items-start gap-4 border-b border-slate-100 pb-5" aria-labelledby="dept-student-profile-name">
                                 <span className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-emerald-100 text-xl font-black text-emerald-800">
-                                    {(fullName || 'S').charAt(0).toUpperCase()}
+                                    {/* Initial sits underneath as the fallback — see StudentAvatar:
+                                        ResolvedProfileImage sets `relative` on the same element, so
+                                        passing `absolute` to it does nothing. */}
+                                    <span className="absolute inset-0 flex items-center justify-center">
+                                        {(fullName || 'S').charAt(0).toUpperCase()}
+                                    </span>
                                     {selectedStudent.profile_picture_url && (
                                         <ResolvedProfileImage
                                             storedValue={selectedStudent.profile_picture_url}
                                             studentId={String(selectedStudent.student_id || selectedStudent.id || '')}
                                             alt={`${fullName || 'Student'} profile`}
-                                            className="absolute inset-0 h-full w-full"
+                                            className="z-10 h-full w-full"
                                             previewOnClick={false}
                                             referrerPolicy="no-referrer"
                                         />

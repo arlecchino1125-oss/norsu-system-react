@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, MapPin, Search, X } from 'lucide-react';
 
 import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
@@ -96,11 +97,12 @@ export function DeptEventAttendeesModal(props: any) {
 
     if (!showEventAttendees) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 p-4 animate-backdrop">
-            {/* Wide enough that an eight-column table is not squeezed into 672px,
-                which is what forced course names to wrap over six lines. */}
-            <div className="flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scale-in dark:bg-gray-800">
+    return createPortal((
+        // Anchored to the content region (#dept-content-region) so it fills only the
+        // page area — right of the sidebar, below the 4rem header — and follows the
+        // sidebar when it collapses. z stays below the sidebar (z-30).
+        <div className="absolute inset-x-0 bottom-0 top-16 z-20 flex bg-black/30 p-2 backdrop-blur-sm sm:p-3">
+            <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
                 <div className="shrink-0 border-b border-gray-100 bg-gray-50 px-5 py-4 dark:border-gray-600 dark:bg-gray-700">
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
@@ -264,5 +266,5 @@ export function DeptEventAttendeesModal(props: any) {
                 </div>
             </div>
         </div>
-    );
+    ), document.getElementById('dept-content-region') || document.body);
 }

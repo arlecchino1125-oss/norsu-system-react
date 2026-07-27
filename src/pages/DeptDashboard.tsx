@@ -272,7 +272,7 @@ export default function DeptDashboard() {
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden">
+            <main id="dept-content-region" className="relative flex-1 flex flex-col h-full overflow-hidden">
                 <DeptHeader
                     activeModule={activeModule}
                     setIsSidebarOpen={setIsSidebarOpen}

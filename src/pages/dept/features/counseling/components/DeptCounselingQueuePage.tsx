@@ -14,11 +14,11 @@ const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visibl
 const QueuePaginationBar = ({
     startIndex, endIndex, totalResults, currentPage, totalPages, pageSize, onPageSizeChange, goToPage
 }: any) => (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4">
+    <div className="shrink-0 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-1">
                 <p className="text-sm font-semibold text-gray-800">
-                    Showing {startIndex + 1}-{endIndex} of {totalResults} results
+                    Showing {totalResults === 0 ? 0 : startIndex + 1}-{endIndex} of {totalResults} results
                 </p>
                 <p className="text-xs text-gray-500">
                     Page {currentPage} of {totalPages}
@@ -233,28 +233,33 @@ const DeptCounselingQueuePage = ({
     return (
         <>
             {/* COUNSELING QUEUE */}
-            <div className="space-y-6 animate-fade-in">
-                {/* Cascade Filters */}
-                <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-100/80 shadow-sm">
-                    {cascadeFilterBar}
+            <div className="flex h-full flex-col gap-6 animate-fade-in">
+                {/* Cascade Filters — Refer Student rides in the row's spare width
+                    instead of taking a full-width band of its own. */}
+                <div className="shrink-0 bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-100/80 shadow-sm">
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                            {cascadeFilterBar}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={openDirectReferral}
+                            className={`card-hover shrink-0 text-left p-4 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 hover:border-emerald-200 shadow-sm flex items-center gap-4 group ${FOCUS_RING}`}
+                        >
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-200/50 group-hover:scale-105 transition-transform">
+                                <UserPlus size={18} />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-gray-900 text-sm group-hover:text-purple-700 transition-colors">Refer Student</h4>
+                                <p className="text-xs text-gray-500">Direct referral to CARE Staff</p>
+                            </div>
+                        </button>
+                    </div>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={openDirectReferral}
-                    className={`card-hover w-full text-left p-4 rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 hover:border-emerald-200 shadow-sm flex items-start gap-4 group ${FOCUS_RING}`}
-                >
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-200/50 group-hover:scale-105 transition-transform">
-                        <UserPlus size={18} />
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-gray-900 text-sm group-hover:text-purple-700 transition-colors">Refer Student</h4>
-                        <p className="text-xs text-gray-500">Direct referral to CARE Staff</p>
-                    </div>
-                </button>
-
                 {/* Stats bar */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="shrink-0 grid grid-cols-2 md:grid-cols-5 gap-4">
                     {[
                         { label: 'Pending Review', count: counselingRequests.filter((request: any) => isCounselingAwaitingDept(request.status)).length, color: 'amber', tab: COUNSELING_STATUS.SUBMITTED },
                         { label: 'Scheduled', count: counselingRequests.filter((request: any) => request.status === COUNSELING_STATUS.SCHEDULED).length, color: 'blue', tab: COUNSELING_STATUS.SCHEDULED },
@@ -269,8 +274,10 @@ const DeptCounselingQueuePage = ({
                     ))}
                 </div>
 
-                {/* Request Cards */}
-                <div className="space-y-3">
+                {/* Request Cards — cards scroll, the pager stays on the bottom edge */}
+                <div className="flex min-h-0 flex-1 flex-col gap-3">
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                    <div className="space-y-3">
                     {filteredRequests.length === 0 ? (
                         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-12 text-center">
                             <p className="text-gray-400 text-sm">No requests found in this stage.</p>
@@ -311,6 +318,11 @@ const DeptCounselingQueuePage = ({
                             );
                         })()
                     ))}
+                    </>
+                    )}
+                    </div>
+                    </div>
+
                     <QueuePaginationBar
                         startIndex={startIndex}
                         endIndex={endIndex}
@@ -324,8 +336,6 @@ const DeptCounselingQueuePage = ({
                         }}
                         goToPage={goToPage}
                     />
-                    </>
-                    )}
                 </div>
             </div>
 

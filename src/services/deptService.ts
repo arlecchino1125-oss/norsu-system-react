@@ -25,6 +25,7 @@ const DEPT_STUDENT_COLUMNS = [
     'year_level',
     'status',
     'profile_completed',
+    'profile_picture_url',
     'department',
     'course',
     'section'
@@ -194,8 +195,11 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
     }
 
     if (filters.status && filters.status !== 'All') {
-        if (filters.status === 'Incomplete') {
-            next = next.or('profile_completed.eq.false,profile_completed.is.null');
+        if (filters.status === 'InactiveOrIncomplete') {
+            // One bucket for "not fully active and complete": the exact union of the
+            // old Inactive and Incomplete options. status.neq skips NULLs in
+            // PostgREST, so a null status needs its own term to be caught.
+            next = next.or('status.neq.Active,status.is.null,profile_completed.eq.false,profile_completed.is.null');
         } else {
             next = next.eq('status', filters.status);
         }
