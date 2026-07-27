@@ -1,18 +1,19 @@
 // Single source of truth for event attendance timing. The student portal, the
-// staff/dept portals, and the record_student_event_attendance RPC must all agree
-// on these windows — keep this file and that migration in lockstep.
+// public events portal, the staff/dept portals, and the
+// record_student_event_attendance / public_event_time_in RPCs must all agree on
+// these windows — keep this file and those migrations in lockstep.
 
 const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const VISIBILITY_MS = 3 * 24 * 60 * 60 * 1000;
 
-const parseDate = (value?: string): Date | null => {
+export const parseEventDate = (value?: string): Date | null => {
     if (!value) return null;
     const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const parseTime = (value?: string) => {
+export const parseEventTime = (value?: string) => {
     const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (!match) return null;
     const hour = Number(match[1]);
@@ -23,8 +24,8 @@ const parseTime = (value?: string) => {
 };
 
 const combine = (dateValue?: string, timeValue?: string): Date | null => {
-    const date = parseDate(dateValue);
-    const time = parseTime(timeValue);
+    const date = parseEventDate(dateValue);
+    const time = parseEventTime(timeValue);
     if (!date || !time) return null;
     const combined = new Date(date);
     combined.setHours(time.hour, time.minute, time.second, 0);
@@ -36,30 +37,33 @@ export interface EventWindows {
     end: Date | null;
     /** Time-in stays clickable until here. */
     checkInClose: Date | null;
-    /** Time-out (check-out) stays available until here. */
-    timeoutClose: Date | null;
     /** Event stays visible in the portal until here, then it archives. */
     visibleUntil: Date | null;
 }
 
+// Time-out has no closing window on purpose. It opens when the event ends and
+// stays open until the event archives itself out of view at visibleUntil, so a
+// student who forgets to check out is not locked out by a separate grace timer.
+
 export function getEventWindows(event: any): EventWindows {
     const start = combine(event?.event_date, event?.event_time);
-    if (!start) return { start: null, end: null, checkInClose: null, timeoutClose: null, visibleUntil: null };
+    if (!start) return { start: null, end: null, checkInClose: null, visibleUntil: null };
 
     const end = combine(event?.event_date, event?.end_time)
         || new Date(start.getTime() + THREE_HOURS_MS);
 
-    // Check-in stays open for at least 3h after the event starts (so short events
-    // don't close the window minutes in), or until the event ends if that's later.
-    const checkInClose = new Date(Math.max(end.getTime(), start.getTime() + THREE_HOURS_MS));
-    // Time-outs stay open for 3h after the event ends.
-    const timeoutClose = new Date(end.getTime() + THREE_HOURS_MS);
-    // The event stays visible in the portal for a full day after it ends, then archives.
-    const visibleUntil = new Date(end.getTime() + ONE_DAY_MS);
-    return { start, end, checkInClose, timeoutClose, visibleUntil };
+    // Time-in closes at whichever comes FIRST: the event ending, or 3h after it
+    // started. A 1h event stops accepting time-ins when it ends; a 13h event
+    // stops 3h in, so nobody strolls in at hour twelve and is marked present.
+    const checkInClose = new Date(Math.min(end.getTime(), start.getTime() + THREE_HOURS_MS));
+    // The event stays visible in the portal for 3 days after it ends, then archives.
+    // Time-out, rating and evaluation have no closing window of their own, so this
+    // is in practice the deadline for all three.
+    const visibleUntil = new Date(end.getTime() + VISIBILITY_MS);
+    return { start, end, checkInClose, visibleUntil };
 }
 
-// Concluded = explicitly archived, or past its 2h time-out grace. Students stop
+// Concluded = explicitly archived, or a full day past its end. Students stop
 // seeing it and staff show it as "Archived" once this is true.
 export function isEventConcluded(event: any): boolean {
     if (event?.is_archived) return true;

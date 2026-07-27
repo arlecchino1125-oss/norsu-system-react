@@ -13,7 +13,10 @@ export default defineConfig({
             '**/dist/**',
             '**/cypress/**',
             '**/.{idea,git,cache,output,temp}/**',
-            '**/.codex-backups/**'
+            '**/.codex-backups/**',
+            // Agent scratch worktrees are checkouts of older commits; their test
+            // copies would otherwise run alongside (and fail against) this one.
+            '**/.claude/worktrees/**'
         ],
         coverage: {
             provider: 'v8',

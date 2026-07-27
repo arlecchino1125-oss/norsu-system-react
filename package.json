@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "db:dump": "supabase db dump -f supabase/schema.sql",
+    "db:drift": "supabase db diff --linked --schema public",
     "db:types": "supabase gen types typescript --linked > src/types/database.ts",
     "sanitize:storage": "node scripts/empty-production-storage.mjs",
     "sanitize:storage:dry-run": "node scripts/empty-production-storage.mjs --dry-run",

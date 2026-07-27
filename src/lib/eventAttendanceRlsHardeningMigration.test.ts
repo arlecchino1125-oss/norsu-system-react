@@ -42,7 +42,7 @@ describe('student event attendance RLS hardening', () => {
     });
 
     it('closes the browser check-in action when the server check-in window closes', () => {
-        expect(studentEventsView).toMatch(/const isCheckInClosed = [^;]*now > \(end as Date\)/i);
+        expect(studentEventsView).toMatch(/const isCheckInClosed = [^;]*now > \(checkInClose as Date\)/i);
         expect(studentEventsView).toMatch(/'Check-in closed'/i);
     });
 });

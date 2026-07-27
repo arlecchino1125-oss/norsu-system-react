@@ -29,6 +29,7 @@ const RolePermissionsPage = lazy(() => import('./pages/admin/features/permission
 const DeptDashboard = lazy(() => import('./pages/DeptDashboard'));
 const CareStaffDashboard = lazy(() => import('./pages/CareStaffDashboard'));
 const NATPortal = lazy(() => import('./pages/NATPortal'));
+const PublicEventsPage = lazy(() => import('./pages/public/features/events/PublicEventsPage'));
 const StudentPortal = lazy(() => import('./pages/StudentPortal'));
 const StudentLogin = lazy(() => import('./pages/StudentLogin'));
 const StudentResetPassword = lazy(() => import('./pages/StudentResetPassword'));
@@ -189,130 +190,137 @@ function App() {
       <ErrorBoundary>
         <Router>
           <AuthProvider>
-          <ToastProvider>
-            <InAppBrowserBanner /> {/* claude */}
-            <DocumentPreviewModal />
-            <Routes>
-              <Route path="/" element={
-                <LazyRoute fallback={<LandingPageSkeleton />}>
-                  <PublicLanding />
-                </LazyRoute>
-              } />
-              <Route path="/privacy-policy" element={
-                <LazyRoute>
-                  <PrivacyPolicy />
-                </LazyRoute>
-              } />
-
-              {/* Admin Routes */}
-              <Route path="/admin" element={
-                <LazyRoute>
-                  <AdminLogin />
-                </LazyRoute>
-              } />
-              <Route path="/admin/dashboard" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                  <LazyRoute>
-                    <AdminDashboard />
+            <ToastProvider>
+              <InAppBrowserBanner /> {/* claude */}
+              <DocumentPreviewModal />
+              <Routes>
+                <Route path="/" element={
+                  <LazyRoute fallback={<LandingPageSkeleton />}>
+                    <PublicLanding />
                   </LazyRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/permissions" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                } />
+                <Route path="/privacy-policy" element={
                   <LazyRoute>
-                    <RolePermissionsPage />
+                    <PrivacyPolicy />
                   </LazyRoute>
-                </ProtectedRoute>
-              } />
+                } />
 
-              {/* Department Routes */}
-              <Route path="/department/login" element={
-                <LazyRoute>
-                  <DeptLogin />
-                </LazyRoute>
-              } />
-              <Route path="/department/dashboard" element={
-                <Navigate to="/department/dashboard/dashboard" replace />
-              } />
-              <Route path="/department/dashboard/:tab" element={
-                <ProtectedRoute allowedRoles={['Department Head']}>
+                {/* Admin Routes */}
+                <Route path="/admin" element={
                   <LazyRoute>
-                    <DeptDashboard />
+                    <AdminLogin />
                   </LazyRoute>
-                </ProtectedRoute>
-              } />
+                } />
+                <Route path="/admin/dashboard" element={
+                  <ProtectedRoute allowedRoles={['Admin']}>
+                    <LazyRoute>
+                      <AdminDashboard />
+                    </LazyRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/permissions" element={
+                  <ProtectedRoute allowedRoles={['Admin']}>
+                    <LazyRoute>
+                      <RolePermissionsPage />
+                    </LazyRoute>
+                  </ProtectedRoute>
+                } />
 
-              {/* Care Staff Routes */}
-              <Route path="/care-staff" element={
-                <LazyRoute fallback={<CareStaffLoginSkeleton />}>
-                  <CareStaffLogin />
-                </LazyRoute>
-              } />
-              <Route path="/care-staff/dashboard" element={
-                <Navigate to="/care-staff/dashboard/home" replace />
-              } />
-              <Route path="/care-staff/dashboard/:tab" element={
-                <ProtectedRoute allowedRoles={['Care Staff']}>
+                {/* Department Routes */}
+                <Route path="/department/login" element={
                   <LazyRoute>
-                    <CareStaffDashboard />
+                    <DeptLogin />
                   </LazyRoute>
-                </ProtectedRoute>
-              } />
+                } />
+                <Route path="/department/dashboard" element={
+                  <Navigate to="/department/dashboard/dashboard" replace />
+                } />
+                <Route path="/department/dashboard/:tab" element={
+                  <ProtectedRoute allowedRoles={['Department Head']}>
+                    <LazyRoute>
+                      <DeptDashboard />
+                    </LazyRoute>
+                  </ProtectedRoute>
+                } />
 
-              {/* Registrar Routes */}
-              <Route path="/registrar/login" element={
-                <LazyRoute>
-                  <RegistrarLogin />
-                </LazyRoute>
-              } />
-              <Route path="/registrar/dashboard" element={
-                <ProtectedRoute allowedRoles={['Registrar']}>
+                {/* Care Staff Routes */}
+                <Route path="/care-staff" element={
+                  <LazyRoute fallback={<CareStaffLoginSkeleton />}>
+                    <CareStaffLogin />
+                  </LazyRoute>
+                } />
+                <Route path="/care-staff/dashboard" element={
+                  <Navigate to="/care-staff/dashboard/home" replace />
+                } />
+                <Route path="/care-staff/dashboard/:tab" element={
+                  <ProtectedRoute allowedRoles={['Care Staff']}>
+                    <LazyRoute>
+                      <CareStaffDashboard />
+                    </LazyRoute>
+                  </ProtectedRoute>
+                } />
+
+                {/* Registrar Routes */}
+                <Route path="/registrar/login" element={
                   <LazyRoute>
-                    <RegistrarPortal />
+                    <RegistrarLogin />
                   </LazyRoute>
-                </ProtectedRoute>
-              } />
+                } />
+                <Route path="/registrar/dashboard" element={
+                  <ProtectedRoute allowedRoles={['Registrar']}>
+                    <LazyRoute>
+                      <RegistrarPortal />
+                    </LazyRoute>
+                  </ProtectedRoute>
+                } />
 
-              {/* NAT Portal (Self-contained) */}
-              <Route path="/nat" element={
-                <LazyRoute>
-                  <NATPortal />
-                </LazyRoute>
-              } />
+                {/* NAT Portal (Self-contained) */}
+                <Route path="/nat" element={
+                  <LazyRoute>
+                    <NATPortal />
+                  </LazyRoute>
+                } />
 
-              {/* Student Routes */}
-              <Route path="/student/login" element={
-                <LazyRoute>
-                  <StudentLogin />
-                </LazyRoute>
-              } />
-              {/* Public on purpose: students arrive here from an emailed reset link with no
+                {/* Public Events Endpoint */}
+                <Route path="/public/events" element={
+                  <LazyRoute>
+                    <PublicEventsPage />
+                  </LazyRoute>
+                } />
+
+                {/* Student Routes */}
+                <Route path="/student/login" element={
+                  <LazyRoute>
+                    <StudentLogin />
+                  </LazyRoute>
+                } />
+                {/* Public on purpose: students arrive here from an emailed reset link with no
                   session. Static segment outranks /student/:view below, so it is not swallowed
                   by that route's ProtectedRoute. */}
-              <Route path="/student/reset-password" element={
-                <LazyRoute>
-                  <StudentResetPassword />
-                </LazyRoute>
-              } />
-              <Route path="/student" element={
-                <Navigate to="/student/dashboard" replace />
-              } />
-              <Route path="/student/:view" element={
-                <ProtectedRoute allowedRoles={['Student']}>
+                <Route path="/student/reset-password" element={
                   <LazyRoute>
-                    <StudentPortal />
+                    <StudentResetPassword />
                   </LazyRoute>
-                </ProtectedRoute>
-              } />
-              <Route path="/student/:view/:section" element={
-                <ProtectedRoute allowedRoles={['Student']}>
-                  <LazyRoute>
-                    <StudentPortal />
-                  </LazyRoute>
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </ToastProvider>
+                } />
+                <Route path="/student" element={
+                  <Navigate to="/student/dashboard" replace />
+                } />
+                <Route path="/student/:view" element={
+                  <ProtectedRoute allowedRoles={['Student']}>
+                    <LazyRoute>
+                      <StudentPortal />
+                    </LazyRoute>
+                  </ProtectedRoute>
+                } />
+                <Route path="/student/:view/:section" element={
+                  <ProtectedRoute allowedRoles={['Student']}>
+                    <LazyRoute>
+                      <StudentPortal />
+                    </LazyRoute>
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </ToastProvider>
           </AuthProvider>
         </Router>
       </ErrorBoundary>

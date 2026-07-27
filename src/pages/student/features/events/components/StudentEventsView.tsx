@@ -4,6 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useStudentEventsData } from '../hooks/useStudentEventsData';
 import { getAudienceLabel, isAttendanceActivityType } from '../../../../../utils/eventAudience';
 import { getEventWindows } from '../../../../../utils/eventWindows';
+import {
+    formatAttendanceTimestamp,
+    formatDateLabel,
+    formatTimeLabel,
+    formatTimeRangeLabel
+} from '../../../../../utils/eventFormat';
 import { getTextInputLimitProps } from '../../../../../utils/inputSecurity';
 import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
 import { getPendingEvaluationEventIds } from '../studentEvaluationService';
@@ -13,72 +19,9 @@ import StudentEvaluationModal from './StudentEvaluationModal';
 // render and retrigger everything downstream of it.
 const EMPTY_EVALUATION_SET: Set<number> = new Set();
 
-const parseDateValue = (value: string) => {
-    if (!value) return null;
-    const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
-    const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const parseTimeValue = (value: string) => {
-    const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-    if (!match) return null;
-
-    const hour = Number(match[1]);
-    const minute = Number(match[2]);
-    const second = Number(match[3] || 0);
-
-    if (!Number.isFinite(hour) || !Number.isFinite(minute) || !Number.isFinite(second)) return null;
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return null;
-
-    return { hour, minute, second };
-};
-
-const formatDateLabel = (value: string) => {
-    const date = parseDateValue(value);
-    if (!date) return value || 'To be announced';
-    return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-};
-
-const formatTimeLabel = (value: string) => {
-    const time = parseTimeValue(value);
-    if (!time) return value || 'To be announced';
-
-    const date = new Date();
-    date.setHours(time.hour, time.minute, time.second, 0);
-    return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    });
-};
-
-const formatTimeRangeLabel = (startValue: string, endValue?: string) => {
-    const startLabel = formatTimeLabel(startValue);
-    if (!endValue) return startLabel;
-    return `${startLabel} - ${formatTimeLabel(endValue)}`;
-};
-
-const formatAttendanceTimestamp = (value: string) => {
-    const date = parseDateValue(value);
-    if (!date) return value || 'Not recorded';
-    return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    });
-};
-
 const getEventWindow = (item: any) => {
     if (!isAttendanceActivityType(item?.type)) {
-        return { start: null, end: null, checkInClose: null, timeoutClose: null };
+        return { start: null, end: null, checkInClose: null };
     }
     return getEventWindows(item);
 };
@@ -293,7 +236,7 @@ const EventDetailModal = ({
     const isTimedOut = Boolean(record?.time_out);
     const isTimingOut = timingOutEventId === String(selectedEvent.id);
     const isAttendanceActivity = isAttendanceActivityType(selectedEvent.type);
-    const { start, end, checkInClose, timeoutClose } = getEventWindow(selectedEvent);
+    const { start, end, checkInClose } = getEventWindow(selectedEvent);
     const now = new Date();
     const isEventEnded = Boolean(end) && now >= (end as Date);
     const isCheckInClosed = isAttendanceActivity && Boolean(checkInClose) && now > (checkInClose as Date);
@@ -486,7 +429,7 @@ const EventDetailModal = ({
                                     </div>
                                 )}
 
-                                {isTimedIn && isEventEnded && !ratedEvents.includes(selectedEvent.id) && (
+                                {isEventEnded && !ratedEvents.includes(selectedEvent.id) && (
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -502,7 +445,7 @@ const EventDetailModal = ({
 
                                 {/* Separate from the rating above: staff may attach their own
                                 evaluation form, and both are filled independently. */}
-                                {isTimedIn && isEventEnded && pendingEvaluations?.has(selectedEvent.id) && (
+                                {isEventEnded && pendingEvaluations?.has(selectedEvent.id) && (
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -564,7 +507,7 @@ const EventsListSection = ({
                         const isTimedOut = Boolean(record?.time_out);
                         const isTimingOut = timingOutEventId === String(item.id);
                         const isAttendanceActivity = isAttendanceActivityType(item.type);
-                        const { start, end, checkInClose, timeoutClose } = getEventWindow(item);
+                        const { start, end, checkInClose } = getEventWindow(item);
                         const now = new Date();
                         const isEventEnded = Boolean(end) && now >= (end as Date);
                         const isCheckInClosed = isAttendanceActivity && Boolean(checkInClose) && now > (checkInClose as Date);
@@ -691,7 +634,7 @@ const EventsListSection = ({
                                             </button>
                                         </div>
 
-                                        {isTimedIn && isEventEnded && !ratedEventIdSet.has(item.id) && (
+                                        {isEventEnded && !ratedEventIdSet.has(item.id) && (
                                             <button type="button"
                                                 onClick={() => handleRateEvent(item)}
                                                 className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-[11px] font-black text-amber-700 shadow-sm transition-all hover:bg-amber-100 sm:text-xs"
@@ -701,7 +644,7 @@ const EventsListSection = ({
                                             </button>
                                         )}
 
-                                        {isTimedIn && isEventEnded && pendingEvaluations?.has(item.id) && (
+                                        {isEventEnded && pendingEvaluations?.has(item.id) && (
                                             <button type="button"
                                                 onClick={() => onOpenEvaluation(item)}
                                                 className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-[11px] font-black text-purple-700 shadow-sm transition-all hover:bg-purple-100 sm:text-xs"
