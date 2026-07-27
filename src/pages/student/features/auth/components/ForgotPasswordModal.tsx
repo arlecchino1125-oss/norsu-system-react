@@ -1,6 +1,7 @@
-import { Eye, EyeOff, Lock, Mail, User, X } from 'lucide-react';
+import { Eye, EyeOff, Link2, Lock, Mail, User, X } from 'lucide-react';
 import { m } from 'framer-motion';
 import type { StudentLoginMethod } from '../../../types';
+import type { StudentForgotPasswordDelivery } from '../hooks/useStudentForgotPassword';
 
 type ForgotPasswordOtpInfo = {
     message?: string;
@@ -9,6 +10,7 @@ type ForgotPasswordOtpInfo = {
 
 type ForgotPasswordModalProps = {
     method: StudentLoginMethod;
+    delivery: StudentForgotPasswordDelivery;
     fieldLabel: string;
     identifier: string;
     otp: string;
@@ -26,6 +28,7 @@ type ForgotPasswordModalProps = {
     resendCountdown: string;
     onClose: () => void;
     onSelectMethod: (method: StudentLoginMethod) => void;
+    onSelectDelivery: (delivery: StudentForgotPasswordDelivery) => void;
     onIdentifierChange: (value: string) => void;
     onOtpChange: (value: string) => void;
     onNewPasswordChange: (value: string) => void;
@@ -38,6 +41,7 @@ type ForgotPasswordModalProps = {
 
 export function ForgotPasswordModal({
     method,
+    delivery,
     fieldLabel,
     identifier,
     otp,
@@ -49,6 +53,7 @@ export function ForgotPasswordModal({
     resendCountdown,
     onClose,
     onSelectMethod,
+    onSelectDelivery,
     onIdentifierChange,
     onOtpChange,
     onNewPasswordChange,
@@ -59,6 +64,8 @@ export function ForgotPasswordModal({
     onConfirmReset
 }: ForgotPasswordModalProps) {
     const { showNewPassword, showConfirmPassword, isResendCoolingDown, isRequestingOtp, isResettingPassword } = status;
+    const isLinkDelivery = delivery === 'link';
+    const sendNoun = isLinkDelivery ? 'Link' : 'OTP';
     return (
         <m.div
             initial={{ opacity: 0 }}
@@ -82,7 +89,9 @@ export function ForgotPasswordModal({
                                 Forgot Password
                             </h2>
                             <p className="mt-2 text-sm text-slate-500">
-                                Enter your email or student ID to receive an OTP.
+                                {isLinkDelivery
+                                    ? 'Enter your email or student ID to receive a reset link.'
+                                    : 'Enter your email or student ID to receive an OTP.'}
                             </p>
                         </div>
                         <button
@@ -142,7 +151,44 @@ export function ForgotPasswordModal({
                             </div>
                         </div>
                         <p className="text-xs text-slate-500">
-                            We will send the OTP to the registered email linked to this student account.
+                            We will send it to the registered email linked to this student account.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                            How should we send it?
+                        </label>
+                        <div className="grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
+                            <button
+                                type="button"
+                                onClick={() => onSelectDelivery('link')}
+                                className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all ${
+                                    isLinkDelivery
+                                        ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                <Link2 size={15} />
+                                Reset link
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onSelectDelivery('code')}
+                                className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all ${
+                                    isLinkDelivery
+                                        ? 'text-slate-500 hover:text-slate-800'
+                                        : 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/20'
+                                }`}
+                            >
+                                <Lock size={15} />
+                                OTP code
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                            {isLinkDelivery
+                                ? 'One click, no code to type, and the link stays valid for an hour.'
+                                : 'A 6-digit code you type here. Expires in 10 minutes.'}
                         </p>
                     </div>
 
@@ -157,15 +203,20 @@ export function ForgotPasswordModal({
                         }`}
                     >
                         {isRequestingOtp
-                            ? 'Sending OTP...'
+                            ? `Sending ${sendNoun}...`
                             : isResendCoolingDown
-                                ? `Resend OTP in ${resendCountdown}`
-                                : otpInfo ? 'Resend OTP' : 'Send OTP'}
+                                ? `Resend ${sendNoun} in ${resendCountdown}`
+                                : otpInfo ? `Resend ${sendNoun}` : `Send ${sendNoun}`}
                     </button>
 
                     {otpInfo && (
                         <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
                             <p className="text-sm font-semibold leading-relaxed text-emerald-800">{otpHint}</p>
+                            {isLinkDelivery ? (
+                                <p className="mt-2 text-xs text-emerald-700">
+                                    Open that email and click the button inside to choose a new password. Check your spam folder if it is not in your inbox.
+                                </p>
+                            ) : (
                             <div className="mt-4 space-y-4">
                                 <div>
                                     <label htmlFor="recovery-otp" className="mb-1 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">OTP Code</label>
@@ -223,11 +274,12 @@ export function ForgotPasswordModal({
                                     </div>
                                 </div>
                             </div>
+                            )}
                         </div>
                     )}
                 </div>
 
-                {otpInfo && (
+                {otpInfo && !isLinkDelivery && (
                     <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
                         <button
                             type="button"

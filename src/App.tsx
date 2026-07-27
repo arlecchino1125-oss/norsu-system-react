@@ -31,6 +31,7 @@ const CareStaffDashboard = lazy(() => import('./pages/CareStaffDashboard'));
 const NATPortal = lazy(() => import('./pages/NATPortal'));
 const StudentPortal = lazy(() => import('./pages/StudentPortal'));
 const StudentLogin = lazy(() => import('./pages/StudentLogin'));
+const StudentResetPassword = lazy(() => import('./pages/StudentResetPassword'));
 const RegistrarLogin = lazy(() => import('./pages/registrar/RegistrarLogin'));
 const RegistrarPortal = lazy(() => import('./pages/registrar/RegistrarPortal'));
 
@@ -283,6 +284,14 @@ function App() {
               <Route path="/student/login" element={
                 <LazyRoute>
                   <StudentLogin />
+                </LazyRoute>
+              } />
+              {/* Public on purpose: students arrive here from an emailed reset link with no
+                  session. Static segment outranks /student/:view below, so it is not swallowed
+                  by that route's ProtectedRoute. */}
+              <Route path="/student/reset-password" element={
+                <LazyRoute>
+                  <StudentResetPassword />
                 </LazyRoute>
               } />
               <Route path="/student" element={

@@ -3,12 +3,17 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { captureEdgeException } from '../_shared/sentry.ts';
 import {
     buildOtpExpiryTimestamp,
+    buildStudentPasswordResetUrl,
     generateOtpCode,
+    generateResetToken,
     getOtpExpiryMinutes,
+    getResetLinkExpiryMinutes,
     hashOtpCode,
+    hashResetToken,
     isValidEmail,
     maskEmailAddress,
     normalizeEmail,
+    sendPasswordResetLinkEmail,
     sendSecurityOtpEmail
 } from '../_shared/securityOtp.ts';
 import { requirePermission } from './permissionCheck.ts';
@@ -39,6 +44,10 @@ const withStatus = (message: string, status: number) => {
 
 const PUBLIC_FORGOT_PASSWORD_REQUEST_MESSAGE = 'If the account exists, a verification code has been sent to the registered email.';
 const PUBLIC_FORGOT_PASSWORD_CONFIRM_MESSAGE = 'The verification code is invalid or has expired. Request a new code and try again.';
+const PUBLIC_FORGOT_PASSWORD_LINK_REQUEST_MESSAGE = 'If the account exists, a password reset link has been sent to the registered email.';
+const PUBLIC_FORGOT_PASSWORD_LINK_CONFIRM_MESSAGE = 'This password reset link is invalid or has expired. Request a new link and try again.';
+
+type SecurityOtpPurpose = 'password_change' | 'email_change' | 'forgot_password' | 'forgot_password_link';
 
 type StudentLoginLookupMode = 'studentId' | 'email';
 
@@ -749,14 +758,17 @@ const buildStaffAuditActor = (authUser: any, staffAccount: any) => ({
     department: String(staffAccount?.department || '').trim() || null
 });
 
-const createStudentSecurityOtp = async (
+// Shared by the OTP and the reset-link paths: both store a hashed single-use secret in
+// security_change_otps and both supersede any still-open secret for the same purpose.
+const issueStudentSecuritySecret = async (
     adminClient: any,
     authUserId: string,
-    purpose: 'password_change' | 'email_change' | 'forgot_password',
-    targetEmail: string
+    purpose: SecurityOtpPurpose,
+    targetEmail: string,
+    secret: string,
+    expiryMinutes: number
 ) => {
-    const otp = generateOtpCode();
-    const otpHash = await hashOtpCode(otp);
+    const secretHash = await hashOtpCode(secret);
 
     await adminClient
         .from('security_change_otps')
@@ -773,12 +785,39 @@ const createStudentSecurityOtp = async (
             account_type: 'student',
             purpose,
             target_email: targetEmail,
-            otp_hash: otpHash,
-            expires_at: buildOtpExpiryTimestamp(),
+            otp_hash: secretHash,
+            expires_at: buildOtpExpiryTimestamp(expiryMinutes),
         });
 
     if (error) throw error;
+};
+
+const createStudentSecurityOtp = async (
+    adminClient: any,
+    authUserId: string,
+    purpose: 'password_change' | 'email_change' | 'forgot_password',
+    targetEmail: string
+) => {
+    const otp = generateOtpCode();
+    await issueStudentSecuritySecret(adminClient, authUserId, purpose, targetEmail, otp, getOtpExpiryMinutes());
     return otp;
+};
+
+const createStudentResetLinkToken = async (
+    adminClient: any,
+    authUserId: string,
+    targetEmail: string
+) => {
+    const token = generateResetToken();
+    await issueStudentSecuritySecret(
+        adminClient,
+        authUserId,
+        'forgot_password_link',
+        targetEmail,
+        token,
+        getResetLinkExpiryMinutes()
+    );
+    return token;
 };
 
 const consumeStudentSecurityOtp = async (
@@ -1130,6 +1169,90 @@ const confirmForgotPasswordReset = async (
     return { success: true, passwordUpdated: true };
 };
 
+const requestForgotPasswordLink = async (
+    adminClient: any,
+    body: Record<string, unknown>
+) => {
+    const { student } = await findStudentByLoginIdentifier(adminClient, body.identifier, body.loginMode);
+    const targetEmail = normalizeEmail(student?.email);
+
+    const publicResponse = {
+        success: true,
+        message: PUBLIC_FORGOT_PASSWORD_LINK_REQUEST_MESSAGE,
+        expiresInMinutes: getResetLinkExpiryMinutes()
+    };
+
+    // Identical response whether or not the account exists, so this cannot enumerate students.
+    if (!student?.auth_user_id || !isValidEmail(targetEmail)) {
+        return publicResponse;
+    }
+
+    const token = await createStudentResetLinkToken(
+        adminClient,
+        String(student.auth_user_id || '').trim(),
+        targetEmail!
+    );
+
+    await sendPasswordResetLinkEmail({
+        recipientEmail: targetEmail!,
+        recipientName: `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.student_id,
+        resetUrl: buildStudentPasswordResetUrl(token)
+    });
+
+    return publicResponse;
+};
+
+// The token is redeemed by this POST, not by opening the link, so mail scanners and Gmail's
+// link prefetching cannot burn a student's reset before they use it.
+const confirmForgotPasswordLinkReset = async (
+    adminClient: any,
+    body: Record<string, unknown>
+) => {
+    const nextPassword = String(body.password || '');
+    if (nextPassword.length < 8) {
+        throw withStatus('Password must be at least 8 characters.', 400);
+    }
+
+    const token = String(body.token || '').trim();
+    if (!token) {
+        throw withStatus(PUBLIC_FORGOT_PASSWORD_LINK_CONFIRM_MESSAGE, 400);
+    }
+
+    const tokenHash = await hashResetToken(token);
+    const { data: tokenRows, error } = await adminClient
+        .from('security_change_otps')
+        .select('id, auth_user_id, expires_at')
+        .eq('account_type', 'student')
+        .eq('purpose', 'forgot_password_link')
+        .eq('otp_hash', tokenHash)
+        .is('consumed_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    if (error) throw error;
+
+    // One message for unknown, already-used, expired and malformed tokens alike, so a caller
+    // learns nothing from the difference.
+    const record = tokenRows?.[0];
+    const authUserId = String(record?.auth_user_id || '').trim();
+    if (!record || !authUserId || new Date(record.expires_at).getTime() <= Date.now()) {
+        throw withStatus(PUBLIC_FORGOT_PASSWORD_LINK_CONFIRM_MESSAGE, 400);
+    }
+
+    const { data, error: updateError } = await adminClient.auth.admin.updateUserById(
+        authUserId,
+        { password: nextPassword }
+    );
+
+    if (updateError || !data?.user) {
+        throw formatPasswordUpdateError(updateError || new Error('Failed to reset your password. Please try again.'));
+    }
+
+    await markStudentSecurityOtpConsumed(adminClient, record.id);
+
+    return { success: true, passwordUpdated: true };
+};
+
 const confirmStudentPasswordChange = async (
     adminClient: any,
     request: Request,
@@ -1476,23 +1599,45 @@ serve(async (request: Request) => {
             return json({ success: true });
         }
 
-        if (mode === 'request-forgot-password-otp') {
-            const otpRateLimit = await enforceRateLimit(request, {
+        if (mode === 'request-forgot-password-otp' || mode === 'request-forgot-password-link') {
+            // Both delivery modes deliberately share one bucket. A per-mode action would let a
+            // student pull 3 codes AND 3 links, doubling the sends to one inbox, which is exactly
+            // what trips Gmail's per-recipient throttling and gets them deferred past expiry.
+            const requestRateLimit = await enforceRateLimit(request, {
                 endpoint: 'manage-student-accounts',
-                action: 'request-forgot-password-otp',
+                action: 'request-forgot-password',
                 identifier: body?.identifier || body?.email || null,
                 maxRequests: 3,
                 windowSeconds: 15 * 60,
-                message: 'You have requested too many OTPs. Please wait 15 minutes before trying again.',
+                message: 'You have requested too many password resets. Please wait 15 minutes before trying again.',
                 corsHeaders
             });
-            if (otpRateLimit) return otpRateLimit;
+            if (requestRateLimit) return requestRateLimit;
 
-            return json(await requestForgotPasswordOtp(adminClient, body));
+            return json(mode === 'request-forgot-password-link'
+                ? await requestForgotPasswordLink(adminClient, body)
+                : await requestForgotPasswordOtp(adminClient, body));
         }
 
         if (mode === 'confirm-forgot-password-reset') {
             return json(await confirmForgotPasswordReset(adminClient, body));
+        }
+
+        if (mode === 'confirm-forgot-password-link') {
+            // Seeded per token rather than per IP: students share one public IP on campus WiFi,
+            // so an IP-scoped limit would lock out a whole computer lab.
+            const linkRateLimit = await enforceRateLimit(request, {
+                endpoint: 'manage-student-accounts',
+                action: 'confirm-forgot-password-link',
+                identifier: body?.token || null,
+                maxRequests: 10,
+                windowSeconds: 15 * 60,
+                message: 'Too many password reset attempts. Please wait 15 minutes before trying again.',
+                corsHeaders
+            });
+            if (linkRateLimit) return linkRateLimit;
+
+            return json(await confirmForgotPasswordLinkReset(adminClient, body));
         }
 
         if (mode === 'sync-auth-email') {

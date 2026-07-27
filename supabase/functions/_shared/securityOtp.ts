@@ -1,10 +1,19 @@
-import { sendSecurityOtpEmail as sendEmailServiceOtp, maskEmailAddress as maskEmailServiceAddress } from "./emailService.ts";
+import {
+  sendSecurityOtpEmail as sendEmailServiceOtp,
+  sendPasswordResetLinkEmail as sendEmailServiceResetLink,
+  maskEmailAddress as maskEmailServiceAddress,
+  buildStudentPasswordResetUrl as buildEmailServiceResetUrl,
+} from "./emailService.ts";
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 10;
+// A link only has to be clicked, so it can outlive a Gmail deferral that would kill a typed
+// code. Single-use and superseded by any newer request, so the longer window costs little.
+const RESET_LINK_EXPIRY_MINUTES = 60;
+const RESET_TOKEN_BYTES = 32;
 const textEncoder = new TextEncoder();
 
-const toHex = (buffer: ArrayBuffer) =>
+const toHex = (buffer: ArrayBufferLike) =>
   Array.from(new Uint8Array(buffer))
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
@@ -27,10 +36,20 @@ export const hashOtpCode = async (otp: string) => {
   return toHex(digest);
 };
 
+// Opaque single-use secret for a reset link. 32 bytes leaves brute force irrelevant, so unlike
+// the 6-digit OTP this needs no attempt cap.
+export const generateResetToken = () =>
+  toHex(crypto.getRandomValues(new Uint8Array(RESET_TOKEN_BYTES)).buffer);
+
+// Reuses hashOtpCode: the token is stored the same way an OTP is, as a SHA-256 hex digest.
+export const hashResetToken = hashOtpCode;
+
 export const getOtpExpiryMinutes = () => OTP_EXPIRY_MINUTES;
 
-export const buildOtpExpiryTimestamp = () =>
-  new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+export const getResetLinkExpiryMinutes = () => RESET_LINK_EXPIRY_MINUTES;
+
+export const buildOtpExpiryTimestamp = (minutes: number = OTP_EXPIRY_MINUTES) =>
+  new Date(Date.now() + minutes * 60 * 1000).toISOString();
 
 export const maskEmailAddress = maskEmailServiceAddress;
 
@@ -44,6 +63,20 @@ export const sendSecurityOtpEmail = async (params: {
   await sendEmailServiceOtp({
     ...params,
     expiryMinutes: params.expiryMinutes || getOtpExpiryMinutes(),
+  });
+};
+
+export const buildStudentPasswordResetUrl = buildEmailServiceResetUrl;
+
+export const sendPasswordResetLinkEmail = async (params: {
+  recipientEmail: string;
+  recipientName: string;
+  resetUrl: string;
+  expiryMinutes?: number;
+}) => {
+  await sendEmailServiceResetLink({
+    ...params,
+    expiryMinutes: params.expiryMinutes || getResetLinkExpiryMinutes(),
   });
 };
 

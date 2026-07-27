@@ -207,6 +207,7 @@ export default function StudentLogin() {
     const {
         showForgotPasswordModal,
         forgotPasswordMethod,
+        forgotPasswordDelivery,
         forgotPasswordFieldLabel,
         forgotPasswordIdentifier,
         forgotPasswordOtp,
@@ -223,13 +224,14 @@ export default function StudentLogin() {
         openForgotPasswordModal,
         closeForgotPasswordModal,
         selectForgotPasswordMethod,
+        selectForgotPasswordDelivery,
         setForgotPasswordIdentifier,
         setForgotPasswordOtp,
         setForgotPasswordNewPassword,
         setForgotPasswordConfirmPassword,
         toggleForgotPasswordNewPassword,
         toggleForgotPasswordConfirmPassword,
-        handleRequestForgotPasswordOtp,
+        handleRequestForgotPasswordSend,
         handleConfirmForgotPasswordReset
     } = useStudentForgotPassword({
         showToast,
@@ -334,6 +336,7 @@ export default function StudentLogin() {
                 {showForgotPasswordModal && (
                     <ForgotPasswordModal
                         method={forgotPasswordMethod}
+                        delivery={forgotPasswordDelivery}
                         fieldLabel={forgotPasswordFieldLabel}
                         identifier={forgotPasswordIdentifier}
                         otp={forgotPasswordOtp}
@@ -351,13 +354,14 @@ export default function StudentLogin() {
                         resendCountdown={forgotPasswordResendCountdown}
                         onClose={closeForgotPasswordModal}
                         onSelectMethod={selectForgotPasswordMethod}
+                        onSelectDelivery={selectForgotPasswordDelivery}
                         onIdentifierChange={setForgotPasswordIdentifier}
                         onOtpChange={setForgotPasswordOtp}
                         onNewPasswordChange={setForgotPasswordNewPassword}
                         onConfirmPasswordChange={setForgotPasswordConfirmPassword}
                         onToggleNewPassword={toggleForgotPasswordNewPassword}
                         onToggleConfirmPassword={toggleForgotPasswordConfirmPassword}
-                        onRequestOtp={handleRequestForgotPasswordOtp}
+                        onRequestOtp={handleRequestForgotPasswordSend}
                         onConfirmReset={handleConfirmForgotPasswordReset}
                     />
                 )}

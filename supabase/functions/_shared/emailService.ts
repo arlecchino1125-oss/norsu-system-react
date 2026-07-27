@@ -180,10 +180,100 @@ export const sendSecurityOtpEmail = async ({
 
     await sendEmail({
         to: recipientEmail,
-        subject: `NORSU Security OTP for ${actionLabel}`,
+        // The code goes in the subject so every send is unique: an identical subject let Gmail
+        // collapse consecutive codes into one thread where the student reads the oldest one,
+        // which the newest request has already invalidated. Tradeoff: the code shows in
+        // notification previews, same as Google/GitHub/Stripe send theirs.
+        subject: `Your NORSU ${actionLabel} code: ${otp}`,
         html,
         text,
         senderName: "NORSU Security",
         emailType: `OTP_${purpose.toUpperCase()}`,
+    });
+};
+
+const STUDENT_RESET_PASSWORD_PATH = "/student/reset-password";
+
+// Deliberately does not go through buildPortalUrl: that helper only substitutes its fallback
+// path when the pathname is empty or "/", so feeding it STUDENT_PORTAL_LOGIN_URL (typically
+// ".../student/login") would hand back the login URL. Take the origin and set the path here.
+export const buildStudentPasswordResetUrl = (token: string, overrideUrl?: string | null) => {
+    const rawUrl = String(
+        overrideUrl
+        || Deno.env.get('STUDENT_PORTAL_LOGIN_URL')
+        || Deno.env.get('APP_BASE_URL')
+        || ''
+    ).trim();
+
+    let origin = "http://localhost:5173";
+    if (rawUrl) {
+        try {
+            // Prefix a scheme so a bare "norsugcare.space/student/login" still parses.
+            origin = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`).origin;
+        } catch {
+            // Unparseable: keep the localhost default rather than emailing a broken link.
+        }
+    }
+
+    const url = new URL(`${origin}${STUDENT_RESET_PASSWORD_PATH}`);
+    url.searchParams.set("token", token);
+    return url.toString();
+};
+
+export const sendPasswordResetLinkEmail = async ({
+    recipientEmail,
+    recipientName,
+    resetUrl,
+    expiryMinutes = 60,
+}: {
+    recipientEmail: string;
+    recipientName: string;
+    resetUrl: string;
+    expiryMinutes?: number;
+}) => {
+    const expiresAtLabel = new Intl.DateTimeFormat("en-PH", {
+        timeZone: "Asia/Manila",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    }).format(new Date(Date.now() + expiryMinutes * 60 * 1000));
+
+    const safeName = escapeHtml(recipientName || "Student");
+    const safeUrl = escapeHtml(resetUrl);
+
+    const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+            <h2 style="color: #2563eb;">Reset your password</h2>
+            <p>Dear ${safeName},</p>
+            <p>Click the button below to choose a new password for your NORSU student account.</p>
+            <div style="text-align: center; margin: 28px 0;">
+                <a href="${safeUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: bold; text-decoration: none; display: inline-block;">Reset my password</a>
+            </div>
+            <p style="font-size: 14px; color: #6b7280;">If the button does not work, copy this link into your browser:</p>
+            <p style="font-size: 13px; word-break: break-all;"><a href="${safeUrl}">${safeUrl}</a></p>
+            <p style="color: #ef4444; font-weight: bold;">This link expires in ${expiryMinutes} minutes (around ${expiresAtLabel}) and can only be used once.</p>
+            <hr style="border: 1px solid #e5e7eb; margin: 24px 0;" />
+            <p style="font-size: 14px; color: #6b7280;">Security Warning: If you did not request a password reset, please ignore this email. Your account is secure, but someone may have mistakenly entered your details. Requesting a new link cancels this one.</p>
+        </div>
+    `;
+
+    const text = [
+        "Reset your password",
+        `Dear ${recipientName || "Student"},`,
+        "Open the link below to choose a new password for your NORSU student account.",
+        resetUrl,
+        `This link expires in ${expiryMinutes} minutes (around ${expiresAtLabel}) and can only be used once.`,
+        "Security Warning: If you did not request a password reset, please ignore this email. Requesting a new link cancels this one.",
+    ].join("\n\n");
+
+    await sendEmail({
+        to: recipientEmail,
+        // The expiry time keeps consecutive subjects distinct, so Gmail cannot collapse two
+        // requests into one thread where the student clicks the superseded link.
+        subject: `Reset your NORSU password (link valid until ${expiresAtLabel})`,
+        html,
+        text,
+        senderName: "NORSU Security",
+        emailType: "PASSWORD_RESET_LINK",
     });
 };

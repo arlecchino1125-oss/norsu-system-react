@@ -295,11 +295,11 @@ const EventDetailModal = ({
     const isAttendanceActivity = isAttendanceActivityType(selectedEvent.type);
     const { start, end, checkInClose, timeoutClose } = getEventWindow(selectedEvent);
     const now = new Date();
+    const isEventEnded = Boolean(end) && now >= (end as Date);
     const isCheckInClosed = isAttendanceActivity && Boolean(checkInClose) && now > (checkInClose as Date);
     const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(checkInClose)
         && now >= (start as Date) && !isCheckInClosed && !isTimedIn;
-    const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut
-        && now >= (end as Date) && (!timeoutClose || now <= (timeoutClose as Date));
+    const canTimeOut = isAttendanceActivity && isEventEnded && isTimedIn && !isTimedOut;
     const mustRegisterForTimeIn = isRegistrationEvent(selectedEvent) && !selectedEvent.allow_walk_ins;
     const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(selectedEvent, isTimedIn));
     const timeInLabel = isTimingIn
@@ -486,7 +486,7 @@ const EventDetailModal = ({
                                     </div>
                                 )}
 
-                                {isTimedOut && !ratedEvents.includes(selectedEvent.id) && (
+                                {isTimedIn && isEventEnded && !ratedEvents.includes(selectedEvent.id) && (
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -502,7 +502,7 @@ const EventDetailModal = ({
 
                                 {/* Separate from the rating above: staff may attach their own
                                 evaluation form, and both are filled independently. */}
-                                {isTimedOut && pendingEvaluations?.has(selectedEvent.id) && (
+                                {isTimedIn && isEventEnded && pendingEvaluations?.has(selectedEvent.id) && (
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -566,11 +566,11 @@ const EventsListSection = ({
                         const isAttendanceActivity = isAttendanceActivityType(item.type);
                         const { start, end, checkInClose, timeoutClose } = getEventWindow(item);
                         const now = new Date();
+                        const isEventEnded = Boolean(end) && now >= (end as Date);
                         const isCheckInClosed = isAttendanceActivity && Boolean(checkInClose) && now > (checkInClose as Date);
                         const canTimeIn = isAttendanceActivity && Boolean(start) && Boolean(checkInClose)
                             && now >= (start as Date) && !isCheckInClosed && !isTimedIn;
-                        const canTimeOut = isAttendanceActivity && Boolean(end) && isTimedIn && !isTimedOut
-                            && now >= (end as Date) && (!timeoutClose || now <= (timeoutClose as Date));
+                        const canTimeOut = isAttendanceActivity && isEventEnded && isTimedIn && !isTimedOut;
                         const mustRegisterForTimeIn = isRegistrationEvent(item) && !item.allow_walk_ins;
                         const canUseTimeIn = canTimeIn && (!mustRegisterForTimeIn || hasActiveRegistration(item, isTimedIn));
                         const timeInLabel = isTimedIn
@@ -691,7 +691,7 @@ const EventsListSection = ({
                                             </button>
                                         </div>
 
-                                        {isTimedOut && !ratedEventIdSet.has(item.id) && (
+                                        {isTimedIn && isEventEnded && !ratedEventIdSet.has(item.id) && (
                                             <button type="button"
                                                 onClick={() => handleRateEvent(item)}
                                                 className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-[11px] font-black text-amber-700 shadow-sm transition-all hover:bg-amber-100 sm:text-xs"
@@ -701,7 +701,7 @@ const EventsListSection = ({
                                             </button>
                                         )}
 
-                                        {isTimedOut && pendingEvaluations?.has(item.id) && (
+                                        {isTimedIn && isEventEnded && pendingEvaluations?.has(item.id) && (
                                             <button type="button"
                                                 onClick={() => onOpenEvaluation(item)}
                                                 className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-[11px] font-black text-purple-700 shadow-sm transition-all hover:bg-purple-100 sm:text-xs"
