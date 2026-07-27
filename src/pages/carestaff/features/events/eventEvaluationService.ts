@@ -192,14 +192,17 @@ export const deleteEvaluation = async (formId: number) => {
 };
 
 export const getEvaluationResults = async (formId: number) => {
+    // ponytail: embed answers inside each response via PostgREST resource embedding
+    // so we never hit the server-side row cap (~1000) on a separate answers query
     const [formResult, questionsResult, responsesResult] = await Promise.all([
         supabase.from('event_evaluation_forms').select(FORM_COLUMNS).eq('id', formId).single(),
         supabase.from('event_evaluation_questions').select(QUESTION_COLUMNS).eq('form_id', formId).order('order_index'),
         supabase
             .from('event_evaluation_responses')
-            .select('id, student_id, student_name, department, course, year_level, submitted_at')
+            .select('id, student_id, student_name, department, course, year_level, submitted_at, event_evaluation_answers(response_id, question_id, answer_value, answer_text)')
             .eq('form_id', formId)
             .order('submitted_at', { ascending: false })
+            .limit(10000)
     ]);
 
     if (formResult.error) throw formResult.error;
@@ -207,22 +210,18 @@ export const getEvaluationResults = async (formId: number) => {
     if (responsesResult.error) throw responsesResult.error;
 
     const form = formResult.data as unknown as EvaluationForm;
-    const responses = (responsesResult.data ?? []) as unknown as EvaluationResponse[];
-    if (responses.length === 0) {
-        return { form, questions: (questionsResult.data ?? []) as unknown as EvaluationQuestion[], responses, answers: [] as EvaluationAnswer[] };
-    }
+    const rawResponses = (responsesResult.data ?? []) as any[];
 
-    const { data: answerRows, error: answerError } = await supabase
-        .from('event_evaluation_answers')
-        .select('response_id, question_id, answer_value, answer_text')
-        .in('response_id', responses.map((response) => response.id));
-
-    if (answerError) throw answerError;
+    // Flatten: strip embedded answers out of each response into a flat array
+    const responses: EvaluationResponse[] = rawResponses.map(({ event_evaluation_answers: _, ...rest }) => rest);
+    const answers = rawResponses.flatMap((r) =>
+        ((r.event_evaluation_answers ?? []) as any[]).map((a: any) => ({ ...a, response_id: r.id }))
+    ) as Array<EvaluationAnswer & { response_id: number }>;
 
     return {
         form,
         questions: (questionsResult.data ?? []) as unknown as EvaluationQuestion[],
         responses,
-        answers: (answerRows ?? []) as unknown as Array<EvaluationAnswer & { response_id: number }>
+        answers
     };
 };
