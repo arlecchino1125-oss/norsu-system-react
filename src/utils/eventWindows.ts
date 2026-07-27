@@ -2,7 +2,7 @@
 // staff/dept portals, and the record_student_event_attendance RPC must all agree
 // on these windows — keep this file and that migration in lockstep.
 
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const parseDate = (value?: string): Date | null => {
@@ -47,13 +47,13 @@ export function getEventWindows(event: any): EventWindows {
     if (!start) return { start: null, end: null, checkInClose: null, timeoutClose: null, visibleUntil: null };
 
     const end = combine(event?.event_date, event?.end_time)
-        || new Date(start.getTime() + TWO_HOURS_MS);
+        || new Date(start.getTime() + THREE_HOURS_MS);
 
-    // Check-in stays open for at least 2h after the event starts (so short events
+    // Check-in stays open for at least 3h after the event starts (so short events
     // don't close the window minutes in), or until the event ends if that's later.
-    const checkInClose = new Date(Math.max(end.getTime(), start.getTime() + TWO_HOURS_MS));
-    // Time-outs stay open for 2h after the event ends.
-    const timeoutClose = new Date(end.getTime() + TWO_HOURS_MS);
+    const checkInClose = new Date(Math.max(end.getTime(), start.getTime() + THREE_HOURS_MS));
+    // Time-outs stay open for 3h after the event ends.
+    const timeoutClose = new Date(end.getTime() + THREE_HOURS_MS);
     // The event stays visible in the portal for a full day after it ends, then archives.
     const visibleUntil = new Date(end.getTime() + ONE_DAY_MS);
     return { start, end, checkInClose, timeoutClose, visibleUntil };
