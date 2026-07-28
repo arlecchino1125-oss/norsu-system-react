@@ -16,6 +16,16 @@ import usePublicTheme from '../hooks/usePublicTheme';
 
 const getAnimationDelayStyle = (delayMs: number) => ({ animationDelay: `${delayMs}ms` });
 
+// The background clip is 2.3 MB. Phones get the poster frame instead: a <video>
+// with a poster and no src paints the poster and downloads nothing, which is
+// what fixes Lighthouse's NO_LCP (a looping clip never lets the network idle,
+// so the trace was cut before LCP finalised).
+// ponytail: read once at module load, so a desktop window resized down keeps
+// the clip it already fetched. Harmless, and avoids a resize listener.
+const SHOULD_PLAY_BACKGROUND_VIDEO =
+    window.matchMedia('(min-width: 768px)').matches &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const PUBLIC_LANDING_PORTALS = [
     {
         title: 'NAT Portal',
@@ -84,8 +94,9 @@ export default function PublicLandingV2() {
                     loop
                     muted
                     playsInline
+                    poster="/landing-poster.jpg"
                     className="absolute inset-0 h-full w-full object-cover"
-                    src="/new_bgVid.mp4"
+                    src={SHOULD_PLAY_BACKGROUND_VIDEO ? '/new_bgVid-v2.mp4' : undefined}
                 />
                 <div className={`absolute inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'}`} aria-hidden="true" />
                 <div

@@ -7,7 +7,7 @@
     ],
     "headers": [
         {
-            "source": "/new_bgVid.mp4",
+            "source": "/new_bgVid-v2.mp4",
             "headers": [
                 {
                     "key": "Cache-Control",
