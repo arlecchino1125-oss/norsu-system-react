@@ -217,6 +217,7 @@ export default function StudentLogin() {
         showForgotPasswordConfirmPassword,
         forgotPasswordOtpInfo,
         forgotPasswordOtpHint,
+        forgotPasswordEmailNotice,
         isForgotPasswordResendCoolingDown,
         isRequestingForgotPasswordOtp,
         isResettingForgotPassword,
@@ -351,6 +352,7 @@ export default function StudentLogin() {
                         }}
                         otpInfo={forgotPasswordOtpInfo}
                         otpHint={forgotPasswordOtpHint}
+                        emailNotice={forgotPasswordEmailNotice}
                         resendCountdown={forgotPasswordResendCountdown}
                         onClose={closeForgotPasswordModal}
                         onSelectMethod={selectForgotPasswordMethod}

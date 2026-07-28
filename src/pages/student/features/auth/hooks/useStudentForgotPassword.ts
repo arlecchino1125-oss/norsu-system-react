@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
-import { isValidEmailDomain } from '../../../../../utils/inputSecurity';
+import { checkEmailDomain, isValidEmailDomain } from '../../../../../utils/inputSecurity';
 import type { StudentLoginMethod } from '../../../types';
 
 type ForgotPasswordOtpInfo = {
@@ -67,6 +67,17 @@ export function useStudentForgotPassword({
 
     const forgotPasswordFieldLabel = forgotPasswordMethod === 'email' ? 'Email' : 'Student ID';
     const isForgotPasswordLinkDelivery = forgotPasswordDelivery === 'link';
+    // Only evaluated once the address is structurally complete, so it stays quiet while typing.
+    const forgotPasswordEmailNotice = (() => {
+        if (forgotPasswordMethod !== 'email') return '';
+        const candidate = String(forgotPasswordIdentifier || '').trim();
+        if (!candidate || !isValidEmailDomain(candidate)) return '';
+
+        const check = checkEmailDomain(candidate);
+        if (check.status === 'typo') return `Did you mean ${check.suggestion}?`;
+        if (check.status === 'uncommon') return `We rarely see ${check.domain} — double-check the spelling.`;
+        return '';
+    })();
     const forgotPasswordSentNoun = isForgotPasswordLinkDelivery ? 'link' : 'code';
     const forgotPasswordOtpHint = forgotPasswordOtpInfo
         ? `${forgotPasswordOtpInfo.message || `If the account exists, a password reset ${forgotPasswordSentNoun} has been sent to the registered email.`}${forgotPasswordOtpInfo.expiresInMinutes ? ` The ${forgotPasswordSentNoun} expires in ${forgotPasswordOtpInfo.expiresInMinutes} minutes.` : ''}`
@@ -154,6 +165,15 @@ export function useStudentForgotPassword({
         if (forgotPasswordMethod === 'email') {
             if (!isValidEmailDomain(trimmedIdentifier)) {
                 showToast(`Please enter a valid email address (e.g., name@example.com).`, 'error');
+                return;
+            }
+
+            // A misspelled domain looks identical to "no such account" from here: the server
+            // returns the same generic message either way, so the student is left waiting for
+            // mail that was never deliverable. Stop it before the send.
+            const domainCheck = checkEmailDomain(trimmedIdentifier);
+            if (domainCheck.status === 'typo') {
+                showToast(`Did you mean ${domainCheck.suggestion}? Please check your email spelling.`, 'error');
                 return;
             }
         }
@@ -264,6 +284,7 @@ export function useStudentForgotPassword({
         showForgotPasswordConfirmPassword,
         forgotPasswordOtpInfo,
         forgotPasswordOtpHint,
+        forgotPasswordEmailNotice,
         isForgotPasswordResendCoolingDown,
         isRequestingForgotPasswordOtp,
         isResettingForgotPassword,

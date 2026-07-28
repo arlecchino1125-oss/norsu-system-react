@@ -569,9 +569,11 @@ const activateStudentProfileAccount = async (adminClient: any, body: Record<stri
         });
         studentPayload.email = contactEmail;
         await upsertStudentRow(adminClient, studentId, authUser.id, studentPayload);
-        if (activationPolicy.requireEnrollmentKey) {
-            await markEnrollmentKeyUsed(adminClient, studentId, contactEmail);
-        }
+        // Mark the enrollment row claimed regardless of activationPolicy: whether a key was
+        // *required* to claim the ID is separate from whether the ID is now taken. Gating this
+        // on requireEnrollmentKey left every signup at status 'Pending'/is_used=false while
+        // enrollment keys were switched off.
+        await markEnrollmentKeyUsed(adminClient, studentId, contactEmail);
 
         return {
             success: true,

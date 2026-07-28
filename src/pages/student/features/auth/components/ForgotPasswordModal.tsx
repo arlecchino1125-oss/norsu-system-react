@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Link2, Lock, Mail, User, X } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, Link2, Lock, Mail, User, X } from 'lucide-react';
 import { m } from 'framer-motion';
 import type { StudentLoginMethod } from '../../../types';
 import type { StudentForgotPasswordDelivery } from '../hooks/useStudentForgotPassword';
@@ -25,6 +25,7 @@ type ForgotPasswordModalProps = {
     };
     otpInfo: ForgotPasswordOtpInfo | null;
     otpHint: string;
+    emailNotice: string;
     resendCountdown: string;
     onClose: () => void;
     onSelectMethod: (method: StudentLoginMethod) => void;
@@ -50,6 +51,7 @@ export function ForgotPasswordModal({
     status,
     otpInfo,
     otpHint,
+    emailNotice,
     resendCountdown,
     onClose,
     onSelectMethod,
@@ -150,9 +152,16 @@ export function ForgotPasswordModal({
                                 {method === 'email' ? <Mail size={18} /> : <User size={18} />}
                             </div>
                         </div>
-                        <p className="text-xs text-slate-500">
-                            We will send it to the registered email linked to this student account.
-                        </p>
+                        {emailNotice ? (
+                            <p className="flex items-start gap-1.5 text-xs font-semibold text-amber-600">
+                                <AlertTriangle size={14} className="mt-px shrink-0" />
+                                {emailNotice}
+                            </p>
+                        ) : (
+                            <p className="text-xs text-slate-500">
+                                We will send it to the registered email linked to this student account.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
