@@ -49,9 +49,11 @@ const FormCard = ({ form, canArchiveRecords, onEdit, onPreview, onDeactivate }: 
     </Card>
 );
 
+const isTextQuestion = (question: any) => question?.question_type === 'text' || question?.question_type === 'open_ended';
+
 const FormEditorModal = ({
     form, setForm, questions, canDeleteRecords,
-    onQuestionChange, onAddQuestion, onRemoveQuestion, onBulkUpload, onClose, onSave
+    onQuestionChange, onQuestionTypeChange, onAddQuestion, onRemoveQuestion, onBulkUpload, onClose, onSave
 }: any) => (
     <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-slate-950/30 p-2 backdrop-blur-[2px] sm:p-3">
         <Card className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
@@ -63,11 +65,12 @@ const FormEditorModal = ({
                 <div className="mb-6"><label htmlFor="care-form-title" className="block text-xs font-bold text-gray-700 mb-1">Form Title</label><input id="care-form-title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="e.g. Student Satisfaction Survey" /></div>
                 <div className="mb-6"><label htmlFor="care-form-description" className="block text-xs font-bold text-gray-700 mb-1">Description</label><textarea id="care-form-description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={2} placeholder="Purpose of this form..."></textarea></div>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                    <p className="block text-xs font-bold text-gray-700">Questions (Likert Scale 1-5)</p>
+                    <p className="block text-xs font-bold text-gray-700">Questions</p>
                     <div className="flex flex-wrap items-center gap-2">
                         <Button variant="ghost" size="sm" leftIcon={<Download size={14} />} onClick={handleDownloadTemplate}>Download Template</Button>
                         <label className="flex min-h-8 cursor-pointer items-center rounded-lg px-3 text-xs font-bold text-purple-600 hover:bg-purple-50"><UploadCloud size={14} className="mr-1.5" /> Upload Questions<input type="file" accept=".txt,.csv" className="hidden" onChange={onBulkUpload} /></label>
-                        <Button variant="ghost" size="sm" leftIcon={<Plus size={14} />} onClick={onAddQuestion}>Add Question</Button>
+                        <Button variant="ghost" size="sm" leftIcon={<Plus size={14} />} onClick={() => onAddQuestion('text')}>Add Text Field</Button>
+                        <Button variant="ghost" size="sm" leftIcon={<Plus size={14} />} onClick={() => onAddQuestion('scale')}>Add Question</Button>
                     </div>
                 </div>
                 <div className="space-y-2">
@@ -76,7 +79,16 @@ const FormEditorModal = ({
                         return (
                             <div key={q.id ?? q.clientId} className="flex gap-2 items-center">
                                 <div className="bg-gray-100 px-3 py-2 rounded-l-lg border border-r-0 border-gray-300 text-gray-500 text-xs flex items-center h-full">{idx + 1}</div>
-                                <input aria-label={`Question ${idx + 1}`} value={q.question_text} onChange={e => onQuestionChange(idx, e.target.value)} className={`flex-1 px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-blue-600 ${canRemoveQuestion ? 'rounded-r-none' : 'rounded-r-lg'}`} placeholder="Enter question text..." />
+                                <input aria-label={`Question ${idx + 1}`} value={q.question_text} onChange={e => onQuestionChange(idx, e.target.value)} className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-none text-sm focus:outline-none focus:border-blue-600" placeholder="Enter question text..." />
+                                <select
+                                    aria-label={`Answer type for question ${idx + 1}`}
+                                    value={isTextQuestion(q) ? 'text' : 'scale'}
+                                    onChange={e => onQuestionTypeChange(idx, e.target.value)}
+                                    className={`shrink-0 border border-l-0 border-gray-300 bg-white px-2 py-2 text-xs font-bold text-gray-600 focus:outline-none focus:border-blue-600 ${canRemoveQuestion ? 'rounded-none' : 'rounded-r-lg'}`}
+                                >
+                                    <option value="scale">Scale 1-5</option>
+                                    <option value="text">Text answer</option>
+                                </select>
                                 {canRemoveQuestion && (
                                     <Button variant="danger" size="sm" className="border-l-0 rounded-l-none rounded-r-lg" aria-label={`Remove question ${idx + 1}`} onClick={() => onRemoveQuestion(idx)}><Trash2 size={14} /></Button>
                                 )}
@@ -109,14 +121,18 @@ const FormPreviewModal = ({ form, onClose }: any) => (
                         {form.questions && form.questions.map((q: any, idx: number) => (
                             <div key={q.id} className="border-b border-gray-100 pb-4 last:border-0">
                                 <p className="block text-sm font-bold text-gray-700 mb-3">{idx + 1}. {q.question_text}</p>
-                                <div className="flex justify-between px-2">
-                                    {[1, 2, 3, 4, 5].map(val => (
-                                        <div key={val} className="flex flex-col items-center gap-1">
-                                            <div className="w-4 h-4 rounded-full border border-gray-300 bg-gray-50"></div>
-                                            <span className="text-[10px] text-gray-400">{val}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                {isTextQuestion(q) ? (
+                                    <textarea disabled rows={3} className="w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-400" placeholder="Student types their answer here..." />
+                                ) : (
+                                    <div className="flex justify-between px-2">
+                                        {[1, 2, 3, 4, 5].map(val => (
+                                            <div key={val} className="flex flex-col items-center gap-1">
+                                                <div className="w-4 h-4 rounded-full border border-gray-300 bg-gray-50"></div>
+                                                <span className="text-[10px] text-gray-400">{val}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -313,7 +329,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                         form_id: savedForm.id,
                         question_text: q.question_text,
                         order_index: idx,
-                        question_type: 'scale'
+                        question_type: isTextQuestion(q) ? 'text' : 'scale'
                     };
                     if (q.id) qData.id = q.id;
                     return qData;
@@ -338,8 +354,18 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
         setEditingQuestions(newQs);
     };
 
-    const addQuestion = () => {
-        setEditingQuestions([...editingQuestions, { clientId: crypto.randomUUID(), question_text: '' }]);
+    const handleQuestionTypeChange = (idx, question_type) => {
+        const newQs = [...editingQuestions];
+        newQs[idx] = { ...newQs[idx], question_type };
+        setEditingQuestions(newQs);
+    };
+
+    const addQuestion = (question_type = 'scale') => {
+        setEditingQuestions([...editingQuestions, {
+            clientId: crypto.randomUUID(),
+            question_text: question_type === 'text' ? 'Others, please specify:' : '',
+            question_type
+        }]);
     };
 
     const removeQuestion = async (idx) => {
@@ -428,6 +454,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                             questions={editingQuestions}
                             canDeleteRecords={canDeleteRecords}
                             onQuestionChange={handleQuestionChange}
+                            onQuestionTypeChange={handleQuestionTypeChange}
                             onAddQuestion={addQuestion}
                             onRemoveQuestion={removeQuestion}
                             onBulkUpload={handleBulkQuestionsUpload}

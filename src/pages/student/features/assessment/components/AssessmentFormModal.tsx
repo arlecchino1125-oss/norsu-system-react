@@ -24,6 +24,8 @@ const CheckIcon = () => (
     </svg>
 );
 
+const isTextQuestion = (question: any) => question?.question_type === 'text' || question?.question_type === 'open_ended';
+
 export default function AssessmentFormModal({
     form,
     isOpen,
@@ -75,14 +77,10 @@ export default function AssessmentFormModal({
 
     const handleInventoryChange = (questionId: any, value: any) => {
         setResponses((prev) => {
-            const parsed = typeof value === 'number'
-                ? value
-                : (Number.isNaN(Number(value)) ? value : parseInt(value, 10));
-
-            return {
-                ...prev,
-                [questionId]: parsed
-            };
+            const next = { ...prev, [questionId]: value };
+            // A cleared text field is not an answer, so it must not count towards progress.
+            if (value === '') delete next[questionId];
+            return next;
         });
     };
 
@@ -104,11 +102,18 @@ export default function AssessmentFormModal({
 
             if (submissionError) throw submissionError;
 
-            const answersPayload = Object.entries(responses).map(([questionId, answerValue]) => ({
-                submission_id: submissionData.id,
-                question_id: parseInt(questionId, 10),
-                answer_value: answerValue
-            }));
+            // answer_value is an integer column, so text answers have to go to answer_text.
+            const textQuestionIds = new Set(formQuestions.filter(isTextQuestion).map((q: any) => String(q.id)));
+
+            const answersPayload = Object.entries(responses).map(([questionId, answerValue]) => {
+                const isText = textQuestionIds.has(questionId);
+                return {
+                    submission_id: submissionData.id,
+                    question_id: parseInt(questionId, 10),
+                    answer_value: isText ? null : Number(answerValue),
+                    answer_text: isText ? String(answerValue) : null
+                };
+            });
 
             if (answersPayload.length > 0) {
                 const { error: answersError } = await supabase
@@ -153,14 +158,11 @@ export default function AssessmentFormModal({
                 className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-scale-in student-mobile-modal-panel"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white sm:px-5">
+                <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-3 text-white sm:px-5 sm:py-4">
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Needs Assessment</p>
-                            <h3 className="mt-1 text-lg font-black leading-tight text-white">{form.title}</h3>
-                            <p className="mt-1 max-w-xl text-xs font-semibold leading-5 text-slate-300">
-                                {form.description || 'Please answer all questions honestly.'}
-                            </p>
+                            <h3 className="mt-1 text-base font-black leading-tight text-white sm:text-lg">{form.title}</h3>
                         </div>
                         <button
                             type="button"
@@ -173,7 +175,7 @@ export default function AssessmentFormModal({
                     </div>
 
                     {formQuestions.length > 0 && (
-                        <div className="mt-4 flex items-center gap-3">
+                        <div className="mt-3 flex items-center gap-3 sm:mt-4">
                             <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
                                 <div
                                     className="h-full rounded-full bg-blue-400 transition-all"
@@ -188,6 +190,14 @@ export default function AssessmentFormModal({
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-slate-50 p-4 student-mobile-modal-scroll-panel sm:p-5">
+                    {/* Instructions scroll away with the questions; in the fixed header they ate most of a phone screen. */}
+                    <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Instructions</p>
+                        <p className="mt-1.5 text-xs font-medium leading-5 text-slate-600">
+                            {form.description || 'Please answer all questions honestly.'}
+                        </p>
+                    </div>
+
                     {isLoadingQuestions ? (
                         <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
                             <div className="h-10 w-10 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
@@ -204,7 +214,7 @@ export default function AssessmentFormModal({
                             {formQuestions.map((question: any, index: number) => {
                                 const questionAnswer = responses[question.id];
                                 const isAnswered = questionAnswer !== undefined;
-                                const isTextQuestion = question.question_type === 'text' || question.question_type === 'open_ended';
+                                const isText = isTextQuestion(question);
 
                                 return (
                                     <article
@@ -220,7 +230,7 @@ export default function AssessmentFormModal({
                                             </div>
                                         </div>
 
-                                        {isTextQuestion ? (
+                                        {isText ? (
                                             <div className="mt-3 sm:ml-11">
                                                 <textarea
                                                     className="min-h-[96px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100"

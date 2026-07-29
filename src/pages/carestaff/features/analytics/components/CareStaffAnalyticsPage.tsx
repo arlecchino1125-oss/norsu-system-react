@@ -706,7 +706,8 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             key="overview"
                             submissions={filteredData.submissions}
                             answers={filteredData.answers}
-                            questions={questions}
+                            // Text answers have no 1-5 value, so they would only plot empty bars.
+                            questions={questions.filter((q: any) => q.question_type !== 'text' && q.question_type !== 'open_ended')}
                             topQuestionScoreFilter={topQuestionScoreFilter}
                             setTopQuestionScoreFilter={setTopQuestionScoreFilter}
                         />
