@@ -5,6 +5,7 @@ import type { StudentRemainingFlatViewProps } from '../../../types';
 
 const StudentVolunteerForm = lazy(() => import('./StudentVolunteerForm'));
 const VolunteerTimeLog = lazy(() => import('./VolunteerTimeLog'));
+const PeerLogbook = lazy(() => import('./PeerLogbook'));
 
 const VolunteerGuidelines = [
     {
@@ -132,6 +133,15 @@ export default function VolunteerView({
 
                 <Suspense fallback={null}>
                     <VolunteerTimeLog studentId={personalInfo.studentId} showToast={showToast} timeInEnabled={timeInEnabled} />
+                </Suspense>
+
+                <Suspense fallback={null}>
+                    <PeerLogbook
+                        studentId={personalInfo.studentId}
+                        peerName={[personalInfo.firstName, personalInfo.lastName].filter(Boolean).join(' ')}
+                        programYearSection={[personalInfo.course, personalInfo.year, personalInfo.section].filter(Boolean).join(' / ')}
+                        showToast={showToast}
+                    />
                 </Suspense>
 
                 {latestApplication && (
