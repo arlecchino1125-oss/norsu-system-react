@@ -10,15 +10,14 @@ const formatLoggedTime = (value: string) =>
     new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function PeerLogbookMonth({
-    entries, monthKey, readOnly, peerStudentId, isSaving, onSaveEntry, onDeleteEntry, isLoading = false
+    entries, monthKey, readOnly, isSaving, onSaveEntry, onDeleteEntry, isLoading = false
 }: {
     entries: PeerLogEntry[];
     monthKey: string;
     readOnly: boolean;
-    peerStudentId: string;
     isSaving: boolean;
-    onSaveEntry: (draft: PeerLogEntryDraft, entryId: string | null) => void;
-    onDeleteEntry: (entryId: string) => void;
+    onSaveEntry: (draft: PeerLogEntryDraft, entryId: string | null) => Promise<void>;
+    onDeleteEntry: (entryId: string) => Promise<void>;
     isLoading?: boolean;
 }) {
     const [openEntry, setOpenEntry] = useState<PeerLogEntry | null>(null);
@@ -77,16 +76,27 @@ export default function PeerLogbookMonth({
                     entry={openEntry}
                     monthKey={monthKey}
                     readOnly={readOnly}
-                    peerStudentId={peerStudentId}
                     isSaving={isSaving}
                     onClose={closeModal}
-                    onSave={(draft) => {
-                        onSaveEntry(draft, openEntry?.id ?? null);
-                        closeModal();
+                    // Close only once the write lands. Closing on the call would
+                    // discard everything typed if the save failed -- the likeliest
+                    // failure here is patchy campus wifi against the longest text
+                    // a peer writes. The mutation's onError raises the toast.
+                    onSave={async (draft) => {
+                        try {
+                            await onSaveEntry(draft, openEntry?.id ?? null);
+                            closeModal();
+                        } catch {
+                            // stays open with the draft intact
+                        }
                     }}
-                    onDelete={openEntry && !readOnly ? () => {
-                        onDeleteEntry(openEntry.id);
-                        closeModal();
+                    onDelete={openEntry && !readOnly ? async () => {
+                        try {
+                            await onDeleteEntry(openEntry.id);
+                            closeModal();
+                        } catch {
+                            // stays open
+                        }
                     } : undefined}
                 />
             )}

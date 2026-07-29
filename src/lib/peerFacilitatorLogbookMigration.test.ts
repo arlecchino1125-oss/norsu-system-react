@@ -40,8 +40,8 @@ describe('peer facilitator logbook migration', () => {
         expect(migration).toMatch(/FROM public\.peer_facilitators f\s+WHERE f\.student_id = peer_facilitator_logbooks\.student_id\s+AND f\.archived_at IS NULL/i);
     });
 
-    it('stamps submitted_at server-side so a student cannot backdate it', () => {
-        expect(migration).toMatch(/CREATE OR REPLACE FUNCTION public\.stamp_peer_facilitator_logbook_submission\(\)/i);
-        expect(migration).toMatch(/NEW\.submitted_at := now\(\)/i);
+    it('does not index a table that will hold hundreds of rows', () => {
+        expect(migration).not.toMatch(/peer_facilitator_logbooks_status_idx/i);
+        expect(migration).not.toMatch(/peer_facilitator_log_entries_assisted_idx/i);
     });
 });

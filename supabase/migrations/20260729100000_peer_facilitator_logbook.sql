@@ -18,7 +18,6 @@ CREATE TABLE public.peer_facilitator_logbooks (
     reviewed_by uuid,
     reviewer_name text,
     reviewed_at timestamp with time zone,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT peer_facilitator_logbooks_status_check CHECK (status IN ('draft', 'submitted', 'approved')),
     CONSTRAINT peer_facilitator_logbooks_month_first CHECK (EXTRACT(DAY FROM month) = 1),
     CONSTRAINT peer_facilitator_logbooks_reviewer_name_len CHECK (reviewer_name IS NULL OR char_length(reviewer_name) <= 200)
@@ -26,10 +25,6 @@ CREATE TABLE public.peer_facilitator_logbooks (
 
 CREATE UNIQUE INDEX peer_facilitator_logbooks_student_month
     ON public.peer_facilitator_logbooks (student_id, month);
-
--- Staff list submitted months across all peers; the roster chip reads this too.
-CREATE INDEX peer_facilitator_logbooks_status_idx
-    ON public.peer_facilitator_logbooks (status, month DESC);
 
 -- Target for the entries' composite FK below. A plain unique(id) is implied by
 -- the PK, but the FK needs (id, month) as a unit to carry month into the child.
@@ -67,39 +62,9 @@ CREATE TABLE public.peer_facilitator_log_entries (
 CREATE INDEX peer_facilitator_log_entries_logbook_idx
     ON public.peer_facilitator_log_entries (logbook_id, entry_date DESC);
 
--- Powers the "5 most recently logged students" default in the entry form.
-CREATE INDEX peer_facilitator_log_entries_assisted_idx
-    ON public.peer_facilitator_log_entries (assisted_student_id)
-    WHERE assisted_student_id IS NOT NULL;
-
--- A student controls the request body, so submitted_at sent from the client is
--- whatever they type. Stamp it server-side on the draft -> submitted move, the
--- same pattern as stamp_peer_facilitator_attendance_times.
-CREATE OR REPLACE FUNCTION public.stamp_peer_facilitator_logbook_submission() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path = 'public'
-    AS $$
-BEGIN
-    IF public.current_student_id() IS NULL THEN
-        RETURN NEW;  -- staff review stamps its own values
-    END IF;
-
-    IF NEW.status = 'submitted' AND OLD.status IS DISTINCT FROM 'submitted' THEN
-        NEW.submitted_at := now();
-    ELSE
-        NEW.submitted_at := OLD.submitted_at;
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.stamp_peer_facilitator_logbook_submission() FROM anon;
-
-CREATE TRIGGER peer_facilitator_logbooks_stamp_submission
-    BEFORE UPDATE ON public.peer_facilitator_logbooks
-    FOR EACH ROW
-    EXECUTE FUNCTION public.stamp_peer_facilitator_logbook_submission();
+-- submitted_at is recorded but nothing renders it yet, so a client-supplied
+-- value cannot mislead anyone. If a screen ever shows it, stamp it server-side
+-- first -- see stamp_peer_facilitator_attendance_times for the pattern.
 
 ALTER TABLE public.peer_facilitator_logbooks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.peer_facilitator_log_entries ENABLE ROW LEVEL SECURITY;

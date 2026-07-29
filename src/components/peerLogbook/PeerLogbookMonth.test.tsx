@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import PeerLogbookMonth from './PeerLogbookMonth';
 
@@ -26,10 +26,9 @@ describe('PeerLogbookMonth', () => {
     const baseProps = {
         entries,
         monthKey: '2026-07',
-        peerStudentId: '420100001',
         isSaving: false,
-        onSaveEntry: vi.fn(),
-        onDeleteEntry: vi.fn()
+        onSaveEntry: vi.fn().mockResolvedValue(undefined),
+        onDeleteEntry: vi.fn().mockResolvedValue(undefined)
     };
 
     it('shows only the date and activity type on the card', () => {
@@ -64,5 +63,35 @@ describe('PeerLogbookMonth', () => {
     it('tells the peer the month is empty', () => {
         render(<PeerLogbookMonth {...baseProps} entries={[]} readOnly={false} />);
         expect(screen.getByText(/no peer support logged/i)).toBeInTheDocument();
+    });
+
+    const fillNewEntry = () => {
+        fireEvent.click(screen.getByRole('button', { name: /add entry/i }));
+        fireEvent.change(screen.getByLabelText(/type of activity/i), { target: { value: 'Group session' } });
+        fireEvent.change(screen.getByLabelText(/concern/i), { target: { value: 'Exam stress' } });
+        fireEvent.change(screen.getByLabelText(/action taken/i), { target: { value: 'Talked it through' } });
+    };
+
+    // Campus wifi drops mid-save. Closing on the call rather than on the write
+    // would bin everything the peer typed -- the longest text in the feature.
+    it('keeps the entry open when the save fails', async () => {
+        const onSaveEntry = vi.fn().mockRejectedValue(new Error('offline'));
+        render(<PeerLogbookMonth {...baseProps} onSaveEntry={onSaveEntry} entries={[]} readOnly={false} />);
+
+        fillNewEntry();
+        fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+        await waitFor(() => expect(onSaveEntry).toHaveBeenCalled());
+        expect(screen.getByLabelText(/concern/i)).toHaveValue('Exam stress');
+    });
+
+    it('closes the entry once the save lands', async () => {
+        const onSaveEntry = vi.fn().mockResolvedValue(undefined);
+        render(<PeerLogbookMonth {...baseProps} onSaveEntry={onSaveEntry} entries={[]} readOnly={false} />);
+
+        fillNewEntry();
+        fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+        await waitFor(() => expect(screen.queryByLabelText(/concern/i)).not.toBeInTheDocument());
     });
 });

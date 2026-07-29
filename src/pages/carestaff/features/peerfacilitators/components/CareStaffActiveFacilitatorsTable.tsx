@@ -7,6 +7,7 @@ import { Card } from '../../../../../components/ui/Card';
 import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
 import CareStaffPeerSupportModal from './CareStaffPeerSupportModal';
+import { facilitatorName } from '../../../../../utils/peerLogbook';
 
 interface CareStaffActiveFacilitatorsTableProps {
     functions: { showToast: (msg: string, type?: any) => void };
@@ -17,9 +18,7 @@ const SETTINGS_KEY = 'peer-facilitator-settings';
 const ROSTER_KEY = 'care-staff-active-facilitators';
 const ACTIVE_PAGE_SIZE = 10;
 
-const fullName = (s: any) =>
-    [s?.first_name, s?.middle_name ? `${String(s.middle_name).charAt(0)}.` : '', s?.last_name, s?.suffix]
-        .filter(Boolean).join(' ') || '—';
+const fullName = facilitatorName;
 
 const courseYear = (s: any) =>
     [s?.course, s?.year_level].filter(Boolean).join(' - ') || s?.department || 'N/A';

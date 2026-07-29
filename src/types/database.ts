@@ -1650,7 +1650,6 @@ export type Database = {
       }
       peer_facilitator_logbooks: {
         Row: {
-          created_at: string
           id: string
           month: string
           reviewed_at: string | null
@@ -1661,7 +1660,6 @@ export type Database = {
           submitted_at: string | null
         }
         Insert: {
-          created_at?: string
           id?: string
           month: string
           reviewed_at?: string | null
@@ -1672,7 +1670,6 @@ export type Database = {
           submitted_at?: string | null
         }
         Update: {
-          created_at?: string
           id?: string
           month?: string
           reviewed_at?: string | null

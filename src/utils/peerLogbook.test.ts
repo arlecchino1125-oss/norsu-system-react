@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-    daysLeftInMonth,
     entryInitials,
+    facilitatorName,
     initialsFrom,
     monthKeyOf,
     monthLabelOf,
@@ -29,17 +29,24 @@ describe('peerLogbook helpers', () => {
         expect(todayIso(new Date(2026, 6, 29, 23, 30))).toBe('2026-07-29');
     });
 
-    it('counts the days left including today', () => {
-        expect(daysLeftInMonth(new Date(2026, 6, 29))).toBe(3);
-        expect(daysLeftInMonth(new Date(2026, 6, 31))).toBe(1);
-        expect(daysLeftInMonth(new Date(2026, 6, 1))).toBe(31);
-    });
-
-    it('prompts a draft to be submitted only near month end', () => {
-        expect(shouldPromptSubmit(new Date(2026, 6, 29), 'draft')).toBe(true);
-        expect(shouldPromptSubmit(new Date(2026, 6, 10), 'draft')).toBe(false);
+    it('prompts a draft to be submitted only in the last five days', () => {
+        expect(shouldPromptSubmit(new Date(2026, 6, 31), 'draft')).toBe(true);
+        expect(shouldPromptSubmit(new Date(2026, 6, 27), 'draft')).toBe(true);
+        expect(shouldPromptSubmit(new Date(2026, 6, 26), 'draft')).toBe(false);
+        expect(shouldPromptSubmit(new Date(2026, 6, 1), 'draft')).toBe(false);
         expect(shouldPromptSubmit(new Date(2026, 6, 29), 'submitted')).toBe(false);
         expect(shouldPromptSubmit(new Date(2026, 6, 29), 'approved')).toBe(false);
+    });
+
+    // Short months still get five days, not a date-arithmetic surprise.
+    it('measures the window from the real last day of the month', () => {
+        expect(shouldPromptSubmit(new Date(2026, 1, 24), 'draft')).toBe(true);
+        expect(shouldPromptSubmit(new Date(2026, 1, 23), 'draft')).toBe(false);
+    });
+
+    it('formats a roster name with a middle initial', () => {
+        expect(facilitatorName({ first_name: 'Reynel', middle_name: 'Cruz', last_name: 'Repaso' })).toBe('Reynel C. Repaso');
+        expect(facilitatorName(null)).toBe('—');
     });
 
     it('builds initials from a name', () => {

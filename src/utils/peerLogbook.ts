@@ -1,6 +1,19 @@
-/** Month and display helpers for the peer support logbook (student + care staff views). */
+/** Shared pieces for the peer support logbook (student + care staff views). */
 
 const pad = (value: number) => String(value).padStart(2, '0');
+
+/** The entry select both portals use -- they render the same component, so they read the same shape. */
+export const LOG_ENTRY_COLUMNS = `
+    id, logbook_id, logbook_month, entry_date, logged_at, activity_type,
+    assisted_student_id, assisted_initials, concern, action_taken, remarks, referred,
+    students:assisted_student_id ( first_name, last_name )
+`;
+
+export const LOGBOOK_STATUS_TONE: Record<string, string> = {
+    draft: 'border-slate-200 bg-slate-50 text-slate-600',
+    submitted: 'border-amber-200 bg-amber-50 text-amber-700',
+    approved: 'border-emerald-200 bg-emerald-50 text-emerald-700'
+};
 
 /** 'YYYY-MM' for the local calendar month -- matches sessionDate's local-time rule. */
 export const monthKeyOf = (date: Date): string =>
@@ -18,21 +31,26 @@ export const monthLabelOf = (monthKey: string): string => {
 export const todayIso = (date: Date = new Date()): string =>
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
-/** Days remaining in the month, counting today. */
-export const daysLeftInMonth = (now: Date): number => {
+/**
+ * The paper sheet is a monthly hand-in, and nothing else here would remind a
+ * peer that theirs is due. Fires in the last five days, counting today.
+ */
+export const shouldPromptSubmit = (now: Date, status: string): boolean => {
+    if (status !== 'draft') return false;
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return lastDay - now.getDate() + 1;
+    return lastDay - now.getDate() + 1 <= 5;
 };
-
-/** The paper sheet is a monthly hand-in, and nothing else would remind a peer. */
-export const shouldPromptSubmit = (now: Date, status: string): boolean =>
-    status === 'draft' && daysLeftInMonth(now) <= 5;
 
 export const initialsFrom = (first?: string | null, last?: string | null): string =>
     [first, last]
         .filter(Boolean)
         .map((name) => `${String(name).trim().charAt(0).toUpperCase()}.`)
         .join('');
+
+/** Roster display name: first, middle initial, last, suffix. */
+export const facilitatorName = (s: any): string =>
+    [s?.first_name, s?.middle_name ? `${String(s.middle_name).charAt(0)}.` : '', s?.last_name, s?.suffix]
+        .filter(Boolean).join(' ') || '—';
 
 /** Typed initials win: the peer chose them deliberately over the linked record. */
 export const entryInitials = (entry: {

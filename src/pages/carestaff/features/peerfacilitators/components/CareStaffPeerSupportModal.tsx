@@ -1,29 +1,18 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Download, Undo2 } from 'lucide-react';
+import { CheckCircle2, Download, NotebookPen, Undo2 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import { Button } from '../../../../../components/ui/Button';
 import Modal from '../../../../../components/ui/Modal';
 import PeerLogbookMonth from '../../../../../components/peerLogbook/PeerLogbookMonth';
 import type { PeerLogEntry } from '../../../../../components/peerLogbook/PeerLogEntryModal';
 import { exportLogbookPdf } from '../../../../../utils/peerLogbookPdf';
-import { monthLabelOf } from '../../../../../utils/peerLogbook';
-
-const ENTRY_COLUMNS = `
-    id, logbook_id, logbook_month, entry_date, logged_at, activity_type,
-    assisted_student_id, assisted_initials, concern, action_taken, remarks, referred,
-    students:assisted_student_id ( first_name, last_name )
-`;
-
-const STATUS_TONE: Record<string, string> = {
-    draft: 'border-slate-200 bg-slate-50 text-slate-600',
-    submitted: 'border-amber-200 bg-amber-50 text-amber-700',
-    approved: 'border-emerald-200 bg-emerald-50 text-emerald-700'
-};
-
-const fullName = (s: any) =>
-    [s?.first_name, s?.middle_name ? `${String(s.middle_name).charAt(0)}.` : '', s?.last_name, s?.suffix]
-        .filter(Boolean).join(' ') || '—';
+import {
+    LOGBOOK_STATUS_TONE,
+    LOG_ENTRY_COLUMNS,
+    facilitatorName,
+    monthLabelOf
+} from '../../../../../utils/peerLogbook';
 
 export default function CareStaffPeerSupportModal({
     facilitator, onClose, showToast
@@ -58,7 +47,7 @@ export default function CareStaffPeerSupportModal({
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('peer_facilitator_log_entries')
-                .select(ENTRY_COLUMNS)
+                .select(LOG_ENTRY_COLUMNS)
                 .eq('logbook_id', openBookId as string)
                 .order('entry_date', { ascending: false })
                 .order('logged_at', { ascending: false });
@@ -109,7 +98,7 @@ export default function CareStaffPeerSupportModal({
     const exportOpenBook = async () => {
         if (!openBook) return;
         await exportLogbookPdf({
-            peerName: fullName(facilitator.students),
+            peerName: facilitatorName(facilitator.students),
             programYearSection: [facilitator.students?.course, facilitator.students?.year_level].filter(Boolean).join(' / '),
             monthKey: String(openBook.month).slice(0, 7),
             entries,
@@ -121,7 +110,7 @@ export default function CareStaffPeerSupportModal({
         <Modal
             open
             anchorId="staff-content-region"
-            title={fullName(facilitator.students)}
+            title={facilitatorName(facilitator.students)}
             subtitle={openBook ? `Peer Support · ${monthLabelOf(String(openBook.month).slice(0, 7))}` : 'Peer Support'}
             onClose={openBook ? () => setOpenBookId(null) : onClose}
             footer={openBook ? (
@@ -154,10 +143,23 @@ export default function CareStaffPeerSupportModal({
             )}
         >
             <div className="mx-auto w-full max-w-3xl">
+                {/* One tab today. It names what staff are looking at, and is where a
+                    second facilitator view would go rather than a second modal. */}
+                <div role="tablist" aria-label="Facilitator sections" className="mb-4 flex gap-1 border-b border-gray-200">
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected
+                        className="whitespace-nowrap border-b-2 border-blue-600 px-3 py-2.5 text-sm font-bold text-blue-600"
+                    >
+                        <span className="flex items-center gap-2"><NotebookPen size={16} /> Peer Support</span>
+                    </button>
+                </div>
+
                 {openBook ? (
                     <>
                         <div className="mb-4 flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${STATUS_TONE[openBook.status]}`}>
+                            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[openBook.status]}`}>
                                 {openBook.status}
                             </span>
                             {openBook.reviewer_name && (
@@ -171,11 +173,10 @@ export default function CareStaffPeerSupportModal({
                             entries={entries}
                             monthKey={String(openBook.month).slice(0, 7)}
                             readOnly
-                            peerStudentId={studentId}
                             isLoading={entriesLoading}
                             isSaving={false}
-                            onSaveEntry={() => undefined}
-                            onDeleteEntry={() => undefined}
+                            onSaveEntry={async () => undefined}
+                            onDeleteEntry={async () => undefined}
                         />
                     </>
                 ) : isLoading ? (
@@ -194,7 +195,7 @@ export default function CareStaffPeerSupportModal({
                                     <span className="text-sm font-bold text-slate-900">
                                         {monthLabelOf(String(book.month).slice(0, 7))}
                                     </span>
-                                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${STATUS_TONE[book.status]}`}>
+                                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[book.status]}`}>
                                         {book.status}
                                     </span>
                                 </button>

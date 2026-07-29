@@ -6,19 +6,14 @@ import { Button } from '../../../../../components/ui/Button';
 import PeerLogbookMonth from '../../../../../components/peerLogbook/PeerLogbookMonth';
 import type { PeerLogEntry, PeerLogEntryDraft } from '../../../../../components/peerLogbook/PeerLogEntryModal';
 import { exportLogbookPdf } from '../../../../../utils/peerLogbookPdf';
-import { monthKeyOf, monthLabelOf, monthStartOf, shouldPromptSubmit } from '../../../../../utils/peerLogbook';
-
-const ENTRY_COLUMNS = `
-    id, logbook_id, logbook_month, entry_date, logged_at, activity_type,
-    assisted_student_id, assisted_initials, concern, action_taken, remarks, referred,
-    students:assisted_student_id ( first_name, last_name )
-`;
-
-const STATUS_TONE: Record<string, string> = {
-    draft: 'border-slate-200 bg-slate-50 text-slate-600',
-    submitted: 'border-amber-200 bg-amber-50 text-amber-700',
-    approved: 'border-emerald-200 bg-emerald-50 text-emerald-700'
-};
+import {
+    LOGBOOK_STATUS_TONE,
+    LOG_ENTRY_COLUMNS,
+    monthKeyOf,
+    monthLabelOf,
+    monthStartOf,
+    shouldPromptSubmit
+} from '../../../../../utils/peerLogbook';
 
 export default function PeerLogbook({
     studentId, peerName, programYearSection, showToast
@@ -47,7 +42,7 @@ export default function PeerLogbook({
 
             const { data: entries, error: entryError } = await supabase
                 .from('peer_facilitator_log_entries')
-                .select(ENTRY_COLUMNS)
+                .select(LOG_ENTRY_COLUMNS)
                 .eq('logbook_id', logbook.id)
                 .order('entry_date', { ascending: false })
                 .order('logged_at', { ascending: false });
@@ -135,10 +130,9 @@ export default function PeerLogbook({
     const submitMutation = useMutation({
         mutationFn: async () => {
             if (!logbook) throw new Error('Nothing to submit.');
-            // submitted_at is stamped by the DB trigger, not sent from here.
             const { error } = await supabase
                 .from('peer_facilitator_logbooks')
-                .update({ status: 'submitted' })
+                .update({ status: 'submitted', submitted_at: new Date().toISOString() })
                 .eq('id', logbook.id);
             if (error) throw error;
         },
@@ -152,7 +146,7 @@ export default function PeerLogbook({
     const downloadMonth = async (targetMonthKey: string, targetLogbookId: string, reviewerName?: string | null) => {
         const { data: rows, error } = await supabase
             .from('peer_facilitator_log_entries')
-            .select(ENTRY_COLUMNS)
+            .select(LOG_ENTRY_COLUMNS)
             .eq('logbook_id', targetLogbookId)
             .order('entry_date', { ascending: true });
         if (error) {
@@ -184,7 +178,7 @@ export default function PeerLogbook({
                         onChange={(e) => setMonthKey(e.target.value)}
                         className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase ${STATUS_TONE[status]}`}>
+                    <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[status]}`}>
                         {status}
                     </span>
                 </div>
@@ -203,11 +197,10 @@ export default function PeerLogbook({
                     entries={entries}
                     monthKey={monthKey}
                     readOnly={isLocked}
-                    peerStudentId={studentId}
                     isLoading={isLoading}
                     isSaving={saveEntryMutation.isPending || deleteEntryMutation.isPending}
-                    onSaveEntry={(draft, entryId) => saveEntryMutation.mutate({ draft, entryId })}
-                    onDeleteEntry={(entryId) => deleteEntryMutation.mutate(entryId)}
+                    onSaveEntry={(draft, entryId) => saveEntryMutation.mutateAsync({ draft, entryId })}
+                    onDeleteEntry={(entryId) => deleteEntryMutation.mutateAsync(entryId)}
                 />
             </div>
 

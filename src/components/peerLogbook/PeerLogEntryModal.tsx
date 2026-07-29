@@ -59,9 +59,8 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 const inputClass = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500';
 
 const AssistedStudentPicker = ({
-    peerStudentId, selectedId, selectedLabel, onPick, onClear
+    selectedId, selectedLabel, onPick, onClear
 }: {
-    peerStudentId: string;
     selectedId: string | null;
     selectedLabel: string;
     onPick: (student: any) => void;
@@ -72,9 +71,10 @@ const AssistedStudentPicker = ({
 
     // Before the peer types, offer whoever they logged most recently -- follow-ups
     // mean the same handful of students recur, so it is usually a one-tap pick.
-    // RLS already scopes entries to this peer's own logbooks, so no filter here.
+    // RLS already scopes entries to this peer's own logbooks, and the picker only
+    // renders for them (staff view is read-only), so the key needs no student id.
     const { data: recent = [] } = useQuery({
-        queryKey: ['peer-logbook-recent-students', peerStudentId],
+        queryKey: ['peer-logbook-recent-students'],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('peer_facilitator_log_entries')
@@ -159,12 +159,11 @@ const AssistedStudentPicker = ({
 };
 
 export default function PeerLogEntryModal({
-    entry, monthKey, readOnly, peerStudentId, isSaving, onClose, onSave, onDelete
+    entry, monthKey, readOnly, isSaving, onClose, onSave, onDelete
 }: {
     entry: PeerLogEntry | null;
     monthKey: string;
     readOnly: boolean;
-    peerStudentId: string;
     isSaving: boolean;
     onClose: () => void;
     onSave: (draft: PeerLogEntryDraft) => void;
@@ -249,7 +248,6 @@ export default function PeerLogEntryModal({
                     Student assisted <span className="font-medium text-slate-400">— optional</span>
                 </p>
                 <AssistedStudentPicker
-                    peerStudentId={peerStudentId}
                     selectedId={draft.assisted_student_id}
                     selectedLabel={pickedLabel}
                     onPick={(student) => {
