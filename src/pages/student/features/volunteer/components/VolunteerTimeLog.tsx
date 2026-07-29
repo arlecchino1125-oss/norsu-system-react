@@ -84,7 +84,13 @@ export default function VolunteerTimeLog({ studentId, showToast, timeInEnabled =
                 )}
             </div>
 
-            <div className="mt-4 border-t border-slate-100 pt-3">
+            {/* ponytail: native <details>, no disclosure state to manage.
+                Collapsed by default -- the running total is already in the header,
+                and the history is reference, not why a peer opens the page. */}
+            <details className="mt-4 border-t border-slate-100 pt-3">
+                <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-600">
+                    Session history{sessions.length ? ` (${sessions.length})` : ''}
+                </summary>
                 {isLoading ? (
                     <p className="py-4 text-center text-[11px] font-semibold text-slate-400">Loading your hours...</p>
                 ) : isError ? (
@@ -92,7 +98,7 @@ export default function VolunteerTimeLog({ studentId, showToast, timeInEnabled =
                 ) : sessions.length === 0 ? (
                     <p className="py-4 text-center text-[11px] font-semibold text-slate-400">No volunteer hours logged yet.</p>
                 ) : (
-                    <ul className="space-y-1.5">
+                    <ul className="mt-3 space-y-1.5">
                         {sessions.slice(0, 10).map((session) => (
                             <li key={session.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
                                 <span className="text-[11px] font-bold text-slate-700">
@@ -108,7 +114,7 @@ export default function VolunteerTimeLog({ studentId, showToast, timeInEnabled =
                         ))}
                     </ul>
                 )}
-            </div>
+            </details>
         </section>
     );
 }

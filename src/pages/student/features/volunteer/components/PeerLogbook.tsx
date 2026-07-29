@@ -192,17 +192,25 @@ export default function PeerLogbook({
                 </div>
             )}
 
-            <div className="mt-4 border-t border-slate-100 pt-4">
-                <PeerLogbookMonth
-                    entries={entries}
-                    monthKey={monthKey}
-                    readOnly={isLocked}
-                    isLoading={isLoading}
-                    isSaving={saveEntryMutation.isPending || deleteEntryMutation.isPending}
-                    onSaveEntry={(draft, entryId) => saveEntryMutation.mutateAsync({ draft, entryId })}
-                    onDeleteEntry={(entryId) => deleteEntryMutation.mutateAsync(entryId)}
-                />
-            </div>
+            {/* ponytail: native <details>, no disclosure state to manage. Open
+                while the month is still editable, because that is when a peer is
+                here to add to it; a locked month collapses to one line. */}
+            <details open={!isLocked} className="mt-4 border-t border-slate-100 pt-4">
+                <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-600">
+                    Entries{entries.length ? ` (${entries.length})` : ''}
+                </summary>
+                <div className="mt-3">
+                    <PeerLogbookMonth
+                        entries={entries}
+                        monthKey={monthKey}
+                        readOnly={isLocked}
+                        isLoading={isLoading}
+                        isSaving={saveEntryMutation.isPending || deleteEntryMutation.isPending}
+                        onSaveEntry={(draft, entryId) => saveEntryMutation.mutateAsync({ draft, entryId })}
+                        onDeleteEntry={(entryId) => deleteEntryMutation.mutateAsync(entryId)}
+                    />
+                </div>
+            </details>
 
             {/* Export first, then mark submitted. Signing happens on paper at the
                 CARE Office -- guidance counsellors sign as counsellors, not as a
