@@ -56,9 +56,9 @@ export default function PeerLogbook({
         queryFn: async () => {
             const { data: rows, error } = await supabase
                 .from('peer_facilitator_logbooks')
-                .select('id, month, reviewer_name, reviewed_at')
+                .select('id, month, submitted_at')
                 .eq('student_id', studentId)
-                .eq('status', 'approved')
+                .eq('status', 'submitted')
                 .order('month', { ascending: false });
             if (error) throw error;
             return rows || [];
@@ -143,7 +143,7 @@ export default function PeerLogbook({
         onError: () => showToast?.('Unable to submit the logbook.', 'error')
     });
 
-    const downloadMonth = async (targetMonthKey: string, targetLogbookId: string, reviewerName?: string | null) => {
+    const downloadMonth = async (targetMonthKey: string, targetLogbookId: string) => {
         const { data: rows, error } = await supabase
             .from('peer_facilitator_log_entries')
             .select(LOG_ENTRY_COLUMNS)
@@ -157,8 +157,7 @@ export default function PeerLogbook({
             peerName,
             programYearSection,
             monthKey: targetMonthKey,
-            entries: (rows || []) as unknown as PeerLogEntry[],
-            reviewerName
+            entries: (rows || []) as unknown as PeerLogEntry[]
         });
     };
 
@@ -187,7 +186,8 @@ export default function PeerLogbook({
             {shouldPromptSubmit(new Date(), status) && monthKey === monthKeyOf(new Date()) && entries.length > 0 && (
                 <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
                     <p className="text-[11px] font-semibold leading-5 text-amber-800">
-                        {monthLabelOf(monthKey)} is almost over. Submit your logbook so the CARE Office can review it.
+                        {monthLabelOf(monthKey)} is almost over. Export your logbook, have it signed at the CARE Office,
+                        then mark it submitted here.
                     </p>
                 </div>
             )}
@@ -204,17 +204,31 @@ export default function PeerLogbook({
                 />
             </div>
 
-            {!isLocked && entries.length > 0 && (
-                <div className="mt-4 border-t border-slate-100 pt-4">
+            {/* Export first, then mark submitted. Signing happens on paper at the
+                CARE Office -- guidance counsellors sign as counsellors, not as a
+                button in a portal -- so the system records that the month is
+                finished, and never claims to have witnessed a signature. */}
+            {entries.length > 0 && (
+                <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row">
                     <Button
-                        variant="primary"
-                        leftIcon={<Send size={16} />}
-                        isLoading={submitMutation.isPending}
-                        onClick={() => submitMutation.mutate()}
+                        variant="secondary"
+                        leftIcon={<Download size={16} />}
+                        onClick={() => logbook && downloadMonth(monthKey, logbook.id)}
                         className="w-full sm:w-auto"
                     >
-                        Submit {monthLabelOf(monthKey)} for review
+                        Export {monthLabelOf(monthKey)}
                     </Button>
+                    {!isLocked && (
+                        <Button
+                            variant="primary"
+                            leftIcon={<Send size={16} />}
+                            isLoading={submitMutation.isPending}
+                            onClick={() => submitMutation.mutate()}
+                            className="w-full sm:w-auto"
+                        >
+                            Mark as submitted
+                        </Button>
+                    )}
                 </div>
             )}
 
@@ -230,14 +244,14 @@ export default function PeerLogbook({
                                 <div className="min-w-0">
                                     <p className="text-sm font-bold text-slate-900">{monthLabelOf(String(book.month).slice(0, 7))}</p>
                                     <p className="text-[10px] font-semibold text-slate-500">
-                                        Approved{book.reviewer_name ? ` by ${book.reviewer_name}` : ''}
+                                        Submitted{book.submitted_at ? ` ${new Date(book.submitted_at).toLocaleDateString()}` : ''}
                                     </p>
                                 </div>
                                 <Button
                                     variant="secondary"
                                     size="sm"
                                     leftIcon={<Download size={14} />}
-                                    onClick={() => downloadMonth(String(book.month).slice(0, 7), book.id, book.reviewer_name)}
+                                    onClick={() => downloadMonth(String(book.month).slice(0, 7), book.id)}
                                 >
                                     Export
                                 </Button>

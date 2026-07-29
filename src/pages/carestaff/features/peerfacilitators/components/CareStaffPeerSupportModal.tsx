@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Download, NotebookPen, Undo2 } from 'lucide-react';
+import { Download, NotebookPen, Undo2 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import { Button } from '../../../../../components/ui/Button';
 import Modal from '../../../../../components/ui/Modal';
@@ -32,7 +32,7 @@ export default function CareStaffPeerSupportModal({
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('peer_facilitator_logbooks')
-                .select('id, month, status, submitted_at, reviewer_name, reviewed_at')
+                .select('id, month, status, submitted_at')
                 .eq('student_id', studentId)
                 .order('month', { ascending: false });
             if (error) throw error;
@@ -57,42 +57,20 @@ export default function CareStaffPeerSupportModal({
         enabled: !!openBookId
     });
 
-    const reviewMutation = useMutation({
-        mutationFn: async ({ bookId, approve }: { bookId: string; approve: boolean }) => {
-            if (!approve) {
-                const { error } = await supabase
-                    .from('peer_facilitator_logbooks')
-                    .update({ status: 'draft', reviewed_by: null, reviewer_name: null, reviewed_at: null })
-                    .eq('id', bookId);
-                if (error) throw error;
-                return;
-            }
-
-            const { data: userData } = await supabase.auth.getUser();
-            const authUserId = userData.user?.id ?? null;
-            const { data: staffAccount } = await supabase
-                .from('staff_accounts')
-                .select('full_name, username')
-                .eq('auth_user_id', authUserId as string)
-                .maybeSingle();
-
+    const reopenMutation = useMutation({
+        mutationFn: async (bookId: string) => {
             const { error } = await supabase
                 .from('peer_facilitator_logbooks')
-                .update({
-                    status: 'approved',
-                    reviewed_by: authUserId,
-                    reviewer_name: staffAccount?.full_name || staffAccount?.username || 'CARE Staff',
-                    reviewed_at: new Date().toISOString()
-                })
+                .update({ status: 'draft', submitted_at: null })
                 .eq('id', bookId);
             if (error) throw error;
         },
-        onSuccess: (_result, variables) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: booksKey });
             queryClient.invalidateQueries({ queryKey: ['care-staff-submitted-logbooks'] });
-            showToast(variables.approve ? 'Logbook approved.' : 'Logbook returned to the peer.', 'success');
+            showToast('Logbook reopened for the peer.', 'success');
         },
-        onError: () => showToast('Failed to update the logbook.', 'error')
+        onError: () => showToast('Failed to reopen the logbook.', 'error')
     });
 
     const exportOpenBook = async () => {
@@ -101,8 +79,7 @@ export default function CareStaffPeerSupportModal({
             peerName: facilitatorName(facilitator.students),
             programYearSection: [facilitator.students?.course, facilitator.students?.year_level].filter(Boolean).join(' / '),
             monthKey: String(openBook.month).slice(0, 7),
-            entries,
-            reviewerName: openBook.reviewer_name
+            entries
         });
     };
 
@@ -116,24 +93,18 @@ export default function CareStaffPeerSupportModal({
             footer={openBook ? (
                 <>
                     <Button variant="secondary" leftIcon={<Download size={14} />} onClick={exportOpenBook}>Export PDF</Button>
+                    {/* No approve action. A guidance counsellor signs the printed
+                        sheet as a counsellor; the system has no business recording
+                        an approval it never witnessed. Reopening stays, because a
+                        month marked submitted by mistake needs a way back. */}
                     {openBook.status === 'submitted' && (
                         <Button
                             variant="secondary"
                             leftIcon={<Undo2 size={14} />}
-                            isLoading={reviewMutation.isPending}
-                            onClick={() => reviewMutation.mutate({ bookId: openBook.id, approve: false })}
+                            isLoading={reopenMutation.isPending}
+                            onClick={() => reopenMutation.mutate(openBook.id)}
                         >
-                            Return to peer
-                        </Button>
-                    )}
-                    {openBook.status !== 'approved' && (
-                        <Button
-                            variant="primary"
-                            leftIcon={<CheckCircle2 size={16} />}
-                            isLoading={reviewMutation.isPending}
-                            onClick={() => reviewMutation.mutate({ bookId: openBook.id, approve: true })}
-                        >
-                            Approve
+                            Reopen for peer
                         </Button>
                     )}
                     <Button variant="secondary" onClick={() => setOpenBookId(null)}>Back</Button>
@@ -162,10 +133,9 @@ export default function CareStaffPeerSupportModal({
                             <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[openBook.status]}`}>
                                 {openBook.status}
                             </span>
-                            {openBook.reviewer_name && (
+                            {openBook.submitted_at && (
                                 <span className="text-[11px] font-semibold text-slate-500">
-                                    Reviewed by {openBook.reviewer_name}
-                                    {openBook.reviewed_at ? ` · ${new Date(openBook.reviewed_at).toLocaleDateString()}` : ''}
+                                    Submitted {new Date(openBook.submitted_at).toLocaleDateString()}
                                 </span>
                             )}
                         </div>

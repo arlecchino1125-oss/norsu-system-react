@@ -27,13 +27,12 @@ export const buildLogbookRows = (entries: PeerLogEntry[]): string[][] =>
     ]);
 
 export const exportLogbookPdf = async ({
-    peerName, programYearSection, monthKey, entries, reviewerName
+    peerName, programYearSection, monthKey, entries
 }: {
     peerName: string;
     programYearSection: string;
     monthKey: string;
     entries: PeerLogEntry[];
-    reviewerName?: string | null;
 }): Promise<void> => {
     const { jsPDF, autoTable } = await loadJsPdfAutoTable();
     // Landscape: eight columns of prose do not fit portrait at a readable size.
@@ -58,9 +57,11 @@ export const exportLogbookPdf = async ({
         columnStyles: { 3: { cellWidth: 45 }, 4: { cellWidth: 45 }, 6: { cellWidth: 35 } }
     });
 
+    // Both lines print blank. This sheet is signed by hand at the CARE Office --
+    // that is the point of exporting it -- so the PDF must not pre-fill either.
     const endY = (doc as any).lastAutoTable?.finalY ?? 50;
     doc.text('Peer Facilitator Signature: _________________________________', 14, endY + 15);
-    doc.text(`Reviewed by (Guidance Center Staff): ${reviewerName || '_______________________'}`, 14, endY + 23);
+    doc.text('Reviewed by (Guidance Center Staff): _______________________', 14, endY + 23);
 
     doc.save(`peer-support-logbook-${monthKey}.pdf`);
 };
