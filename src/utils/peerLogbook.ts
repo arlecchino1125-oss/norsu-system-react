@@ -2,11 +2,16 @@
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
-/** The entry select both portals use -- they render the same component, so they read the same shape. */
+/**
+ * The entry select both portals use -- they render the same component, so they
+ * read the same shape. Deliberately no join to students: the assisted student's
+ * initials are stored on the entry at pick time, so displaying a logbook never
+ * depends on permission to read another student's record. A peer does not have
+ * that permission, and the form only ever wanted initials anyway.
+ */
 export const LOG_ENTRY_COLUMNS = `
     id, logbook_id, logbook_month, entry_date, logged_at, activity_type,
-    assisted_student_id, assisted_initials, concern, action_taken, remarks, referred,
-    students:assisted_student_id ( first_name, last_name )
+    assisted_student_id, assisted_initials, concern, action_taken, remarks, referred
 `;
 
 export const LOGBOOK_STATUS_TONE: Record<string, string> = {
@@ -52,10 +57,10 @@ export const facilitatorName = (s: any): string =>
     [s?.first_name, s?.middle_name ? `${String(s.middle_name).charAt(0)}.` : '', s?.last_name, s?.suffix]
         .filter(Boolean).join(' ') || '—';
 
-/** Typed initials win: the peer chose them deliberately over the linked record. */
-export const entryInitials = (entry: {
-    assisted_initials?: string | null;
-    students?: { first_name?: string | null; last_name?: string | null } | null;
-}): string =>
-    entry.assisted_initials?.trim()
-        || initialsFrom(entry.students?.first_name, entry.students?.last_name);
+/**
+ * What a logbook shows for the student assisted. Always initials, whether the
+ * peer picked a student or typed them freehand -- the entry carries them either
+ * way, so this never reaches for a record it may not be allowed to read.
+ */
+export const entryInitials = (entry: { assisted_initials?: string | null }): string =>
+    entry.assisted_initials?.trim() || '';

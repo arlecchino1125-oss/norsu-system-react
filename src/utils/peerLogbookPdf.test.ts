@@ -9,12 +9,11 @@ const entry = {
     logged_at: '2026-07-14T06:30:00.000Z',
     activity_type: 'One-on-one peer support',
     assisted_student_id: '420135501',
-    assisted_initials: null,
+    assisted_initials: 'R.R.',
     concern: 'Struggling with academic load',
     action_taken: 'Listened and shared study planning',
     remarks: 'Check back next week',
-    referred: true,
-    students: { first_name: 'Reynel', last_name: 'Repaso' }
+    referred: true
 } as any;
 
 describe('peer logbook PDF rows', () => {
@@ -31,10 +30,11 @@ describe('peer logbook PDF rows', () => {
         ]);
     });
 
-    it('prints initials rather than the linked student name', () => {
+    // The entry links to a real student, but the sheet only ever carries initials.
+    it('prints the stored initials, never the student id', () => {
         const [row] = buildLogbookRows([entry]);
         expect(row[2]).toBe('R.R.');
-        expect(row.join(' ')).not.toContain('Reynel');
+        expect(row.join(' ')).not.toContain('420135501');
     });
 
     it('renders the referral flag as the form asks it', () => {
@@ -48,7 +48,7 @@ describe('peer logbook PDF rows', () => {
     });
 
     it('leaves an unrecorded student blank rather than inventing initials', () => {
-        const anonymous = { ...entry, assisted_student_id: null, students: null };
+        const anonymous = { ...entry, assisted_student_id: null, assisted_initials: null };
         expect(buildLogbookRows([anonymous])[0][2]).toBe('');
     });
 });

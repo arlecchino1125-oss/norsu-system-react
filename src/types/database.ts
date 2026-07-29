@@ -3282,6 +3282,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      search_students_for_peer: {
+        Args: { p_term?: string }
+        Returns: {
+          first_name: string
+          last_name: string
+          student_id: string
+        }[]
+      }
       search_care_students: {
         Args: {
           p_course?: string

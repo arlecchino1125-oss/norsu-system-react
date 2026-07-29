@@ -55,9 +55,12 @@ describe('peerLogbook helpers', () => {
         expect(initialsFrom(null, null)).toBe('');
     });
 
-    it('prefers typed initials over a linked student', () => {
-        expect(entryInitials({ assisted_initials: 'X.Y.', students: { first_name: 'Reynel', last_name: 'Repaso' } })).toBe('X.Y.');
-        expect(entryInitials({ assisted_initials: null, students: { first_name: 'Reynel', last_name: 'Repaso' } })).toBe('R.R.');
-        expect(entryInitials({ assisted_initials: null, students: null })).toBe('');
+    // Initials are written onto the entry when the student is picked, so display
+    // never reaches for a student record the viewer may not be allowed to read.
+    it('shows the initials stored on the entry, and nothing else', () => {
+        expect(entryInitials({ assisted_initials: 'X.Y.' })).toBe('X.Y.');
+        expect(entryInitials({ assisted_initials: '  R.R. ' })).toBe('R.R.');
+        expect(entryInitials({ assisted_initials: null })).toBe('');
+        expect(entryInitials({})).toBe('');
     });
 });

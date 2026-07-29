@@ -19,7 +19,6 @@ export interface PeerLogEntry {
     action_taken: string;
     remarks: string | null;
     referred: boolean;
-    students?: { first_name?: string | null; last_name?: string | null } | null;
 }
 
 export interface PeerLogEntryDraft {
@@ -43,10 +42,6 @@ const ACTIVITY_SUGGESTIONS = [
     'Office duty'
 ];
 
-// The term feeds a PostgREST or() string, so strip the characters that would
-// break its comma/paren-delimited grammar.
-const sanitizeTerm = (term: string) => term.replace(/[,()*]/g, ' ').trim();
-
 const fullName = (s: any) => [s?.first_name, s?.last_name].filter(Boolean).join(' ') || '—';
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -67,46 +62,20 @@ const AssistedStudentPicker = ({
     onClear: () => void;
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const term = sanitizeTerm(searchTerm);
+    const term = searchTerm.trim();
 
-    // Before the peer types, offer whoever they logged most recently -- follow-ups
-    // mean the same handful of students recur, so it is usually a one-tap pick.
-    // RLS already scopes entries to this peer's own logbooks, and the picker only
-    // renders for them (staff view is read-only), so the key needs no student id.
-    const { data: recent = [] } = useQuery({
-        queryKey: ['peer-logbook-recent-students'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('peer_facilitator_log_entries')
-                .select('assisted_student_id, logged_at, students:assisted_student_id ( student_id, first_name, last_name )')
-                .not('assisted_student_id', 'is', null)
-                .order('logged_at', { ascending: false })
-                .limit(25);
-            if (error) throw error;
-            const seen = new Map<string, any>();
-            for (const row of data || []) {
-                const student = (row as any).students;
-                if (student?.student_id && !seen.has(student.student_id)) seen.set(student.student_id, student);
-            }
-            return Array.from(seen.values()).slice(0, 5);
-        },
-        enabled: term.length < 2,
-        staleTime: 60000
-    });
-
-    const { data: results = [], isFetching } = useQuery({
+    // A student may only read their own row, so this cannot query students
+    // directly. search_students_for_peer checks the caller is on the active
+    // roster and returns at most five, name and id only. Under two characters it
+    // returns whoever this peer logged most recently, so a follow-up is one tap.
+    const { data: options = [], isFetching } = useQuery({
         queryKey: ['peer-logbook-student-search', term],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('students')
-                .select('student_id, first_name, last_name, course, year_level')
-                .eq('is_archived', false)
-                .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,student_id.ilike.%${term}%`)
-                .limit(5);
+            const { data, error } = await supabase.rpc('search_students_for_peer', { p_term: term });
             if (error) throw error;
             return data || [];
         },
-        enabled: term.length >= 2
+        staleTime: 60000
     });
 
     if (selectedId) {
@@ -117,8 +86,6 @@ const AssistedStudentPicker = ({
             </div>
         );
     }
-
-    const options = term.length >= 2 ? results : recent;
 
     return (
         <div>
@@ -138,9 +105,11 @@ const AssistedStudentPicker = ({
                     <p className="px-3 py-3 text-center text-xs text-slate-400">Searching...</p>
                 ) : options.length === 0 ? (
                     <p className="px-3 py-3 text-center text-xs text-slate-400">
-                        {term.length >= 2 ? 'No matching students.' : 'Type at least 2 characters to search.'}
+                        {term.length >= 2 ? 'No matching students.' : 'Type a name to search.'}
                     </p>
                 ) : (
+                    /* Name only while choosing -- the student ID is never shown,
+                       and only the initials are kept once picked. */
                     options.map((s: any) => (
                         <button
                             type="button"
@@ -149,7 +118,6 @@ const AssistedStudentPicker = ({
                             className="w-full px-3 py-2 text-left transition-colors hover:bg-blue-50"
                         >
                             <p className="text-sm font-bold text-slate-900">{fullName(s)}</p>
-                            <p className="text-xs text-slate-500">{s.student_id}</p>
                         </button>
                     ))
                 )}
@@ -184,7 +152,7 @@ export default function PeerLogEntryModal({
         remarks: entry?.remarks || '',
         referred: entry?.referred || false
     });
-    const [pickedLabel, setPickedLabel] = useState(entry?.students ? fullName(entry.students) : '');
+    const [pickedLabel, setPickedLabel] = useState(entry?.assisted_initials || '');
 
     const set = <K extends keyof PeerLogEntryDraft>(key: K, value: PeerLogEntryDraft[K]) =>
         setDraft((current) => ({ ...current, [key]: value }));
@@ -202,11 +170,10 @@ export default function PeerLogEntryModal({
                 {new Date(`${entry.entry_date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
             </Field>
             <Field label="Type of activity / interaction">{entry.activity_type}</Field>
-            <Field label="Student assisted">
-                {entry.students
-                    ? `${fullName(entry.students)} (${initialsFrom(entry.students.first_name, entry.students.last_name)})`
-                    : entry.assisted_initials || 'Not recorded'}
-            </Field>
+            {/* Initials only, on every screen. The record links to a student when
+                one was picked, but the form asks for initials and that is all a
+                logbook ever displays. */}
+            <Field label="Student assisted">{entry.assisted_initials || 'Not recorded'}</Field>
             <Field label="Concern / topic discussed"><span className="whitespace-pre-wrap">{entry.concern}</span></Field>
             <Field label="Action taken / assistance provided"><span className="whitespace-pre-wrap">{entry.action_taken}</span></Field>
             <Field label="Referred to Guidance Center">{entry.referred ? 'Yes' : 'No'}</Field>
@@ -250,12 +217,24 @@ export default function PeerLogEntryModal({
                 <AssistedStudentPicker
                     selectedId={draft.assisted_student_id}
                     selectedLabel={pickedLabel}
+                    // Initials are written now, not derived later: a peer cannot
+                    // read another student's record, so nothing can look the name
+                    // up again once this modal closes.
                     onPick={(student) => {
-                        set('assisted_student_id', student.student_id);
-                        setPickedLabel(fullName(student));
+                        const initials = initialsFrom(student.first_name, student.last_name);
+                        setDraft((current) => ({
+                            ...current,
+                            assisted_student_id: student.student_id,
+                            assisted_initials: initials
+                        }));
+                        setPickedLabel(initials);
                     }}
                     onClear={() => {
-                        set('assisted_student_id', null);
+                        setDraft((current) => ({
+                            ...current,
+                            assisted_student_id: null,
+                            assisted_initials: null
+                        }));
                         setPickedLabel('');
                     }}
                 />
