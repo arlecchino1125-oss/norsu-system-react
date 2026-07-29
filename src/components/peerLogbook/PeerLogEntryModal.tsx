@@ -34,7 +34,7 @@ export interface PeerLogEntryDraft {
 }
 
 /** Suggestions only -- the field accepts anything, so a new activity is typed, not blocked. */
-export const ACTIVITY_SUGGESTIONS = [
+const ACTIVITY_SUGGESTIONS = [
     'One-on-one peer support',
     'Group session',
     'Classroom / orientation',

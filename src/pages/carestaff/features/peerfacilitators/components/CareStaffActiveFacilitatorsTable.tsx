@@ -6,6 +6,7 @@ import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
+import CareStaffPeerSupportModal from './CareStaffPeerSupportModal';
 
 interface CareStaffActiveFacilitatorsTableProps {
     functions: { showToast: (msg: string, type?: any) => void };
@@ -151,6 +152,7 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
     const [searchQuery, setSearchQuery] = useState('');
     const [showAdd, setShowAdd] = useState(false);
     const [pendingArchiveId, setPendingArchiveId] = useState<string | null>(null);
+    const [openFacilitator, setOpenFacilitator] = useState<any>(null);
     const [page, setPage] = useState(1);
 
     const { data: settings } = useQuery({
@@ -183,6 +185,23 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
             return data || [];
         }
     });
+
+    // peer_facilitators and peer_facilitator_logbooks share no FK path, so
+    // PostgREST cannot embed one in the other -- fetch the submitted set and map
+    // it here instead.
+    const { data: submittedLogbooks = [] } = useQuery({
+        queryKey: ['care-staff-submitted-logbooks', refreshSignal],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('peer_facilitator_logbooks')
+                .select('student_id')
+                .eq('status', 'submitted');
+            if (error) throw error;
+            return data || [];
+        }
+    });
+
+    const awaitingReview = new Set(submittedLogbooks.map((row: any) => row.student_id));
 
     const existingIds = new Set(facilitators.map((f: any) => f.student_id));
 
@@ -324,8 +343,19 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
                                 pagedFacilitators.map((f: any) => (
                                     <tr key={f.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-bold text-gray-900">{fullName(f.students)}</div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setOpenFacilitator(f)}
+                                                className="text-left font-bold text-gray-900 transition hover:text-blue-700 hover:underline"
+                                            >
+                                                {fullName(f.students)}
+                                            </button>
                                             <div className="text-xs text-gray-500">{f.student_id}</div>
+                                            {awaitingReview.has(f.student_id) && (
+                                                <span className="mt-1 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">
+                                                    Logbook submitted
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-gray-600">{courseYear(f.students)}</td>
                                         <td className="px-6 py-4 text-gray-600">{f.peer_year || '—'}</td>
@@ -362,6 +392,14 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
                     />
                 )}
             </Card>
+
+            {openFacilitator && (
+                <CareStaffPeerSupportModal
+                    facilitator={openFacilitator}
+                    onClose={() => setOpenFacilitator(null)}
+                    showToast={functions.showToast}
+                />
+            )}
 
             {showAdd && (
                 <AddFacilitatorModal
