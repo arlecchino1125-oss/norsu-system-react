@@ -238,16 +238,6 @@ export default function PeerLogEntryModal({
                         setPickedLabel('');
                     }}
                 />
-                <label htmlFor="entry-initials" className="mb-1 mt-2 block text-xs font-bold text-gray-700">…or initials only</label>
-                <input
-                    id="entry-initials"
-                    type="text"
-                    maxLength={20}
-                    placeholder="e.g. R.R."
-                    value={draft.assisted_initials || ''}
-                    onChange={(e) => set('assisted_initials', e.target.value || null)}
-                    className={inputClass}
-                />
             </div>
 
             <div>
