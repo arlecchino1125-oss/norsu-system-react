@@ -1588,6 +1588,110 @@ export type Database = {
           },
         ]
       }
+      peer_facilitator_log_entries: {
+        Row: {
+          action_taken: string
+          activity_type: string
+          assisted_initials: string | null
+          assisted_student_id: string | null
+          concern: string
+          entry_date: string
+          id: string
+          logbook_id: string
+          logbook_month: string
+          logged_at: string
+          referred: boolean
+          remarks: string | null
+        }
+        Insert: {
+          action_taken: string
+          activity_type: string
+          assisted_initials?: string | null
+          assisted_student_id?: string | null
+          concern: string
+          entry_date: string
+          id?: string
+          logbook_id: string
+          logbook_month: string
+          logged_at?: string
+          referred?: boolean
+          remarks?: string | null
+        }
+        Update: {
+          action_taken?: string
+          activity_type?: string
+          assisted_initials?: string | null
+          assisted_student_id?: string | null
+          concern?: string
+          entry_date?: string
+          id?: string
+          logbook_id?: string
+          logbook_month?: string
+          logged_at?: string
+          referred?: boolean
+          remarks?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_facilitator_log_entries_assisted_student_id_fkey"
+            columns: ["assisted_student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "peer_facilitator_log_entries_logbook_fkey"
+            columns: ["logbook_id", "logbook_month"]
+            isOneToOne: false
+            referencedRelation: "peer_facilitator_logbooks"
+            referencedColumns: ["id", "month"]
+          },
+        ]
+      }
+      peer_facilitator_logbooks: {
+        Row: {
+          created_at: string
+          id: string
+          month: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          status: string
+          student_id: string
+          submitted_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          status?: string
+          student_id: string
+          submitted_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          status?: string
+          student_id?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_facilitator_logbooks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       peer_facilitator_settings: {
         Row: {
           applications_open: boolean

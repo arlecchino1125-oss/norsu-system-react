@@ -52,7 +52,8 @@ CREATE TABLE public.peer_facilitator_log_entries (
     -- Carrying the parent's month down lets a plain CHECK enforce "this entry
     -- belongs to this month" -- a CHECK cannot reach another table, and the
     -- composite FK is what guarantees logbook_month is not simply made up.
-    FOREIGN KEY (logbook_id, logbook_month)
+    CONSTRAINT peer_facilitator_log_entries_logbook_fkey
+        FOREIGN KEY (logbook_id, logbook_month)
         REFERENCES public.peer_facilitator_logbooks (id, month) ON DELETE CASCADE,
     CONSTRAINT peer_facilitator_log_entries_date_in_month
         CHECK (entry_date >= logbook_month AND entry_date < (logbook_month + INTERVAL '1 month')),
