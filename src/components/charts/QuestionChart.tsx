@@ -2,7 +2,9 @@ import { useRef, useEffect } from 'react';
 import { ensureBarChartSetup } from '../../lib/chartSetup';
 
 // Helper Component for Individual Question Charts
-const QuestionChart = ({ question, answers }: any) => {
+// Counts arrive already tallied (by the stats RPC) instead of this component
+// re-scanning the full answer set for every question on screen.
+const QuestionChart = ({ question, counts = [0, 0, 0, 0, 0] }: any) => {
     const canvasRef = useRef(null);
     const chartRef = useRef(null);
 
@@ -13,19 +15,7 @@ const QuestionChart = ({ question, answers }: any) => {
 
             if (chartRef.current) chartRef.current.destroy();
 
-            // Filter answers for this specific question
-            const relevantAnswers = answers.filter(a => a.question_id === question.id);
-
-            // Count responses 1-5
-            const counts = [0, 0, 0, 0, 0];
-            let total = 0;
-            relevantAnswers.forEach(a => {
-                const val = parseInt(a.answer_value);
-                if (val >= 1 && val <= 5) {
-                    counts[val - 1]++;
-                    total++;
-                }
-            });
+            const total = counts.reduce((sum: number, n: number) => sum + n, 0);
 
             chartRef.current = new Chart(canvasRef.current, {
                 type: 'bar',
@@ -62,7 +52,7 @@ const QuestionChart = ({ question, answers }: any) => {
             cancelled = true;
             if (chartRef.current) chartRef.current.destroy();
         };
-    }, [question, answers]);
+    }, [question, counts]);
 
     return (
         <div className="bg-white border border-gray-200 rounded-xl p-4 h-64 shadow-sm">

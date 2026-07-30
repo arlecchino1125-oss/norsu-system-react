@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, ClipboardList, Trash2, XCircle, Download, UploadCloud, Archive, Eye, Pencil } from 'lucide-react';
+import { Plus, ClipboardList, Trash2, XCircle, Download, UploadCloud, Archive, Eye, Pencil, Copy, RotateCcw } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { supabase } from '../../../../../lib/supabase';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
@@ -14,7 +14,7 @@ interface CareStaffFormsPageProps {
     refreshSignal?: number;
 }
 
-const FORM_COLUMNS = 'id, title, description, is_active, created_at';
+const FORM_COLUMNS = 'id, title, description, is_active, created_at, source_form_id';
 const QUESTION_COLUMNS = 'id, form_id, question_text, question_type, scale_min, scale_max, order_index, created_at';
 
 const handleDownloadTemplate = () => {
@@ -30,7 +30,7 @@ const handleDownloadTemplate = () => {
     window.URL.revokeObjectURL(url);
 };
 
-const FormCard = ({ form, canArchiveRecords, onEdit, onPreview, onDeactivate }: any) => (
+const FormCard = ({ form, canArchiveRecords, onEdit, onPreview, onDuplicate, onDeactivate }: any) => (
     <Card className="h-full transition-shadow duration-200 hover:shadow-md">
         <CardContent className="flex h-full flex-col !p-5">
             <div className="mb-3 flex items-start justify-between gap-3">
@@ -41,6 +41,7 @@ const FormCard = ({ form, canArchiveRecords, onEdit, onPreview, onDeactivate }: 
             <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
                 <Button variant="primary" size="sm" className="flex-1 whitespace-nowrap" leftIcon={<Pencil size={14} />} onClick={onEdit}>Edit</Button>
                 <Button variant="secondary" size="sm" className="flex-1 whitespace-nowrap" leftIcon={<Eye size={14} />} onClick={onPreview}>Preview</Button>
+                <Button variant="secondary" size="sm" className="flex-1 whitespace-nowrap" leftIcon={<Copy size={14} />} onClick={onDuplicate} title="Re-run this assessment later with the same questions">Duplicate</Button>
                 {canArchiveRecords && (
                     <Button variant="ghost" size="sm" className="flex-1 whitespace-nowrap text-amber-700 hover:bg-amber-50 hover:text-amber-800" leftIcon={<Archive size={14} />} onClick={onDeactivate} aria-label="Deactivate Form">Deactivate</Button>
                 )}
@@ -179,7 +180,7 @@ const DeactivateFormModal = ({ form, isDeleting, onCancel, onConfirm }: any) => 
     </div>
 );
 
-const InactiveFormsModal = ({ forms, onClose }: any) => (
+const InactiveFormsModal = ({ forms, canRestoreRecords, onReactivate, onClose }: any) => (
     <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex bg-slate-950/30 p-2 backdrop-blur-[2px] sm:p-3">
         <Card className="relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
@@ -204,6 +205,13 @@ const InactiveFormsModal = ({ forms, onClose }: any) => (
                                     <span className="rounded-full bg-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700">Inactive</span>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-3 line-clamp-3">{form.description || 'No description provided.'}</p>
+                                {canRestoreRecords && (
+                                    <div className="mt-4 border-t border-slate-200 pt-3">
+                                        <Button variant="primary" size="sm" className="w-full whitespace-nowrap" leftIcon={<RotateCcw size={14} />} onClick={() => onReactivate(form)}>
+                                            Reactivate
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -217,6 +225,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
     const { canPerformAction } = usePermissions();
     const lastExternalRefreshSignalRef = useRef(refreshSignal);
     const canArchiveRecords = canPerformAction('archive_records');
+    const canRestoreRecords = canPerformAction('restore_records');
     const canDeleteRecords = canPerformAction('delete_records');
 
     // ponytail: cache active forms to prevent redundant requests on tab switch
@@ -305,6 +314,54 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
         setShowEditor(true);
     };
 
+    /**
+     * Re-running an assessment needs a new form row: one submission per student
+     * per form is enforced by a unique index, so re-opening the July form would
+     * lock out everyone who already answered it.
+     *
+     * This opens the normal editor pre-filled instead of saving straight away --
+     * staff have to name the run ("... November 2026") and can eyeball the
+     * questions first. Question ids are stripped so the shared save path INSERTS
+     * copies rather than moving the originals onto the new form.
+     */
+    const handleDuplicate = async (form) => {
+        const { data: questions, error } = await supabase
+            .from('needs_assessment_questions')
+            .select(QUESTION_COLUMNS)
+            .eq('form_id', form.id)
+            .order('order_index', { ascending: true });
+
+        if (error) { functions.showToast('Could not read that form to copy it.', 'error'); return; }
+
+        setEditingForm({
+            title: `${form.title} (Copy)`,
+            description: form.description ?? '',
+            // Born inactive: build the next run whenever, publish it from
+            // Inactive Forms when the window actually opens.
+            is_active: false,
+            source_form_id: form.source_form_id ?? form.id
+        });
+        setEditingQuestions((questions || []).map((q: any) => ({
+            clientId: crypto.randomUUID(),
+            question_text: q.question_text,
+            question_type: q.question_type
+        })));
+        setShowEditor(true);
+    };
+
+    /** Goes through the archive edge function rather than updating the row here:
+     *  this write makes a form answerable by students, so it needs the same
+     *  permission gate and audit entry that deactivating one gets. */
+    const handleReactivate = async (form: any) => {
+        try {
+            await managedArchiveService.reactivateForm(Number(form.id));
+            functions.showToast(`"${form.title}" is now live for students.`);
+            await fetchForms();
+        } catch {
+            functions.showToast('Could not reactivate that form.', 'error');
+        }
+    };
+
     const handleSaveForm = async (e) => {
         e.preventDefault();
         try {
@@ -314,6 +371,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                 is_active: editingForm.is_active ?? true
             };
             if (editingForm.id) formPayload.id = editingForm.id;
+            if (editingForm.source_form_id) formPayload.source_form_id = editingForm.source_form_id;
 
             const { data: savedForm, error: formError } = await supabase
                 .from('needs_assessment_forms')
@@ -441,6 +499,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                                     canArchiveRecords={canArchiveRecords}
                                     onEdit={() => handleEdit(form)}
                                     onPreview={() => handlePreview(form)}
+                                    onDuplicate={() => handleDuplicate(form)}
                                     onDeactivate={() => setDeleteConfirm(form)}
                                 />
                             ))}
@@ -477,7 +536,7 @@ const CareStaffFormsPage = ({ functions, refreshSignal = 0 }: CareStaffFormsPage
                     )}
 
                     {showInactiveModal && (
-                        <InactiveFormsModal forms={inactiveForms} onClose={() => setShowInactiveModal(false)} />
+                        <InactiveFormsModal forms={inactiveForms} canRestoreRecords={canRestoreRecords} onReactivate={handleReactivate} onClose={() => setShowInactiveModal(false)} />
                     )}
                 </>
         </div>

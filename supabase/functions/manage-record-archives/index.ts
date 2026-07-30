@@ -520,6 +520,45 @@ const deactivateForm = async (adminClient: any, actor: any, body: Record<string,
     };
 };
 
+const reactivateForm = async (adminClient: any, actor: any, body: Record<string, unknown>) => {
+    const formId = parsePositiveInt(body.formId, 'Form ID');
+    const form = await maybeSingleOrThrow(
+        adminClient
+            .from('needs_assessment_forms')
+            .select('id, title, is_active')
+            .eq('id', formId)
+            .maybeSingle(),
+        'Form not found.'
+    );
+
+    // Ordered on purpose: the read above must observe pre-update state — its values
+    // are recorded as previous* in the audit log, and it guards existence before the write.
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await
+    const { error } = await adminClient
+        .from('needs_assessment_forms')
+        .update({ is_active: true })
+        .eq('id', formId);
+
+    if (error) throw error;
+
+    // Logged as deliberately as the deactivation: this is the write that makes a
+    // form answerable by students again.
+    await writeStaffAuditLog(adminClient, actor, {
+        action: 'Reactivated form',
+        entityTable: 'needs_assessment_forms',
+        entityId: formId,
+        details: {
+            formTitle: form.title || null,
+            previousIsActive: Boolean(form.is_active)
+        }
+    });
+
+    return {
+        success: true,
+        reactivatedFormId: formId
+    };
+};
+
 const closeScholarship = async (adminClient: any, actor: any, body: Record<string, unknown>) => {
     const scholarshipId = parsePositiveInt(body.scholarshipId, 'Scholarship ID');
     const scholarship = await maybeSingleOrThrow(
@@ -661,7 +700,8 @@ serve(async (request) => {
             return json({ success: true });
         }
 
-        const requiredPermission = mode === 'restore-student'
+        // Putting a record back into circulation is a restore, not an archive.
+        const requiredPermission = mode === 'restore-student' || mode === 'reactivate-form'
             ? 'restore_records'
             : 'archive_records';
         const actor = await assertRecordActionRequest(adminClient, request, requiredPermission);
@@ -696,6 +736,10 @@ serve(async (request) => {
 
         if (mode === 'deactivate-form') {
             return json(await deactivateForm(adminClient, actor, body));
+        }
+
+        if (mode === 'reactivate-form') {
+            return json(await reactivateForm(adminClient, actor, body));
         }
 
         if (mode === 'close-scholarship') {

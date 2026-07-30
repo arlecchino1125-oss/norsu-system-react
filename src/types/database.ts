@@ -1322,6 +1322,7 @@ export type Database = {
           description: string | null
           id: number
           is_active: boolean | null
+          source_form_id: number | null
           title: string
         }
         Insert: {
@@ -1329,6 +1330,7 @@ export type Database = {
           description?: string | null
           id?: number
           is_active?: boolean | null
+          source_form_id?: number | null
           title: string
         }
         Update: {
@@ -1336,9 +1338,18 @@ export type Database = {
           description?: string | null
           id?: number
           is_active?: boolean | null
+          source_form_id?: number | null
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "needs_assessment_forms_source_form_id_fkey"
+            columns: ["source_form_id"]
+            isOneToOne: false
+            referencedRelation: "needs_assessment_forms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       needs_assessment_questions: {
         Row: {
@@ -2835,6 +2846,18 @@ export type Database = {
       compute_school_year_label: {
         Args: { end_ts: string; start_ts: string }
         Returns: string
+      }
+      needs_assessment_answer_stats: {
+        Args: {
+          p_course?: string | null
+          p_department?: string | null
+          p_form_id: number
+        }
+        Returns: {
+          answer_value: number
+          question_id: number
+          responses: number
+        }[]
       }
       consume_edge_rate_limit: {
         Args: {

@@ -52,6 +52,9 @@ export const managedArchiveService = {
     deactivateForm(formId: number) {
         return invokeManagedArchive('deactivate-form', { formId }, 'Failed to deactivate form.');
     },
+    reactivateForm(formId: number) {
+        return invokeManagedArchive('reactivate-form', { formId }, 'Failed to reactivate form.');
+    },
     closeScholarship(scholarshipId: number | string) {
         return invokeManagedArchive('close-scholarship', { scholarshipId }, 'Failed to close scholarship.');
     },

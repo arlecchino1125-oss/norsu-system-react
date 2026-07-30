@@ -2,7 +2,9 @@ import { useRef, useEffect } from 'react';
 import { ensureBarChartSetup } from '../../lib/chartSetup';
 
 // Helper Component for Top Questions Chart
-const TopQuestionsChart = ({ questions, answers, scoreFilter }: any) => {
+// `stats` is the already-tallied output of buildQuestionStats, so picking a score
+// is an array index rather than a scan of every answer row.
+const TopQuestionsChart = ({ stats = [], scoreFilter }: any) => {
     const canvasRef = useRef(null);
     const chartRef = useRef(null);
 
@@ -12,14 +14,14 @@ const TopQuestionsChart = ({ questions, answers, scoreFilter }: any) => {
             if (cancelled || !canvasRef.current) return;
             if (chartRef.current) chartRef.current.destroy();
 
-            // Count occurrences of the selected score for each question
-            const questionCounts = questions.map(q => {
-                const count = answers.filter(a => a.question_id === q.id && parseInt(a.answer_value) === parseInt(scoreFilter)).length;
-                return { question: q.question_text, count };
-            });
+            const scoreIndex = parseInt(scoreFilter, 10) - 1;
+            const questionCounts = stats.map((stat: any) => ({
+                question: stat.question.question_text ?? '',
+                count: stat.counts?.[scoreIndex] ?? 0
+            }));
 
             // Sort by count desc and take top 10
-            const sorted = questionCounts.sort((a, b) => b.count - a.count).slice(0, 10);
+            const sorted = questionCounts.sort((a: any, b: any) => b.count - a.count).slice(0, 10);
 
             chartRef.current = new Chart(canvasRef.current, {
                 type: 'bar',
@@ -52,7 +54,7 @@ const TopQuestionsChart = ({ questions, answers, scoreFilter }: any) => {
             cancelled = true;
             if (chartRef.current) chartRef.current.destroy();
         };
-    }, [questions, answers, scoreFilter]);
+    }, [stats, scoreFilter]);
 
     return (
         <div className="bg-white border border-gray-200 rounded-xl p-4 h-80 shadow-sm mb-6">

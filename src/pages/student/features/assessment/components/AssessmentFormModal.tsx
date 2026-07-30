@@ -94,8 +94,7 @@ export default function AssessmentFormModal({
                 .from('needs_assessment_submissions')
                 .insert([{
                     form_id: form.id,
-                    student_id: studentId,
-                    submitted_at: new Date().toISOString()
+                    student_id: studentId
                 }])
                 .select()
                 .single();
@@ -144,10 +143,13 @@ export default function AssessmentFormModal({
         return null;
     }
 
-    const completionCount = Object.keys(responses).length;
-    const progressPercent = formQuestions.length > 0
-        ? Math.round((completionCount / formQuestions.length) * 100)
-        : 0;
+    const scaleQuestions = formQuestions.filter((q) => !isTextQuestion(q));
+    const completionCount = scaleQuestions.filter((q) => responses[q.id] !== undefined).length;
+    const expectedCount = scaleQuestions.length;
+    const progressPercent = expectedCount > 0
+        ? Math.round((completionCount / expectedCount) * 100)
+        : 100;
+    const canSubmit = formQuestions.length > 0 && completionCount === expectedCount;
 
     return createPortal(
         <div
@@ -174,7 +176,7 @@ export default function AssessmentFormModal({
                         </button>
                     </div>
 
-                    {formQuestions.length > 0 && (
+                    {formQuestions.length > 0 && expectedCount > 0 && (
                         <div className="mt-3 flex items-center gap-3 sm:mt-4">
                             <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
                                 <div
@@ -183,7 +185,7 @@ export default function AssessmentFormModal({
                                 />
                             </div>
                             <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.12em] text-slate-300">
-                                {completionCount}/{formQuestions.length}
+                                {completionCount}/{expectedCount}
                             </span>
                         </div>
                     )}
@@ -275,7 +277,7 @@ export default function AssessmentFormModal({
                     <button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={isSubmitting || formQuestions.length === 0}
+                        disabled={isSubmitting || !canSubmit}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 btn-press"
                     >
                         {isSubmitting ? (
