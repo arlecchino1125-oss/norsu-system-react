@@ -15,6 +15,7 @@ export const PROFILE_CATEGORIES = [
             { label: 'Permanent Address - Zip Code', db: 'zip_code' },
             { label: 'Permanent Address - Region', db: 'region' },
             { label: 'Contact Number', db: 'mobile' },
+            { label: 'Email Address', db: 'email' },
             { label: 'Age', db: 'age' },
             { label: 'Birthday', db: 'dob' },
             { label: 'Sex Assigned at Birth', db: 'sex' },
