@@ -840,7 +840,7 @@ const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => createPortal(
 ), document.getElementById('staff-content-region') || document.body);
 
 const EventListSection = ({
-    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
+    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, onOpenExtend, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
 }: any) => (
 <div className="space-y-4">
     {/* Active Events */}
@@ -897,6 +897,9 @@ const EventListSection = ({
                                 )}
                         </>
                     )}
+                    {isAttendanceActivityType(item.type) && (
+                        <Button variant="secondary" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} />}>Extend</Button>
+                    )}
                     <Button variant="secondary" size="sm" onClick={() => handleEditEvent(item)} leftIcon={<CheckCircle size={14} />} />
                     {canArchiveRecords && (
                         <Button variant="danger" size="sm" onClick={() => item.id && handleDeleteEvent(item.id)} leftIcon={<Archive size={14} />} />
@@ -952,6 +955,9 @@ const EventListSection = ({
                             </Button>
                         )}
                     </>
+                )}
+                {isAttendanceActivityType(item.type) && (
+                    <Button variant="ghost" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} className="text-blue-400" />}>Extend attendance</Button>
                 )}
             </div>
         </div>
@@ -1026,6 +1032,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         setRegistrantStatusFilter,
         createEvent,
         handleEditEvent,
+        handleExtendAttendance,
         handleDeleteEvent,
         confirmDeleteEvent,
         handleViewAttendees,
@@ -1040,6 +1047,13 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
     const [showTemplatesModal, setShowTemplatesModal] = useState(false);
     const [evaluationTarget, setEvaluationTarget] = useState<{ event: SystemEvent; form: EvaluationForm | null } | null>(null);
     const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string; eventDate?: string | null } | null>(null);
+    const [extendTarget, setExtendTarget] = useState<any>(null);
+    const [extendDate, setExtendDate] = useState('');
+
+    const onOpenExtend = (item: any) => {
+        setExtendTarget(item);
+        setExtendDate(suggestCloseDate(item.event_date || '', item.end_time || ''));
+    };
 
     const refreshEvaluations = useCallback(async () => {
         const ids = [...events, ...archivedEvents]
@@ -1153,6 +1167,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     archivedEvents={archivedEvents}
                     canArchiveRecords={canArchiveRecords}
                     handleEditEvent={handleEditEvent}
+                    onOpenExtend={onOpenExtend}
                     handleViewAttendees={handleViewAttendees}
                     handleViewAbsent={(item: SystemEvent) => handleViewAttendees(item, 'absent')}
                     handleViewRegistrants={handleViewRegistrants}
@@ -1290,6 +1305,40 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                             <Button variant="danger" className="flex-1" onClick={confirmDeleteEvent}>Yes, Archive</Button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {extendTarget && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <Card className="w-full max-w-md">
+                        <CardContent className="p-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Extend attendance</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                {extendTarget.title} &mdash; time in, time out, rating and the evaluation form reopen until this date.
+                                An archived event comes back into the students&rsquo; list.
+                            </p>
+                            <label htmlFor="extend-closes-at" className="block text-xs font-bold text-gray-500 mb-1">Attendance closes</label>
+                            <input
+                                id="extend-closes-at"
+                                type="datetime-local"
+                                className="w-full border rounded-lg p-2 text-sm"
+                                value={extendDate}
+                                onChange={e => setExtendDate(e.target.value)}
+                            />
+                            <div className="flex gap-3 mt-6">
+                                <Button variant="secondary" className="flex-1" onClick={() => setExtendTarget(null)}>Cancel</Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={async () => {
+                                        await handleExtendAttendance(extendTarget, extendDate);
+                                        setExtendTarget(null);
+                                    }}
+                                >
+                                    Reopen
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </>

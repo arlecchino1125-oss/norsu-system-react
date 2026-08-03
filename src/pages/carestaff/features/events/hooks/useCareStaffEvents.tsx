@@ -359,6 +359,28 @@ export function useCareStaffEvents({ functions }: any) {
         setShowEventModal(true);
     };
 
+    // Pushes an event's single closing date forward. Un-archiving is the point,
+    // not a side effect: the events staff most needs to reopen are the ones that
+    // already scrolled out of the students' view.
+    const handleExtendAttendance = async (item: SystemEvent, closesAt: string) => {
+        const parsed = closesAt ? new Date(closesAt) : null;
+        if (!parsed || Number.isNaN(parsed.getTime())) {
+            if (showToast) showToast('Pick a valid closing date.', 'error');
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from('events')
+                .update({ attendance_closes_at: parsed.toISOString(), is_archived: false })
+                .eq('id', item.id);
+            if (error) throw error;
+            if (showToast) showToast('Attendance reopened.');
+            await fetchEvents();
+        } catch (err: any) {
+            if (showToast) showToast(err.message, 'error');
+        }
+    };
+
     const handleDeleteEvent = async (id: number) => {
         setEventToDelete(id);
         setShowDeleteEventModal(true);
@@ -621,6 +643,7 @@ export function useCareStaffEvents({ functions }: any) {
         setRegistrantStatusFilter,
         createEvent,
         handleEditEvent,
+        handleExtendAttendance,
         handleDeleteEvent,
         confirmDeleteEvent,
         handleViewAttendees,
