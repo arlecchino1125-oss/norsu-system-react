@@ -31,7 +31,10 @@ const STUDENT_EVENT_COLUMNS = [
     'capacity',
     'registration_deadline',
     'require_photo',
-    'require_geolocation'
+    'require_geolocation',
+    // Without this the portal reads undefined and getEventWindows silently falls
+    // back to end + 3 days, so every deadline staff sets here is ignored.
+    'attendance_closes_at'
 ].join(', ');
 
 const STUDENT_FORM_COLUMNS = [

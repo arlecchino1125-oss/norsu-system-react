@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useCareStaffEvents } from './useCareStaffEvents';
+import { useCareStaffEvents, suggestCloseDate, suggestExtendDate } from './useCareStaffEvents';
 import { supabase } from '../../../../../lib/supabase';
 
 vi.mock('../../../../../hooks/usePermissions', () => ({
@@ -75,6 +75,29 @@ describe('useCareStaffEvents attendance modal loading', () => {
         });
 
         expect(result.current.isAttendanceLoading).toBe(false);
+    });
+});
+
+describe('suggestExtendDate', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('never suggests a date already in the past for an event that has closed', () => {
+        vi.setSystemTime(new Date('2026-08-03T10:00:00'));
+        // The creation default is anchored to the event, so it lands three weeks ago.
+        expect(suggestCloseDate('2026-07-13', '16:00')).toBe('2026-07-16T16:00');
+        // Extend has to clear now, or accepting it would reopen nothing.
+        expect(suggestExtendDate('2026-07-13', '16:00')).toBe('2026-08-06T10:00');
+    });
+
+    it('keeps the event-anchored default when it is still ahead of now', () => {
+        vi.setSystemTime(new Date('2026-08-03T10:00:00'));
+        expect(suggestExtendDate('2026-08-10', '12:00')).toBe('2026-08-13T12:00');
+    });
+
+    it('still clears now when the event has no parseable date', () => {
+        vi.setSystemTime(new Date('2026-08-03T10:00:00'));
+        expect(suggestCloseDate('', '')).toBe('');
+        expect(suggestExtendDate('', '')).toBe('2026-08-06T10:00');
     });
 });
 

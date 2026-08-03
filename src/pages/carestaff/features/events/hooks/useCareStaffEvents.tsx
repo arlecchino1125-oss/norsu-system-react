@@ -176,6 +176,20 @@ export const suggestCloseDate = (eventDate: string, endTime: string) => {
     return `${close.getFullYear()}-${pad(close.getMonth() + 1)}-${pad(close.getDate())}T${pad(close.getHours())}:${pad(close.getMinutes())}`;
 };
 
+// Now, as a datetime-local value. The floor for any reopening.
+export const nowCloseDate = () => toDatetimeLocalInput(new Date().toISOString());
+
+// Extend reopens events that have already closed, so its suggestion has to land
+// in the future. suggestCloseDate is anchored to the event date, which for the
+// backlog this button exists to recover is always in the past -- accepting that
+// default would save an already-expired deadline and reopen nothing.
+// Both strings are 'YYYY-MM-DDTHH:mm', so comparing them is comparing instants.
+export const suggestExtendDate = (eventDate: string, endTime: string) => {
+    const fromNow = toDatetimeLocalInput(new Date(Date.now() + DEFAULT_CLOSE_MS).toISOString());
+    const fromEvent = suggestCloseDate(eventDate, endTime);
+    return fromEvent > fromNow ? fromEvent : fromNow;
+};
+
 const getEventEndDate = (event: SystemEvent | null | undefined) => {
     if (!event?.event_date) return null;
     const timeValue = String(event.end_time || event.event_time || '23:59').slice(0, 8);

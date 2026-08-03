@@ -32,7 +32,7 @@ import EventEvaluationBuilderModal from './EventEvaluationBuilderModal';
 import EventEvaluationResultsModal from './EventEvaluationResultsModal';
 import EventEvaluationTemplatesModal from './EventEvaluationTemplatesModal';
 import { getEvaluationsForEvents, type EvaluationForm } from '../eventEvaluationService';
-import { useCareStaffEvents, createEmptyEvent, suggestCloseDate, getEventTypeBadgeClass, getArchivedEventTypeBadgeClass, isVisibleForStaffFilter, getAudienceModeLabel, getAudienceBulletItems, isRegistrationEvent, formatRegistrationDeadline, getRegistrationStatusClass } from '../hooks/useCareStaffEvents';
+import { useCareStaffEvents, createEmptyEvent, suggestCloseDate, suggestExtendDate, nowCloseDate, getEventTypeBadgeClass, getArchivedEventTypeBadgeClass, isVisibleForStaffFilter, getAudienceModeLabel, getAudienceBulletItems, isRegistrationEvent, formatRegistrationDeadline, getRegistrationStatusClass } from '../hooks/useCareStaffEvents';
 import type { CareStaffEventsPageProps } from '../hooks/useCareStaffEvents';
 
 const REGISTRANT_STATUS_OPTIONS = ['All', 'Registered', 'Attended', 'Absent', 'Cancelled'];
@@ -1054,7 +1054,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
 
     const onOpenExtend = (item: any) => {
         setExtendTarget(item);
-        setExtendDate(suggestCloseDate(item.event_date || '', item.end_time || ''));
+        setExtendDate(suggestExtendDate(item.event_date || '', item.end_time || ''));
     };
 
     const refreshEvaluations = useCallback(async () => {
@@ -1325,6 +1325,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                 type="datetime-local"
                                 className="w-full border rounded-lg p-2 text-sm"
                                 value={extendDate}
+                                min={nowCloseDate()}
                                 onChange={e => setExtendDate(e.target.value)}
                             />
                             <div className="flex gap-3 mt-6">
