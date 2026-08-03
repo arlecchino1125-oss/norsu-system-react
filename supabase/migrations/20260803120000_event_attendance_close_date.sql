@@ -644,13 +644,7 @@ BEGIN
             + cos(radians(v_event.latitude)) * cos(radians(p_latitude))
             * power(sin(radians(p_longitude - v_event.longitude) / 2), 2);
         -- Clamped to [0,1] so floating point drift cannot hand sqrt() a negative.
-        -- Written as an IF rather than a two-argument minimum: the lockstep test
-        -- bans that call anywhere in this function, so the old check-in cap
-        -- cannot creep back in unnoticed. Same arithmetic either way.
-        v_half_chord := greatest(0.0, v_half_chord);
-        IF v_half_chord > 1.0 THEN
-            v_half_chord := 1.0;
-        END IF;
+        v_half_chord := least(1.0, greatest(0.0, v_half_chord));
         v_distance_meters := 6371000 * 2 * atan2(sqrt(v_half_chord), sqrt(1 - v_half_chord));
 
         IF v_distance_meters > 200 THEN

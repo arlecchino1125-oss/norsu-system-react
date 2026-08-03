@@ -68,14 +68,24 @@ describe('event window lockstep between eventWindows.ts and the migrations', () 
         );
     });
 
-    it('leaves no 3h check-in cap behind in either RPC', () => {
-        const windows = getEventWindows(longEvent);
-        expect(windows).not.toHaveProperty('checkInClose');
+    it('leaves no check-in cap behind, but keeps the default event duration in lockstep', () => {
+        // An event with no end_time falls back to a fixed duration. Both sides
+        // must agree on it, or the browser and the RPCs disagree about when
+        // time-out opens.
+        const openEnded = { type: 'event', event_date: '2026-07-23', event_time: '08:00' };
+        const openWindows = getEventWindows(openEnded);
+        const defaultEndHours = (openWindows.end!.getTime() - openWindows.start!.getTime()) / HOUR_MS;
+        expect(Number.isInteger(defaultEndHours)).toBe(true);
+        expect(defaultEndHours).toBeGreaterThan(0);
+
+        expect(getEventWindows(longEvent)).not.toHaveProperty('checkInClose');
 
         for (const name of ['record_student_event_attendance', 'public_event_window']) {
             const definition = latestDefinitionOf(name);
-            expect(definition!.body, `${name} still caps check-in`).not.toMatch(/least\(/i);
-            expect(definition!.body, `${name} still uses a 3 hour cap`).not.toMatch(/interval '3 hours'\s*\)/i);
+            expect(definition!.body, `${name} still caps check-in`)
+                .not.toMatch(/least\(\s*v_(event_end_at|end)\b/i);
+            expect(definition!.body, `${name} lost the default event duration`)
+                .toMatch(new RegExp(`v_(event_)?start(_at)? \\+ interval '${defaultEndHours} hours'`, 'i'));
         }
     });
 
