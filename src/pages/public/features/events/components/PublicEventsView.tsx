@@ -13,10 +13,9 @@ import type { PublicEvent, PublicEventStatus } from '../publicEventsService';
 
 const getEventWindow = (item: any) => {
     if (!isAttendanceActivityType(item?.type)) {
-        return { start: null, end: null, checkInClose: null };
+        return { start: null, end: null, closesAt: null };
     }
-    const { start, end, checkInClose } = getEventWindows(item);
-    return { start, end, checkInClose };
+    return getEventWindows(item);
 };
 
 const getDisplayDate = (item: any) => formatDateLabel(item?.event_date || item?.created_at || '');
@@ -40,22 +39,23 @@ const CloseIcon = () => (
  * The same rules run again inside the RPCs -- this only decides what to render.
  *
  * These are the same rules the student portal applies:
- *   - Time in opens at the start and stays open for at least 3h, or until the
- *     event ends if that is later.
- *   - Time out opens when the event ends and never closes.
+ *   - Time in opens at the start.
+ *   - Time out opens when the event ends.
  *   - Rating and the evaluation form need the event to have ended, and nothing
  *     else -- neither is gated on attendance.
+ *   - All four close at the event's single closing date, which is also when the
+ *     card archives out of view.
  */
 const getEventState = (item: PublicEvent, status: PublicEventStatus | undefined) => {
     const isAttendanceActivity = isAttendanceActivityType(item.type);
-    const { start, end, checkInClose } = getEventWindow(item);
+    const { start, end, closesAt } = getEventWindow(item);
     const now = new Date();
 
     const isTimedIn = Boolean(status?.time_in);
     const isTimedOut = Boolean(status?.time_out);
-    const hasWindow = Boolean(start) && Boolean(checkInClose);
+    const hasWindow = Boolean(start) && Boolean(closesAt);
     const isEventEnded = Boolean(end) && now >= (end as Date);
-    const isTimeInClosed = isAttendanceActivity && Boolean(checkInClose) && now > (checkInClose as Date);
+    const isTimeInClosed = isAttendanceActivity && Boolean(closesAt) && now > (closesAt as Date);
 
     return {
         isAttendanceActivity,
@@ -66,9 +66,9 @@ const getEventState = (item: PublicEvent, status: PublicEventStatus | undefined)
         isEventEnded,
         isTimeInClosed,
         canTimeIn: isAttendanceActivity && hasWindow && now >= (start as Date) && !isTimeInClosed && !isTimedIn,
-        canTimeOut: isAttendanceActivity && isEventEnded && isTimedIn && !isTimedOut,
-        canRate: isAttendanceActivity && isEventEnded && !status?.rated,
-        canEvaluate: isAttendanceActivity && isEventEnded
+        canTimeOut: isAttendanceActivity && isEventEnded && isTimedIn && !isTimedOut && !isTimeInClosed,
+        canRate: isAttendanceActivity && isEventEnded && !isTimeInClosed && !status?.rated,
+        canEvaluate: isAttendanceActivity && isEventEnded && !isTimeInClosed
             && Boolean(status?.has_evaluation_form) && !status?.evaluated
     };
 };

@@ -28,6 +28,7 @@ export interface PublicEvent {
     registration_deadline: string | null;
     require_photo: boolean | null;
     require_geolocation: boolean | null;
+    attendance_closes_at: string | null;
 }
 
 export interface PublicStudent {
