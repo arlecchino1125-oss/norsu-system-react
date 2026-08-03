@@ -32,6 +32,7 @@ export interface SystemEvent {
     registration_deadline?: string | null;
     require_photo?: boolean;
     require_geolocation?: boolean;
+    attendance_closes_at?: string | null;
 
     // Virtual fields appended by custom hooks like useEventsData
     attendees?: number;

@@ -28,6 +28,7 @@ const EVENT_COLUMNS = [
     'registration_deadline',
     'require_photo',
     'require_geolocation',
+    'attendance_closes_at',
     'is_archived',
     'archived_at'
 ].join(', ');
