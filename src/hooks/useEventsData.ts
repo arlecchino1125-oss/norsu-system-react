@@ -60,13 +60,15 @@ export function useEventsData() {
                 .map((event) => event.id)
                 .filter((eventId) => eventId != null);
 
-            // Fetch aggregate data in parallel
+            // Fetch aggregate data in parallel.
+            // attendance uses an RPC (GROUP BY server-side) to avoid the
+            // PostgREST 1000-row default cap that would truncate counts.
             const [
                 { data: attData, error: attErr },
                 { data: fbData, error: fbErr },
                 { data: regData, error: regErr }
             ] = await Promise.all([
-                supabase.from('event_attendance').select('event_id').in('event_id', eventIds),
+                supabase.rpc('get_event_attendance_counts', { event_ids: eventIds }),
                 supabase.from('event_feedback').select('event_id, rating').in('event_id', eventIds),
                 supabase.from('event_registrations').select('event_id, status').in('event_id', eventIds)
             ]);
@@ -76,9 +78,8 @@ export function useEventsData() {
             if (regErr && regErr.code !== '42P01') throw regErr;
 
             const attendanceCounts = new Map<string, number>();
-            (attData || []).forEach((attendance: any) => {
-                const eventId = String(attendance.event_id);
-                attendanceCounts.set(eventId, (attendanceCounts.get(eventId) || 0) + 1);
+            (attData || []).forEach((row: any) => {
+                attendanceCounts.set(String(row.event_id), row.attendance_count);
             });
 
             const feedbackAggregates = new Map<string, { total: number; count: number }>();

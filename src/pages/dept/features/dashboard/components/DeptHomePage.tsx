@@ -66,110 +66,110 @@ const TodaySchedulePanel = ({
     todayInterviews, todayEvents, todayCounselingSessions, admissionsDashboardCounts,
     setActiveModule, onOpenCounselingRequest
 }: any) => (
-        <div className="xl:col-span-2 bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
-                        <CalendarCheck2 size={20} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">Today&apos;s Schedule</h3>
-                        <p className="text-sm text-gray-500 mt-0.5">{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                    </div>
+    <div className="xl:col-span-2 bg-white/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-100/80 shadow-sm card-hover">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
+                    <CalendarCheck2 size={20} />
                 </div>
-                <button
-                    type="button"
-                    onClick={() => setActiveModule('calendar')}
-                    className={`inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition ${FOCUS_RING}`}
-                >
-                    <CalendarDays size={16} />
-                    Open Calendar
-                </button>
+                <div>
+                    <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">Today&apos;s Schedule</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                </div>
+            </div>
+            <button
+                type="button"
+                onClick={() => setActiveModule('calendar')}
+                className={`inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition ${FOCUS_RING}`}
+            >
+                <CalendarDays size={16} />
+                Open Calendar
+            </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                    <h4 className="font-bold text-blue-900 flex items-center gap-2"><CalendarClock size={16} /> Interviews <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{todayInterviews.length}</span></h4>
+                    <button type="button" onClick={() => setActiveModule('admissions')} className={`text-xs font-bold text-blue-700 hover:text-blue-800 ${FOCUS_RING}`}>
+                        View All
+                    </button>
+                </div>
+                {todayInterviews.length === 0 ? (
+                    <p className="text-sm text-blue-700/80">None today · {admissionsDashboardCounts?.scheduled || 0} in the interview queue.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {todayInterviews.slice(0, 3).map((app: any) => (
+                            <button
+                                key={String(app?.id || app?.reference_id)}
+                                type="button"
+                                onClick={() => setActiveModule('admissions')}
+                                className={`w-full rounded-xl border border-blue-200 bg-white px-3 py-3 text-left hover:border-blue-300 transition ${FOCUS_RING}`}
+                            >
+                                <p className="text-sm font-bold text-gray-900">{[app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Applicant'}</p>
+                                <p className="mt-1 text-xs text-blue-700">{getTimeLabel(app?.interview_date)}</p>
+                                <p className="mt-1 text-xs text-gray-500">{app?.interview_venue || app?.priority_course || 'Interview details available in admissions'}</p>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                        <h4 className="font-bold text-blue-900 flex items-center gap-2"><CalendarClock size={16} /> Interviews <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{todayInterviews.length}</span></h4>
-                        <button type="button" onClick={() => setActiveModule('admissions')} className={`text-xs font-bold text-blue-700 hover:text-blue-800 ${FOCUS_RING}`}>
-                            View All
-                        </button>
-                    </div>
-                    {todayInterviews.length === 0 ? (
-                        <p className="text-sm text-blue-700/80">None today · {admissionsDashboardCounts?.scheduled || 0} in the interview queue.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {todayInterviews.slice(0, 3).map((app: any) => (
-                                <button
-                                    key={String(app?.id || app?.reference_id)}
-                                    type="button"
-                                    onClick={() => setActiveModule('admissions')}
-                                    className={`w-full rounded-xl border border-blue-200 bg-white px-3 py-3 text-left hover:border-blue-300 transition ${FOCUS_RING}`}
-                                >
-                                    <p className="text-sm font-bold text-gray-900">{[app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Applicant'}</p>
-                                    <p className="mt-1 text-xs text-blue-700">{getTimeLabel(app?.interview_date)}</p>
-                                    <p className="mt-1 text-xs text-gray-500">{app?.interview_venue || app?.priority_course || 'Interview details available in admissions'}</p>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                    <h4 className="font-bold text-emerald-900 flex items-center gap-2"><ClipboardList size={16} /> Counseling <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">{todayCounselingSessions.length}</span></h4>
+                    <button type="button" onClick={() => setActiveModule('counseling_queue')} className={`text-xs font-bold text-emerald-700 hover:text-emerald-800 ${FOCUS_RING}`}>
+                        View All
+                    </button>
                 </div>
+                {todayCounselingSessions.length === 0 ? (
+                    <p className="text-sm text-emerald-700/80">No counseling sessions scheduled today.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {todayCounselingSessions.slice(0, 3).map((request: any) => (
+                            <button
+                                key={String(request?.id || request?.student_id)}
+                                type="button"
+                                onClick={() => onOpenCounselingRequest(request)}
+                                className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-3 text-left hover:border-emerald-300 transition ${FOCUS_RING}`}
+                            >
+                                <p className="text-sm font-bold text-gray-900">{request?.student_name || 'Student'}</p>
+                                <p className="mt-1 text-xs text-emerald-700">{getTimeLabel(getCounselingScheduledDate(request))}</p>
+                                <p className="mt-1 text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
 
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                        <h4 className="font-bold text-emerald-900 flex items-center gap-2"><ClipboardList size={16} /> Counseling <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">{todayCounselingSessions.length}</span></h4>
-                        <button type="button" onClick={() => setActiveModule('counseling_queue')} className={`text-xs font-bold text-emerald-700 hover:text-emerald-800 ${FOCUS_RING}`}>
-                            View All
-                        </button>
-                    </div>
-                    {todayCounselingSessions.length === 0 ? (
-                        <p className="text-sm text-emerald-700/80">No counseling sessions scheduled today.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {todayCounselingSessions.slice(0, 3).map((request: any) => (
-                                <button
-                                    key={String(request?.id || request?.student_id)}
-                                    type="button"
-                                    onClick={() => onOpenCounselingRequest(request)}
-                                    className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-3 text-left hover:border-emerald-300 transition ${FOCUS_RING}`}
-                                >
-                                    <p className="text-sm font-bold text-gray-900">{request?.student_name || 'Student'}</p>
-                                    <p className="mt-1 text-xs text-emerald-700">{getTimeLabel(getCounselingScheduledDate(request))}</p>
-                                    <p className="mt-1 text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                    <h4 className="font-bold text-amber-900 flex items-center gap-2"><Bell size={16} /> Events <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">{todayEvents.length}</span></h4>
+                    <button type="button" onClick={() => setActiveModule('events')} className={`text-xs font-bold text-amber-700 hover:text-amber-800 ${FOCUS_RING}`}>
+                        View All
+                    </button>
                 </div>
-
-                <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                        <h4 className="font-bold text-amber-900 flex items-center gap-2"><Bell size={16} /> Events <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">{todayEvents.length}</span></h4>
-                        <button type="button" onClick={() => setActiveModule('events')} className={`text-xs font-bold text-amber-700 hover:text-amber-800 ${FOCUS_RING}`}>
-                            View All
-                        </button>
+                {todayEvents.length === 0 ? (
+                    <p className="text-sm text-amber-700/80">No department events scheduled today.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {todayEvents.slice(0, 3).map((event: any) => (
+                            <button
+                                key={String(event?.id || event?.title)}
+                                type="button"
+                                onClick={() => setActiveModule('events')}
+                                className={`w-full rounded-xl border border-amber-200 bg-white px-3 py-3 text-left hover:border-amber-300 transition ${FOCUS_RING}`}
+                            >
+                                <p className="text-sm font-bold text-gray-900">{event?.title || 'Department event'}</p>
+                                <p className="mt-1 text-xs text-amber-700">{event?.type || 'Event'}</p>
+                                <p className="mt-1 text-xs text-gray-500 line-clamp-2">{event?.description || 'Open the events page for the full agenda.'}</p>
+                            </button>
+                        ))}
                     </div>
-                    {todayEvents.length === 0 ? (
-                        <p className="text-sm text-amber-700/80">No department events scheduled today.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {todayEvents.slice(0, 3).map((event: any) => (
-                                <button
-                                    key={String(event?.id || event?.title)}
-                                    type="button"
-                                    onClick={() => setActiveModule('events')}
-                                    className={`w-full rounded-xl border border-amber-200 bg-white px-3 py-3 text-left hover:border-amber-300 transition ${FOCUS_RING}`}
-                                >
-                                    <p className="text-sm font-bold text-gray-900">{event?.title || 'Department event'}</p>
-                                    <p className="mt-1 text-xs text-amber-700">{event?.type || 'Event'}</p>
-                                    <p className="mt-1 text-xs text-gray-500 line-clamp-2">{event?.description || 'Open the events page for the full agenda.'}</p>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
         </div>
+    </div>
 );
 
 
@@ -242,7 +242,7 @@ const DeptHomePage = ({
                     <div className="flex-1 text-center lg:text-left">
                         <p className="text-emerald-300/80 text-sm font-medium tracking-wide uppercase mb-2">{clock.greeting}</p>
                         <h1 className="text-2xl md:text-3xl font-extrabold mb-2">
-                            Welcome to <span className="bg-gradient-to-r from-emerald-300 via-teal-300 to-green-300 bg-clip-text text-transparent">Dept. Head Portal</span>
+                            Welcome to <span className="bg-gradient-to-r from-emerald-300 via-teal-300 to-green-300 bg-clip-text text-transparent">College Portal</span>
                         </h1>
                         <p className="text-emerald-200/75 text-base max-w-2xl">
                             Prioritize today&apos;s interviews and counseling workload, then drill into secondary student and referral tools only when you need them.
@@ -299,25 +299,25 @@ const DeptHomePage = ({
                             </div>
                         ) : (
                             visibleDepartmentAlertItems.map((item: any) => (
-                                    <button type="button"
-                                        key={item.key}
-                                        onClick={() => setActiveModule(item.module)}
-                                        className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-white ${item.tone} ${FOCUS_RING}`}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex items-start gap-3">
-                                                <span className="mt-0.5">{DEPT_HOME_ALERT_ICONS[item.key] || <Bell size={16} />}</span>
-                                                <div>
-                                                    <p className="text-sm font-semibold text-gray-900">{item.label}</p>
-                                                    <p className="mt-1 text-xs opacity-80">Open the related module</p>
-                                                </div>
+                                <button type="button"
+                                    key={item.key}
+                                    onClick={() => setActiveModule(item.module)}
+                                    className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-white ${item.tone} ${FOCUS_RING}`}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-start gap-3">
+                                            <span className="mt-0.5">{DEPT_HOME_ALERT_ICONS[item.key] || <Bell size={16} />}</span>
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-900">{item.label}</p>
+                                                <p className="mt-1 text-xs opacity-80">Open the related module</p>
                                             </div>
-                                            <span className="inline-flex min-w-9 items-center justify-center rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-gray-800">
-                                                {item.count}
-                                            </span>
                                         </div>
-                                    </button>
-                                ))
+                                        <span className="inline-flex min-w-9 items-center justify-center rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-gray-800">
+                                            {item.count}
+                                        </span>
+                                    </div>
+                                </button>
+                            ))
                         )}
                     </div>
                 </div>
@@ -344,11 +344,11 @@ const DeptHomePage = ({
                     {secondaryView === 'population' ? (
                         <div className="grid grid-cols-2 gap-3">
                             {visiblePopulationByYearEntries.map(([year, count]) => (
-                                    <div key={year} className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-                                        <p className="text-[11px] text-gray-500 uppercase font-bold mb-1">{year}</p>
-                                        <p className="text-2xl font-extrabold text-emerald-700">{Number(count || 0)}</p>
-                                    </div>
-                                ))}
+                                <div key={year} className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                                    <p className="text-[11px] text-gray-500 uppercase font-bold mb-1">{year}</p>
+                                    <p className="text-2xl font-extrabold text-emerald-700">{Number(count || 0)}</p>
+                                </div>
+                            ))}
                         </div>
                     ) : (
                         <div className="space-y-3">

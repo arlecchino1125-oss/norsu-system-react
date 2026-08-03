@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, UserPlus, Archive, Users } from 'lucide-react';
+import { Search, UserPlus, Users } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
 import CareStaffPeerSupportModal from './CareStaffPeerSupportModal';
-import { facilitatorName } from '../../../../../utils/peerLogbook';
+import { facilitatorName, sanitizeSearchTerm } from '../../../../../utils/peerLogbook';
 
 interface CareStaffActiveFacilitatorsTableProps {
     functions: { showToast: (msg: string, type?: any) => void };
@@ -23,10 +23,6 @@ const fullName = facilitatorName;
 const courseYear = (s: any) =>
     [s?.course, s?.year_level].filter(Boolean).join(' - ') || s?.department || 'N/A';
 
-// Staff-only lookup, but the term still feeds a PostgREST or() string, so strip
-// the characters that would break its comma/paren-delimited grammar.
-const sanitizeTerm = (term: string) => term.replace(/[,()*]/g, ' ').trim();
-
 const AddFacilitatorModal = ({
     existingIds, defaultYear, isSaving, onClose, onAdd
 }: {
@@ -40,7 +36,7 @@ const AddFacilitatorModal = ({
     const [selected, setSelected] = useState<any>(null);
     const [year, setYear] = useState(defaultYear);
 
-    const term = sanitizeTerm(searchTerm);
+    const term = sanitizeSearchTerm(searchTerm);
     const { data: results = [], isFetching } = useQuery({
         queryKey: ['facilitator-student-search', term],
         queryFn: async () => {
@@ -150,7 +146,6 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
     const [sourceFilter, setSourceFilter] = useState<'all' | 'application' | 'manual'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [showAdd, setShowAdd] = useState(false);
-    const [pendingArchiveId, setPendingArchiveId] = useState<string | null>(null);
     const [openFacilitator, setOpenFacilitator] = useState<any>(null);
     const [page, setPage] = useState(1);
 
@@ -237,22 +232,6 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
         onError: () => functions.showToast('Failed to add facilitator.', 'error')
     });
 
-    const archiveMutation = useMutation({
-        mutationFn: async (id: string) => {
-            const { error } = await supabase
-                .from('peer_facilitators')
-                .update({ archived_at: new Date().toISOString() })
-                .eq('id', id);
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: [ROSTER_KEY] });
-            functions.showToast('Facilitator archived.', 'success');
-            setPendingArchiveId(null);
-        },
-        onError: () => functions.showToast('Failed to archive facilitator.', 'error')
-    });
-
     const filtered = facilitators.filter((f: any) => {
         const matchesSource = sourceFilter === 'all' || f.source === sourceFilter;
         const name = fullName(f.students).toLowerCase();
@@ -264,8 +243,6 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
     const totalPages = Math.max(1, Math.ceil(filtered.length / ACTIVE_PAGE_SIZE));
     const safePage = Math.min(page, totalPages);
     const pagedFacilitators = filtered.slice((safePage - 1) * ACTIVE_PAGE_SIZE, safePage * ACTIVE_PAGE_SIZE);
-
-    const pendingArchive = facilitators.find((f: any) => f.id === pendingArchiveId);
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -325,14 +302,13 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
                                 <th className="px-6 py-4 font-bold">Course &amp; Year</th>
                                 <th className="px-6 py-4 font-bold">Peer Year</th>
                                 <th className="px-6 py-4 font-bold">Source</th>
-                                <th className="px-6 py-4 font-bold text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {isLoading ? (
-                                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading facilitators...</td></tr>
+                                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">Loading facilitators...</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                                     <div className="flex flex-col items-center gap-2">
                                         <Users className="h-6 w-6 text-slate-300" />
                                         No active facilitators yet.
@@ -364,17 +340,6 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
                                                 : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
                                                 {f.source === 'manual' ? 'Added by staff' : 'Applied'}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => setPendingArchiveId(f.id)}
-                                                title="Archive facilitator"
-                                                aria-label="Archive facilitator"
-                                                className="inline-flex items-center justify-center rounded-lg p-2 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600"
-                                            >
-                                                <Archive size={16} />
-                                            </button>
                                         </td>
                                     </tr>
                                 ))
@@ -408,35 +373,6 @@ export default function CareStaffActiveFacilitatorsTable({ functions, refreshSig
                     onClose={() => setShowAdd(false)}
                     onAdd={(studentId, peerYear) => addMutation.mutate({ studentId, peerYear })}
                 />
-            )}
-
-            {pendingArchive && (
-                <Modal
-                    open
-                    anchorId="staff-content-region"
-                    title="Archive Facilitator"
-                    subtitle="Remove this student from the active roster without deleting their record."
-                    onClose={() => setPendingArchiveId(null)}
-                    footer={(
-                        <>
-                            <Button variant="secondary" onClick={() => setPendingArchiveId(null)} disabled={archiveMutation.isPending}>Cancel</Button>
-                            <Button variant="primary" leftIcon={<Archive size={14} />} isLoading={archiveMutation.isPending} onClick={() => archiveMutation.mutate((pendingArchive as any).id)}>
-                                Archive
-                            </Button>
-                        </>
-                    )}
-                >
-                    <div className="mx-auto w-full max-w-2xl">
-                        <div className="mb-4 flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"><Archive size={20} /></div>
-                            <p className="text-sm text-gray-600">They come off the active roster and hours logging pauses. You can restore them anytime by adding or re-approving them.</p>
-                        </div>
-                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-                            <p className="text-sm font-bold text-slate-800">{fullName((pendingArchive as any).students)}</p>
-                            <p className="text-xs text-slate-500 mt-1">Nothing is deleted — the record is kept.</p>
-                        </div>
-                    </div>
-                </Modal>
             )}
         </div>
     );

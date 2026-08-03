@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admission_schedules: {
@@ -1772,6 +1797,27 @@ export type Database = {
           },
         ]
       }
+      public_events_throttle: {
+        Row: {
+          action: string
+          attempted_at: string
+          id: number
+          throttle_key: string
+        }
+        Insert: {
+          action: string
+          attempted_at?: string
+          id?: number
+          throttle_key: string
+        }
+        Update: {
+          action?: string
+          attempted_at?: string
+          id?: number
+          throttle_key?: string
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           created_at: string
@@ -2847,18 +2893,6 @@ export type Database = {
         Args: { end_ts: string; start_ts: string }
         Returns: string
       }
-      needs_assessment_answer_stats: {
-        Args: {
-          p_course?: string | null
-          p_department?: string | null
-          p_form_id: number
-        }
-        Returns: {
-          answer_value: number
-          question_id: number
-          responses: number
-        }[]
-      }
       consume_edge_rate_limit: {
         Args: {
           p_identifier: string
@@ -2889,6 +2923,10 @@ export type Database = {
       current_staff_role: { Args: never; Returns: string }
       current_staff_username: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
+      department_evaluate_peer_application: {
+        Args: { p_application_id: string; p_status: string }
+        Returns: undefined
+      }
       finalize_application: {
         Args: {
           p_activated_course?: string
@@ -3094,6 +3132,263 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      needs_assessment_answer_stats: {
+        Args: { p_course?: string; p_department?: string; p_form_id: number }
+        Returns: {
+          answer_value: number
+          question_id: number
+          responses: number
+        }[]
+      }
+      public_event_evaluate: {
+        Args: {
+          p_answers: Json
+          p_email: string
+          p_event_id: number
+          p_form_id: number
+          p_student_id: string
+        }
+        Returns: Json
+      }
+      public_event_rate: {
+        Args: {
+          p_email: string
+          p_event_id: number
+          p_open_best: string
+          p_open_comments: string
+          p_open_suggestions: string
+          p_scores: number[]
+          p_student_id: string
+        }
+        Returns: Json
+      }
+      public_event_time_in: {
+        Args: { p_email: string; p_event_id: number; p_student_id: string }
+        Returns: Json
+      }
+      public_event_time_out: {
+        Args: { p_email: string; p_event_id: number; p_student_id: string }
+        Returns: Json
+      }
+      public_event_window: {
+        Args: { p_event: Database["public"]["Tables"]["events"]["Row"] }
+        Returns: {
+          checkin_close: string
+          end_at: string
+          start_at: string
+          timeout_close: string
+        }[]
+      }
+      public_get_active_events: {
+        Args: never
+        Returns: {
+          allow_walk_ins: boolean
+          attendees: number
+          audience_courses: string[]
+          audience_departments: string[]
+          audience_sections: string[]
+          audience_type: string
+          audience_year_levels: string[]
+          capacity: number
+          created_at: string
+          description: string
+          end_time: string
+          event_date: string
+          event_time: string
+          id: number
+          is_archived: boolean
+          location: string
+          participation_mode: string
+          registration_deadline: string
+          require_geolocation: boolean
+          require_photo: boolean
+          title: string
+          type: string
+        }[]
+      }
+      public_get_evaluation_form: {
+        Args: { p_event_id: number }
+        Returns: Json
+      }
+      public_get_student_event_status: {
+        Args: { p_email: string; p_student_id: string }
+        Returns: {
+          evaluated: boolean
+          event_id: number
+          has_evaluation_form: boolean
+          rated: boolean
+          time_in: string
+          time_out: string
+        }[]
+      }
+      public_resolve_student: {
+        Args: { p_email: string; p_student_id: string }
+        Returns: {
+          address: string | null
+          age: number | null
+          alt_course_1: string | null
+          alt_course_2: string | null
+          archive_note: string | null
+          archived_at: string | null
+          archived_by: number | null
+          archived_reason: string | null
+          auth_user_id: string | null
+          birth_order: string | null
+          birth_order_other: string | null
+          children_names_birthdates: string | null
+          city: string | null
+          civil_status: string | null
+          college_school: string | null
+          college_year_graduated: string | null
+          course: string | null
+          course_year_archive: Json
+          course_year_confirmed_at: string | null
+          course_year_profile_edited: boolean | null
+          course_year_update_required: boolean
+          course_year_window_end: string | null
+          course_year_window_start: string | null
+          created_at: string
+          crime_conviction_details: string | null
+          criminal_charge_details: string | null
+          currently_pregnant: string | null
+          department: string | null
+          disability_cause: string | null
+          dob: string | null
+          elem_school: string | null
+          elem_year_graduated: string | null
+          eligibility_acquired: string | null
+          email: string | null
+          emergency_address: string | null
+          emergency_contact: string | null
+          emergency_name: string | null
+          emergency_number: string | null
+          emergency_relationship: string | null
+          employer_address: string | null
+          employer_name: string | null
+          extracurricular_activities: string | null
+          facebook_url: string | null
+          father_address: string | null
+          father_contact: string | null
+          father_given_name: string | null
+          father_last_name: string | null
+          father_middle_name: string | null
+          father_name: string | null
+          father_occupation: string | null
+          father_status: string | null
+          first_name: string
+          four_ps_document_url: string | null
+          gender_identity: string | null
+          guardian_address: string | null
+          guardian_contact: string | null
+          guardian_name: string | null
+          guardian_relation: string | null
+          has_been_convicted_of_crime: boolean | null
+          has_been_criminally_charged: boolean | null
+          has_seen_tour: boolean | null
+          holds_public_service_position: boolean | null
+          honors_awards: string | null
+          id: number
+          indigenous_group: string | null
+          indigenous_group_other: string | null
+          ip_document_url: string | null
+          is_archived: boolean
+          is_child_of_solo_parent: boolean | null
+          is_four_ps_member: boolean | null
+          is_homeless_citizen: boolean | null
+          is_indigenous: boolean | null
+          is_orphan: boolean | null
+          is_pwd: boolean | null
+          is_rebel_returnee: boolean | null
+          is_safe_in_community: boolean | null
+          is_senior_citizen: boolean | null
+          is_solo_parent: boolean | null
+          is_working_student: boolean | null
+          junior_high_school: string | null
+          junior_high_year_graduated: string | null
+          last_name: string
+          middle_name: string | null
+          mobile: string | null
+          mother_address: string | null
+          mother_contact: string | null
+          mother_given_name: string | null
+          mother_last_name: string | null
+          mother_middle_name: string | null
+          mother_name: string | null
+          mother_occupation: string | null
+          mother_status: string | null
+          nationality: string | null
+          num_brothers: string | null
+          num_children: string | null
+          num_sisters: string | null
+          organizations_memberships: string | null
+          orphan_cause: string | null
+          orphan_cause_other: string | null
+          other_talents: string | null
+          parent_address: string | null
+          parents_num_children: string | null
+          place_of_birth: string | null
+          priority_course: string | null
+          profile_completed: boolean | null
+          profile_picture_url: string | null
+          province: string | null
+          public_service_position: string | null
+          pwd_document_url: string | null
+          pwd_number: string | null
+          pwd_type: string | null
+          pwd_type_other: string | null
+          region: string | null
+          region_other: string | null
+          religion: string | null
+          scholarships_availed: string | null
+          school_last_attended: string | null
+          section: string | null
+          senior_citizen_document_url: string | null
+          senior_high_school: string | null
+          senior_high_year_graduated: string | null
+          sex: string | null
+          solo_parent_document_url: string | null
+          special_trainings_attended: string | null
+          sports_skills: string | null
+          spouse_contact: string | null
+          spouse_employer_address: string | null
+          spouse_employer_name: string | null
+          spouse_name: string | null
+          spouse_occupation: string | null
+          status: string | null
+          street: string | null
+          student_id: string
+          suffix: string | null
+          supporter: string | null
+          supporter_contact: string | null
+          tesda_nc2_acquired: string | null
+          witnessed_conflict: boolean | null
+          work_experiences: string | null
+          working_student_type: string | null
+          working_student_type_other: string | null
+          year_level: string | null
+          year_level_other: string | null
+          zip_code: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "students"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      public_throttle_take: {
+        Args: {
+          p_action: string
+          p_key: string
+          p_limit: number
+          p_window: string
+        }
+        Returns: boolean
+      }
+      public_verify_student: {
+        Args: { p_email: string; p_student_id: string }
+        Returns: Json
+      }
       record_student_event_attendance: {
         Args: {
           p_action: string
@@ -3305,14 +3600,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      search_students_for_peer: {
-        Args: { p_term?: string }
-        Returns: {
-          first_name: string
-          last_name: string
-          student_id: string
-        }[]
-      }
       search_care_students: {
         Args: {
           p_course?: string
@@ -3389,6 +3676,14 @@ export type Database = {
           year_level: string
         }[]
       }
+      search_students_for_peer: {
+        Args: { p_term?: string }
+        Returns: {
+          first_name: string
+          last_name: string
+          student_id: string
+        }[]
+      }
       seed_archive_action_permission_defaults: {
         Args: { target_role?: string }
         Returns: number
@@ -3405,6 +3700,14 @@ export type Database = {
       student_may_evaluate_form: {
         Args: { p_form_id: number }
         Returns: boolean
+      }
+      student_text_id_in_current_staff_department: {
+        Args: { p_student_id: string }
+        Returns: boolean
+      }
+      get_event_attendance_counts: {
+        Args: { event_ids: number[] }
+        Returns: { event_id: number; attendance_count: number }[]
       }
       swap_or_rename_student_ids: {
         Args: { p_source_id: string; p_target_id: string }
@@ -3426,118 +3729,121 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-    ? R
-    : never
+  ? R
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
+    DefaultSchema["Views"])
+  ? (DefaultSchema["Tables"] &
+    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R
+    }
+  ? R
+  : never
+  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Tables"]
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
+    Insert: infer I
+  }
+  ? I
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Tables"]
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
+    Update: infer U
+  }
+  ? U
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    Update: infer U
+  }
+  ? U
+  : never
+  : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Enums"]
+  | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["CompositeTypes"]
+  | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

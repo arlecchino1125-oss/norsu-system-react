@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, UserCheck, CalendarDays, ClipboardList, BookOpen, AlertCircle, FileText, Settings, FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, Users, UserCheck, CalendarDays, ClipboardList, BookOpen, AlertCircle, FileText, Settings, FileSpreadsheet, HeartHandshake } from 'lucide-react';
 import Sidebar, { type NavSection, type SidebarAccent } from '../../../components/layout/Sidebar';
 
 // ── Per-college sidebar colors ──
@@ -75,6 +75,7 @@ const DEPT_SECTIONS: NavSection[] = [
             { id: 'interview_queue', label: 'Interview Queue', icon: ClipboardList },
             { id: 'counseling_queue', label: 'Counseling & Referrals', icon: Users },
             { id: 'support_approvals', label: 'Additional Support', icon: AlertCircle, indicator: true },
+            { id: 'peer_facilitators', label: 'Peer Facilitators', icon: HeartHandshake },
         ],
     },
     {

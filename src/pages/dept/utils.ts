@@ -22,7 +22,8 @@ export const DEPT_MODULE_FEATURES: Partial<Record<string, string>> = {
     settings: 'settings',
     students: 'students',
     counseled: 'counseled',
-    reports: 'reports'
+    reports: 'reports',
+    peer_facilitators: 'peer_facilitators'
 };
 
 // Module label map for header
@@ -39,6 +40,7 @@ export const moduleLabels = {
     students: 'Students',
     counseled: 'Counseled Students',
     reports: 'Reports',
+    peer_facilitators: 'Peer Facilitators',
 };
 
 export const getFilteredDeptData = (

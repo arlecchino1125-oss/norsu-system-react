@@ -6,6 +6,7 @@ import {
     monthKeyOf,
     monthLabelOf,
     monthStartOf,
+    sanitizeSearchTerm,
     shouldPromptSubmit,
     todayIso
 } from './peerLogbook';
@@ -62,5 +63,15 @@ describe('peerLogbook helpers', () => {
         expect(entryInitials({ assisted_initials: '  R.R. ' })).toBe('R.R.');
         expect(entryInitials({ assisted_initials: null })).toBe('');
         expect(entryInitials({})).toBe('');
+    });
+
+    // These characters delimit the PostgREST or() grammar. Left in, a surname
+    // like "Dela Cruz, Jr." makes the request 400 and the picker silently
+    // reports no matches.
+    it('strips the characters that would break a PostgREST or() term', () => {
+        expect(sanitizeSearchTerm('Dela Cruz, Jr.')).toBe('Dela Cruz  Jr.');
+        expect(sanitizeSearchTerm('(Reyes)')).toBe('Reyes');
+        expect(sanitizeSearchTerm('a*b')).toBe('a b');
+        expect(sanitizeSearchTerm('  Santos  ')).toBe('Santos');
     });
 });

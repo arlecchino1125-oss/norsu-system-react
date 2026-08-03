@@ -64,7 +64,7 @@ describe('AssessmentFormModal', () => {
             target: { value: 'Financial assistance' }
         });
 
-        expect(screen.getByText('2/2')).toBeInTheDocument();
+        expect(screen.getByText('1/1')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: /Submit Assessment/ }));
 
@@ -80,10 +80,11 @@ describe('AssessmentFormModal', () => {
 
         const textarea = await screen.findByPlaceholderText('Type your answer here...');
         fireEvent.change(textarea, { target: { value: 'Something' } });
-        expect(screen.getByText('1/2')).toBeInTheDocument();
+        // Text questions are not required and don't count towards the progress ratio
+        expect(screen.getByText('0/1')).toBeInTheDocument();
 
         fireEvent.change(textarea, { target: { value: '' } });
-        expect(screen.getByText('0/2')).toBeInTheDocument();
+        expect(screen.getByText('0/1')).toBeInTheDocument();
     });
 
     it('keeps the instructions in the scrolling body so they cannot fill a phone screen', async () => {

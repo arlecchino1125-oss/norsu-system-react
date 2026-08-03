@@ -58,10 +58,6 @@ vi.mock('@tanstack/react-query', () => ({
     }
 }));
 
-vi.mock('../../../../../lib/transactionalEmail', () => ({
-    sendTransactionalEmailNotification: vi.fn()
-}));
-
 const renderPage = () => render(
     <main id="staff-content-region" className="relative">
         <CareStaffPeerFacilitatorsPage functions={{ showToast: vi.fn() }} />
@@ -90,12 +86,22 @@ describe('CareStaffPeerFacilitatorsPage layout', () => {
         expect(applicationsTable.parentElement?.parentElement).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col');
 
         fireEvent.click(screen.getByRole('button', { name: 'Review' }));
-        const dialog = expectFullRegionDialog('Application Details');
-        expect(within(dialog).getByRole('button', { name: 'Reject' })).toBeInTheDocument();
-        expect(within(dialog).getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+        expectFullRegionDialog('Application Details');
     });
 
-    it('anchors add and archive facilitator workflows without removing their actions', () => {
+    // The staff asked for approval to live with the department head, who knows
+    // the applicant. CARE staff keep the read-only view of what was submitted.
+    it('offers no approve or reject action on an application', () => {
+        renderPage();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+        const dialog = expectFullRegionDialog('Application Details');
+        expect(within(dialog).queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+        expect(within(dialog).queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
+        expect(within(dialog).getByText('Approved or rejected by the department head.')).toBeInTheDocument();
+    });
+
+    it('anchors the add facilitator workflow and offers no archive action', () => {
         renderPage();
         fireEvent.click(screen.getByRole('tab', { name: 'Active Facilitators' }));
 
@@ -108,9 +114,7 @@ describe('CareStaffPeerFacilitatorsPage layout', () => {
         expect(within(addDialog).getByRole('button', { name: 'Add to Active' })).toBeInTheDocument();
         fireEvent.click(within(addDialog).getByRole('button', { name: 'Cancel' }));
 
-        fireEvent.click(screen.getByRole('button', { name: 'Archive facilitator' }));
-        const archiveDialog = expectFullRegionDialog('Archive Facilitator');
-        expect(within(archiveDialog).getByRole('button', { name: 'Archive' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Archive facilitator' })).not.toBeInTheDocument();
     });
 
     it('anchors daily time record details to the content region', () => {

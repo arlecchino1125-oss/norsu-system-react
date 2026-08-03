@@ -117,6 +117,7 @@ const FEATURE_PERMISSIONS = {
         'counseled',
         'events',
         'reports',
+        'peer_facilitators',
         'calendar',
         'export_center',
         'settings'
@@ -320,6 +321,7 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionType, Record<string, stri
         students: 'Department student roster and profile views.',
         counseled: 'Completed counseling history and follow-up records.',
         reports: 'Department reporting and summary outputs.',
+        peer_facilitators: 'Department peer facilitator applications, roster, and hours.',
         dashboard: 'Student home dashboard with notifications, history, and quick links.',
         profile: 'Student profile viewing and editing experience.',
         assessment: 'Needs assessment forms and completion history.',

@@ -9,6 +9,7 @@ import DeptCounseledPage from '../features/counseling/components/DeptCounseledPa
 import DeptSettingsPage from '../features/settings/components/DeptSettingsPage';
 import DeptAdmissionsPage from '../features/admissions/components/DeptAdmissionsPage';
 import DeptInterviewQueuePage from '../features/admissions/components/DeptInterviewQueuePage';
+import DeptPeerFacilitatorsPage from '../features/peerfacilitators/components/DeptPeerFacilitatorsPage';
 import StaffCalendarPage from '../../shared/StaffCalendarPage';
 import StaffExportCenterPage from '../../shared/StaffExportCenterPage';
 import FeatureAvailabilityView from '../../../components/permissions/FeatureAvailabilityView';
@@ -198,6 +199,11 @@ export function DeptModulePages({
                     updateStaffProfileName={account.updateStaffProfileName}
                     showToast={showToastMessage}
                 />
+            )}
+
+            {/* PEER FACILITATORS */}
+            {!showModuleAvailabilityView && activeModule === 'peer_facilitators' && (
+                <DeptPeerFacilitatorsPage showToastMessage={showToastMessage} />
             )}
 
             {/* SUPPORT APPROVALS */}

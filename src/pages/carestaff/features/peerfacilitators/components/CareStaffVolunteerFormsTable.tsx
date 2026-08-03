@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
-import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
-import { buildPeerFacilitatorStatusEmailPayload } from '../peerFacilitatorEmail';
 
 const APPLICATIONS_PAGE_SIZE = 10;
 
@@ -24,7 +22,10 @@ const getStatusStyle = (status: string) => {
     return 'bg-amber-100 text-amber-700 border-amber-200';
 };
 
-const ApplicationReviewModal = ({ application, isUpdating, onClose, onReject, onApprove }: any) => (
+// Read-only by request of the staff: an application is approved or rejected by
+// the student's own department head, in the department portal. This view is
+// here so CARE staff can still see what was submitted.
+const ApplicationReviewModal = ({ application, onClose }: any) => (
     <Modal
         open
         anchorId="staff-content-region"
@@ -37,13 +38,8 @@ const ApplicationReviewModal = ({ application, isUpdating, onClose, onReject, on
         onClose={onClose}
         footer={(
             <div className="flex w-full items-center justify-between gap-3">
-                <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Close</Button>
-                {application.status === 'pending' && (
-                    <div className="flex gap-3">
-                        <Button variant="danger" leftIcon={<XCircle size={16} />} onClick={onReject} isLoading={isUpdating}>Reject</Button>
-                        <Button variant="primary" leftIcon={<CheckCircle size={16} />} onClick={onApprove} isLoading={isUpdating} className="!bg-emerald-600 hover:!bg-emerald-700">Approve</Button>
-                    </div>
-                )}
+                <Button variant="secondary" onClick={onClose}>Close</Button>
+                <span className="text-xs text-slate-500">Approved or rejected by the department head.</span>
             </div>
         )}
     >
@@ -180,51 +176,6 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
 
             if (error) throw error;
             return data || [];
-        }
-    });
-
-    const updateStatusMutation = useMutation({
-        mutationFn: async ({ id, status }: { id: string, status: string }) => {
-            const { error } = await supabase
-                .from('peer_facilitator_applications')
-                .update({ status })
-                .eq('id', id);
-            if (error) throw error;
-
-            // Approving puts the student on the active roster automatically, so
-            // approved applicants and staff-added facilitators live in one list.
-            if (status === 'approved' && selectedApplication) {
-                const { data: userData } = await supabase.auth.getUser();
-                const { error: rosterError } = await supabase
-                    .from('peer_facilitators')
-                    .upsert({
-                        student_id: selectedApplication.student_id,
-                        peer_year: selectedApplication.school_year || '',
-                        source: 'application',
-                        application_id: selectedApplication.id,
-                        added_by: userData.user?.id ?? null,
-                        // Re-approving un-archives a previously archived facilitator.
-                        archived_at: null
-                    }, { onConflict: 'student_id' });
-                if (rosterError) throw rosterError;
-            }
-        },
-        onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['care-staff-volunteer-apps'] });
-            queryClient.invalidateQueries({ queryKey: ['care-staff-active-facilitators'] });
-            functions.showToast('Application status updated successfully.', 'success');
-            void sendTransactionalEmailNotification(
-                buildPeerFacilitatorStatusEmailPayload(selectedApplication, variables.status),
-                'Failed to send Peer Facilitator email.'
-            ).then((emailResult) => {
-                if (emailResult.emailSent === false) {
-                    functions.showToast(`Status updated, but email failed: ${emailResult.emailError || 'Unknown email error.'}`, 'error');
-                }
-            });
-            setShowModal(false);
-        },
-        onError: () => {
-            functions.showToast('Failed to update application status.', 'error');
         }
     });
 
@@ -394,10 +345,7 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
             {showModal && selectedApplication && createPortal(
                 <ApplicationReviewModal
                     application={selectedApplication}
-                    isUpdating={updateStatusMutation.isPending}
                     onClose={() => setShowModal(false)}
-                    onReject={() => updateStatusMutation.mutate({ id: selectedApplication.id, status: 'rejected' })}
-                    onApprove={() => updateStatusMutation.mutate({ id: selectedApplication.id, status: 'approved' })}
                 />,
                 document.body
             )}

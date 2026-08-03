@@ -46,6 +46,13 @@ export const shouldPromptSubmit = (now: Date, status: string): boolean => {
     return lastDay - now.getDate() + 1 <= 5;
 };
 
+/**
+ * A staff student-search term still feeds a PostgREST or() string, whose grammar
+ * is comma/paren delimited -- strip what would break it. Without this a surname
+ * containing a comma 400s and the picker just reads "no students found".
+ */
+export const sanitizeSearchTerm = (term: string): string => term.replace(/[,()*]/g, ' ').trim();
+
 export const initialsFrom = (first?: string | null, last?: string | null): string =>
     [first, last]
         .filter(Boolean)
