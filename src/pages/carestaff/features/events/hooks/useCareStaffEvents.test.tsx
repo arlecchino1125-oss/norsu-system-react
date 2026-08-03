@@ -77,3 +77,39 @@ describe('useCareStaffEvents attendance modal loading', () => {
         expect(result.current.isAttendanceLoading).toBe(false);
     });
 });
+
+describe('useCareStaffEvents extend attendance', () => {
+    beforeEach(() => {
+        vi.mocked(supabase.from).mockReset();
+    });
+
+    it('pushes the close date forward and un-archives the event', async () => {
+        const eq = vi.fn().mockResolvedValue({ error: null });
+        const update = vi.fn().mockReturnValue({ eq });
+        vi.mocked(supabase.from).mockReturnValue({ update } as any);
+
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+
+        await act(async () => {
+            await result.current.handleExtendAttendance({ id: 42 } as any, '2026-08-10T17:00');
+        });
+
+        expect(update).toHaveBeenCalledWith({
+            attendance_closes_at: new Date('2026-08-10T17:00').toISOString(),
+            is_archived: false
+        });
+        expect(eq).toHaveBeenCalledWith('id', 42);
+    });
+
+    it('refuses a blank date without touching the database', async () => {
+        const showToast = vi.fn();
+        const { result } = renderHook(() => useCareStaffEvents({ functions: { showToast } }));
+
+        await act(async () => {
+            await result.current.handleExtendAttendance({ id: 42 } as any, '');
+        });
+
+        expect(supabase.from).not.toHaveBeenCalled();
+        expect(showToast).toHaveBeenCalledWith('Pick a valid closing date.', 'error');
+    });
+});

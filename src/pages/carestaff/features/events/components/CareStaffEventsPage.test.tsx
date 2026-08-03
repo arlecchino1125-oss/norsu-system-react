@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CareStaffEventsPage from './CareStaffEventsPage';
 import { getEvaluationsForEvents } from '../eventEvaluationService';
-import { useCareStaffEvents } from '../hooks/useCareStaffEvents';
+import { useCareStaffEvents, createEmptyEvent } from '../hooks/useCareStaffEvents';
 
 vi.mock('../eventEvaluationService', async () => {
     const actual = await vi.importActual<typeof import('../eventEvaluationService')>('../eventEvaluationService');
@@ -141,5 +141,34 @@ describe('CareStaffEventsPage modals', () => {
         render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
 
         expect(screen.getByRole('status', { name: loadingLabel })).toBeInTheDocument();
+    });
+
+    it('offers an attendance closing date and tucks the proof toggles under Advanced', () => {
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            showEventModal: true,
+            editingEventId: null,
+            newEvent: { ...createEmptyEvent(), type: 'Event' },
+            setNewEvent: vi.fn(),
+            setShowEventModal: vi.fn(),
+            setEditingEventId: vi.fn(),
+            createEvent: vi.fn(),
+            departmentOptions: [],
+            courseOptions: [],
+            getCurrentLocation: vi.fn(),
+            renderAudienceCheckboxGroup: () => null
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByLabelText(/attendance closes/i)).toBeInTheDocument();
+
+        // <details> keeps its children mounted while closed, so the toggles are
+        // findable — what this asserts is that they start collapsed, not absent.
+        const advanced = screen.getByText('Advanced').closest('details') as HTMLDetailsElement;
+        expect(advanced).not.toBeNull();
+        expect(advanced.open).toBe(false);
+        expect(screen.getByLabelText(/require photo on time in/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/require geolocation/i)).toBeInTheDocument();
     });
 });

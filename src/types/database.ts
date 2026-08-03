@@ -1072,6 +1072,7 @@ export type Database = {
           allow_walk_ins: boolean
           archived_at: string | null
           archived_by: number | null
+          attendance_closes_at: string | null
           attendance_required: boolean
           attendees: number | null
           audience_courses: string[]
@@ -1101,6 +1102,7 @@ export type Database = {
           allow_walk_ins?: boolean
           archived_at?: string | null
           archived_by?: number | null
+          attendance_closes_at?: string | null
           attendance_required?: boolean
           attendees?: number | null
           audience_courses?: string[]
@@ -1130,6 +1132,7 @@ export type Database = {
           allow_walk_ins?: boolean
           archived_at?: string | null
           archived_by?: number | null
+          attendance_closes_at?: string | null
           attendance_required?: boolean
           attendees?: number | null
           audience_courses?: string[]
@@ -3183,6 +3186,7 @@ export type Database = {
         Args: never
         Returns: {
           allow_walk_ins: boolean
+          attendance_closes_at: string
           attendees: number
           audience_courses: string[]
           audience_departments: string[]

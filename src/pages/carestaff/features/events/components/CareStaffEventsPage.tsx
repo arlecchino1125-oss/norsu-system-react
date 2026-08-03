@@ -32,7 +32,7 @@ import EventEvaluationBuilderModal from './EventEvaluationBuilderModal';
 import EventEvaluationResultsModal from './EventEvaluationResultsModal';
 import EventEvaluationTemplatesModal from './EventEvaluationTemplatesModal';
 import { getEvaluationsForEvents, type EvaluationForm } from '../eventEvaluationService';
-import { useCareStaffEvents, createEmptyEvent, getEventTypeBadgeClass, getArchivedEventTypeBadgeClass, isVisibleForStaffFilter, getAudienceModeLabel, getAudienceBulletItems, isRegistrationEvent, formatRegistrationDeadline, getRegistrationStatusClass } from '../hooks/useCareStaffEvents';
+import { useCareStaffEvents, createEmptyEvent, suggestCloseDate, getEventTypeBadgeClass, getArchivedEventTypeBadgeClass, isVisibleForStaffFilter, getAudienceModeLabel, getAudienceBulletItems, isRegistrationEvent, formatRegistrationDeadline, getRegistrationStatusClass } from '../hooks/useCareStaffEvents';
 import type { CareStaffEventsPageProps } from '../hooks/useCareStaffEvents';
 
 const REGISTRANT_STATUS_OPTIONS = ['All', 'Registered', 'Attended', 'Absent', 'Cancelled'];
@@ -108,6 +108,22 @@ const EventFormModal = ({
                                 <div><label htmlFor="event-location" className="block text-xs font-bold text-gray-500 mb-1">Location</label><input id="event-location" className="w-full border rounded-lg p-2 text-sm" value={newEvent.location} onChange={e => setNewEvent({ ...newEvent, location: e.target.value })} placeholder="e.g., Main Gym" /></div>
                             </div>
 
+                            <div>
+                                <label htmlFor="event-attendance-closes" className="block text-xs font-bold text-gray-500 mb-1">Attendance closes</label>
+                                <input
+                                    id="event-attendance-closes"
+                                    type="datetime-local"
+                                    className="w-full border rounded-lg p-2 text-sm"
+                                    value={newEvent.attendance_closes_at}
+                                    onChange={e => setNewEvent({ ...newEvent, attendance_closes_at: e.target.value })}
+                                    placeholder={suggestCloseDate(newEvent.event_date, newEvent.end_time)}
+                                />
+                                <p className="mt-1 text-[11px] text-gray-400">
+                                    Time in, time out, rating and the evaluation form all stay open until this date, then the card archives.
+                                    Leave blank for 3 days after the event ends{suggestCloseDate(newEvent.event_date, newEvent.end_time) ? ` (${suggestCloseDate(newEvent.event_date, newEvent.end_time).replace('T', ' ')})` : ''}.
+                                </p>
+                            </div>
+
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
                                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                                     <div>
@@ -154,15 +170,6 @@ const EventFormModal = ({
                                             className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                                         />
                                         Required attendance
-                                    </label>
-                                    <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 text-xs font-bold text-gray-600">
-                                        <input
-                                            type="checkbox"
-                                            checked={newEvent.require_photo !== false}
-                                            onChange={e => setNewEvent({ ...newEvent, require_photo: e.target.checked })}
-                                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                                        />
-                                        Require photo on time in
                                     </label>
                                 </div>
 
@@ -215,27 +222,46 @@ const EventFormModal = ({
                                 )}
                             </div>
 
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="flex items-center gap-2 text-xs font-bold text-blue-700">
+                            <details className="rounded-xl border border-slate-200 bg-slate-50">
+                                <summary className="cursor-pointer select-none px-4 py-3 text-xs font-bold text-gray-500">Advanced</summary>
+                                <div className="space-y-3 border-t border-slate-200 p-4">
+                                    <p className="text-[11px] text-gray-400">
+                                        Proof-of-presence checks. Both apply only while the event is running &mdash; a student timing in after it ends is never asked for either.
+                                    </p>
+                                    <label htmlFor="event-require-photo" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 text-xs font-bold text-gray-600">
                                         <input
+                                            id="event-require-photo"
                                             type="checkbox"
-                                            checked={Boolean(newEvent.require_geolocation)}
-                                            onChange={e => setNewEvent({ ...newEvent, require_geolocation: e.target.checked })}
-                                            className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                                            checked={Boolean(newEvent.require_photo)}
+                                            onChange={e => setNewEvent({ ...newEvent, require_photo: e.target.checked })}
+                                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                                         />
-                                        Require geolocation (200m of venue)
+                                        Require photo on time in
                                     </label>
-                                    <div className="flex gap-3">
-                                        <button type="button" onClick={getCurrentLocation} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"><MapPin size={12} /> Get My Location</button>
-                                        <button type="button" onClick={() => setNewEvent({ ...newEvent, latitude: '9.306', longitude: '123.306' })} className="text-xs text-gray-500 hover:underline flex items-center gap-1"><MapPin size={12} /> Reset to Campus</button>
+                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label htmlFor="event-require-geolocation" className="flex items-center gap-2 text-xs font-bold text-blue-700">
+                                                <input
+                                                    id="event-require-geolocation"
+                                                    type="checkbox"
+                                                    checked={Boolean(newEvent.require_geolocation)}
+                                                    onChange={e => setNewEvent({ ...newEvent, require_geolocation: e.target.checked })}
+                                                    className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                                                />
+                                                Require geolocation (200m of venue)
+                                            </label>
+                                            <div className="flex gap-3">
+                                                <button type="button" onClick={getCurrentLocation} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"><MapPin size={12} /> Get My Location</button>
+                                                <button type="button" onClick={() => setNewEvent({ ...newEvent, latitude: '9.306', longitude: '123.306' })} className="text-xs text-gray-500 hover:underline flex items-center gap-1"><MapPin size={12} /> Reset to Campus</button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <input type="number" step="any" aria-label="Latitude" placeholder="Lat" className="w-full border rounded-lg p-2 text-xs" value={newEvent.latitude} onChange={e => setNewEvent({ ...newEvent, latitude: e.target.value })} />
+                                            <input type="number" step="any" aria-label="Longitude" placeholder="Long" className="w-full border rounded-lg p-2 text-xs" value={newEvent.longitude} onChange={e => setNewEvent({ ...newEvent, longitude: e.target.value })} />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input type="number" step="any" aria-label="Latitude" placeholder="Lat" className="w-full border rounded-lg p-2 text-xs" value={newEvent.latitude} onChange={e => setNewEvent({ ...newEvent, latitude: e.target.value })} />
-                                    <input type="number" step="any" aria-label="Longitude" placeholder="Long" className="w-full border rounded-lg p-2 text-xs" value={newEvent.longitude} onChange={e => setNewEvent({ ...newEvent, longitude: e.target.value })} />
-                                </div>
-                            </div>
+                            </details>
                         </>
                     )}
 
@@ -814,7 +840,7 @@ const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => createPortal(
 ), document.getElementById('staff-content-region') || document.body);
 
 const EventListSection = ({
-    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
+    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, onOpenExtend, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
 }: any) => (
 <div className="space-y-4">
     {/* Active Events */}
@@ -871,6 +897,9 @@ const EventListSection = ({
                                 )}
                         </>
                     )}
+                    {isAttendanceActivityType(item.type) && (
+                        <Button variant="secondary" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} />}>Extend</Button>
+                    )}
                     <Button variant="secondary" size="sm" onClick={() => handleEditEvent(item)} leftIcon={<CheckCircle size={14} />} />
                     {canArchiveRecords && (
                         <Button variant="danger" size="sm" onClick={() => item.id && handleDeleteEvent(item.id)} leftIcon={<Archive size={14} />} />
@@ -926,6 +955,9 @@ const EventListSection = ({
                             </Button>
                         )}
                     </>
+                )}
+                {isAttendanceActivityType(item.type) && (
+                    <Button variant="ghost" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} className="text-blue-400" />}>Extend attendance</Button>
                 )}
             </div>
         </div>
@@ -1000,6 +1032,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         setRegistrantStatusFilter,
         createEvent,
         handleEditEvent,
+        handleExtendAttendance,
         handleDeleteEvent,
         confirmDeleteEvent,
         handleViewAttendees,
@@ -1014,6 +1047,13 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
     const [showTemplatesModal, setShowTemplatesModal] = useState(false);
     const [evaluationTarget, setEvaluationTarget] = useState<{ event: SystemEvent; form: EvaluationForm | null } | null>(null);
     const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string; eventDate?: string | null } | null>(null);
+    const [extendTarget, setExtendTarget] = useState<any>(null);
+    const [extendDate, setExtendDate] = useState('');
+
+    const onOpenExtend = (item: any) => {
+        setExtendTarget(item);
+        setExtendDate(suggestCloseDate(item.event_date || '', item.end_time || ''));
+    };
 
     const refreshEvaluations = useCallback(async () => {
         const ids = [...events, ...archivedEvents]
@@ -1127,6 +1167,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     archivedEvents={archivedEvents}
                     canArchiveRecords={canArchiveRecords}
                     handleEditEvent={handleEditEvent}
+                    onOpenExtend={onOpenExtend}
                     handleViewAttendees={handleViewAttendees}
                     handleViewAbsent={(item: SystemEvent) => handleViewAttendees(item, 'absent')}
                     handleViewRegistrants={handleViewRegistrants}
@@ -1264,6 +1305,40 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                             <Button variant="danger" className="flex-1" onClick={confirmDeleteEvent}>Yes, Archive</Button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {extendTarget && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <Card className="w-full max-w-md">
+                        <CardContent className="p-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Extend attendance</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                {extendTarget.title} &mdash; time in, time out, rating and the evaluation form reopen until this date.
+                                An archived event comes back into the students&rsquo; list.
+                            </p>
+                            <label htmlFor="extend-closes-at" className="block text-xs font-bold text-gray-500 mb-1">Attendance closes</label>
+                            <input
+                                id="extend-closes-at"
+                                type="datetime-local"
+                                className="w-full border rounded-lg p-2 text-sm"
+                                value={extendDate}
+                                onChange={e => setExtendDate(e.target.value)}
+                            />
+                            <div className="flex gap-3 mt-6">
+                                <Button variant="secondary" className="flex-1" onClick={() => setExtendTarget(null)}>Cancel</Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={async () => {
+                                        await handleExtendAttendance(extendTarget, extendDate);
+                                        setExtendTarget(null);
+                                    }}
+                                >
+                                    Reopen
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </>

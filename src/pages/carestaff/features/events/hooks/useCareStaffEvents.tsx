@@ -22,6 +22,7 @@ import {
     getEventAudienceType,
     isAttendanceActivityType
 } from '../../../../../utils/eventAudience';
+import { DEFAULT_CLOSE_MS } from '../../../../../utils/eventWindows';
 import type { CareStaffDashboardFunctions } from '../../../types';
 
 
@@ -74,7 +75,8 @@ export const createEmptyEvent = (): Partial<SystemEvent> => ({
     allow_walk_ins: true,
     capacity: null,
     registration_deadline: '',
-    require_photo: true,
+    attendance_closes_at: '',
+    require_photo: false,
     require_geolocation: false
 });
 
@@ -152,6 +154,26 @@ const toDatetimeLocalInput = (value: unknown) => {
     if (Number.isNaN(date.getTime())) return String(value).slice(0, 16);
     const offsetMs = date.getTimezoneOffset() * 60 * 1000;
     return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+};
+
+// The form takes a `datetime-local` value ('YYYY-MM-DDTHH:mm'). Blank means
+// "use the default", which the RPCs read as end + 3 days.
+const toCloseTimestamp = (value: string) => {
+    const parsed = value ? new Date(value) : null;
+    return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : null;
+};
+
+// Suggests the default so staff sees the real date rather than an empty box.
+// DEFAULT_CLOSE_MS comes from eventWindows.ts on purpose: that file is the
+// single source of truth for this span, and restating 3 days here is exactly
+// the drift the lockstep test exists to prevent.
+export const suggestCloseDate = (eventDate: string, endTime: string) => {
+    if (!eventDate) return '';
+    const end = new Date(`${eventDate}T${endTime || '23:59'}`);
+    if (Number.isNaN(end.getTime())) return '';
+    const close = new Date(end.getTime() + DEFAULT_CLOSE_MS);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${close.getFullYear()}-${pad(close.getMonth() + 1)}-${pad(close.getDate())}T${pad(close.getHours())}:${pad(close.getMinutes())}`;
 };
 
 const getEventEndDate = (event: SystemEvent | null | undefined) => {
@@ -284,8 +306,9 @@ export function useCareStaffEvents({ functions }: any) {
                 registration_deadline: participationMode === 'registration_required' && newEvent.registration_deadline
                     ? newEvent.registration_deadline
                     : null,
-                require_photo: isAttendanceActivity ? newEvent.require_photo !== false : true,
+                require_photo: isAttendanceActivity ? Boolean(newEvent.require_photo) : true,
                 require_geolocation: isAttendanceActivity && Boolean(newEvent.require_geolocation),
+                attendance_closes_at: isAttendanceActivity ? toCloseTimestamp(newEvent.attendance_closes_at || '') : null,
                 is_archived: false
             };
 
@@ -328,11 +351,34 @@ export function useCareStaffEvents({ functions }: any) {
             allow_walk_ins: item.allow_walk_ins ?? true,
             capacity: item.capacity || null,
             registration_deadline: toDatetimeLocalInput(item.registration_deadline || ''),
+            attendance_closes_at: toDatetimeLocalInput(item.attendance_closes_at || ''),
             require_photo: item.require_photo !== false,
             require_geolocation: Boolean(item.require_geolocation)
         });
         setEditingEventId(item.id || null);
         setShowEventModal(true);
+    };
+
+    // Pushes an event's single closing date forward. Un-archiving is the point,
+    // not a side effect: the events staff most needs to reopen are the ones that
+    // already scrolled out of the students' view.
+    const handleExtendAttendance = async (item: SystemEvent, closesAt: string) => {
+        const parsed = closesAt ? new Date(closesAt) : null;
+        if (!parsed || Number.isNaN(parsed.getTime())) {
+            if (showToast) showToast('Pick a valid closing date.', 'error');
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from('events')
+                .update({ attendance_closes_at: parsed.toISOString(), is_archived: false })
+                .eq('id', item.id);
+            if (error) throw error;
+            if (showToast) showToast('Attendance reopened.');
+            await fetchEvents();
+        } catch (err: any) {
+            if (showToast) showToast(err.message, 'error');
+        }
     };
 
     const handleDeleteEvent = async (id: number) => {
@@ -597,6 +643,7 @@ export function useCareStaffEvents({ functions }: any) {
         setRegistrantStatusFilter,
         createEvent,
         handleEditEvent,
+        handleExtendAttendance,
         handleDeleteEvent,
         confirmDeleteEvent,
         handleViewAttendees,

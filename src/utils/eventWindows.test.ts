@@ -13,26 +13,40 @@ const at = (iso: string) => vi.setSystemTime(new Date(iso));
 afterEach(() => vi.useRealTimers());
 
 describe('getEventWindows', () => {
-    it('closes check-in when a short event ends, before the 3h cap', () => {
-        const { end, checkInClose } = getEventWindows(shortEvent);
-        // 10:00-10:02: the end comes first, so time-in shuts at 10:02, not 13:00.
-        expect(checkInClose!.getTime()).toBe(end!.getTime());
+    it('keeps time-in open long after a short event has ended', () => {
+        const { end, closesAt } = getEventWindows(shortEvent);
+        // The old rule shut time-in at 10:02. Now it runs to the close date.
+        expect(closesAt!.getTime()).toBeGreaterThan(end!.getTime());
     });
 
-    it('caps check-in at 3h for a long event, well before it ends', () => {
-        const { start, end, checkInClose } = getEventWindows(longEvent);
-        // 08:00-12:30: the 3h cap comes first, so time-in shuts at 11:00.
-        expect(checkInClose!.getTime() - start!.getTime()).toBe(3 * HOUR);
-        expect(checkInClose!.getTime()).toBeLessThan(end!.getTime());
+    it('defaults the close to 3 days after the end', () => {
+        const { end, closesAt } = getEventWindows(shortEvent);
+        expect(closesAt!.getTime() - end!.getTime()).toBe(3 * 24 * HOUR);
     });
 
-    it('leaves time-out open with no closing window', () => {
-        expect(getEventWindows(shortEvent)).not.toHaveProperty('timeoutClose');
+    it('applies no 3h cap to a long event', () => {
+        const { start, closesAt } = getEventWindows(longEvent);
+        expect(closesAt!.getTime() - start!.getTime()).toBeGreaterThan(3 * HOUR);
     });
 
-    it('keeps the event visible for 3 days after it ends', () => {
-        const { end, visibleUntil } = getEventWindows(shortEvent);
-        expect(visibleUntil!.getTime() - end!.getTime()).toBe(3 * 24 * HOUR);
+    it('honours an explicit attendance_closes_at', () => {
+        const { closesAt } = getEventWindows({
+            ...shortEvent,
+            attendance_closes_at: '2026-08-01T02:00:00.000Z'
+        });
+        expect(closesAt!.toISOString()).toBe('2026-08-01T02:00:00.000Z');
+    });
+
+    it('falls back when attendance_closes_at is unparseable', () => {
+        const { end, closesAt } = getEventWindows({ ...shortEvent, attendance_closes_at: 'not-a-date' });
+        expect(closesAt!.getTime() - end!.getTime()).toBe(3 * 24 * HOUR);
+    });
+
+    it('no longer exposes separate check-in, timeout or visibility windows', () => {
+        const windows = getEventWindows(longEvent);
+        expect(windows).not.toHaveProperty('checkInClose');
+        expect(windows).not.toHaveProperty('timeoutClose');
+        expect(windows).not.toHaveProperty('visibleUntil');
     });
 });
 
@@ -55,5 +69,13 @@ describe('isEventConcluded', () => {
     it('is always concluded when archived', () => {
         at('2026-07-23T10:01:00');
         expect(isEventConcluded({ ...shortEvent, is_archived: true })).toBe(true);
+    });
+
+    it('concludes at an explicit attendance_closes_at instead of the default', () => {
+        at('2026-07-23T12:00:00'); // hours after the 10:02 end, days before the default close
+        expect(isEventConcluded({
+            ...shortEvent,
+            attendance_closes_at: new Date('2026-07-23T11:00:00').toISOString()
+        })).toBe(true);
     });
 });
