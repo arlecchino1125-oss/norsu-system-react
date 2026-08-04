@@ -3,16 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     getPublicEventStatus,
     getPublicEvents,
-    publicRateEvent,
-    publicTimeIn,
-    publicTimeOut,
+    ratePublicEvent,
+    timeInPublicEvent,
+    timeOutPublicEvent,
     verifyPublicStudent,
     type PublicEvent,
     type PublicEventStatus,
     type PublicStudent
 } from '../publicEventsService';
 import { isEventConcluded } from '../../../../../utils/eventWindows';
-import { isStudentEligibleForEvent } from '../../../../../utils/eventAudience';
 import { validateTextInput } from '../../../../../utils/inputSecurity';
 
 const CACHE_KEY = 'norsu_public_event_identity';
@@ -20,7 +19,6 @@ const CACHE_DURATION = 20 * 60 * 1000;
 
 export interface PublicIdentity {
     student: PublicStudent;
-    email: string;
     timestamp: number;
 }
 
@@ -30,7 +28,7 @@ const readStoredIdentity = (): PublicIdentity | null => {
         const raw = localStorage.getItem(CACHE_KEY);
         if (!raw) return null;
         const parsed = JSON.parse(raw) as PublicIdentity;
-        if (!parsed?.student?.student_id || !parsed.email) return null;
+        if (!parsed?.student?.student_id) return null;
         if (Date.now() - parsed.timestamp >= CACHE_DURATION) {
             localStorage.removeItem(CACHE_KEY);
             return null;
@@ -43,9 +41,9 @@ const readStoredIdentity = (): PublicIdentity | null => {
 };
 
 /**
- * Student ID + email is the whole identity for this portal. It is verified
- * against the students table on sign in, and re-sent with every write so the
- * database resolves the real student row itself.
+ * Student ID is the whole identity for this portal. It is verified against the
+ * students table on sign in, and re-sent with every write so the database
+ * resolves the real student row itself.
  */
 export const usePublicIdentity = () => {
     const [identity, setIdentity] = useState<PublicIdentity | null>(readStoredIdentity);
@@ -64,9 +62,9 @@ export const usePublicIdentity = () => {
         return () => clearTimeout(timer);
     }, [identity]);
 
-    const verify = useCallback(async (studentId: string, email: string) => {
-        const student = await verifyPublicStudent(studentId, email);
-        const next: PublicIdentity = { student, email: email.trim(), timestamp: Date.now() };
+    const verify = useCallback(async (studentId: string) => {
+        const student = await verifyPublicStudent(studentId);
+        const next: PublicIdentity = { student, timestamp: Date.now() };
         localStorage.setItem(CACHE_KEY, JSON.stringify(next));
         setIdentity(next);
         return next;
@@ -87,31 +85,25 @@ export const usePublicEventsData = (identity: PublicIdentity | null) => {
     const studentId = identity?.student.student_id;
 
     const { data: rawEvents, isLoading, isError } = useQuery({
-        queryKey: ['public_events'],
-        queryFn: getPublicEvents,
+        queryKey: ['public_events', studentId],
+        queryFn: () => getPublicEvents(studentId),
         staleTime: 2 * 60 * 1000
     });
 
     const { data: statuses = EMPTY_STATUS } = useQuery({
         queryKey: ['public_event_status', studentId],
-        queryFn: () => getPublicEventStatus(studentId as string, identity?.email as string),
+        queryFn: () => getPublicEventStatus(studentId as string),
         enabled: Boolean(studentId),
         staleTime: 2 * 60 * 1000
     });
 
-    // Guests see every live event; once signed in the list narrows to the same
-    // audience rules the student portal applies.
-    const eventsList = useMemo(() => {
-        const live = (rawEvents || []).filter((event: PublicEvent) => !isEventConcluded(event));
-        if (!identity) return live;
-        return live.filter((event: PublicEvent) => isStudentEligibleForEvent(event, {
-            department: identity.student.department,
-            course: identity.student.course,
-            year_level: identity.student.year_level,
-            section: identity.student.section,
-            status: identity.student.status
-        }));
-    }, [rawEvents, identity]);
+    // The audience narrowing now happens inside public_get_active_events, which
+    // has the student row and does not have to hand the browser a department
+    // and course to do it. Only the visibility rule is left here.
+    const eventsList = useMemo(
+        () => (rawEvents || []).filter((event: PublicEvent) => !isEventConcluded(event)),
+        [rawEvents]
+    );
 
     const statusMap = useMemo(() => {
         const map: Record<number, PublicEventStatus> = {};
@@ -124,8 +116,8 @@ export const usePublicEventsData = (identity: PublicIdentity | null) => {
         [queryClient, studentId]
     );
     const refreshEvents = useCallback(
-        () => queryClient.invalidateQueries({ queryKey: ['public_events'] }),
-        [queryClient]
+        () => queryClient.invalidateQueries({ queryKey: ['public_events', studentId] }),
+        [queryClient, studentId]
     );
 
     return { eventsList, statusMap, isLoading, isError, refreshStatus, refreshEvents };
@@ -162,7 +154,7 @@ export const usePublicEventActions = ({ identity, showToast, refreshStatus, refr
         if (!identity || timingInEventId) return;
         setTimingInEventId(event.id);
         try {
-            await publicTimeIn(Number(event.id), identity.student.student_id, identity.email);
+            await timeInPublicEvent(Number(event.id), identity.student.student_id);
             showToast('Time in successful.');
             await Promise.all([refreshStatus(), refreshEvents()]);
         } catch (err: any) {
@@ -177,7 +169,7 @@ export const usePublicEventActions = ({ identity, showToast, refreshStatus, refr
         if (!identity || timingOutEventId) return;
         setTimingOutEventId(event.id);
         try {
-            await publicTimeOut(Number(event.id), identity.student.student_id, identity.email);
+            await timeOutPublicEvent(Number(event.id), identity.student.student_id);
             showToast('Time out successful.');
             await refreshStatus();
         } catch (err: any) {
@@ -218,10 +210,9 @@ export const usePublicEventActions = ({ identity, showToast, refreshStatus, refr
 
         setIsSubmittingRating(true);
         try {
-            await publicRateEvent(
+            await ratePublicEvent(
                 ratingForm.eventId,
                 identity.student.student_id,
-                identity.email,
                 scores,
                 bestCheck.value,
                 suggestionsCheck.value,

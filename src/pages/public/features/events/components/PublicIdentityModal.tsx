@@ -7,12 +7,11 @@ interface PublicIdentityModalProps {
     actionName?: string | null;
     onClose: () => void;
     /** Must reject when the credentials are wrong -- the message lands in this form. */
-    onSubmit: (studentId: string, email: string) => Promise<void>;
+    onSubmit: (studentId: string) => Promise<void>;
 }
 
 export default function PublicIdentityModal({ open, actionName, onClose, onSubmit }: PublicIdentityModalProps) {
     const [studentId, setStudentId] = useState('');
-    const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -23,11 +22,10 @@ export default function PublicIdentityModal({ open, actionName, onClose, onSubmi
         setError('');
         setLoading(true);
         try {
-            await onSubmit(studentId, email);
+            await onSubmit(studentId);
             // Only cleared on success: a wrong ID should stay in the field so the
-            // student can fix a typo instead of retyping both values.
+            // student can fix a typo instead of retyping it.
             setStudentId('');
-            setEmail('');
         } catch (err: any) {
             setError(err?.message || 'We could not verify those details.');
         } finally {
@@ -49,7 +47,7 @@ export default function PublicIdentityModal({ open, actionName, onClose, onSubmi
             >
                 <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white sm:px-5">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Student Verification</p>
-                    <h3 className="mt-1 text-lg font-black leading-tight text-white">Enter your Student ID and Email</h3>
+                    <h3 className="mt-1 text-lg font-black leading-tight text-white">Enter your Student ID</h3>
                     <p className="mt-1 text-xs font-semibold leading-5 text-slate-300">
                         {actionName
                             ? `These must match your records before you can ${actionName.toLowerCase()}.`
@@ -77,18 +75,6 @@ export default function PublicIdentityModal({ open, actionName, onClose, onSubmi
                                 placeholder="e.g. 420131234"
                             />
                         </div>
-                        <div>
-                            <label htmlFor="public-student-email" className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-500">Email Address</label>
-                            <input
-                                id="public-student-email"
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(changeEvent) => setEmail(changeEvent.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
-                                placeholder="name@example.com"
-                            />
-                        </div>
                         <div className="mt-6 flex justify-end gap-3">
                             <button
                                 type="button"
@@ -99,7 +85,7 @@ export default function PublicIdentityModal({ open, actionName, onClose, onSubmi
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading || !studentId.trim() || !email.trim()}
+                                disabled={loading || !studentId.trim()}
                                 className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-black text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-200"
                             >
                                 {loading ? 'Verifying...' : 'Continue'}

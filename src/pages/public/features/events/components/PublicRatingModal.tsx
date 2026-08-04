@@ -1,7 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { getTextInputLimitProps } from '../../../../../utils/inputSecurity';
-import type { PublicStudent } from '../publicEventsService';
 
 // Same seven criteria the student portal writes to event_feedback, so both
 // surfaces produce rows the staff reports can read side by side.
@@ -22,7 +21,6 @@ const CloseIcon = () => (
 );
 
 interface PublicRatingModalProps {
-    student: PublicStudent;
     ratingForm: any;
     setRatingForm: (form: any) => void;
     submitRating: () => void;
@@ -31,7 +29,6 @@ interface PublicRatingModalProps {
 }
 
 export default function PublicRatingModal({
-    student,
     ratingForm,
     setRatingForm,
     submitRating,
@@ -69,19 +66,6 @@ export default function PublicRatingModal({
                     <div className="space-y-3">
                         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                <div className="min-w-0">
-                                    <p className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Name</p>
-                                    <p className="truncate text-[12px] font-black text-slate-900 sm:text-sm">{student.first_name} {student.last_name}</p>
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Sex</p>
-                                    <p className="truncate text-[12px] font-black text-slate-900 sm:text-sm">{student.sex || '-'}</p>
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">College</p>
-                                    <p className="truncate text-[12px] font-black text-slate-900 sm:text-sm">{student.department || '-'}</p>
-                                    <p className="truncate text-[10px] font-semibold text-slate-500">{student.course} - {student.year_level}</p>
-                                </div>
                                 <div className="min-w-0">
                                     <p className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Activity Date</p>
                                     <p className="text-[12px] font-black leading-5 text-slate-900 sm:text-sm">

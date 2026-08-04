@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+    evaluatePublicEvent,
     getPublicEvaluationForm,
-    publicEvaluate,
     type PublicEvaluationForm,
     type PublicEvaluationQuestion
 } from '../publicEventsService';
@@ -12,7 +12,6 @@ interface PublicEvaluationModalProps {
     eventId: number;
     eventTitle: string;
     studentId: string;
-    email: string;
     onClose: () => void;
     onSubmitted: () => void;
     showToast: (message: string, type?: string) => void;
@@ -31,7 +30,6 @@ export default function PublicEvaluationModal({
     eventId,
     eventTitle,
     studentId,
-    email,
     onClose,
     onSubmitted,
     showToast
@@ -102,7 +100,7 @@ export default function PublicEvaluationModal({
                 answer_text: question.question_type !== 'scale' ? String(responses[question.id]) : null
             }));
 
-            await publicEvaluate(eventId, studentId, email, form.id, answers);
+            await evaluatePublicEvent(eventId, studentId, form.id, answers);
             showToast('Evaluation submitted. Thank you!');
             onSubmitted();
             onClose();

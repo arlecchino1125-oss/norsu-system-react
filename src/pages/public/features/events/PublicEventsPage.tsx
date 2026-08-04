@@ -58,8 +58,8 @@ export default function PublicEventsPage() {
 
     // Rejects when the details do not match a student record, which is what puts
     // the message inside the form instead of behind its own backdrop.
-    const handleVerify = useCallback(async (studentId: string, email: string) => {
-        await verify(studentId, email);
+    const handleVerify = useCallback(async (studentId: string) => {
+        await verify(studentId);
         setIdentityModalOpen(false);
         showToast('Signed in. You can now time in, rate, and evaluate.');
     }, [showToast, verify]);
@@ -85,7 +85,7 @@ export default function PublicEventsPage() {
                 {identity ? (
                     <div className="flex items-center justify-between gap-3 border-b border-blue-100 bg-blue-50 px-4 py-2 sm:px-6">
                         <p className="min-w-0 truncate text-xs font-semibold text-blue-800">
-                            Signed in as <strong className="font-black">{identity.student.first_name} {identity.student.last_name}</strong> ({identity.student.student_id})
+                            Signed in as <strong className="font-black">{identity.student.student_id}</strong>
                         </p>
                         <button
                             type="button"
@@ -98,7 +98,7 @@ export default function PublicEventsPage() {
                 ) : (
                     <div className="flex items-center justify-between gap-3 border-b border-amber-100 bg-amber-50 px-4 py-3 sm:px-6">
                         <p className="min-w-0 text-xs font-semibold text-amber-800">
-                            Viewing as a guest. Enter your Student ID and email to time in, rate, or evaluate.
+                            Viewing as a guest. Enter your Student ID to time in, rate, or evaluate.
                         </p>
                         <button
                             type="button"
@@ -141,7 +141,6 @@ export default function PublicEventsPage() {
                     eventId={evaluationEvent.id}
                     eventTitle={evaluationEvent.title}
                     studentId={identity.student.student_id}
-                    email={identity.email}
                     onClose={closeEvaluation}
                     onSubmitted={() => { void refreshStatus(); }}
                     showToast={showToast}
@@ -150,7 +149,6 @@ export default function PublicEventsPage() {
 
             {identity && showRatingModal && (
                 <PublicRatingModal
-                    student={identity.student}
                     ratingForm={ratingForm}
                     setRatingForm={setRatingForm}
                     submitRating={submitRating}
