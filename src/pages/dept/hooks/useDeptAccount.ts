@@ -16,7 +16,7 @@ const requestStaffSecurityOtp = async (purpose: 'password_change' | 'email_chang
             email: purpose === 'email_change' ? String(nextEmailValue || '').trim().toLowerCase() : undefined
         },
         requireAuth: true,
-        non2xxMessage: 'Your Department session could not be verified. Sign in again.',
+        non2xxMessage: 'Your College session could not be verified. Sign in again.',
         fallbackMessage: 'Failed to send the security OTP.'
     });
 };
@@ -47,15 +47,15 @@ export function useDeptAccount({ session, data, setData, showToastMessage }: any
             }));
 
             void recordStaffAuditAction(session, {
-                action: 'Updated department profile name',
+                action: 'Updated college profile name',
                 entityTable: 'staff_accounts',
                 entityId: session?.id,
                 details: {
-                    summary: `${session?.full_name || 'Department Head'} updated the department profile name to ${profileForm.name}.`,
+                    summary: `${session?.full_name || 'College Designate'} updated the college profile name to ${profileForm.name}.`,
                     full_name: profileForm.name
                 }
             }).catch((error) => {
-                console.error('Failed to record department profile audit log:', error);
+                console.error('Failed to record college profile audit log:', error);
             });
             setShowProfileModal(false);
             showToastMessage('Profile updated.');

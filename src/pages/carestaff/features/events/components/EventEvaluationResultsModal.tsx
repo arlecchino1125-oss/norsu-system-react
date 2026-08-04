@@ -24,7 +24,7 @@ interface EventEvaluationResultsModalProps {
 
 type AnswerRow = EvaluationAnswer & { response_id: number };
 
-const IDENTITY_HEADERS = ['Student ID', 'Name', 'Department', 'Course', 'Year', 'Submitted'];
+const IDENTITY_HEADERS = ['Student ID', 'Name', 'College', 'Course', 'Year', 'Submitted'];
 
 const selectClass =
     'rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-200';
@@ -203,7 +203,7 @@ export default function EventEvaluationResultsModal({
                 <div className="space-y-3">
                     <dl className="grid grid-cols-2 gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-xs sm:grid-cols-4">
                         <div><dt className="font-semibold text-gray-400">Student ID</dt><dd className="font-bold text-gray-900">{selected.student_id}</dd></div>
-                        <div><dt className="font-semibold text-gray-400">Department</dt><dd className="font-bold text-gray-900">{selected.department || '—'}</dd></div>
+                        <div><dt className="font-semibold text-gray-400">College</dt><dd className="font-bold text-gray-900">{selected.department || '—'}</dd></div>
                         <div><dt className="font-semibold text-gray-400">Course</dt><dd className="font-bold text-gray-900">{selected.course || '—'}</dd></div>
                         <div><dt className="font-semibold text-gray-400">Submitted</dt><dd className="font-bold text-gray-900">{new Date(selected.submitted_at).toLocaleString()}</dd></div>
                     </dl>
@@ -245,7 +245,7 @@ export default function EventEvaluationResultsModal({
                             />
                         </div>
                         <select aria-label="Filter by department" className={`${selectClass} max-w-[14rem]`} value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}>
-                            <option value="All">All departments</option>
+                            <option value="All">All colleges</option>
                             {options.departments.map(([value, count]) => <option key={value} value={value}>{value} ({count})</option>)}
                         </select>
                         <select aria-label="Filter by course" className={`${selectClass} max-w-[16rem]`} value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}>

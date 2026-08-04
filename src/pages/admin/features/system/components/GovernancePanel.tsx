@@ -36,9 +36,9 @@ export function GovernancePanel({ renderExpandablePanel }: GovernancePanelProps)
                         </ul>
                     </div>
                     <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Department Heads Own</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">College Designates Own</p>
                         <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                            <li>Admissions and department-level student follow-up</li>
+                            <li>Admissions and college-level student follow-up</li>
                             <li>First-line counseling and support workflows inside their college</li>
                             <li>Operational reporting for their assigned programs</li>
                             <li>Not the institution-wide list of colleges or admin maintenance tools</li>

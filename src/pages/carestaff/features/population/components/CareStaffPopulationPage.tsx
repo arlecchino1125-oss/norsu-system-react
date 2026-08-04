@@ -394,9 +394,9 @@ const PopulationFilters = ({
     <div className={`collapsible-panel ${filtersExpanded ? 'collapsible-panel-open' : 'collapsible-panel-closed'}`}>
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
             <div className="flex flex-col gap-1">
-                <label htmlFor="population-department-filter" className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Dept</label>
+                <label htmlFor="population-department-filter" className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">College</label>
                 <select id="population-department-filter" value={departmentFilter} onChange={(e) => { setDepartmentFilter(e.target.value); setCourseFilter('All'); setYearFilter('All'); setSectionFilter('All'); }} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-purple-500 bg-white text-slate-700 w-[170px] truncate">
-                    <option value="All">All Departments</option>
+                    <option value="All">All Colleges</option>
                     {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
             </div>

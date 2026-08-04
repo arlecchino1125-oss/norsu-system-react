@@ -263,7 +263,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                 >
                     {[
                         { label: 'Total Requests', value: totalRequestCount, icon: <FileText size={20} />, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200/50' },
-                        { label: 'Awaiting Dept', value: counselingCounts.awaitingDept || 0, icon: <Clock size={20} />, color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200/50' },
+                        { label: 'Awaiting College', value: counselingCounts.awaitingDept || 0, icon: <Clock size={20} />, color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200/50' },
                         { label: 'Referred', value: counselingCounts[COUNSELING_STATUS.REFERRED] || 0, icon: <Send size={20} />, color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200/50' },
                         { label: 'Scheduled', value: counselingCounts.Calendar || 0, icon: <Calendar size={20} />, color: 'text-indigo-600', bg: 'bg-indigo-100', border: 'border-indigo-200/50' },
                         { label: 'Completed', value: counselingCounts[COUNSELING_STATUS.COMPLETED] || 0, icon: <CheckCircle size={20} />, color: 'text-emerald-600', bg: 'bg-emerald-100', border: 'border-emerald-200/50' },
@@ -289,8 +289,8 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                         {[
                             { id: COUNSELING_STATUS.REFERRED, label: 'Forwarded', count: counselingCounts[COUNSELING_STATUS.REFERRED] || 0 },
                             { id: COUNSELING_STATUS.STAFF_SCHEDULED, label: 'Staff Scheduled', count: counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0 },
-                            { id: COUNSELING_STATUS.SUBMITTED, label: 'Awaiting Dept', count: counselingCounts.awaitingDept || 0 },
-                            { id: COUNSELING_STATUS.SCHEDULED, label: 'Dept Scheduled', count: counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0 },
+                            { id: COUNSELING_STATUS.SUBMITTED, label: 'Awaiting College', count: counselingCounts.awaitingDept || 0 },
+                            { id: COUNSELING_STATUS.SCHEDULED, label: 'College Scheduled', count: counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0 },
                             { id: COUNSELING_STATUS.COMPLETED, label: 'Completed', count: counselingCounts[COUNSELING_STATUS.COMPLETED] || 0 },
                             { id: COUNSELING_STATUS.REJECTED, label: 'Rejected', count: counselingCounts[COUNSELING_STATUS.REJECTED] || 0 },
                             { id: 'Calendar', label: 'Calendar View', count: null },

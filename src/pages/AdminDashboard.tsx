@@ -93,7 +93,7 @@ export default function AdminDashboard() {
 
     const accountOverviewStats = [
         { label: 'Admins', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Admin').length },
-        { label: 'Department Heads', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Department Head').length },
+        { label: 'College Designates', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Department Head').length },
         { label: 'CARE Staff', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Care Staff').length },
         { label: 'Registrars', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Registrar').length },
         { label: 'Unlinked', value: adminStats.unlinkedStaffAccountCount }

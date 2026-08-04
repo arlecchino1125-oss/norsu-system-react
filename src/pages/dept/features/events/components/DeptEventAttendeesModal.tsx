@@ -80,7 +80,7 @@ export function DeptEventAttendeesModal(props: any) {
 
     const handleExport = () => {
         if (filtered.length === 0) return;
-        const headers = ['Student ID', 'Student Name', 'Department', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
+        const headers = ['Student ID', 'Student Name', 'College', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
         const rows = filtered.map((a: any) => [
             a.student_id || '',
             a.student_name || '',

@@ -150,7 +150,7 @@ const TodaySchedulePanel = ({
                     </button>
                 </div>
                 {todayEvents.length === 0 ? (
-                    <p className="text-sm text-amber-700/80">No department events scheduled today.</p>
+                    <p className="text-sm text-amber-700/80">No college events scheduled today.</p>
                 ) : (
                     <div className="space-y-2">
                         {todayEvents.slice(0, 3).map((event: any) => (
@@ -160,7 +160,7 @@ const TodaySchedulePanel = ({
                                 onClick={() => setActiveModule('events')}
                                 className={`w-full rounded-xl border border-amber-200 bg-white px-3 py-3 text-left hover:border-amber-300 transition ${FOCUS_RING}`}
                             >
-                                <p className="text-sm font-bold text-gray-900">{event?.title || 'Department event'}</p>
+                                <p className="text-sm font-bold text-gray-900">{event?.title || 'College event'}</p>
                                 <p className="mt-1 text-xs text-amber-700">{event?.type || 'Event'}</p>
                                 <p className="mt-1 text-xs text-gray-500 line-clamp-2">{event?.description || 'Open the events page for the full agenda.'}</p>
                             </button>
@@ -295,7 +295,7 @@ const DeptHomePage = ({
                     <div className="space-y-3">
                         {visibleDepartmentAlertItems.length === 0 ? (
                             <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-5 text-sm text-emerald-700">
-                                No urgent department alerts right now.
+                                No urgent college alerts right now.
                             </div>
                         ) : (
                             visibleDepartmentAlertItems.map((item: any) => (

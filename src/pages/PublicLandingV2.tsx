@@ -48,11 +48,11 @@ const PUBLIC_LANDING_PORTALS = [
         route: '/student/login'
     },
     {
-        title: 'Department Portal',
+        title: 'College Portal',
         description: 'Review counseling and support cases, manage admissions interviews, and monitor students, events, and reports.',
-        audience: 'Department heads and academic reviewers',
-        bestFor: 'Choose this if you handle department-level reviews, admissions interviews, or student case decisions.',
-        cta: 'Open department space',
+        audience: 'College Designates and academic reviewers',
+        bestFor: 'Choose this if you handle college-level reviews, admissions interviews, or student case decisions.',
+        cta: 'Open college space',
         icon: Users,
         accent: 'emerald',
         route: '/department/login'
@@ -245,7 +245,7 @@ export default function PublicLandingV2() {
                         {[
                             { title: 'Counseling', text: 'Counseling and intervention workflows' },
                             { title: 'Assessment', text: 'Student needs, follow-ups, and response tracking' },
-                            { title: 'Resource', text: 'Department and staff collaboration for support actions' },
+                            { title: 'Resource', text: 'College and staff collaboration for support actions' },
                             { title: 'Enhancement', text: 'Events, guidance, and academic coordination in one place' }
                         ].map((item, index) => (
                             <div

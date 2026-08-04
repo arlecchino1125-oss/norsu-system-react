@@ -135,7 +135,7 @@ export default function DeptLogin() {
                                                 required
                                                 autoComplete="username"
                                                 className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-4 pl-12 pr-5 font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-teal-600 focus:bg-white focus:ring-4 focus:ring-teal-500/10"
-                                                placeholder="Department username or email"
+                                                placeholder="College username or email"
                                                 value={username}
                                                 onChange={e => setUsername(e.target.value)}
                                             />
@@ -188,7 +188,7 @@ export default function DeptLogin() {
                                     <div className="flex items-start gap-3 rounded-2xl border border-teal-100 bg-teal-50/80 p-3 text-left">
                                         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
                                         <p className="text-xs font-semibold leading-5 text-slate-600">
-                                            <span className="font-extrabold text-slate-800">Protected college access.</span> Use your assigned department credentials only.
+                                            <span className="font-extrabold text-slate-800">Protected college access.</span> Use your assigned college credentials only.
                                         </p>
                                     </div>
 

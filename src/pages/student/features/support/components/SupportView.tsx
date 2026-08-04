@@ -61,8 +61,8 @@ const getSupportStatusTone = (status: string) => {
 
 const getSupportStatusLabel = (status: string) => {
     if (status === SUPPORT_STATUS.SUBMITTED || status === SUPPORT_STATUS.PENDING) return 'Pending Review';
-    if (status === SUPPORT_STATUS.FORWARDED_TO_DEPT) return 'With Department';
-    if (status === SUPPORT_STATUS.RESOLVED_BY_DEPT) return 'Dept Resolved';
+    if (status === SUPPORT_STATUS.FORWARDED_TO_DEPT) return 'With College';
+    if (status === SUPPORT_STATUS.RESOLVED_BY_DEPT) return 'College Resolved';
     if (status === SUPPORT_STATUS.REFERRED_TO_CARE) return 'With CARE';
     return status || 'Pending Review';
 };
@@ -85,7 +85,7 @@ const getSupportResolution = (request: any) => {
             const parsed = JSON.parse(request.dept_notes);
             if (parsed?.referred_by) return null;
         } catch {
-            return { by: 'Department Head / Dean', text: request.dept_notes };
+            return { by: 'College Designate / Dean', text: request.dept_notes };
         }
     }
 
@@ -265,7 +265,7 @@ const SupportRequestDetailsModal = ({ request, personalInfo, formatFullDate, sho
 
                                 {scheduledDate && (
                                     <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">Department Visit Schedule</p>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700">College Visit Schedule</p>
                                         <p className="mt-1 text-sm font-bold text-blue-950">{scheduledDate}</p>
                                     </div>
                                 )}
@@ -493,7 +493,7 @@ export default function SupportView({
                 ) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center">
                         <p className="text-sm font-bold text-slate-700">No support requests yet.</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">Submitted requests and department updates will appear here.</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">Submitted requests and college updates will appear here.</p>
                     </div>
                 )}
             </section>

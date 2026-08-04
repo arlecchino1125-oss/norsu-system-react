@@ -22,7 +22,7 @@ const StaffAccountRow = ({
                 <div className="flex flex-wrap items-center gap-2">
                     <h4 className="font-semibold text-slate-900">{account.full_name || 'Unnamed Staff'}</h4>
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${getStaffRoleBadgeClass(account.role)}`}>
-                        {account.role === 'Care Staff' ? 'CARE Staff' : account.role}
+                        {account.role === 'Care Staff' ? 'CARE Staff' : account.role === 'Department Head' ? 'College Designate' : account.role}
                     </span>
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${account.auth_user_id ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
                         {account.auth_user_id ? 'Linked' : 'Unlinked'}
@@ -283,7 +283,7 @@ export function StaffAccountsPanel({
                         <div>
                     <label htmlFor="staff-role" className={labelClass}>Role</label>
                     <select id="staff-role" className={inputClass} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                                <option value="Department Head">Department Head (Dean)</option>
+                                <option value="Department Head">College Designate (Dean)</option>
                                 <option value="Care Staff">CARE Staff</option>
                                 <option value="Registrar">Registrar</option>
                                 <option value="Admin">Admin</option>

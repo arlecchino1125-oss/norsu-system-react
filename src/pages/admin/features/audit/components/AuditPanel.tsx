@@ -48,7 +48,7 @@ export function AuditPanel({
     return renderExpandablePanel({
         panelKey: 'audit' as AdminPanelKey,
         title: 'Staff Audit Monitor',
-        description: 'Recent activity from all staff roles (Admin, CARE Staff, Department Head, Registrar). Student actions are excluded from this monitor.',
+        description: 'Recent activity from all staff roles (Admin, CARE Staff, College Designate, Registrar). Student actions are excluded from this monitor.',
         icon: <Activity className="h-5 w-5" />,
         badge: `${auditTotalCount} logs`,
         bodyClassName: '',
@@ -63,7 +63,7 @@ export function AuditPanel({
                     <option value="All">All Staff Roles</option>
                     <option value="Admin">Admin</option>
                     <option value="Care Staff">CARE Staff</option>
-                    <option value="Department Head">Department Head</option>
+                    <option value="Department Head">College Designate</option>
                     <option value="Registrar">Registrar</option>
                 </select>
                 <div className="relative sm:w-80">
@@ -71,7 +71,7 @@ export function AuditPanel({
                     <input
                         value={auditSearch}
                         onChange={(e) => setAuditSearch(e.target.value)}
-                        placeholder="Search user, action, department..."
+                        placeholder="Search user, action, college..."
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
                     />
                 </div>
@@ -85,7 +85,7 @@ export function AuditPanel({
                         <p className="mt-3 text-3xl font-semibold text-slate-900">{careAuditCount}</p>
                     </div>
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Visible Department Actions</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">Visible College Actions</p>
                         <p className="mt-3 text-3xl font-semibold text-slate-900">{departmentAuditCount}</p>
                     </div>
                     <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">

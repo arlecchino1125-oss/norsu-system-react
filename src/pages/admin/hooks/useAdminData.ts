@@ -105,9 +105,9 @@ export function useAdminData(): AdminStats & {
             tone: 'border-cyan-200 bg-cyan-50 text-cyan-700'
         },
         {
-            label: 'Department heads without college',
+            label: 'College Designates without college',
             value: departmentHeadsMissingDepartmentCount,
-            hint: departmentHeadsMissingDepartmentCount > 0 ? 'College assignment required' : 'Department heads are assigned',
+            hint: departmentHeadsMissingDepartmentCount > 0 ? 'College assignment required' : 'College Designates are assigned',
             tone: 'border-rose-200 bg-rose-50 text-rose-700'
         }
     ];

@@ -44,15 +44,15 @@ const DeptSettingsPage = ({
                 <div className="mt-4 flex items-start gap-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-lg font-black shadow-lg">DN</div>
                     <div className="min-w-0">
-                        <h2 className="text-2xl font-bold tracking-tight">{data?.profile?.name || 'Department Head'}</h2>
-                        <p className="mt-1 text-sm text-emerald-100/80">{data?.profile?.department || 'Department Portal'}</p>
+                        <h2 className="text-2xl font-bold tracking-tight">{data?.profile?.name || 'College Designate'}</h2>
+                        <p className="mt-1 text-sm text-emerald-100/80">{data?.profile?.department || 'College Portal'}</p>
                         <p className="mt-3 text-xs text-emerald-50/80 break-all">
                             Email: <span className="font-semibold text-white">{authEmail || data?.profile?.email || 'Not set'}</span>
                         </p>
                     </div>
                 </div>
                 <p className="mt-4 max-w-3xl text-sm text-emerald-50/80">
-                    Manage your department profile, account security, portal preferences, and referral configuration from one place.
+                    Manage your college profile, account security, portal preferences, and referral configuration from one place.
                 </p>
                 <div className="mt-5 max-w-xl rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
                     <label htmlFor="dept-settings-profile-name" className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100/70">Profile Name</label>
@@ -102,9 +102,9 @@ const DeptSettingsPage = ({
                 <p className="mt-1 text-sm text-gray-500">Email and password changes are handled here and require an OTP sent by email.</p>
                 <AccountSecuritySettings
                     currentEmail={authEmail || data?.profile?.email || ''}
-                    loginLabel="your department email"
-                    emailHelperText="Update your department email here. The OTP will be sent to the new email address before the change is applied."
-                    passwordHelperText="Choose a new password for your department account. An OTP will be sent to your current email before the change is accepted."
+                    loginLabel="your college email"
+                    emailHelperText="Update your college email here. The OTP will be sent to the new email address before the change is applied."
+                    passwordHelperText="Choose a new password for your college account. An OTP will be sent to your current email before the change is accepted."
                     requestOtp={requestStaffSecurityOtp}
                     confirmEmailChange={confirmStaffSecurityEmailChange}
                     confirmPasswordChange={confirmStaffPasswordChange}

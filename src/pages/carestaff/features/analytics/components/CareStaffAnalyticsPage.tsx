@@ -146,7 +146,7 @@ const RespondentDetail = ({ student, questions, onBack }: any) => {
 
             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-8 py-5 border-b border-slate-100/60 text-xs">
                 <div><dt className="font-black text-slate-400 uppercase tracking-widest">Student ID</dt><dd className="font-bold text-slate-900 mt-1">{student.students?.student_id || '—'}</dd></div>
-                <div><dt className="font-black text-slate-400 uppercase tracking-widest">Department</dt><dd className="font-bold text-slate-900 mt-1">{student.students?.department || '—'}</dd></div>
+                <div><dt className="font-black text-slate-400 uppercase tracking-widest">College</dt><dd className="font-bold text-slate-900 mt-1">{student.students?.department || '—'}</dd></div>
                 <div><dt className="font-black text-slate-400 uppercase tracking-widest">Course</dt><dd className="font-bold text-slate-900 mt-1">{student.students?.course || '—'}</dd></div>
                 <div><dt className="font-black text-slate-400 uppercase tracking-widest">Year Level</dt><dd className="font-bold text-slate-900 mt-1">{student.students?.year_level || '—'}</dd></div>
             </dl>
@@ -607,7 +607,7 @@ const AnalyticsHeader = ({
             <AnalyticsKpiCards stats={stats} compareStats={compareStats} compareTitle={compareForm?.title} />
 
             <div className="flex flex-col gap-1.5 ml-auto">
-                <label htmlFor="care-analytics-department" className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Department Filter</label>
+                <label htmlFor="care-analytics-department" className="text-[11px] font-black text-slate-500 uppercase tracking-widest">College Filter</label>
                 <div className="relative">
                     <select
                         id="care-analytics-department"
@@ -615,7 +615,7 @@ const AnalyticsHeader = ({
                         onChange={e => setDepartmentFilter(e.target.value)}
                         className="appearance-none pl-4 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-52 cursor-pointer"
                     >
-                        <option value="All">All Departments</option>
+                        <option value="All">All Colleges</option>
                         {allDepartments.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
                     </select>
                     <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />

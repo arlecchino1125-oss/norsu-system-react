@@ -149,7 +149,7 @@ const fetchCareStaffDashboardData = async () => {
                 title:
                     c.status === COUNSELING_STATUS.COMPLETED ? 'Counseling completed'
                         : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
-                            : c.status === COUNSELING_STATUS.SCHEDULED ? 'Department counseling scheduled'
+                            : c.status === COUNSELING_STATUS.SCHEDULED ? 'College counseling scheduled'
                                 : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
                                     : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
                                         : isCounselingAwaitingDept(c.status) ? 'Counseling request submitted'
@@ -171,9 +171,9 @@ const fetchCareStaffDashboardData = async () => {
                                             : 'from-amber-400 to-yellow-500',
                 title:
                     s.status === SUPPORT_STATUS.COMPLETED ? 'Support resolved'
-                        : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'Support forwarded to department'
-                            : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'Department visit scheduled'
-                                : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'Department resolved support request'
+                        : s.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'Support forwarded to college'
+                            : s.status === SUPPORT_STATUS.VISIT_SCHEDULED ? 'College visit scheduled'
+                                : s.status === SUPPORT_STATUS.RESOLVED_BY_DEPT ? 'College resolved support request'
                                     : s.status === SUPPORT_STATUS.REFERRED_TO_CARE ? 'Support referred back to CARE Staff'
                                         : s.status === SUPPORT_STATUS.REJECTED ? 'Support request rejected'
                                             : 'Support request received',

@@ -193,7 +193,7 @@ const StaffCalendarPage = ({
                     scope === 'care' ? String(request?.department || '').trim() || null : null
                 ].filter(Boolean).join(' • '),
                 location: scope === 'department'
-                    ? 'Department counseling schedule'
+                    ? 'College counseling schedule'
                     : 'CARE counseling schedule',
                 status: String(request?.status || '').trim() || 'Scheduled'
             })) || []),

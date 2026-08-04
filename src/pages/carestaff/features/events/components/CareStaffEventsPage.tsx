@@ -214,7 +214,7 @@ const EventFormModal = ({
 
                                 {newEvent.audience_type !== 'all_students' && (
                                     <div className="space-y-3">
-                                        {renderAudienceCheckboxGroup('Departments', 'audience_departments', departmentOptions)}
+                                        {renderAudienceCheckboxGroup('Colleges', 'audience_departments', departmentOptions)}
                                         {renderAudienceCheckboxGroup('Courses', 'audience_courses', courseOptions)}
                                         {renderAudienceCheckboxGroup('Year Levels', 'audience_year_levels', YEAR_LEVEL_OPTIONS)}
                                         {renderAudienceCheckboxGroup('Sections', 'audience_sections', SECTION_OPTIONS, value => `Section ${value}`)}
@@ -320,7 +320,7 @@ const AttendeesModal = ({
                     <div className="flex shrink-0 items-center gap-2">
                         <Button variant="secondary" size="sm" onClick={() => {
                             if (filtered.length === 0 && expectedStudents.length === 0) return;
-                            const headers = ['Student Name', 'Department', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
+                            const headers = ['Student Name', 'College', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
                             // When filters are active export only what's visible; otherwise use the
                             // full expected-students roster (includes absent rows).
                             const rows = !hasActiveFilters && expectedStudents.length > 0
@@ -390,7 +390,7 @@ const AttendeesModal = ({
                                 />
                                 {depts.length > 0 && (
                                     <select value={attendeeFilter} onChange={(e) => { setAttendeeFilter(e.target.value); setPage(1); }} className={selectClass}>
-                                        <option value="All">All Depts ({attendees.length})</option>
+                                        <option value="All">All Colleges ({attendees.length})</option>
                                         {depts.map((dept) => <option key={dept} value={dept}>{dept} ({attendees.filter(a => a.department === dept).length})</option>)}
                                     </select>
                                 )}
@@ -495,7 +495,7 @@ const AbsentModal = ({
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                         <Button variant="secondary" size="sm" onClick={() => {
-                            const headers = ['Student Name', 'Student ID', 'Department', 'Course', 'Year Level'];
+                            const headers = ['Student Name', 'Student ID', 'College', 'Course', 'Year Level'];
                             const rows = filtered.map((s: any) => [getStudentName(s), s.student_id || '', s.department || '', s.course || '', s.year_level || '']);
                             exportToExcel(headers, rows, `${selectedEventTitle || 'event'}_absent`);
                         }} disabled={filtered.length === 0} leftIcon={<Download size={14} />}>
@@ -545,7 +545,7 @@ const AbsentModal = ({
                                 />
                                 {depts.length > 0 && (
                                     <select value={deptFilter} onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }} className={selectClass}>
-                                        <option value="All">All Depts ({absentStudents.length})</option>
+                                        <option value="All">All Colleges ({absentStudents.length})</option>
                                         {depts.map((dept) => <option key={dept} value={dept}>{dept} ({absentStudents.filter((s: any) => s.department === dept).length})</option>)}
                                     </select>
                                 )}
@@ -626,7 +626,7 @@ const RegistrantsModal = ({
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => {
-                                    const headers = ['Student Name', 'Student ID', 'Department', 'Course', 'Year Level', 'Section', 'Registration Status', 'Registered At', 'Time In', 'Time Out'];
+                                    const headers = ['Student Name', 'Student ID', 'College', 'Course', 'Year Level', 'Section', 'Registration Status', 'Registered At', 'Time In', 'Time Out'];
                                     const rows = filteredRegistrations.map((registration: any) => [
                                         registration.student_name || '',
                                         registration.student_id || '',

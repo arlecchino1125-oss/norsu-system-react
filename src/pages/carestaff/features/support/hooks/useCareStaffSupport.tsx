@@ -141,9 +141,9 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
 
     const supportTabs = [
         { id: SUPPORT_STATUS.SUBMITTED, label: 'Submitted', count: supportCounts[SUPPORT_STATUS.SUBMITTED] || 0 },
-        { id: SUPPORT_STATUS.FORWARDED_TO_DEPT, label: 'Forwarded to Dept', count: supportCounts[SUPPORT_STATUS.FORWARDED_TO_DEPT] || 0 },
+        { id: SUPPORT_STATUS.FORWARDED_TO_DEPT, label: 'Forwarded to College', count: supportCounts[SUPPORT_STATUS.FORWARDED_TO_DEPT] || 0 },
         { id: SUPPORT_STATUS.VISIT_SCHEDULED, label: 'Visit Scheduled', count: supportCounts[SUPPORT_STATUS.VISIT_SCHEDULED] || 0 },
-        { id: 'dept_updates', label: 'Dept Updates', count: supportCounts.dept_updates || 0 },
+        { id: 'dept_updates', label: 'College Updates', count: supportCounts.dept_updates || 0 },
         { id: SUPPORT_STATUS.COMPLETED, label: 'Completed', count: supportCounts[SUPPORT_STATUS.COMPLETED] || 0 }
     ];
 
@@ -247,7 +247,7 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
 
     const handleForwardSupport = async () => {
         if (isForwardingSupport) return;
-        if (!supportForm.care_notes) { showToast?.("Please add notes for Dept Head.", 'error'); return; }
+        if (!supportForm.care_notes) { showToast?.("Please add notes for College Designate.", 'error'); return; }
         setIsForwardingSupport(true);
         try {
             let letterPath = null;

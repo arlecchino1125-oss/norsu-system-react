@@ -380,7 +380,7 @@ export default function RegistrarStudentPopulationPage() {
                         <div>
                 <label htmlFor="registrar-college-filter" className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">College</label>
                 <select id="registrar-college-filter" value={departmentFilter} onChange={(e) => { setDepartmentFilter(e.target.value); setCourseFilter('All'); setCurrentPage(1); }} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white text-slate-700 truncate">
-                                <option value="All">All Departments</option>
+                                <option value="All">All Colleges</option>
                                 {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </div>

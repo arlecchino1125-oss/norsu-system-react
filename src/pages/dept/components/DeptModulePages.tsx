@@ -65,7 +65,7 @@ export function DeptModulePages({
                 <FeatureAvailabilityView
                     title={(moduleLabels as any)[activeModule] || activeModule}
                     permission={activeModuleAccessState}
-                    description="This page is currently unavailable in the Department Head portal. Please check back later or contact your administrator if you need access restored."
+                    description="This page is currently unavailable in the College portal. Please check back later or contact your administrator if you need access restored."
                     accent="emerald"
                 />
             )}

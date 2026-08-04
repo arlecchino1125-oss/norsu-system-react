@@ -33,7 +33,7 @@ const PermissionsLoadingScreen = () => (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
         <div className="w-full max-w-xl rounded-3xl border border-emerald-100 bg-white p-8 text-center shadow-xl">
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500" />
-            <p className="mt-4 text-sm font-semibold text-slate-700">Loading Department Head access rules...</p>
+            <p className="mt-4 text-sm font-semibold text-slate-700">Loading College Designate access rules...</p>
         </div>
     </div>
 );
@@ -41,7 +41,7 @@ const PermissionsLoadingScreen = () => (
 const PermissionsErrorScreen = ({ message }: any) => (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
         <div className="w-full max-w-2xl rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-xl">
-            <h1 className="text-2xl font-bold text-slate-900">Unable to load department permissions</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Unable to load college permissions</h1>
             <p className="mt-3 text-sm leading-6 text-slate-500">{message}</p>
             <button type="button"
                 onClick={() => window.location.reload()}
@@ -206,9 +206,9 @@ export default function DeptDashboard() {
             await refreshAllData();
             await refreshAdmissionsDashboardCounts();
             await refreshInterviewQueue();
-            showToastMessage('Department data refreshed.', 'success');
+            showToastMessage('College data refreshed.', 'success');
         } catch (error: any) {
-            showToastMessage('Failed to refresh department data.', 'error');
+            showToastMessage('Failed to refresh college data.', 'error');
         } finally {
             setIsRefreshingData(false);
         }

@@ -9,7 +9,7 @@ export type PermissionStatus = typeof PERMISSION_STATUSES[number];
 export const ROLE_DISPLAY_LABELS: Record<Role, string> = {
     Admin: 'Admin',
     'Care Staff': 'Care Staff',
-    'Department Head': 'Department Head',
+    'Department Head': 'College Designate',
     Student: 'Student',
     Public: 'Public NAT Portal',
     Registrar: 'Registrar'

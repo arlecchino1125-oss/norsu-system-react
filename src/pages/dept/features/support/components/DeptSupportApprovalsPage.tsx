@@ -63,7 +63,7 @@ const DeptArchiveDetails = ({ req, fallbackReferrerName }: any) => {
         return (
             <section className="bg-orange-50 p-5 rounded-xl border border-orange-200">
                 <h4 className="font-bold text-sm text-orange-700 mb-4 uppercase tracking-wider border-b border-orange-200 pb-2">
-                    Department Referral to CARE Staff
+                    College Referral to CARE Staff
                 </h4>
                 {referral ? (
                     <div className="space-y-4">
@@ -95,7 +95,7 @@ const DeptArchiveDetails = ({ req, fallbackReferrerName }: any) => {
                             <div>
                                 <p className="block text-xs font-bold text-gray-500 mb-1">Name and Signature</p>
                                 <div className="bg-white border border-orange-100 rounded-lg p-3 inline-block">
-                                    <img src={referral.signature} alt="Department referrer signature" className="max-h-24" />
+                                    <img src={referral.signature} alt="College referrer signature" className="max-h-24" />
                                 </div>
                             </div>
                         )}
@@ -113,7 +113,7 @@ const DeptArchiveDetails = ({ req, fallbackReferrerName }: any) => {
         return (
             <section className="bg-emerald-50 p-5 rounded-xl border border-emerald-200">
                 <h4 className="font-bold text-sm text-emerald-700 mb-3 uppercase tracking-wider border-b border-emerald-200 pb-2">
-                    Department Resolution Notes
+                    College Resolution Notes
                 </h4>
                 <div className="bg-white border border-emerald-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
                     {req.dept_notes || 'No resolution notes recorded.'}
@@ -126,7 +126,7 @@ const DeptArchiveDetails = ({ req, fallbackReferrerName }: any) => {
         return (
             <section className="bg-red-50 p-5 rounded-xl border border-red-200">
                 <h4 className="font-bold text-sm text-red-700 mb-3 uppercase tracking-wider border-b border-red-200 pb-2">
-                    Department Rejection Notes
+                    College Rejection Notes
                 </h4>
                 <div className="bg-white border border-red-100 rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap">
                     {req.dept_notes || 'No rejection reason recorded.'}
@@ -175,11 +175,11 @@ const SupportViewDetailModal = ({
                                 : req.status === SUPPORT_STATUS.FORWARDED_TO_DEPT
                                     ? 'Forwarded by CARE Staff for your review'
                                     : req.status === SUPPORT_STATUS.RESOLVED_BY_DEPT
-                                        ? 'Resolved by the department'
-                                        : req.status === SUPPORT_STATUS.REFERRED_TO_CARE
-                                            ? 'Referred back to CARE Staff by the department'
-                                            : req.status === SUPPORT_STATUS.REJECTED
-                                                ? 'Rejected by the department'
+                                    ? 'Resolved by the college'
+                                    : req.status === SUPPORT_STATUS.REFERRED_TO_CARE
+                                        ? 'Referred back to CARE Staff by the college'
+                                        : req.status === SUPPORT_STATUS.REJECTED
+                                            ? 'Rejected by the college'
                                                 : 'Finalized support record'}
                         </p>
                     </div>
@@ -328,7 +328,7 @@ const ReferToCareModal = ({ form, setForm, referrerName, sigRef, isSubmitting, o
                             <SignatureCanvas
                                 ref={sigRef}
                                 penColor="#1a1a2e"
-                                canvasProps={{ 'aria-label': 'Department referrer signature pad', className: 'w-full', style: { width: '100%', height: '150px' } }}
+                                canvasProps={{ 'aria-label': 'College referrer signature pad', className: 'w-full', style: { width: '100%', height: '150px' } }}
                             />
                         </div>
                         <div className="flex justify-between items-center mt-1">

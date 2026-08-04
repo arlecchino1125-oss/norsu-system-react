@@ -91,7 +91,7 @@ const getDepartmentAdmissionsPayload = async (
 ): Promise<ExportPayload> => {
     const normalizedDepartment = String(departmentName || '').trim();
     if (!normalizedDepartment) {
-        throw new Error('Department name is required for admissions exports.');
+        throw new Error('College name is required for admissions exports.');
     }
 
     const queueRows = await getDepartmentInterviewQueue(normalizedDepartment, interviewDateFilter);
@@ -118,7 +118,7 @@ const getDepartmentAdmissionsPayload = async (
 const getPrintableMasterListPayload = async (departmentName: unknown, printableMasterListDate: string, masterListPanelFilter: string): Promise<ExportPayload> => {
     const normalizedDepartment = String(departmentName || '').trim();
     if (!normalizedDepartment) {
-        throw new Error('Department name is required for the printable master list.');
+        throw new Error('College name is required for the printable master list.');
     }
     const interviewDateFilter = String(printableMasterListDate || '').trim();
     if (!interviewDateFilter) {
@@ -157,7 +157,7 @@ const getPrintableMasterListPayload = async (departmentName: unknown, printableM
 const getDepartmentCounselingPayload = async (departmentName: unknown): Promise<ExportPayload> => {
     const normalizedDepartment = String(departmentName || '').trim();
     if (!normalizedDepartment) {
-        throw new Error('Department name is required for counseling exports.');
+        throw new Error('College name is required for counseling exports.');
     }
 
     const { data, error } = await supabase
@@ -169,7 +169,7 @@ const getDepartmentCounselingPayload = async (departmentName: unknown): Promise<
     if (error) throw error;
 
     return {
-        title: 'Department Counseling Requests',
+        title: 'College Counseling Requests',
         fileBase: 'department_counseling_requests',
         headers: ['Student', 'Student ID', 'Request Type', 'Status', 'Scheduled Date', 'Created At'],
         rows: (data || []).map((row: any) => [
@@ -186,7 +186,7 @@ const getDepartmentCounselingPayload = async (departmentName: unknown): Promise<
 const getDepartmentSupportPayload = async (departmentName: unknown): Promise<ExportPayload> => {
     const normalizedDepartment = String(departmentName || '').trim();
     if (!normalizedDepartment) {
-        throw new Error('Department name is required for support exports.');
+        throw new Error('College name is required for support exports.');
     }
 
     const { data, error } = await supabase
@@ -198,7 +198,7 @@ const getDepartmentSupportPayload = async (departmentName: unknown): Promise<Exp
     if (error) throw error;
 
     return {
-        title: 'Department Support Requests',
+        title: 'College Support Requests',
         fileBase: 'department_support_requests',
         headers: ['Student', 'Student ID', 'Support Type', 'Status', 'Created At', 'Resolution Notes'],
         rows: (data || []).map((row: any) => [
@@ -222,7 +222,7 @@ const getEventsPayload = async (scope: string): Promise<ExportPayload> => {
     if (error) throw error;
 
     return {
-        title: scope === 'department' ? 'Department Events' : 'CARE Staff Events',
+        title: scope === 'department' ? 'College Events' : 'CARE Staff Events',
         fileBase: scope === 'department' ? 'department_events' : 'care_events',
         headers: ['Title', 'Type', 'Location', 'Event Date', 'Event Time', 'Created At'],
         rows: (data || []).map((row: any) => [
@@ -273,7 +273,7 @@ const getCareCounselingPayload = async (): Promise<ExportPayload> => {
     return {
         title: 'CARE Counseling Requests',
         fileBase: 'care_counseling_requests',
-        headers: ['Student', 'Student ID', 'Department', 'Request Type', 'Status', 'Scheduled Date', 'Created At'],
+        headers: ['Student', 'Student ID', 'College', 'Request Type', 'Status', 'Scheduled Date', 'Created At'],
         rows: (data || []).map((row: any) => [
             String(row?.student_name || '').trim(),
             String(row?.student_id || '').trim(),
@@ -297,7 +297,7 @@ const getCareSupportPayload = async (): Promise<ExportPayload> => {
     return {
         title: 'CARE Support Requests',
         fileBase: 'care_support_requests',
-        headers: ['Student', 'Student ID', 'Department', 'Support Type', 'Status', 'Created At', 'Resolution Notes'],
+        headers: ['Student', 'Student ID', 'College', 'Support Type', 'Status', 'Created At', 'Resolution Notes'],
         rows: (data || []).map((row: any) => [
             String(row?.student_name || '').trim(),
             String(row?.student_id || '').trim(),
@@ -575,7 +575,7 @@ const StaffExportCenterPage = ({
                 {
                     id: 'scheduled-interviews',
                     title: 'Scheduled Interviews',
-                    description: 'Export scheduled interview applicants for your department.',
+                    description: 'Export scheduled interview applicants for your college.',
                     note: 'Optional date filter for this export only.',
                     getPayload: () => getDepartmentAdmissionsPayload(departmentName, 'Interview Scheduled', departmentDateFilters.scheduledInterviews),
                     dateFilterValue: departmentDateFilters.scheduledInterviews,
@@ -584,7 +584,7 @@ const StaffExportCenterPage = ({
                 {
                     id: 'approved-applicants',
                     title: 'Approved for Enrollment',
-                    description: 'Export approved interview applicants for your department.',
+                    description: 'Export approved interview applicants for your college.',
                     note: 'Optional date filter for this export only.',
                     getPayload: () => getDepartmentAdmissionsPayload(departmentName, 'Approved for Enrollment', departmentDateFilters.approvedApplicants),
                     dateFilterValue: departmentDateFilters.approvedApplicants,
@@ -593,21 +593,21 @@ const StaffExportCenterPage = ({
                 {
                     id: 'department-counseling',
                     title: 'Counseling Requests',
-                    description: 'Export department counseling request records.',
+                    description: 'Export college counseling request records.',
                     note: 'Includes student, status, and schedule details.',
                     getPayload: () => getDepartmentCounselingPayload(departmentName)
                 },
                 {
                     id: 'department-support',
                     title: 'Support Requests',
-                    description: 'Export department support request records.',
+                    description: 'Export college support request records.',
                     note: 'Includes support type, status, and resolution notes.',
                     getPayload: () => getDepartmentSupportPayload(departmentName)
                 },
                 {
                     id: 'department-events',
                     title: 'Events',
-                    description: 'Export event records visible to the department.',
+                    description: 'Export event records visible to the college.',
                     note: 'Simple event list export.',
                     getPayload: () => getEventsPayload(scope)
                 }
@@ -625,15 +625,15 @@ const StaffExportCenterPage = ({
             {
                 id: 'care-counseling',
                 title: 'Counseling Requests',
-                description: 'Export counseling request records across departments.',
-                note: 'Includes department and schedule details.',
+                description: 'Export counseling request records across colleges.',
+                note: 'Includes college and schedule details.',
                 getPayload: getCareCounselingPayload
             },
             {
                 id: 'care-support',
                 title: 'Support Requests',
-                description: 'Export support request records across departments.',
-                note: 'Includes department and resolution details.',
+                description: 'Export support request records across colleges.',
+                note: 'Includes college and resolution details.',
                 getPayload: getCareSupportPayload
             },
             {
