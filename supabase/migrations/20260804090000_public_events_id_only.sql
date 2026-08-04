@@ -6,7 +6,14 @@
 -- record attendance because they did not have their registered email to hand.
 --
 -- The accepted cost is impersonation -- anyone holding an ID can act as that
--- student. What compensates, and must not be weakened later:
+-- student. This was weighed and accepted, not overlooked: an ID reaches nothing
+-- but an attendance row, and a student marked present who was not there is a
+-- smaller harm than the one already happening, which is students losing
+-- attendance they earned because they could not recall their account details.
+-- Do not "fix" this by reinstating the email check without re-examining that
+-- trade-off -- doing so brings the original problem straight back.
+--
+-- What compensates, and must not be weakened later:
 --
 --   * An ID reveals nothing. public_verify_student returns the student_id and
 --     nothing else, so a guessed ID yields no name, department or course.
