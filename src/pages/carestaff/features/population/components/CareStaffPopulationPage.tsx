@@ -341,7 +341,7 @@ const PopulationFilters = ({
             <span className="text-xs font-medium text-slate-400">Active:</span>
             {departmentFilter !== 'All' && (
                 <span className="filter-chip">
-                    Dept: {departmentFilter}
+                    College: {departmentFilter}
                     <button type="button" onClick={() => { setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setSectionFilter('All'); }}>&times;</button>
                 </span>
             )}
@@ -441,7 +441,7 @@ const PopulationFilters = ({
                 </select>
             </div>
             <div className="flex flex-col gap-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Dept Annotations</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">College Annotations</p>
                 <div className="inline-flex rounded-lg border border-slate-300 bg-white p-1">
                     <button
                         type="button"

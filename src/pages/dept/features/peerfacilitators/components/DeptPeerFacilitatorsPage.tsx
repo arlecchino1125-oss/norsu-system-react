@@ -4,16 +4,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../../../lib/supabase';
 import {
     ClipboardList, HeartHandshake, Clock, CheckCircle, XCircle, Search,
-    UserPlus, Archive, Users, Download, NotebookPen, Undo2
+    UserPlus, Archive, Users, Download, NotebookPen, NotebookText, Undo2
 } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
-import PeerLogbookMonth from '../../../../../components/peerLogbook/PeerLogbookMonth';
+import DocxLogbookViewer from '../../../../../components/logbook/DocxLogbookViewer';
 import type { PeerLogEntry } from '../../../../../components/peerLogbook/PeerLogEntryModal';
+import type { CareActivityLogEntry } from '../../../../../utils/careActivitiesLogbook';
+import { CARE_LOG_ENTRY_COLUMNS } from '../../../../../utils/careActivitiesLogbook';
 import { facilitatorName, LOGBOOK_STATUS_TONE, monthLabelOf, sanitizeSearchTerm } from '../../../../../utils/peerLogbook';
 import { exportLogbookPdf } from '../../../../../utils/peerLogbookPdf';
+import { exportCareActivitiesLogbookPdf } from '../../../../../utils/careActivitiesLogbookPdf';
 import { formatHours, sessionDate, sessionHours, splitAmPm, totalHours } from '../../../../../utils/volunteerHours';
 import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 import { buildPeerFacilitatorStatusEmailPayload } from '../../../../../utils/peerFacilitatorEmail';
@@ -35,6 +38,7 @@ const PAGE_SIZE = 10;
 const APPS_QUERY_KEY = 'dept-peer-applications';
 const ROSTER_QUERY_KEY = 'dept-peer-roster';
 const LOGBOOKS_QUERY_KEY = 'dept-peer-logbooks';
+const CARE_LOGBOOKS_QUERY_KEY = 'dept-care-logbooks';
 const SETTINGS_QUERY_KEY = 'peer-settings';
 
 const getStatusStyle = (status: string) => {
@@ -943,7 +947,9 @@ const DeptPeerSupportModal = ({ facilitator, onClose }: {
     facilitator: any;
     onClose: () => void;
 }) => {
+    const [tab, setTab] = useState<'peer' | 'care'>('peer');
     const [openBookId, setOpenBookId] = useState<string | null>(null);
+    const [openCareBookId, setOpenCareBookId] = useState<string | null>(null);
 
     const { data: books = [], isLoading: loadingBooks } = useQuery({
         queryKey: [LOGBOOKS_QUERY_KEY, facilitator.student_id],
@@ -951,39 +957,85 @@ const DeptPeerSupportModal = ({ facilitator, onClose }: {
             const { data, error } = await supabase
                 .from('peer_facilitator_logbooks')
                 .select('*')
-                .eq('student_id', facilitator.student_id);
+                .eq('student_id', facilitator.student_id)
+                .order('month', { ascending: false });
             if (error) throw error;
             return data || [];
         }
     });
 
-    const openBook = books.find((b: any) => b.id === openBookId) || null;
+    const { data: careBooks = [], isLoading: loadingCareBooks } = useQuery({
+        queryKey: [CARE_LOGBOOKS_QUERY_KEY, facilitator.student_id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('care_activities_logbooks')
+                .select('*')
+                .eq('student_id', facilitator.student_id)
+                .order('month', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        }
+    });
+
+    const effectiveBookId = openBookId ?? (books[0] as any)?.id ?? null;
+    const effectiveCareBookId = openCareBookId ?? (careBooks[0] as any)?.id ?? null;
+    const openBook = books.find((b: any) => b.id === effectiveBookId) || null;
+    const openCareBook = careBooks.find((b: any) => b.id === effectiveCareBookId) || null;
 
     const { data: entries = [], isLoading: loadingEntries } = useQuery<PeerLogEntry[]>({
-        queryKey: ['dept-peer-log-entries', openBookId],
+        queryKey: ['dept-peer-log-entries', effectiveBookId],
         queryFn: async () => {
-            if (!openBookId) return [];
+            if (!effectiveBookId) return [];
             const { data, error } = await supabase
                 .from('peer_facilitator_log_entries')
                 .select('*')
-                .eq('logbook_id', openBookId)
+                .eq('logbook_id', effectiveBookId)
                 .order('entry_date', { ascending: true })
                 .order('logged_at', { ascending: true });
 
             if (error) throw error;
             return (data || []) as unknown as PeerLogEntry[];
         },
-        enabled: !!openBookId
+        enabled: !!effectiveBookId
     });
 
+    const { data: careEntries = [], isLoading: loadingCareEntries } = useQuery<CareActivityLogEntry[]>({
+        queryKey: ['dept-care-log-entries', effectiveCareBookId],
+        queryFn: async () => {
+            if (!effectiveCareBookId) return [];
+            const { data, error } = await supabase
+                .from('care_activities_log_entries')
+                .select(CARE_LOG_ENTRY_COLUMNS)
+                .eq('logbook_id', effectiveCareBookId)
+                .order('entry_date', { ascending: true })
+                .order('logged_at', { ascending: true });
+
+            if (error) throw error;
+            return (data || []) as unknown as CareActivityLogEntry[];
+        },
+        enabled: !!effectiveCareBookId
+    });
+
+    const activeOpenBook = tab === 'peer' ? openBook : openCareBook;
+
     const exportOpenBook = async () => {
-        if (!openBook) return;
-        await exportLogbookPdf({
-            peerName: facilitatorName(facilitator.students),
-            programYearSection: [facilitator.students?.course, facilitator.students?.year_level].filter(Boolean).join(' / '),
-            monthKey: String(openBook.month).slice(0, 7),
-            entries
-        });
+        if (tab === 'peer') {
+            if (!openBook) return;
+            await exportLogbookPdf({
+                peerName: facilitatorName(facilitator.students),
+                programYearSection: [facilitator.students?.course, facilitator.students?.year_level].filter(Boolean).join(' / '),
+                monthKey: String(openBook.month).slice(0, 7),
+                entries
+            });
+        } else {
+            if (!openCareBook) return;
+            await exportCareActivitiesLogbookPdf({
+                peerName: facilitatorName(facilitator.students),
+                programYearSection: [facilitator.students?.course, facilitator.students?.year_level].filter(Boolean).join(' / '),
+                monthKey: String(openCareBook.month).slice(0, 7),
+                entries: careEntries
+            });
+        }
     };
 
     return (
@@ -991,78 +1043,121 @@ const DeptPeerSupportModal = ({ facilitator, onClose }: {
             open
             anchorId="dept-content-region"
             title={facilitatorName(facilitator.students)}
-            subtitle={openBook ? `Peer Support · ${monthLabelOf(String(openBook.month).slice(0, 7))}` : 'Peer Support'}
-            onClose={openBook ? () => setOpenBookId(null) : onClose}
-            footer={openBook ? (
+            subtitle={tab === 'peer' ? 'Peer Support' : 'CARE Activities'}
+            onClose={onClose}
+            footer={activeOpenBook ? (
                 <>
                     <Button variant="secondary" leftIcon={<Download size={14} />} onClick={exportOpenBook}>
                         Export PDF
                     </Button>
-                    <Button variant="secondary" onClick={() => setOpenBookId(null)}>Back</Button>
+                    <Button variant="secondary" onClick={onClose}>Close</Button>
                 </>
             ) : (
                 <Button variant="secondary" onClick={onClose}>Close</Button>
             )}
         >
-            <div className="mx-auto w-full max-w-3xl">
+            <div className="mx-auto w-full max-w-6xl">
                 <div role="tablist" aria-label="Facilitator sections" className="mb-4 flex gap-1 border-b border-gray-200">
                     <button
                         type="button"
                         role="tab"
-                        aria-selected
-                        className="whitespace-nowrap border-b-2 border-blue-600 px-3 py-2.5 text-sm font-bold text-blue-600"
+                        aria-selected={tab === 'peer'}
+                        onClick={() => { setTab('peer'); setOpenBookId(null); }}
+                        className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-bold transition ${tab === 'peer' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         <span className="flex items-center gap-2"><NotebookPen size={16} /> Peer Support</span>
                     </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === 'care'}
+                        onClick={() => { setTab('care'); setOpenCareBookId(null); }}
+                        className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-bold transition ${tab === 'care' ? 'border-teal-600 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <span className="flex items-center gap-2"><NotebookText size={16} /> CARE Activities</span>
+                    </button>
                 </div>
 
-                {openBook ? (
-                    loadingEntries ? <div className="p-8 text-center text-slate-500">Loading entries...</div> : (
+                {tab === 'peer' ? (
+                    loadingBooks ? (
+                        <p className="py-8 text-center text-sm text-slate-400">Loading logbooks...</p>
+                    ) : books.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-slate-400">This facilitator has no peer support logbooks yet.</p>
+                    ) : (
                         <>
-                            <div className="mb-4 flex flex-wrap items-center gap-2">
-                                <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[openBook.status]}`}>
-                                    {openBook.status}
-                                </span>
-                                {openBook.submitted_at && (
-                                    <span className="text-[11px] font-semibold text-slate-500">
-                                        Submitted {new Date(openBook.submitted_at).toLocaleDateString()}
-                                    </span>
+                            <div className="mb-4 flex flex-wrap items-center gap-3">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                    Month
+                                    <select
+                                        value={effectiveBookId ?? ''}
+                                        onChange={(e) => setOpenBookId(e.target.value)}
+                                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                    >
+                                        {books.map((book: any) => (
+                                            <option key={book.id} value={book.id}>
+                                                {monthLabelOf(String(book.month).slice(0, 7))}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                {openBook && (
+                                    <>
+                                        <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[openBook.status]}`}>
+                                            {openBook.status}
+                                        </span>
+                                        {openBook.submitted_at && (
+                                            <span className="text-[11px] font-semibold text-slate-500">
+                                                Submitted {new Date(openBook.submitted_at).toLocaleDateString()}
+                                            </span>
+                                        )}
+                                    </>
                                 )}
                             </div>
-                            <PeerLogbookMonth
-                                entries={entries}
-                                monthKey={String(openBook.month).slice(0, 7)}
-                                readOnly
-                                isLoading={false}
-                                isSaving={false}
-                                onSaveEntry={async () => undefined}
-                                onDeleteEntry={async () => undefined}
-                            />
+                            {openBook && (
+                                <DocxLogbookViewer key={openBook.id} type="peer" entries={entries} isLoading={loadingEntries} />
+                            )}
                         </>
                     )
-                ) : loadingBooks ? (
-                    <p className="py-8 text-center text-sm text-slate-400">Loading logbooks...</p>
-                ) : books.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-slate-400">This facilitator has no peer support logbooks yet.</p>
                 ) : (
-                    <ul className="space-y-2">
-                        {books.map((book: any) => (
-                            <li key={book.id}>
-                                <button
-                                    type="button"
-                                    onClick={() => setOpenBookId(book.id)}
-                                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-blue-200 hover:bg-blue-50/40"
-                                >
-                                    <span className="text-sm font-bold text-slate-900">
-                                        {monthLabelOf(String(book.month).slice(0, 7))}
-                                    </span>
-                                    <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[book.status]}`}>
-                                        {book.status}
-                                    </span>
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
+                    loadingCareBooks ? (
+                        <p className="py-8 text-center text-sm text-slate-400">Loading logbooks...</p>
+                    ) : careBooks.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-slate-400">This facilitator has no CARE activities logbooks yet.</p>
+                    ) : (
+                        <>
+                            <div className="mb-4 flex flex-wrap items-center gap-3">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                    Month
+                                    <select
+                                        value={effectiveCareBookId ?? ''}
+                                        onChange={(e) => setOpenCareBookId(e.target.value)}
+                                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                                    >
+                                        {careBooks.map((book: any) => (
+                                            <option key={book.id} value={book.id}>
+                                                {monthLabelOf(String(book.month).slice(0, 7))}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                {openCareBook && (
+                                    <>
+                                        <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${LOGBOOK_STATUS_TONE[openCareBook.status]}`}>
+                                            {openCareBook.status}
+                                        </span>
+                                        {openCareBook.submitted_at && (
+                                            <span className="text-[11px] font-semibold text-slate-500">
+                                                Submitted {new Date(openCareBook.submitted_at).toLocaleDateString()}
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                            {openCareBook && (
+                                <DocxLogbookViewer key={openCareBook.id} type="care" entries={careEntries} isLoading={loadingCareEntries} />
+                            )}
+                        </>
+                    )
                 )}
             </div>
         </Modal>

@@ -65,7 +65,7 @@ const PROFILE_FIELD_LABELS: Record<string, string> = {
     facebook_url: 'Facebook URL',
     religion: 'Religion',
     year_level: 'Year Level',
-    department: 'Department',
+    department: 'College',
     course: 'Complete Program',
     section: 'Section',
     supporter: 'Supporter',

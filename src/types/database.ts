@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admission_schedules: {
@@ -403,6 +378,91 @@ export type Database = {
           user_name?: string | null
         }
         Relationships: []
+      }
+      care_activities_log_entries: {
+        Row: {
+          action_taken: string
+          activity_type: string
+          entry_date: string
+          id: string
+          logbook_id: string
+          logbook_month: string
+          logged_at: string
+          remarks: string | null
+          speakers: string | null
+        }
+        Insert: {
+          action_taken: string
+          activity_type: string
+          entry_date: string
+          id?: string
+          logbook_id: string
+          logbook_month: string
+          logged_at?: string
+          remarks?: string | null
+          speakers?: string | null
+        }
+        Update: {
+          action_taken?: string
+          activity_type?: string
+          entry_date?: string
+          id?: string
+          logbook_id?: string
+          logbook_month?: string
+          logged_at?: string
+          remarks?: string | null
+          speakers?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_activities_log_entries_logbook_fkey"
+            columns: ["logbook_id", "logbook_month"]
+            isOneToOne: false
+            referencedRelation: "care_activities_logbooks"
+            referencedColumns: ["id", "month"]
+          },
+        ]
+      }
+      care_activities_logbooks: {
+        Row: {
+          id: string
+          month: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          status: string
+          student_id: string
+          submitted_at: string | null
+        }
+        Insert: {
+          id?: string
+          month: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          status?: string
+          student_id: string
+          submitted_at?: string | null
+        }
+        Update: {
+          id?: string
+          month?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          status?: string
+          student_id?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_activities_logbooks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
       }
       counseling_requests: {
         Row: {
@@ -3066,6 +3126,13 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_event_attendance_counts: {
+        Args: { event_ids: number[] }
+        Returns: {
+          attendance_count: number
+          event_id: number
+        }[]
+      }
       get_students_directory_rows: {
         Args: never
         Returns: {
@@ -3146,7 +3213,6 @@ export type Database = {
       public_event_evaluate: {
         Args: {
           p_answers: Json
-          p_email: string
           p_event_id: number
           p_form_id: number
           p_student_id: string
@@ -3155,7 +3221,6 @@ export type Database = {
       }
       public_event_rate: {
         Args: {
-          p_email: string
           p_event_id: number
           p_open_best: string
           p_open_comments: string
@@ -3166,11 +3231,11 @@ export type Database = {
         Returns: Json
       }
       public_event_time_in: {
-        Args: { p_email: string; p_event_id: number; p_student_id: string }
+        Args: { p_event_id: number; p_student_id: string }
         Returns: Json
       }
       public_event_time_out: {
-        Args: { p_email: string; p_event_id: number; p_student_id: string }
+        Args: { p_event_id: number; p_student_id: string }
         Returns: Json
       }
       public_event_window: {
@@ -3183,7 +3248,7 @@ export type Database = {
         }[]
       }
       public_get_active_events: {
-        Args: never
+        Args: { p_student_id?: string }
         Returns: {
           allow_walk_ins: boolean
           attendance_closes_at: string
@@ -3215,7 +3280,7 @@ export type Database = {
         Returns: Json
       }
       public_get_student_event_status: {
-        Args: { p_email: string; p_student_id: string }
+        Args: { p_student_id: string }
         Returns: {
           evaluated: boolean
           event_id: number
@@ -3226,7 +3291,7 @@ export type Database = {
         }[]
       }
       public_resolve_student: {
-        Args: { p_email: string; p_student_id: string }
+        Args: { p_student_id: string }
         Returns: {
           address: string | null
           age: number | null
@@ -3389,10 +3454,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      public_verify_student: {
-        Args: { p_email: string; p_student_id: string }
-        Returns: Json
-      }
+      public_verify_student: { Args: { p_student_id: string }; Returns: Json }
       record_student_event_attendance: {
         Args: {
           p_action: string
@@ -3709,10 +3771,6 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: boolean
       }
-      get_event_attendance_counts: {
-        Args: { event_ids: number[] }
-        Returns: { event_id: number; attendance_count: number }[]
-      }
       swap_or_rename_student_ids: {
         Args: { p_source_id: string; p_target_id: string }
         Returns: Json
@@ -3733,122 +3791,120 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
 } as const
+
