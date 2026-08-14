@@ -44,6 +44,7 @@ import { escapeSpreadsheetFormula } from '../../../../../utils/inputSecurity';
 import { loadXlsx } from '../../../../../lib/exportVendors';
 
 import { PROFILE_CATEGORIES } from '../profileCategories';
+import { useResponsivePageSize } from '../../../../../hooks/useResponsivePageSize';
 import {
     STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS,
     YEAR_LEVEL_OPTIONS,
@@ -298,7 +299,7 @@ export function useCareStaffPopulation({
     const activeFilterCount = [departmentFilter, courseFilter, yearFilter, statusFilter, schoolYearFilter, sectionFilter]
         .filter(v => v !== 'All').length + (searchTerm ? 1 : 0) + (hasNoteFilter ? 1 : 0) + (atRiskFilter ? 1 : 0) + (backgroundFilter.length ? 1 : 0);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'stats'
-    const itemsPerPage = CARE_STUDENT_PAGE_SIZE;
+    const itemsPerPage = useResponsivePageSize();
     const [tableStudents, setTableStudents] = useState<any[]>([]);
     const [tableStudentsTotal, setTableStudentsTotal] = useState(0);
     const [tableLoading, setTableLoading] = useState(false);
@@ -751,6 +752,7 @@ export function useCareStaffPopulation({
             statusFilter,
             sectionFilter,
             currentPage,
+            itemsPerPage,
             sortConfig.key,
             sortConfig.direction,
             annotationStudentIdsKey,
@@ -1432,7 +1434,7 @@ export function useCareStaffPopulation({
 
     const effectiveTotal = schoolYearFilter === 'All' ? tableStudentsTotal : sortedStudents.length;
     const isStudentTableLoading = (schoolYearFilter === 'All' ? tableLoading : historicalStudentsLoading) || qAnnotationStudentIdsLoading;
-    const totalPages = getCareStudentTotalPages(effectiveTotal);
+    const totalPages = getCareStudentTotalPages(effectiveTotal, itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedStudents = schoolYearFilter === 'All'
         ? sortedStudents

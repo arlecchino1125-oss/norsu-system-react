@@ -77,7 +77,7 @@ interface CareStaffPopulationPageProps {
 }
 
 const PopulationTables = ({
-    viewMode, courseYearCountsLoading, allCourses, courseYearCountMap, sortConfig, handleSort, isStudentTableLoading, effectiveTotal, paginatedStudents, studentAnnotationsById, schoolYearFilter, getArchivedSnapshotForSchoolYear, canArchiveRecords, openProfileModal, openEditModal, setStudentToDelete, setShowDeleteModal, renderCareStudentPaddingRows, startIndex, endIndex, currentPage, setCurrentPage, totalPages, paginationItems
+    viewMode, courseYearCountsLoading, allCourses, courseYearCountMap, sortConfig, handleSort, isStudentTableLoading, effectiveTotal, paginatedStudents, studentAnnotationsById, schoolYearFilter, getArchivedSnapshotForSchoolYear, canArchiveRecords, openProfileModal, openEditModal, setStudentToDelete, setShowDeleteModal, renderCareStudentPaddingRows, startIndex, endIndex, currentPage, setCurrentPage, totalPages, paginationItems, itemsPerPage
 }: any) => (
 viewMode === 'stats' ? (
     <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} data-refresh-surface className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 overflow-hidden p-8 mb-6">
@@ -120,26 +120,26 @@ viewMode === 'stats' ? (
         </div>
     </m.div>
 ) : (
-    <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} data-refresh-surface className={`${CARE_STUDENT_TABLE_SHELL_CLASS} flex min-h-[500px] flex-col overflow-hidden rounded-xl bg-white shadow-sm`}>
-        <div className="flex-1 overflow-x-auto">
+    <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} data-refresh-surface className={`${CARE_STUDENT_TABLE_SHELL_CLASS} flex flex-1 flex-col min-h-0 overflow-hidden rounded-xl bg-white shadow-sm`}>
+        <div className="flex-1 min-h-0 overflow-x-auto">
             <table className="w-full border-collapse text-left text-[13px]">
                 <thead className="bg-slate-50/80 border-b border-slate-200/60 text-[10px] uppercase text-slate-500 font-bold tracking-widest backdrop-blur-sm">
                     <tr>
-                        <th scope="col" aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('name')}>Student <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
-                        <th scope="col" aria-sort={sortConfig.key === 'student_id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('student_id')}>ID <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
-                        <th scope="col" aria-sort={sortConfig.key === 'course' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('course')}>Course & Year <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
-                        <th scope="col" aria-sort={sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-6 py-5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('status')}>Status <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
-                        <th className="px-6 py-5 text-right">Actions</th>
+                        <th scope="col" aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-5 py-3.5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('name')}>Student <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
+                        <th scope="col" aria-sort={sortConfig.key === 'student_id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-5 py-3.5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('student_id')}>ID <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
+                        <th scope="col" aria-sort={sortConfig.key === 'course' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-5 py-3.5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('course')}>Course & Year <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
+                        <th scope="col" aria-sort={sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="p-0"><button type="button" className="w-full cursor-pointer px-5 py-3.5 text-left hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => handleSort('status')}>Status <ArrowUpDown size={12} className="inline ml-1 text-purple-400" /></button></th>
+                        <th className="px-5 py-3.5 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/60">
                     {isStudentTableLoading ? (
                         <tr>
-                            <td colSpan={5} className="h-[360px] p-12 text-center text-slate-500">Loading students...</td>
+                            <td colSpan={5} className="h-[260px] p-12 text-center text-slate-500">Loading students...</td>
                         </tr>
                     ) : effectiveTotal === 0 ? (
                         <tr>
-                            <td colSpan={5} className="h-[360px] p-12 text-center text-slate-500">No students found.</td>
+                            <td colSpan={5} className="h-[260px] p-12 text-center text-slate-500">No students found.</td>
                         </tr>
                     ) : (
                         <AnimatePresence mode="wait">
@@ -157,9 +157,9 @@ viewMode === 'stats' ? (
                                     transition={{ delay: idx * 0.02, type: 'spring', stiffness: 400, damping: 25 }}
                                     className="border-b border-transparent hover:border-purple-200 transition-colors"
                                 >
-                                    <td className="px-6 py-4"><span className="text-[13px] font-semibold text-slate-900">{student.first_name} {student.last_name}</span></td>
-                                    <td className="px-6 py-4 font-mono text-xs font-medium text-slate-500">{student.student_id}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-5 py-3"><span className="text-[13px] font-semibold text-slate-900">{student.first_name} {student.last_name}</span></td>
+                                    <td className="px-5 py-3 font-mono text-xs font-medium text-slate-500">{student.student_id}</td>
+                                    <td className="px-5 py-3">
                                         {(() => {
                                             const filteredSnapshot = schoolYearFilter === 'All'
                                                 ? null
@@ -177,46 +177,46 @@ viewMode === 'stats' ? (
                                             );
                                         })()}
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-5 py-3">
                                         <div className="flex flex-wrap items-center gap-1.5">
                                             {student.status === 'Inactive' || student.profile_completed !== true ? (
-                                                <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 border border-amber-200/50 shadow-inner">Incomplete</span>
+                                                <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 border border-amber-200/50 shadow-inner">Incomplete</span>
                                             ) : (
-                                                <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-inner ${student.status === 'Active' ? 'bg-emerald-100 text-emerald-700 border-emerald-200/50' : 'bg-rose-100 text-rose-700 border-rose-200/50'}`}>{student.status}</span>
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-inner ${student.status === 'Active' ? 'bg-emerald-100 text-emerald-700 border-emerald-200/50' : 'bg-rose-100 text-rose-700 border-rose-200/50'}`}>{student.status}</span>
                                             )}
                                             {hasDeptNote && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-purple-700">
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-purple-700">
                                                     <MessageSquareMore size={11} />
                                                     Note
                                                 </span>
                                             )}
                                             {isDeptFlagged && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
                                                     <Flag size={11} />
                                                     At-Risk
                                                 </span>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button type="button" aria-label={`View profile for ${student.first_name} ${student.last_name}`} onClick={() => openProfileModal(student)} className="text-purple-500 hover:text-purple-700 p-2 bg-purple-50 rounded-lg mr-2 transition-colors"><Eye size={16} /></button>
-                                        <m.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-500 hover:text-blue-700 p-2 bg-blue-50 rounded-lg mr-2 transition-colors"><Edit size={16} /></m.button>
+                                    <td className="px-5 py-3 text-right">
+                                        <button type="button" aria-label={`View profile for ${student.first_name} ${student.last_name}`} onClick={() => openProfileModal(student)} className="text-purple-500 hover:text-purple-700 p-1.5 bg-purple-50 rounded-lg mr-2 transition-colors"><Eye size={16} /></button>
+                                        <m.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); openEditModal(student); }} className="text-blue-500 hover:text-blue-700 p-1.5 bg-blue-50 rounded-lg mr-2 transition-colors"><Edit size={16} /></m.button>
                                         {canArchiveRecords && (
-                                            <m.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-amber-600 hover:text-amber-800 p-2 bg-amber-50 rounded-lg transition-colors" title="Archive Student"><Archive size={16} /></m.button>
+                                             <m.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }} className="text-amber-600 hover:text-amber-800 p-1.5 bg-amber-50 rounded-lg transition-colors" title="Archive Student"><Archive size={16} /></m.button>
                                         )}
                                     </td>
                                 </m.tr>
                                     );
                                 })()
                             ))}
-                            {renderCareStudentPaddingRows(5, paginatedStudents.length)}
+                            {renderCareStudentPaddingRows(5, paginatedStudents.length, itemsPerPage)}
                         </AnimatePresence>
                     )}
                 </tbody>
             </table>
         </div>
-        <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 text-xs md:flex-row md:items-center md:justify-between">
-            <span className="text-slate-500">
+        <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-slate-200/80 bg-white/95 backdrop-blur-md px-5 py-3 text-xs md:flex-row md:items-center md:justify-between shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+            <span className="font-medium text-slate-600">
                 {isStudentTableLoading
                     ? 'Loading students...'
                     : effectiveTotal === 0
@@ -646,56 +646,60 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
         courseYearCountMap, openArchivedStudentsModal,
     } = useCareStaffPopulation({ functions, pendingProfileId, onProfileOpened, refreshSignal });
     return (
-        <div className={`relative min-h-screen space-y-4 ${isRefreshingData ? 'care-student-refreshing' : ''}`}>
+        <div className={`relative flex flex-1 flex-col min-h-full space-y-4 ${isRefreshingData ? 'care-student-refreshing' : ''}`}>
             {isRefreshingData && <RefreshingOverlay />}
-            <PopulationHeader
-                isRefreshingData={isRefreshingData}
-                handleRefreshData={handleRefreshData}
-                handleExportExcel={handleExportExcel}
-                canExportStudents={canExportStudents}
-                canArchiveRecords={canArchiveRecords}
-                canRestoreRecords={canRestoreRecords}
-                overviewLoading={overviewLoading}
-                populationOverview={populationOverview}
-                openArchivedStudentsModal={openArchivedStudentsModal}
-                setShowIdSwapModal={setShowIdSwapModal}
-                setShowEnrollmentModal={setShowEnrollmentModal}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-            />
+            <div className="shrink-0">
+                <PopulationHeader
+                    isRefreshingData={isRefreshingData}
+                    handleRefreshData={handleRefreshData}
+                    handleExportExcel={handleExportExcel}
+                    canExportStudents={canExportStudents}
+                    canArchiveRecords={canArchiveRecords}
+                    canRestoreRecords={canRestoreRecords}
+                    overviewLoading={overviewLoading}
+                    populationOverview={populationOverview}
+                    openArchivedStudentsModal={openArchivedStudentsModal}
+                    setShowIdSwapModal={setShowIdSwapModal}
+                    setShowEnrollmentModal={setShowEnrollmentModal}
+                    viewMode={viewMode}
+                    setViewMode={setViewMode}
+                />
+            </div>
 
-            <PopulationFilters
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                filtersExpanded={filtersExpanded}
-                setFiltersExpanded={setFiltersExpanded}
-                departmentFilter={departmentFilter}
-                setDepartmentFilter={setDepartmentFilter}
-                courseFilter={courseFilter}
-                setCourseFilter={setCourseFilter}
-                schoolYearFilter={schoolYearFilter}
-                setSchoolYearFilter={setSchoolYearFilter}
-                sectionFilter={sectionFilter}
-                setSectionFilter={setSectionFilter}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                atRiskFilter={atRiskFilter}
-                setAtRiskFilter={setAtRiskFilter}
-                yearFilter={yearFilter}
-                setYearFilter={setYearFilter}
-                hasNoteFilter={hasNoteFilter}
-                setHasNoteFilter={setHasNoteFilter}
-                backgroundFilter={backgroundFilter}
-                setBackgroundFilter={setBackgroundFilter}
-                departmentNames={departmentNames}
-                filteredCourseOptions={filteredCourseOptions}
-                schoolYearOptions={schoolYearOptions}
-                availableSections={availableSections}
-                setCurrentPage={setCurrentPage}
-                activeFilterCount={activeFilterCount}
-                overviewLoading={overviewLoading}
-                populationOverview={populationOverview}
-            />
+            <div className="shrink-0">
+                <PopulationFilters
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    filtersExpanded={filtersExpanded}
+                    setFiltersExpanded={setFiltersExpanded}
+                    departmentFilter={departmentFilter}
+                    setDepartmentFilter={setDepartmentFilter}
+                    courseFilter={courseFilter}
+                    setCourseFilter={setCourseFilter}
+                    schoolYearFilter={schoolYearFilter}
+                    setSchoolYearFilter={setSchoolYearFilter}
+                    sectionFilter={sectionFilter}
+                    setSectionFilter={setSectionFilter}
+                    statusFilter={statusFilter}
+                    setStatusFilter={setStatusFilter}
+                    atRiskFilter={atRiskFilter}
+                    setAtRiskFilter={setAtRiskFilter}
+                    yearFilter={yearFilter}
+                    setYearFilter={setYearFilter}
+                    hasNoteFilter={hasNoteFilter}
+                    setHasNoteFilter={setHasNoteFilter}
+                    backgroundFilter={backgroundFilter}
+                    setBackgroundFilter={setBackgroundFilter}
+                    departmentNames={departmentNames}
+                    filteredCourseOptions={filteredCourseOptions}
+                    schoolYearOptions={schoolYearOptions}
+                    availableSections={availableSections}
+                    setCurrentPage={setCurrentPage}
+                    activeFilterCount={activeFilterCount}
+                    overviewLoading={overviewLoading}
+                    populationOverview={populationOverview}
+                />
+            </div>
 
             <PopulationTables
                 viewMode={viewMode}
@@ -722,6 +726,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 setCurrentPage={setCurrentPage}
                 totalPages={totalPages}
                 paginationItems={paginationItems}
+                itemsPerPage={itemsPerPage}
             />
 
             <StudentEditModal

@@ -1,6 +1,7 @@
 import { CARE_STUDENT_PAGE_SIZE } from './constants';
 
-export const getCareStudentTotalPages = (totalItems: number) => Math.max(1, Math.ceil(Math.max(0, totalItems) / CARE_STUDENT_PAGE_SIZE));
+export const getCareStudentTotalPages = (totalItems: number, pageSize: number = CARE_STUDENT_PAGE_SIZE) =>
+    Math.max(1, Math.ceil(Math.max(0, totalItems) / Math.max(1, pageSize)));
 export const waitForCareStudentRefreshAnimation = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 export const buildCareStudentPaginationItems = (page: number, totalPages: number) => {
@@ -22,10 +23,10 @@ export const buildCareStudentPaginationItems = (page: number, totalPages: number
     return items;
 };
 
-export const renderCareStudentPaddingRows = (columnCount: number, visibleRowCount: number) => (
-    Array.from({ length: Math.max(0, CARE_STUDENT_PAGE_SIZE - visibleRowCount) }, (_, index) => (
+export const renderCareStudentPaddingRows = (columnCount: number, visibleRowCount: number, targetRowCount: number = CARE_STUDENT_PAGE_SIZE) => (
+    Array.from({ length: Math.max(0, targetRowCount - visibleRowCount) }, (_, index) => (
         <tr key={`student-table-padding-${columnCount}-${index}`} aria-hidden="true">
-            <td colSpan={columnCount} className="h-[72px] bg-white">&nbsp;</td>
+            <td colSpan={columnCount} className="h-[48px] bg-white">&nbsp;</td>
         </tr>
     ))
 );

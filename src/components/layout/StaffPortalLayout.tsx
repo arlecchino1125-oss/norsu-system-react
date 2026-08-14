@@ -244,7 +244,7 @@ export default function StaffPortalLayout({
         </header>
 
         {/* Content */}
-        <div className="page-transition flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="page-transition flex-1 overflow-y-auto p-6 md:p-8 flex flex-col">
           {children}
         </div>
       </main>
