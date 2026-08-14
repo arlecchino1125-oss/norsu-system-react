@@ -269,8 +269,8 @@ export function useCareStaffSupport({ functions, refreshSignal = 0 }: any) {
                 careNotes: careNotesValue
             });
             void fetchSupport();
-            showToast?.("Request forwarded to Dean.", 'success');
-            queueProcessEmailNotification(result?.emailPayload, 'Request forwarded to Dean.');
+            showToast?.("Request forwarded to College Designate.", 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request forwarded to College Designate.');
             setShowSupportModal(false);
             setLetterFile(null);
         } catch (err: any) {

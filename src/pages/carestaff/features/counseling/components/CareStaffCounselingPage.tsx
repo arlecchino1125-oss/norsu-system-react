@@ -65,7 +65,7 @@ const CounselingFormModal = ({
                         <>
                             <div className="flex justify-between items-start mb-6">
                                 <div>
-                                    <h3 className="font-extrabold text-2xl text-slate-900 tracking-tight">DEAN'S REFERRAL</h3>
+                                    <h3 className="font-extrabold text-2xl text-slate-900 tracking-tight">COLLEGE DESIGNATE'S REFERRAL</h3>
                                     <p className="text-sm font-medium text-purple-600 mt-1">Intervention Referral Form</p>
                                     <p className="text-xs text-slate-400 mt-1 font-medium">Submitted: {formatDateTime(request.created_at)}</p>
                                 </div>
@@ -79,7 +79,7 @@ const CounselingFormModal = ({
                                 <div><p className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Student</p><p className="text-slate-800 font-bold">{request.student_name || '—'}</p></div>
                                 <div><p className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Course & Year</p><p className="text-slate-800 font-bold">{request.course_year || '—'}</p></div>
                                 <div><p className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Contact</p><p className="text-slate-800 font-bold">{request.contact_number || 'N/A'}</p></div>
-                                <div><p className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Request Type</p><p className="inline-flex px-2 py-0.5 bg-indigo-50 text-indigo-700 text-sm font-bold rounded-md">{request.request_type || 'Dean Referral'}</p></div>
+                                <div><p className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Request Type</p><p className="inline-flex px-2 py-0.5 bg-indigo-50 text-indigo-700 text-sm font-bold rounded-md">{request.request_type || 'College Designate Referral'}</p></div>
                             </div>
                             {/* Referral details */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">

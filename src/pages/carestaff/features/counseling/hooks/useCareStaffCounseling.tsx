@@ -259,7 +259,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         drawField('Name of Student:', req.student_name || '', margin, contentW / 2 - 5, y);
         drawField('Course & Year:', req.course_year || '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 10;
-        drawField('Request Type:', req.request_type || 'Dean Referral', margin, contentW / 2 - 5, y);
+        drawField('Request Type:', req.request_type || 'College Designate Referral', margin, contentW / 2 - 5, y);
         drawField('Schedule of Appointment:', getCounselingScheduledDate(req) ? new Date(getCounselingScheduledDate(req) as string).toLocaleString() : '', pageW / 2 + 5, contentW / 2 - 5, y);
         y += 10;
         drawField('Referred by:', req.referred_by || '', margin, contentW / 2 - 5, y);

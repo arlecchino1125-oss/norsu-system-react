@@ -1,6 +1,6 @@
-import { m, AnimatePresence } from 'framer-motion';
+import Modal from '../../../../../components/ui/Modal';
 import {
-    CheckCircle, Send,
+    CheckCircle, Send, Eye,
     Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip, RefreshCw
 } from 'lucide-react';
 import StatusBadge from '../../../../../components/StatusBadge';
@@ -9,7 +9,8 @@ import { formatDate } from '../../../../../utils/formatters';
 import { buildStudentAddress } from '../../../../../utils/studentFields';
 import {
     getStoredAssetEntries,
-    openStoredAsset
+    openStoredAsset,
+    parseCareNotesPayload
 } from '../../../../../utils/storageAssets';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import { SUPPORT_STATUS } from '../../../../../utils/workflow';
@@ -20,41 +21,32 @@ import type { CareStaffSupportPageProps } from '../hooks/useCareStaffSupport';
 import { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
 import { SUPPORT_DOCUMENT_ACCEPT } from '../../../../../utils/inputSecurity';
 
-const modalVariants = {
-    hidden: { opacity: 0, scale: 0.95, y: 20 },
-    visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 350, damping: 30 } },
-    exit: { opacity: 0, scale: 0.95, y: -20, transition: { duration: 0.2 } }
-} as const;
-
 
 /** Full-screen review modal for one support request, with status-dependent staff actions. */
 const SupportRequestModal = ({
     request, student, supportForm, setSupportForm, letterFile, setLetterFile,
     isForwardingSupport, isFinalizingSupport, showToast, parseDeptNotes, renderDetailedDescription,
     onClose, onPrint, onForward, onLetterFileChange, onFinalize
-}: any) => (
-            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-sm">
-                <button type="button" aria-label="Close support application" className="absolute inset-0 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-400" onClick={() => onClose()} />
-                <m.div
-                    variants={modalVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="relative bg-white/95 backdrop-blur-xl w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col rounded-[2.5rem] overflow-hidden border border-white/20"
-                >
-                    <div className="px-8 py-6 border-b border-gray-100/50 flex justify-between items-center bg-white/50 backdrop-blur-sm sticky top-0 z-10">
-                        <div>
-                            <h3 className="font-bold text-2xl text-gray-900 tracking-tight">Support Application</h3>
-                            <p className="text-sm text-gray-500 mt-1 font-medium">Review details and take action</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Button variant="secondary" onClick={onPrint} className="!rounded-xl !p-2.5 !bg-gray-50 hover:!bg-gray-100 hover:text-blue-600 shadow-sm border-gray-200 transition-colors" title="Print Application"><Download size={20} /></Button>
-                            <Button variant="ghost" onClick={() => onClose()} className="!rounded-full !p-2 !text-gray-400 hover:!text-gray-600 hover:bg-gray-100 transition-colors"><XCircle size={24} /></Button>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 scroll-smooth pb-12">
-                        {/* Student Information Section */}
+}: any) => {
+    const carePayload = parseCareNotesPayload(request.care_notes);
+    const hasCarePayload = Boolean(carePayload?.notes?.trim()) || Boolean(carePayload?.letterReference);
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            anchorId="staff-content-region"
+            size="full"
+            title="Support Application"
+            subtitle={`${request.student_name || 'Student'} · Filed ${formatDate(request.created_at)}`}
+            headerMeta={(
+                <div className="flex items-center gap-3">
+                    <StatusBadge status={request.status} />
+                    <Button variant="secondary" onClick={onPrint} className="!rounded-xl !p-2.5 !bg-gray-50 hover:!bg-gray-100 hover:text-blue-600 shadow-sm border-gray-200 transition-colors" title="Print Application"><Download size={18} /></Button>
+                </div>
+            )}
+        >
+            <div className="space-y-6">
+                {/* Student Information Section */}
                         <section className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100/80 shadow-sm relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
                             <h4 className="font-bold text-sm text-purple-600 mb-5 uppercase tracking-widest flex items-center gap-2 relative z-10">
@@ -126,13 +118,56 @@ const SupportRequestModal = ({
                         </section>
 
 
+                        {/* CARE Staff Endorsement (read-only) */}
+                        {hasCarePayload && (
+                            <section className="bg-amber-50/60 p-5 rounded-xl border border-amber-200">
+                                <h4 className="font-bold text-sm text-amber-700 mb-4 uppercase tracking-widest flex items-center gap-2">
+                                    <Paperclip size={16} /> CARE Staff Endorsement
+                                </h4>
+                                <div className="text-sm text-gray-800 space-y-3">
+                                    {carePayload.notes ? (
+                                        <div>
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Notes Sent to the College Designate</p>
+                                            <p className="whitespace-pre-wrap bg-white border border-amber-100 p-3 rounded-lg">{carePayload.notes}</p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm italic text-gray-500">No notes were added for this endorsement.</p>
+                                    )}
+                                    {carePayload.letterReference && (
+                                        <div>
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Uploaded Endorsement Letter</p>
+                                            <Button
+                                                variant="secondary"
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        await openStoredAsset('support_documents', carePayload.letterReference, 300, {
+                                                            category: 'support-endorsement',
+                                                            requestId: Number(request.id)
+                                                        });
+                                                    } catch (error) {
+                                                        showToast?.(error.message || 'Unable to open the endorsement letter.', 'error');
+                                                    }
+                                                }}
+                                                leftIcon={<Download size={14} />}
+                                                className="w-full sm:w-auto !justify-center !bg-white border-gray-200"
+                                            >
+                                                View Endorsement Letter
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
+
                         {/* Action Section */}
                         <section className="bg-gray-50 p-5 rounded-xl border border-gray-200">
                             <h4 className="font-bold text-sm text-gray-700 mb-4 uppercase tracking-wider">Staff Actions</h4>
 
                             {request.status === SUPPORT_STATUS.SUBMITTED && (
                                 <div>
-                                    <label htmlFor="care-support-dean-notes" className="block text-xs font-bold text-gray-700 mb-1">CARE Staff Notes (For Dean)</label>
+                                    <label htmlFor="care-support-dean-notes" className="block text-xs font-bold text-gray-700 mb-1">CARE Staff Notes (For College Designate)</label>
                                     <textarea id="care-support-dean-notes" rows={3} value={supportForm.care_notes} onChange={e => setSupportForm({ ...supportForm, care_notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Add endorsement notes..."></textarea>
                                     <div className="mt-3">
                                         <label htmlFor="care-support-endorsement-letter" className="block text-xs font-bold text-gray-700 mb-1">Attach Endorsement Letter (Optional)</label>
@@ -145,12 +180,12 @@ const SupportRequestModal = ({
                                             </div>
                                         )}
                                     </div>
-                                    <Button variant="primary" disabled={isForwardingSupport} isLoading={isForwardingSupport} onClick={onForward} className="w-full mt-3 !bg-yellow-500 hover:!bg-yellow-600 !py-2 !rounded-lg !shadow-none">{isForwardingSupport ? 'Forwarding...' : 'Forward to Dean'}</Button>
+                                    <Button variant="primary" disabled={isForwardingSupport} isLoading={isForwardingSupport} onClick={onForward} className="w-full mt-3 !bg-yellow-500 hover:!bg-yellow-600 !py-2 !rounded-lg !shadow-none">{isForwardingSupport ? 'Forwarding...' : 'Forward to College Designate'}</Button>
                                 </div>
                             )}
 
                             {request.status === SUPPORT_STATUS.FORWARDED_TO_DEPT && (
-                                <div className="text-center text-sm text-gray-500 italic py-4">Waiting for Dean review...</div>
+                                <div className="text-center text-sm text-gray-500 italic py-4">Waiting for College Designate review...</div>
                             )}
 
                             {request.status === SUPPORT_STATUS.VISIT_SCHEDULED && (() => {
@@ -176,7 +211,7 @@ const SupportRequestModal = ({
                             {(request.status === SUPPORT_STATUS.APPROVED || request.status === SUPPORT_STATUS.REJECTED) && (
                                 <div>
                                     <div className={`p-3 rounded-lg mb-3 ${request.status === SUPPORT_STATUS.APPROVED ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                                        <p className="text-xs font-bold uppercase">Dean's Decision: {request.status}</p>
+                                        <p className="text-xs font-bold uppercase">College Designate's Decision: {request.status}</p>
                                         <p className="text-sm mt-1">{request.dept_notes || 'No notes provided.'}</p>
                                     </div>
                                     <label htmlFor="care-support-resolution" className="block text-xs font-bold text-gray-700 mb-1">Final Resolution / Ideas for Student</label>
@@ -240,10 +275,10 @@ const SupportRequestModal = ({
                                 <p className="text-xs text-green-600 font-bold bg-green-50 p-2 rounded"><CheckCircle size={12} className="inline mr-1" /> Request Resolved</p>
                             )}
                         </section>
-                    </div>
-                </m.div>
-            </div>
-);
+                </div>
+            </Modal>
+        );
+    };
 
 const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupportPageProps) => {
     const {
@@ -374,10 +409,10 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                                     variant="secondary"
                                                     size="sm"
                                                     onClick={() => openSupportModal(req)}
-                                                    leftIcon={<ClipboardList size={14} />}
+                                                    leftIcon={req.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? <Eye size={14} /> : <ClipboardList size={14} />}
                                                     className="min-h-9 hover:text-purple-600"
                                                 >
-                                                    Manage
+                                                    {req.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'View' : 'Manage'}
                                                 </Button>
                                             </td>
                                         </tr>
@@ -400,29 +435,27 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                 </div>
             </div>
 
-            {/* Support Modal - Enhanced Overlay */}
-            <AnimatePresence>
-                {showSupportModal && selectedSupportReq && (
-                    <SupportRequestModal
-                        request={selectedSupportReq}
-                        student={selectedStudent}
-                        supportForm={supportForm}
-                        setSupportForm={setSupportForm}
-                        letterFile={letterFile}
-                        setLetterFile={setLetterFile}
-                        isForwardingSupport={isForwardingSupport}
-                        isFinalizingSupport={isFinalizingSupport}
-                        showToast={showToast}
-                        parseDeptNotes={parseDeptNotes}
-                        renderDetailedDescription={renderDetailedDescription}
-                        onClose={() => setShowSupportModal(false)}
-                        onPrint={handlePrintSupport}
-                        onForward={handleForwardSupport}
-                        onLetterFileChange={handleLetterFileChange}
-                        onFinalize={handleFinalizeSupport}
-                    />
-                )}
-            </AnimatePresence>
+            {/* Support Modal - Anchored full-region overlay (matches attendees list) */}
+            {showSupportModal && selectedSupportReq && (
+                <SupportRequestModal
+                    request={selectedSupportReq}
+                    student={selectedStudent}
+                    supportForm={supportForm}
+                    setSupportForm={setSupportForm}
+                    letterFile={letterFile}
+                    setLetterFile={setLetterFile}
+                    isForwardingSupport={isForwardingSupport}
+                    isFinalizingSupport={isFinalizingSupport}
+                    showToast={showToast}
+                    parseDeptNotes={parseDeptNotes}
+                    renderDetailedDescription={renderDetailedDescription}
+                    onClose={() => setShowSupportModal(false)}
+                    onPrint={handlePrintSupport}
+                    onForward={handleForwardSupport}
+                    onLetterFileChange={handleLetterFileChange}
+                    onFinalize={handleFinalizeSupport}
+                />
+            )}
         </>
     );
 };

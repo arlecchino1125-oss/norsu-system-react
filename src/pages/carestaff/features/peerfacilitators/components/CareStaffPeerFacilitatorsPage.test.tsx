@@ -89,7 +89,7 @@ describe('CareStaffPeerFacilitatorsPage layout', () => {
         expectFullRegionDialog('Application Details');
     });
 
-    // The staff asked for approval to live with the department head, who knows
+    // The staff asked for approval to live with the college designate, who knows
     // the applicant. CARE staff keep the read-only view of what was submitted.
     it('offers no approve or reject action on an application', () => {
         renderPage();
@@ -98,7 +98,7 @@ describe('CareStaffPeerFacilitatorsPage layout', () => {
         const dialog = expectFullRegionDialog('Application Details');
         expect(within(dialog).queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
         expect(within(dialog).queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
-        expect(within(dialog).getByText('Approved or rejected by the department head.')).toBeInTheDocument();
+        expect(within(dialog).getByText('Approved or rejected by the college designate.')).toBeInTheDocument();
     });
 
     it('anchors the add facilitator workflow and offers no archive action', () => {

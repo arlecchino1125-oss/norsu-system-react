@@ -23,7 +23,7 @@ const getStatusStyle = (status: string) => {
 };
 
 // Read-only by request of the staff: an application is approved or rejected by
-// the student's own department head, in the department portal. This view is
+// the student's own college designate, in the department portal. This view is
 // here so CARE staff can still see what was submitted.
 const ApplicationReviewModal = ({ application, onClose }: any) => (
     <Modal
@@ -39,7 +39,7 @@ const ApplicationReviewModal = ({ application, onClose }: any) => (
         footer={(
             <div className="flex w-full items-center justify-between gap-3">
                 <Button variant="secondary" onClick={onClose}>Close</Button>
-                <span className="text-xs text-slate-500">Approved or rejected by the department head.</span>
+                <span className="text-xs text-slate-500">Approved or rejected by the college designate.</span>
             </div>
         )}
     >
