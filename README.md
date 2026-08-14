@@ -8,7 +8,6 @@ built as a React single-page application backed by Supabase.
 | Portal | Route | Who uses it |
 |---|---|---|
 | Public landing | `/` | Everyone |
-| Admin | `/admin` → `/admin/dashboard` | System administrators (incl. role permissions at `/admin/permissions`) |
 | Department | `/department/login` → `/department/dashboard` | Department heads (admissions, counseling, events, students, support approvals, reports) |
 | Care Staff | `/care-staff` → `/care-staff/dashboard` | CARE office staff (population, NAT, events, support, analytics, feedback) |
 | Registrar | `/registrar/login` → `/registrar/dashboard` | Registrar (student population directory) |
@@ -70,7 +69,7 @@ src/
   hooks/               # Cross-portal hooks
   lib/                 # Auth, Supabase client, edge-function invocation, audit
   pages/
-    admin|dept|carestaff|registrar|student/
+    dept|carestaff|registrar|student/
       features/<name>/ # Feature-first: components/ + hooks/ per feature
   services/            # Data access per portal (Supabase queries)
   types/               # Shared models, pagination, permissions types
