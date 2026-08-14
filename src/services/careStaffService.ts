@@ -299,6 +299,13 @@ const applyStudentFilters = (query: any, filters?: StudentFilters) => {
         next = next.eq('section', filters.section);
     }
 
+    if (filters.backgroundFlags && filters.backgroundFlags.length > 0) {
+        const flags = filters.backgroundFlags.filter(Boolean);
+        if (flags.length > 0) {
+            next = next.or(flags.map(col => `${col}.eq.true`).join(','));
+        }
+    }
+
     return next;
 };
 
@@ -371,7 +378,7 @@ export const getStudentsPage = async (
     pageParams?: PageParams,
     sort?: SortParams
 ): Promise<PageResult<any>> => {
-    if (filters?.annotationStudentIds || filters?.status === 'Active' || filters?.status === 'Incomplete') {
+    if (filters?.annotationStudentIds || (filters?.backgroundFlags?.length ?? 0) > 0 || filters?.status === 'Active' || filters?.status === 'Incomplete') {
         return getRestStudentsPage(filters, pageParams, sort);
     }
 

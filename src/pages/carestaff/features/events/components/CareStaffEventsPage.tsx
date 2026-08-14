@@ -55,7 +55,7 @@ const getStudentName = (student: any) => [student.first_name, student.middle_nam
     .join(' ');
 
 const EventFormModal = ({
-    newEvent, setNewEvent, editingEventId, setEditingEventId, createEvent, departmentOptions, courseOptions, getCurrentLocation, setShowEventModal, renderAudienceCheckboxGroup
+    newEvent, setNewEvent, editingEventId, setEditingEventId, createEvent, departmentOptions, courseOptions, getCurrentLocation, setShowEventModal, renderAudienceCheckboxGroup, applyScheduleField
 }: any) => (
     <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4 sm:p-6">
         <Card className="w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] animate-scale-in shadow-2xl">
@@ -95,16 +95,16 @@ const EventFormModal = ({
                     <div><label htmlFor="event-description" className="block text-xs font-bold text-gray-500 mb-1">Description</label><textarea id="event-description" required className="w-full resize-y rounded-xl border border-gray-200 bg-slate-50/60 p-4 text-sm leading-6 text-gray-700 outline-none transition focus:border-purple-300 focus:bg-white focus:ring-2 focus:ring-purple-100" rows={5} value={newEvent.description} onChange={e => setNewEvent({ ...newEvent, description: e.target.value })} placeholder="Details..." /></div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label htmlFor="event-date" className="block text-xs font-bold text-gray-500 mb-1">Date</label><input id="event-date" type="date" required className="w-full border rounded-lg p-2 text-sm" value={newEvent.event_date} onChange={e => setNewEvent({ ...newEvent, event_date: e.target.value })} /></div>
+                        <div><label htmlFor="event-date" className="block text-xs font-bold text-gray-500 mb-1">Date</label><input id="event-date" type="date" required className="w-full border rounded-lg p-2 text-sm" value={newEvent.event_date} onChange={e => applyScheduleField('event_date', e.target.value)} /></div>
                         {isAttendanceActivityType(newEvent.type) && (
-                            <div><label htmlFor="event-start-time" className="block text-xs font-bold text-gray-500 mb-1">Start Time</label><input id="event-start-time" type="time" className="w-full border rounded-lg p-2 text-sm" value={newEvent.event_time} onChange={e => setNewEvent({ ...newEvent, event_time: e.target.value })} /></div>
+                            <div><label htmlFor="event-start-time" className="block text-xs font-bold text-gray-500 mb-1">Start Time</label><input id="event-start-time" type="time" className="w-full border rounded-lg p-2 text-sm" value={newEvent.event_time} onChange={e => applyScheduleField('event_time', e.target.value)} /></div>
                         )}
                     </div>
 
                     {isAttendanceActivityType(newEvent.type) && (
                         <>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label htmlFor="event-end-time" className="block text-xs font-bold text-gray-500 mb-1">End Time</label><input id="event-end-time" type="time" className="w-full border rounded-lg p-2 text-sm" value={newEvent.end_time} onChange={e => setNewEvent({ ...newEvent, end_time: e.target.value })} /></div>
+                                <div><label htmlFor="event-end-time" className="block text-xs font-bold text-gray-500 mb-1">End Time</label><input id="event-end-time" type="time" className="w-full border rounded-lg p-2 text-sm" value={newEvent.end_time} onChange={e => applyScheduleField('end_time', e.target.value)} /></div>
                                 <div><label htmlFor="event-location" className="block text-xs font-bold text-gray-500 mb-1">Location</label><input id="event-location" className="w-full border rounded-lg p-2 text-sm" value={newEvent.location} onChange={e => setNewEvent({ ...newEvent, location: e.target.value })} placeholder="e.g., Main Gym" /></div>
                             </div>
 
@@ -276,10 +276,11 @@ const EventFormModal = ({
 );
 
 const AttendeesModal = ({
-    showToast, isLoading, attendees, expectedStudents, selectedAttendanceEvent, attendeeFilter, setAttendeeFilter, yearLevelFilter, setYearLevelFilter, attendeeCourseFilter, setAttendeeCourseFilter, attendeeSectionFilter, setAttendeeSectionFilter, setShowAttendeesModal, selectedEventTitle, setExpectedStudents, setSelectedAttendanceEvent
+    showToast, isLoading, attendees, expectedStudents, selectedAttendanceEvent, attendeeFilter, setAttendeeFilter, yearLevelFilter, setYearLevelFilter, attendeeCourseFilter, setAttendeeCourseFilter, attendeeSectionFilter, setAttendeeSectionFilter, setShowAttendeesModal, selectedEventTitle, setExpectedStudents, setSelectedAttendanceEvent, handleVoidAttendance
 }: any) => {
     const [attendeeSearch, setAttendeeSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [confirmVoid, setConfirmVoid] = useState(false);
     const depts = [...new Set(attendees.flatMap((a: any) => a.department ? [a.department] : []))].sort() as string[];
     const yearLevels = [...new Set(attendees.flatMap((a: any) => a.year_level ? [a.year_level] : []))].sort() as string[];
     const courses = [...new Set(attendees.flatMap((a: any) => a.course ? [a.course] : []))].sort() as string[];
@@ -318,6 +319,9 @@ const AttendeesModal = ({
                         </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                        {attendees.length > 0 && (
+                            <Button variant="danger" size="sm" onClick={() => setConfirmVoid(true)} leftIcon={<XCircle size={14} />}>Void All Attendance</Button>
+                        )}
                         <Button variant="secondary" size="sm" onClick={() => {
                             if (filtered.length === 0 && expectedStudents.length === 0) return;
                             const headers = ['Student Name', 'College', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
@@ -420,6 +424,16 @@ const AttendeesModal = ({
                                 </div>
                             )}
                         </div>
+                        {confirmVoid && (
+                            <div className="mx-4 my-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                                <p className="text-sm font-bold text-red-700 mb-1">Void all attendance?</p>
+                                <p className="text-xs text-red-600 mb-3">This permanently wipes all time-in/time-out records for this event (e.g. the event did not happen). This cannot be undone.</p>
+                                <div className="flex gap-3">
+                                    <Button variant="secondary" size="sm" onClick={() => setConfirmVoid(false)}>Cancel</Button>
+                                    <Button variant="danger" size="sm" onClick={async () => { await handleVoidAttendance(selectedAttendanceEvent?.id); setConfirmVoid(false); }}>Yes, void all attendance</Button>
+                                </div>
+                            </div>
+                        )}
                         <div className="p-0 overflow-y-auto flex-1">
                             {filtered.length === 0 ? <p className="text-center py-8 text-gray-500">{hasActiveFilters ? 'No attendees match the filters.' : 'No attendees yet.'}</p> : (
                                 <table className="w-full text-left text-xs">
@@ -842,7 +856,7 @@ const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => createPortal(
 ), document.getElementById('staff-content-region') || document.body);
 
 const EventListSection = ({
-    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, onOpenExtend, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
+    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, onOpenExtend, onOpenReschedule, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
 }: any) => (
     <div className="space-y-4">
         {/* Active Events */}
@@ -900,7 +914,10 @@ const EventListSection = ({
                             </>
                         )}
                         {isAttendanceActivityType(item.type) && (
-                            <Button variant="secondary" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} />}>Extend</Button>
+                            <>
+                                <Button variant="secondary" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} />}>Extend</Button>
+                                <Button variant="secondary" size="sm" onClick={() => onOpenReschedule(item)} leftIcon={<Calendar size={14} />}>Reschedule</Button>
+                            </>
                         )}
                         <Button variant="secondary" size="sm" onClick={() => handleEditEvent(item)} leftIcon={<CheckCircle size={14} />} />
                         {canArchiveRecords && (
@@ -1035,6 +1052,9 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         createEvent,
         handleEditEvent,
         handleExtendAttendance,
+        handleRescheduleEvent,
+        handleVoidAttendance,
+        applyScheduleField,
         handleDeleteEvent,
         confirmDeleteEvent,
         handleViewAttendees,
@@ -1051,10 +1071,21 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
     const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string; eventDate?: string | null } | null>(null);
     const [extendTarget, setExtendTarget] = useState<any>(null);
     const [extendDate, setExtendDate] = useState('');
+    const [rescheduleTarget, setRescheduleTarget] = useState<SystemEvent | null>(null);
+    const [rescheduleDate, setRescheduleDate] = useState('');
+    const [rescheduleStartTime, setRescheduleStartTime] = useState('');
+    const [rescheduleEndTime, setRescheduleEndTime] = useState('');
 
     const onOpenExtend = (item: any) => {
         setExtendTarget(item);
         setExtendDate(suggestExtendDate(item.event_date || '', item.end_time || ''));
+    };
+
+    const onOpenReschedule = (item: SystemEvent) => {
+        setRescheduleTarget(item);
+        setRescheduleDate(item.event_date || '');
+        setRescheduleStartTime(item.event_time || '');
+        setRescheduleEndTime(item.end_time || '');
     };
 
     const refreshEvaluations = useCallback(async () => {
@@ -1170,6 +1201,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     canArchiveRecords={canArchiveRecords}
                     handleEditEvent={handleEditEvent}
                     onOpenExtend={onOpenExtend}
+                    onOpenReschedule={onOpenReschedule}
                     handleViewAttendees={handleViewAttendees}
                     handleViewAbsent={(item: SystemEvent) => handleViewAttendees(item, 'absent')}
                     handleViewRegistrants={handleViewRegistrants}
@@ -1195,6 +1227,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     setShowEventModal={setShowEventModal}
                     setEditingEventId={setEditingEventId}
                     renderAudienceCheckboxGroup={renderAudienceCheckboxGroup}
+                    applyScheduleField={applyScheduleField}
                 />
             )}
 
@@ -1218,6 +1251,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     selectedEventTitle={selectedEventTitle}
                     setExpectedStudents={setExpectedStudents}
                     setSelectedAttendanceEvent={setSelectedAttendanceEvent}
+                    handleVoidAttendance={handleVoidAttendance}
                 />
             )}
 
@@ -1338,6 +1372,49 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                                     }}
                                 >
                                     Reopen
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {rescheduleTarget && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <Card className="w-full max-w-md">
+                        <CardContent className="p-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Reschedule event</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                {rescheduleTarget.title} &mdash; move the date and time. Rescheduling resets the attendance close date to 3 days after the new end time.
+                            </p>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                <div>
+                                    <label htmlFor="reschedule-date" className="block text-xs font-bold text-gray-500 mb-1">Date</label>
+                                    <input id="reschedule-date" type="date" required className="w-full border rounded-lg p-2 text-sm" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="reschedule-start-time" className="block text-xs font-bold text-gray-500 mb-1">Start time</label>
+                                    <input id="reschedule-start-time" type="time" required className="w-full border rounded-lg p-2 text-sm" value={rescheduleStartTime} onChange={e => setRescheduleStartTime(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="reschedule-end-time" className="block text-xs font-bold text-gray-500 mb-1">End time</label>
+                                    <input id="reschedule-end-time" type="time" className="w-full border rounded-lg p-2 text-sm" value={rescheduleEndTime} onChange={e => setRescheduleEndTime(e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <Button variant="secondary" className="flex-1" onClick={() => setRescheduleTarget(null)}>Cancel</Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={async () => {
+                                        await handleRescheduleEvent(rescheduleTarget, {
+                                            event_date: rescheduleDate,
+                                            event_time: rescheduleStartTime,
+                                            end_time: rescheduleEndTime
+                                        });
+                                        setRescheduleTarget(null);
+                                    }}
+                                >
+                                    Reschedule
                                 </Button>
                             </div>
                         </CardContent>

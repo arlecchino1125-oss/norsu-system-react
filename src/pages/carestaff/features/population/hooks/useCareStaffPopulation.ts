@@ -52,7 +52,8 @@ import {
     CARE_STUDENT_TABLE_SHELL_CLASS,
     CARE_STUDENT_SEARCH_DEBOUNCE_MS,
     CARE_STUDENT_REFRESH_MIN_MS,
-    EMPTY_POPULATION_OVERVIEW
+    EMPTY_POPULATION_OVERVIEW,
+    STUDENT_BACKGROUND_FILTERS
 } from '../constants';
 import {
     getCareStudentTotalPages,
@@ -291,10 +292,11 @@ export function useCareStaffPopulation({
     const [sectionFilter, setSectionFilter] = useState('All');
     const [hasNoteFilter, setHasNoteFilter] = useState(false);
     const [atRiskFilter, setAtRiskFilter] = useState(false);
+    const [backgroundFilter, setBackgroundFilter] = useState<string[]>([]);
     const [filtersExpanded, setFiltersExpanded] = useState(false);
 
     const activeFilterCount = [departmentFilter, courseFilter, yearFilter, statusFilter, schoolYearFilter, sectionFilter]
-        .filter(v => v !== 'All').length + (searchTerm ? 1 : 0) + (hasNoteFilter ? 1 : 0) + (atRiskFilter ? 1 : 0);
+        .filter(v => v !== 'All').length + (searchTerm ? 1 : 0) + (hasNoteFilter ? 1 : 0) + (atRiskFilter ? 1 : 0) + (backgroundFilter.length ? 1 : 0);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'stats'
     const itemsPerPage = CARE_STUDENT_PAGE_SIZE;
     const [tableStudents, setTableStudents] = useState<any[]>([]);
@@ -718,7 +720,7 @@ export function useCareStaffPopulation({
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [departmentFilter, courseFilter, yearFilter, statusFilter, sectionFilter, schoolYearFilter, hasNoteFilter, atRiskFilter]);
+    }, [departmentFilter, courseFilter, yearFilter, statusFilter, sectionFilter, schoolYearFilter, hasNoteFilter, atRiskFilter, backgroundFilter]);
 
     const annotationFilterActive = hasNoteFilter || atRiskFilter;
     const {
@@ -752,6 +754,7 @@ export function useCareStaffPopulation({
             sortConfig.key,
             sortConfig.direction,
             annotationStudentIdsKey,
+            backgroundFilter.join(','),
             tableRefreshTick
         ],
         queryFn: () => getStudentsPage(
@@ -762,7 +765,8 @@ export function useCareStaffPopulation({
                 yearLevel: yearFilter,
                 status: statusFilter,
                 section: sectionFilter,
-                annotationStudentIds
+                annotationStudentIds,
+                backgroundFlags: backgroundFilter.length ? backgroundFilter : undefined
             },
             { page: currentPage, pageSize: itemsPerPage },
             {
@@ -827,7 +831,8 @@ export function useCareStaffPopulation({
         yearLevel: yearFilter,
         status: statusFilter,
         section: sectionFilter,
-        annotationStudentIds
+        annotationStudentIds,
+        backgroundFlags: backgroundFilter.length ? backgroundFilter : undefined
     });
 
     const getBulkTargetStudents = async () => {
@@ -1187,7 +1192,8 @@ export function useCareStaffPopulation({
         const matchesSection = sectionFilter === 'All' || s.section === sectionFilter;
         const matchesSchoolYear = schoolYearFilter === 'All' || Boolean(values.snapshot);
         const matchesAnnotations = !annotationFilterActive || annotationStudentIdSet.has(Number(s.id));
-        return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesStatus && matchesSection && matchesSchoolYear && matchesAnnotations;
+        const matchesBackground = backgroundFilter.length === 0 || backgroundFilter.some(col => s[col] === true);
+        return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesStatus && matchesSection && matchesSchoolYear && matchesAnnotations && matchesBackground;
     });
 
     const bulkTargetCount = schoolYearFilter === 'All' ? tableStudentsTotal : filteredStudents.length;
@@ -1196,13 +1202,13 @@ export function useCareStaffPopulation({
         if (schoolYearFilter !== 'All') {
             const nextSections = [...new Set(
                 historicalStudents.flatMap((student: any) => {
-                        const values = getStudentCourseYearForFilter(student);
-                        const matchesSchoolYear = Boolean(values.snapshot);
-                        const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
-                        const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
-                        const section = student.section;
-                        return matchesSchoolYear && matchesCourse && matchesYear && section ? [section] : [];
-                    })
+                    const values = getStudentCourseYearForFilter(student);
+                    const matchesSchoolYear = Boolean(values.snapshot);
+                    const matchesCourse = courseFilter === 'All' || values.course === courseFilter;
+                    const matchesYear = yearFilter === 'All' || values.yearLevel === yearFilter;
+                    const section = student.section;
+                    return matchesSchoolYear && matchesCourse && matchesYear && section ? [section] : [];
+                })
             )].sort() as string[];
             setAvailableSections(nextSections);
             return;
@@ -1233,7 +1239,31 @@ export function useCareStaffPopulation({
         functions.showToast('Preparing your Excel file...', 'info');
         try {
             const XLSX = await loadXlsx();
-            const allStudents = await getAllStudentsForExport();
+
+            // ponytail: use already-filtered data when possible; only fetch from DB in "All years" mode
+            let allStudents: any[];
+            if (schoolYearFilter !== 'All') {
+                // Historical mode: filteredStudents already has all active filters applied in memory
+                allStudents = filteredStudents;
+            } else {
+                // Live mode: fetch everything then apply active client-side filters
+                const raw = await getAllStudentsForExport();
+                allStudents = (raw || []).filter((s: any) => {
+                    const matchesSearch = !debouncedSearchTerm.trim() || studentMatchesSearch(s, debouncedSearchTerm);
+                    const matchesDept = departmentFilter === 'All' || s.department === departmentFilter;
+                    const matchesCourse = courseFilter === 'All' || s.course === courseFilter;
+                    const matchesYear = yearFilter === 'All' || s.year_level === yearFilter;
+                    const matchesStatus = statusFilter === 'All'
+                        || (statusFilter === 'Incomplete'
+                            ? s.status === 'Inactive' || s.profile_completed !== true
+                            : s.status === 'Active' && s.profile_completed === true);
+                    const matchesSection = sectionFilter === 'All' || s.section === sectionFilter;
+                    const matchesAnnotations = !annotationFilterActive || annotationStudentIdSet.has(Number(s.id));
+                    const matchesBackground = backgroundFilter.length === 0 || backgroundFilter.some(col => s[col] === true);
+                    return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesStatus && matchesSection && matchesAnnotations && matchesBackground;
+                });
+            }
+
             if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); return; }
 
             const exportColumns: any[] = PROFILE_CATEGORIES.flatMap(category =>
@@ -1250,7 +1280,7 @@ export function useCareStaffPopulation({
             const pathsByBucket: Record<string, string[]> = {};
             for (const student of allStudents) {
                 for (const col of exportColumns) {
-                    if (col.type === 'file') {
+                    if (col.type === 'file' && col.bucket !== 'profile-pictures') {
                         const val = col.compute ? col.compute(student) : student[col.db];
                         const rawValue = String(val || '').trim();
                         if (rawValue) {
@@ -1293,8 +1323,10 @@ export function useCareStaffPopulation({
                     } else if (col.type === 'file') {
                         const rawValue = String(val || '').trim();
                         const bucket = col.bucket || 'support_documents';
+                        // ponytail: profile photos always show 'Available in portal' — old Supabase/GDrive
+                        // paths would otherwise leak signed/raw URLs. Migrate old photos to R2 later.
                         const resolvedUrl = rawValue
-                            ? (resolvedUrlsMapByBucket[bucket]?.[rawValue] || (isR2Reference(rawValue) ? 'Available in portal' : rawValue))
+                            ? (bucket === 'profile-pictures' ? 'Available in portal' : (resolvedUrlsMapByBucket[bucket]?.[rawValue] || (isR2Reference(rawValue) ? 'Available in portal' : rawValue)))
                             : '';
                         row.push(escapeSpreadsheetFormula(resolvedUrl));
                     } else {
@@ -1545,6 +1577,8 @@ export function useCareStaffPopulation({
         setHasNoteFilter,
         atRiskFilter,
         setAtRiskFilter,
+        backgroundFilter,
+        setBackgroundFilter,
         filtersExpanded,
         setFiltersExpanded,
         activeFilterCount,

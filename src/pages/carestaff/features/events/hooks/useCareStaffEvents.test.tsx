@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useCareStaffEvents, suggestCloseDate, suggestExtendDate } from './useCareStaffEvents';
+import { useCareStaffEvents, suggestCloseDate, suggestExtendDate, shiftAttendanceCloseDate } from './useCareStaffEvents';
 import { supabase } from '../../../../../lib/supabase';
 
 vi.mock('../../../../../hooks/usePermissions', () => ({
@@ -134,5 +134,182 @@ describe('useCareStaffEvents extend attendance', () => {
 
         expect(supabase.from).not.toHaveBeenCalled();
         expect(showToast).toHaveBeenCalledWith('Pick a valid closing date.', 'error');
+    });
+});
+
+describe('shiftAttendanceCloseDate', () => {
+    it('keeps the NULL default when there was no explicit close date', () => {
+        expect(shiftAttendanceCloseDate(null, { event_date: '2026-08-10', event_time: '09:00' }, { event_date: '2026-08-17', event_time: '09:00' })).toBeNull();
+        expect(shiftAttendanceCloseDate(undefined, { event_date: '2026-08-10', event_time: '09:00' }, { event_date: '2026-08-17', event_time: '09:00' })).toBeNull();
+    });
+
+    it('shifts an explicit close date by the same offset the event start moved', () => {
+        expect(
+            shiftAttendanceCloseDate(
+                '2026-08-13T04:00:00.000Z',
+                { event_date: '2026-08-10', event_time: '09:00' },
+                { event_date: '2026-08-17', event_time: '09:00' }
+            )
+        ).toBe('2026-08-20T04:00:00.000Z');
+    });
+
+    it('shifts by time-of-day changes too', () => {
+        expect(
+            shiftAttendanceCloseDate(
+                '2026-08-13T04:00:00.000Z',
+                { event_date: '2026-08-10', event_time: '09:00' },
+                { event_date: '2026-08-10', event_time: '11:00' }
+            )
+        ).toBe('2026-08-13T06:00:00.000Z');
+    });
+
+    it('returns the original close date when the schedule is not parseable', () => {
+        expect(
+            shiftAttendanceCloseDate(
+                '2026-08-13T04:00:00.000Z',
+                { event_date: '', event_time: '' },
+                { event_date: '2026-08-17', event_time: '09:00' }
+            )
+        ).toBe('2026-08-13T04:00:00.000Z');
+    });
+});
+
+describe('useCareStaffEvents close-date awareness', () => {
+    beforeEach(() => {
+        vi.mocked(supabase.from).mockReset();
+    });
+
+    const editableEvent = {
+        id: 3,
+        title: 'Sample event',
+        type: 'Event',
+        event_date: '2026-08-10',
+        event_time: '09:00',
+        end_time: '12:00',
+        attendance_closes_at: '2026-08-13T04:00:00.000Z',
+        attendance_required: true,
+        audience_type: 'all_students'
+    } as any;
+
+    it('re-anchors an untouched close date when the schedule date moves', () => {
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+
+        act(() => {
+            result.current.handleEditEvent(editableEvent);
+        });
+
+        const before = result.current.newEvent.attendance_closes_at as string;
+        expect(before).toBeTruthy();
+
+        act(() => {
+            result.current.applyScheduleField('event_date', '2026-08-17');
+        });
+
+        const after = result.current.newEvent.attendance_closes_at as string;
+        const [beforeDate, beforeTime] = before.split('T');
+        const [afterDate, afterTime] = after.split('T');
+
+        // Same wall-clock time, seven days later (no TZ surprises in mid-August).
+        expect(afterTime).toBe(beforeTime);
+        const expected = new Date(`${beforeDate}T00:00`);
+        expected.setDate(expected.getDate() + 7);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        expect(afterDate).toBe(`${expected.getFullYear()}-${pad(expected.getMonth() + 1)}-${pad(expected.getDate())}`);
+    });
+
+    it('keeps a manually-set close date as the staff member typed it', () => {
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+
+        act(() => {
+            result.current.handleEditEvent(editableEvent);
+        });
+
+        act(() => {
+            result.current.setNewEvent((prev: any) => ({ ...prev, attendance_closes_at: '2026-08-16T18:00' }));
+        });
+        act(() => {
+            result.current.applyScheduleField('event_date', '2026-08-17');
+        });
+
+        expect(result.current.newEvent.attendance_closes_at).toBe('2026-08-16T18:00');
+    });
+});
+
+describe('useCareStaffEvents reschedule event', () => {
+    beforeEach(() => {
+        vi.mocked(supabase.from).mockReset();
+    });
+
+    it('updates only the schedule fields and resets the close date', async () => {
+        const eq = vi.fn().mockResolvedValue({ error: null });
+        const update = vi.fn().mockReturnValue({ eq });
+        vi.mocked(supabase.from).mockReturnValue({ update } as any);
+
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+
+        await act(async () => {
+            await result.current.handleRescheduleEvent(
+                { id: 42, title: 'Sample event', type: 'Event' } as any,
+                { event_date: '2026-08-20', event_time: '13:00', end_time: '15:00' }
+            );
+        });
+
+        expect(update).toHaveBeenCalledWith({
+            event_date: '2026-08-20',
+            event_time: '13:00',
+            end_time: '15:00',
+            attendance_closes_at: null
+        });
+        expect(eq).toHaveBeenCalledWith('id', 42);
+    });
+
+    it('refuses a blank date or start time without touching the database', async () => {
+        const showToast = vi.fn();
+        const { result } = renderHook(() => useCareStaffEvents({ functions: { showToast } }));
+
+        await act(async () => {
+            await result.current.handleRescheduleEvent({ id: 42, type: 'Event' } as any, { event_date: '', event_time: '' });
+        });
+
+        expect(supabase.from).not.toHaveBeenCalled();
+        expect(showToast).toHaveBeenCalledWith('Pick a valid date and start time.', 'error');
+    });
+});
+
+describe('useCareStaffEvents void attendance', () => {
+    beforeEach(() => {
+        vi.mocked(supabase.from).mockReset();
+    });
+
+    it('deletes the attendance rows and resets the denormalized counter', async () => {
+        const deleteEq = vi.fn().mockResolvedValue({ data: null, error: null });
+        const resetEq = vi.fn().mockResolvedValue({ data: null, error: null });
+        const del = vi.fn().mockReturnValue({ eq: deleteEq });
+        const update = vi.fn().mockReturnValue({ eq: resetEq });
+        vi.mocked(supabase.from).mockImplementation((table: string) =>
+            (table === 'event_attendance' ? { delete: del } : { update }) as any
+        );
+
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+
+        await act(async () => {
+            await result.current.handleVoidAttendance(7);
+        });
+
+        expect(del).toHaveBeenCalled();
+        expect(deleteEq).toHaveBeenCalledWith('event_id', 7);
+        expect(update).toHaveBeenCalledWith({ attendees: 0 });
+        expect(resetEq).toHaveBeenCalledWith('id', 7);
+        expect(result.current.attendees).toEqual([]);
+    });
+
+    it('does nothing when there is no event id', async () => {
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+
+        await act(async () => {
+            await result.current.handleVoidAttendance(undefined);
+        });
+
+        expect(supabase.from).not.toHaveBeenCalled();
     });
 });

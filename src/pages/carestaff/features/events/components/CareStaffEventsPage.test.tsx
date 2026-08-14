@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CareStaffEventsPage from './CareStaffEventsPage';
@@ -70,7 +70,10 @@ const baseHookState = {
     setShowAbsentModal: vi.fn(),
     setShowFeedbackModal: vi.fn(),
     setExpectedStudents: vi.fn(),
-    setSelectedAttendanceEvent: vi.fn()
+    setSelectedAttendanceEvent: vi.fn(),
+    handleRescheduleEvent: vi.fn(),
+    handleVoidAttendance: vi.fn(),
+    applyScheduleField: vi.fn()
 };
 
 describe('CareStaffEventsPage modals', () => {
@@ -170,5 +173,84 @@ describe('CareStaffEventsPage modals', () => {
         expect(advanced.open).toBe(false);
         expect(screen.getByLabelText(/require photo on time in/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/require geolocation/i)).toBeInTheDocument();
+    });
+});
+
+describe('CareStaffEventsPage reschedule & void UI', () => {
+    it('opens the reschedule modal pre-filled and confirms through the handler', () => {
+        const handleRescheduleEvent = vi.fn().mockResolvedValue(undefined);
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            events: [{
+                id: 3,
+                title: 'Sample event',
+                type: 'Event',
+                event_date: '2026-07-26',
+                event_time: '09:00',
+                end_time: '12:00',
+                description: 'A sample attendance event'
+            }],
+            handleRescheduleEvent
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        act(() => {
+            fireEvent.click(screen.getByRole('button', { name: 'Reschedule' }));
+        });
+        const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
+        expect(dateInput.value).toBe('2026-07-26');
+        expect((screen.getByLabelText('Start time') as HTMLInputElement).value).toBe('09:00');
+        expect((screen.getByLabelText('End time') as HTMLInputElement).value).toBe('12:00');
+
+        act(() => {
+            fireEvent.change(dateInput, { target: { value: '2026-07-27' } });
+        });
+        act(() => {
+            fireEvent.click(screen.getAllByRole('button', { name: 'Reschedule' })[1]); // modal confirm
+        });
+
+        expect(handleRescheduleEvent).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 3 }),
+            { event_date: '2026-07-27', event_time: '09:00', end_time: '12:00' }
+        );
+    });
+
+    it('shows the void confirm only when there are attendees and confirms via the handler', () => {
+        const handleVoidAttendance = vi.fn().mockResolvedValue(undefined);
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            showAttendeesModal: true,
+            attendees: [{ id: 1, student_id: 'S1', student_name: 'Alice', department: 'CAS', course: 'BSCS', year_level: '2nd Year', section: 'A', time_in: '2026-07-26T09:00:00Z' }],
+            selectedAttendanceEvent: { id: 3, title: 'Sample event', type: 'Event', attendance_required: true },
+            handleVoidAttendance
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        const voidButton = screen.getByRole('button', { name: 'Void All Attendance' });
+        expect(voidButton).toBeInTheDocument();
+        act(() => {
+            fireEvent.click(voidButton);
+        });
+
+        expect(screen.getByText('Void all attendance?')).toBeInTheDocument();
+        act(() => {
+            fireEvent.click(screen.getByRole('button', { name: 'Yes, void all attendance' }));
+        });
+
+        expect(handleVoidAttendance).toHaveBeenCalledWith(3);
+    });
+
+    it('hides the void button when the event has no attendees', () => {
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            showAttendeesModal: true,
+            attendees: []
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.queryByRole('button', { name: 'Void All Attendance' })).not.toBeInTheDocument();
     });
 });

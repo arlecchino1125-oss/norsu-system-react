@@ -22,7 +22,7 @@ import {
     getEventAudienceType,
     isAttendanceActivityType
 } from '../../../../../utils/eventAudience';
-import { DEFAULT_CLOSE_MS } from '../../../../../utils/eventWindows';
+import { DEFAULT_CLOSE_MS, parseEventDate, parseEventTime } from '../../../../../utils/eventWindows';
 import type { CareStaffDashboardFunctions } from '../../../types';
 
 
@@ -163,6 +163,34 @@ const toCloseTimestamp = (value: string) => {
     return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : null;
 };
 
+// Re-anchor an explicit close date onto a new schedule by keeping the same
+// offset from the event start. NULL (no explicit close) stays NULL -- the
+// default (end + 3 days) recomputes from the new schedule on its own.
+export const shiftAttendanceCloseDate = (
+    originalClose: string | null | undefined,
+    originalSchedule: { event_date?: string; event_time?: string },
+    nextSchedule: { event_date?: string; event_time?: string }
+): string | null => {
+    if (!originalClose) return null;
+
+    const originalDate = parseEventDate(originalSchedule?.event_date);
+    const originalTime = parseEventTime(originalSchedule?.event_time);
+    const nextDate = parseEventDate(nextSchedule?.event_date);
+    const nextTime = parseEventTime(nextSchedule?.event_time);
+    if (!originalDate || !originalTime || !nextDate || !nextTime) return originalClose;
+
+    const originalStart = new Date(originalDate);
+    originalStart.setHours(originalTime.hour, originalTime.minute, originalTime.second, 0);
+    const nextStart = new Date(nextDate);
+    nextStart.setHours(nextTime.hour, nextTime.minute, nextTime.second, 0);
+
+    const close = new Date(originalClose);
+    if (Number.isNaN(close.getTime())) return originalClose;
+
+    const shifted = new Date(close.getTime() + (nextStart.getTime() - originalStart.getTime()));
+    return Number.isNaN(shifted.getTime()) ? originalClose : shifted.toISOString();
+};
+
 // Suggests the default so staff sees the real date rather than an empty box.
 // DEFAULT_CLOSE_MS comes from eventWindows.ts on purpose: that file is the
 // single source of truth for this span, and restating 3 days here is exactly
@@ -239,6 +267,9 @@ export function useCareStaffEvents({ functions }: any) {
 
     // Target Item States
     const [editingEventId, setEditingEventId] = useState<number | null>(null);
+    // Snapshot of the schedule being edited so a date/time change can re-anchor an
+    // untouched close date onto the new schedule instead of leaving a stale deadline.
+    const [editBaseline, setEditBaseline] = useState<{ event_date?: string; event_time?: string; end_time?: string; attendance_closes_at?: string | null } | null>(null);
     const [eventToDelete, setEventToDelete] = useState<number | null>(null);
     const [newEvent, setNewEvent] = useState<Partial<SystemEvent>>(() => createEmptyEvent());
     const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
@@ -296,6 +327,22 @@ export function useCareStaffEvents({ functions }: any) {
             const capacityValue = Number(newEvent.capacity || 0);
             const latitudeValue = Number(newEvent.latitude);
             const longitudeValue = Number(newEvent.longitude);
+            // Close-date awareness: when editing and the schedule moved but the close
+            // date field still holds its pre-filled value, re-anchor the close date
+            // onto the new schedule so the card does not re-archive on a stale deadline.
+            let attendanceCloseAt = toCloseTimestamp(newEvent.attendance_closes_at || '');
+            if (editingEventId && editBaseline) {
+                const prefillClose = toDatetimeLocalInput(editBaseline.attendance_closes_at || '');
+                const closeUntouched = (newEvent.attendance_closes_at || '') === prefillClose;
+                if (closeUntouched
+                    && (newEvent.event_date !== editBaseline.event_date || newEvent.event_time !== editBaseline.event_time)) {
+                    attendanceCloseAt = shiftAttendanceCloseDate(
+                        editBaseline.attendance_closes_at || null,
+                        { event_date: editBaseline.event_date, event_time: editBaseline.event_time },
+                        { event_date: newEvent.event_date, event_time: newEvent.event_time }
+                    );
+                }
+            }
             const payload = {
                 title: newEvent.title,
                 type: newEvent.type,
@@ -322,7 +369,7 @@ export function useCareStaffEvents({ functions }: any) {
                     : null,
                 require_photo: isAttendanceActivity ? Boolean(newEvent.require_photo) : true,
                 require_geolocation: isAttendanceActivity && Boolean(newEvent.require_geolocation),
-                attendance_closes_at: isAttendanceActivity ? toCloseTimestamp(newEvent.attendance_closes_at || '') : null,
+                attendance_closes_at: isAttendanceActivity ? attendanceCloseAt : null,
                 is_archived: false
             };
 
@@ -345,6 +392,12 @@ export function useCareStaffEvents({ functions }: any) {
     };
 
     const handleEditEvent = (item: SystemEvent) => {
+        setEditBaseline({
+            event_date: item.event_date,
+            event_time: item.event_time,
+            end_time: item.end_time,
+            attendance_closes_at: item.attendance_closes_at ?? null
+        });
         setNewEvent({
             title: item.title,
             type: item.type,
@@ -371,6 +424,28 @@ export function useCareStaffEvents({ functions }: any) {
         });
         setEditingEventId(item.id || null);
         setShowEventModal(true);
+    };
+
+    // Editing form field that drives the schedule (date / start / end). On an
+    // edit it re-anchors the close-date field while the staff member has not
+    // touched it, so moving an event moves its close date along instead of
+    // leaving a stale deadline that would re-archived the card.
+    const applyScheduleField = (field: 'event_date' | 'event_time' | 'end_time', value: string) => {
+        setNewEvent(prev => {
+            const next = { ...prev, [field]: value };
+            if (!editingEventId || !editBaseline) return next;
+
+            const prefillClose = toDatetimeLocalInput(editBaseline.attendance_closes_at || '');
+            const closeUntouched = (prev.attendance_closes_at || '') === prefillClose;
+            if (!closeUntouched) return next;
+
+            const shifted = shiftAttendanceCloseDate(
+                editBaseline.attendance_closes_at || null,
+                { event_date: editBaseline.event_date, event_time: editBaseline.event_time },
+                { event_date: next.event_date, event_time: next.event_time }
+            );
+            return { ...next, attendance_closes_at: toDatetimeLocalInput(shifted || '') };
+        });
     };
 
     // Pushes an event's single closing date forward. Un-archiving is the point,
@@ -593,6 +668,61 @@ export function useCareStaffEvents({ functions }: any) {
         );
     };
 
+    // Quick reschedule: moves only date/start/end and resets the close date so
+    // the card re-evaluates against the new schedule instead of an old deadline.
+    const handleRescheduleEvent = async (
+        item: SystemEvent,
+        { event_date, event_time, end_time }: { event_date?: string; event_time?: string; end_time?: string }
+    ) => {
+        if (!item.id || !event_date || !event_time) {
+            if (showToast) showToast('Pick a valid date and start time.', 'error');
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from('events')
+                .update({
+                    event_date,
+                    event_time: event_time || null,
+                    end_time: end_time || null,
+                    attendance_closes_at: null
+                })
+                .eq('id', item.id);
+            if (error) throw error;
+            if (showToast) showToast('Event rescheduled.');
+            await fetchEvents();
+        } catch (err: any) {
+            if (showToast) showToast(err.message, 'error');
+        }
+    };
+
+    // Void the event's attendance: wipes every time-in/out record and resets the
+    // denormalized attendees counter so the public/dept portals stay honest.
+    const handleVoidAttendance = async (eventId?: number) => {
+        if (!eventId) return;
+        try {
+            const { error: deleteError } = await supabase
+                .from('event_attendance')
+                .delete()
+                .eq('event_id', eventId);
+            if (deleteError) throw deleteError;
+
+            const { error: resetError } = await supabase
+                .from('events')
+                .update({ attendees: 0 })
+                .eq('id', eventId);
+            if (resetError) throw resetError;
+
+            if (selectedAttendanceEvent) await handleViewAttendees(selectedAttendanceEvent);
+            else setAttendees([]);
+
+            if (showToast) showToast('All attendance voided.');
+            await fetchEvents();
+        } catch (err: any) {
+            if (showToast) showToast(err.message, 'error');
+        }
+    };
+
     return {
         showToast,
         canPerformAction,
@@ -658,6 +788,9 @@ export function useCareStaffEvents({ functions }: any) {
         createEvent,
         handleEditEvent,
         handleExtendAttendance,
+        handleRescheduleEvent,
+        handleVoidAttendance,
+        applyScheduleField,
         handleDeleteEvent,
         confirmDeleteEvent,
         handleViewAttendees,

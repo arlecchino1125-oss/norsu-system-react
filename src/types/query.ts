@@ -16,6 +16,8 @@ export interface StudentFilters {
     yearLevel?: string;
     section?: string;
     annotationStudentIds?: Array<string | number>;
+    /** Boolean flag columns on `students` to match (OR semantics when multiple). */
+    backgroundFlags?: string[];
 }
 
 export interface RequestFilters {

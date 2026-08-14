@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import {
     Users, Search, Download, XCircle, Edit, Trash2, Plus, Key, Archive,
     PieChart, List, UploadCloud, Info, ArrowUpDown, Activity, TrendingUp,
-    Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, RefreshCw, User, Settings, Flag, MessageSquareMore
+    Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet, RefreshCw, User, Settings, Flag, MessageSquareMore, Users2
 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import { invokeEdgeFunction } from '../../../../../lib/invokeEdgeFunction';
@@ -53,7 +53,8 @@ import {
     CARE_STUDENT_TABLE_SHELL_CLASS,
     CARE_STUDENT_SEARCH_DEBOUNCE_MS,
     CARE_STUDENT_REFRESH_MIN_MS,
-    EMPTY_POPULATION_OVERVIEW
+    EMPTY_POPULATION_OVERVIEW,
+    STUDENT_BACKGROUND_FILTERS
 } from '../constants';
 import {
     getCareStudentTotalPages,
@@ -287,7 +288,7 @@ viewMode === 'stats' ? (
 );
 
 const PopulationFilters = ({
-    searchTerm, setSearchTerm, filtersExpanded, setFiltersExpanded, departmentFilter, setDepartmentFilter, courseFilter, setCourseFilter, schoolYearFilter, setSchoolYearFilter, sectionFilter, setSectionFilter, statusFilter, setStatusFilter, atRiskFilter, setAtRiskFilter, yearFilter, setYearFilter, hasNoteFilter, setHasNoteFilter, departmentNames, filteredCourseOptions, schoolYearOptions, availableSections, setCurrentPage, activeFilterCount, overviewLoading, populationOverview
+    searchTerm, setSearchTerm, filtersExpanded, setFiltersExpanded, departmentFilter, setDepartmentFilter, courseFilter, setCourseFilter, schoolYearFilter, setSchoolYearFilter, sectionFilter, setSectionFilter, statusFilter, setStatusFilter, atRiskFilter, setAtRiskFilter, yearFilter, setYearFilter, hasNoteFilter, setHasNoteFilter, backgroundFilter, setBackgroundFilter, departmentNames, filteredCourseOptions, schoolYearOptions, availableSections, setCurrentPage, activeFilterCount, overviewLoading, populationOverview
 }: any) => (
 <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} data-refresh-surface className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
     {/* Search bar + filter toggle */}
@@ -326,7 +327,7 @@ const PopulationFilters = ({
             </button>
             {activeFilterCount > 0 && (
                 <button type="button"
-                    onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setSchoolYearFilter('All'); setSectionFilter('All'); setHasNoteFilter(false); setAtRiskFilter(false); }}
+                    onClick={() => { setSearchTerm(''); setDepartmentFilter('All'); setCourseFilter('All'); setYearFilter('All'); setStatusFilter('All'); setSchoolYearFilter('All'); setSectionFilter('All'); setHasNoteFilter(false); setAtRiskFilter(false); setBackgroundFilter([]); }}
                     className="text-sm font-medium text-red-600 transition-colors hover:text-red-700"
                 >
                     Clear all
@@ -385,6 +386,12 @@ const PopulationFilters = ({
                 <span className="filter-chip">
                     At-Risk
                     <button type="button" onClick={() => setAtRiskFilter(false)}>&times;</button>
+                </span>
+            )}
+            {backgroundFilter.length > 0 && (
+                <span className="filter-chip">
+                    Background: {STUDENT_BACKGROUND_FILTERS.filter(f => backgroundFilter.includes(f.db)).map(f => f.label).join(', ')}
+                    <button type="button" onClick={() => setBackgroundFilter([])}>&times;</button>
                 </span>
             )}
         </div>
@@ -460,6 +467,26 @@ const PopulationFilters = ({
                         At-Risk
                     </button>
                 </div>
+            </div>
+            <div className="flex flex-col gap-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Background</p>
+                <div className="flex max-w-[42rem] flex-wrap gap-1.5 rounded-lg border border-slate-300 bg-white p-1.5">
+                    {STUDENT_BACKGROUND_FILTERS.map(({ db, label }) => {
+                        const active = backgroundFilter.includes(db);
+                        return (
+                            <button
+                                key={db}
+                                type="button"
+                                onClick={() => setBackgroundFilter((prev: string[]) => prev.includes(db) ? prev.filter(x => x !== db) : [...prev, db])}
+                                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-bold transition ${active ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                <Users2 size={12} />
+                                {label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-[10px] text-slate-400">Selecting multiple matches students with any of these backgrounds (e.g. PWD or Indigenous).</p>
             </div>
         </div>
     </div>
@@ -597,7 +624,8 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
         setEnrollmentStatusFilter, enrollmentSearchQuery, setEnrollmentSearchQuery, totalEnrollmentKeysCount, setTotalEnrollmentKeysCount, courseFilter,
         setCourseFilter, departmentFilter, setDepartmentFilter, courseDeptFilter, setCourseDeptFilter, yearFilter,
         setYearFilter, statusFilter, setStatusFilter, schoolYearFilter, setSchoolYearFilter, sectionFilter,
-        setSectionFilter, hasNoteFilter, setHasNoteFilter, atRiskFilter, setAtRiskFilter, filtersExpanded,
+        setSectionFilter, hasNoteFilter, setHasNoteFilter, atRiskFilter, setAtRiskFilter, backgroundFilter,
+        setBackgroundFilter, filtersExpanded,
         setFiltersExpanded, activeFilterCount, viewMode, setViewMode, itemsPerPage, tableStudents,
         setTableStudents, tableStudentsTotal, setTableStudentsTotal, tableLoading, setTableLoading, isRefreshingData,
         setIsRefreshingData, tableRefreshTick, setTableRefreshTick, sortConfig, setSortConfig, enrollmentKeys,
@@ -657,6 +685,8 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 setYearFilter={setYearFilter}
                 hasNoteFilter={hasNoteFilter}
                 setHasNoteFilter={setHasNoteFilter}
+                backgroundFilter={backgroundFilter}
+                setBackgroundFilter={setBackgroundFilter}
                 departmentNames={departmentNames}
                 filteredCourseOptions={filteredCourseOptions}
                 schoolYearOptions={schoolYearOptions}
