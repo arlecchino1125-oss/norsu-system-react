@@ -1,8 +1,16 @@
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search } from 'lucide-react';
 import {
     COUNSELING_STATUS,
     isWithCareStaffCounseling
 } from '../../../../../utils/workflow';
+import CounselingEvaluationsList from '../../../../carestaff/features/counseling/components/CounselingEvaluationsList';
+import {
+    getCounselingEvaluations,
+    getGlobalEvaluationForm,
+    type CounselingEvaluationQuestion,
+    type CounselingEvaluationResponse
+} from '../../../../carestaff/features/counseling/counselingEvaluationService';
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
@@ -27,6 +35,39 @@ const DeptCounseledPage = ({
     setSelectedHistoryStudent,
     setShowHistoryModal
 }: any) => {
+    const [viewMode, setViewMode] = useState<'records' | 'evaluations'>('records');
+
+    // Evaluations State for Dept
+    const [evaluations, setEvaluations] = useState<CounselingEvaluationResponse[]>([]);
+    const [questions, setQuestions] = useState<CounselingEvaluationQuestion[]>([]);
+    const [hasForm, setHasForm] = useState(false);
+    const [isLoadingEvals, setIsLoadingEvals] = useState(false);
+    const [isErrorEvals, setIsErrorEvals] = useState(false);
+
+    const loadEvaluations = useCallback(async () => {
+        setIsLoadingEvals(true);
+        setIsErrorEvals(false);
+        try {
+            const [evals, formResult] = await Promise.all([
+                getCounselingEvaluations(),
+                getGlobalEvaluationForm()
+            ]);
+            setEvaluations(evals);
+            setHasForm(Boolean(formResult.form));
+            setQuestions(formResult.questions);
+        } catch {
+            setIsErrorEvals(true);
+        } finally {
+            setIsLoadingEvals(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (viewMode === 'evaluations') {
+            void loadEvaluations();
+        }
+    }, [viewMode, loadEvaluations]);
+
     const counseledRows = (Array.isArray(filteredData?.requests) ? filteredData.requests : [])
         .filter((request: any) => {
             const status = String(request?.status || '').trim();
@@ -59,7 +100,7 @@ const DeptCounseledPage = ({
                 </div>
 
                 <section aria-label="Counseled student controls" className="rounded-xl border border-slate-200 bg-white p-3">
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.3fr)_minmax(10rem,0.8fr)_repeat(3,minmax(7rem,0.7fr))]">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1.2fr)_minmax(9rem,0.8fr)_repeat(4,minmax(6.5rem,0.7fr))]">
                         <label className="relative block">
                             <span className="sr-only">Search counseled students</span>
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-600" />
@@ -118,6 +159,16 @@ const DeptCounseledPage = ({
                             <option value="All">All Sections</option>
                             {SECTION_OPTIONS.map((section) => <option key={section} value={section}>Section {section}</option>)}
                         </select>
+
+                        <select
+                            aria-label="Filter view mode"
+                            value={viewMode}
+                            onChange={(event) => setViewMode(event.target.value as any)}
+                            className={`w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-emerald-800 transition focus:bg-white ${FOCUS_RING}`}
+                        >
+                            <option value="records">Records View</option>
+                            <option value="evaluations">Evaluations View</option>
+                        </select>
                     </div>
 
                     <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-500">
@@ -128,7 +179,19 @@ const DeptCounseledPage = ({
                 </section>
             </header>
 
-            {counseledStudents.length === 0 ? (
+            {viewMode === 'evaluations' ? (
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden min-h-[400px] flex flex-col">
+                    <CounselingEvaluationsList
+                        evaluations={evaluations}
+                        questions={questions}
+                        hasForm={hasForm}
+                        isLoading={isLoadingEvals}
+                        isError={isErrorEvals}
+                        onRetry={loadEvaluations}
+                        readOnly={true}
+                    />
+                </div>
+            ) : counseledStudents.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-12 text-center">
                     <h2 className="text-base font-bold text-slate-800">No counseled students found</h2>
                     <p className="mt-2 text-sm text-slate-500">Adjust the search, date, or filters to find a record.</p>

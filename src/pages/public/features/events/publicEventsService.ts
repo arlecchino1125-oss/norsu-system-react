@@ -1,7 +1,8 @@
 import { supabase } from '../../../../lib/supabase';
 
 // Every call here goes through a `public_*` RPC defined in
-// supabase/migrations/20260727150000_public_events_portal.sql. The portal has no
+// supabase/migrations/20260727150000_public_events_portal.sql and
+// supabase/migrations/20260818000000_counseling_evaluations.sql. The portal has no
 // Supabase session, so student_id travels with each write and the function
 // resolves the real student row server-side.
 
@@ -68,12 +69,8 @@ export interface PublicEvaluationForm {
     description: string | null;
 }
 
-// The RPCs were added after src/types/database.ts was last generated, so the
-// typed client does not know their names yet.
 const rpc = (fn: string, args?: Record<string, unknown>) => (supabase.rpc as any)(fn, args);
 
-// Every write RPC answers { success, error? } instead of raising, so a business
-// rule ("already timed in") reads as a message rather than a 500.
 const unwrap = (data: any) => {
     if (!data?.success) throw new Error(data?.error || 'Something went wrong.');
     return data;
@@ -162,6 +159,35 @@ export const ratePublicEvent = async (
         p_open_best: openBest,
         p_open_suggestions: openSuggestions,
         p_open_comments: openComments
+    });
+    if (error) throw error;
+    return unwrap(data);
+};
+
+// ---------------------------------------------------------------------------
+// Public Counseling Evaluation Intake (No session listing)
+// ---------------------------------------------------------------------------
+
+export const getPublicCounselingEvaluationForm = async () => {
+    const { data, error } = await rpc('public_get_counseling_evaluation_form', {
+        p_request_id: null
+    });
+    if (error) throw error;
+    const payload = unwrap(data);
+    return {
+        form: payload.form as PublicEvaluationForm,
+        questions: (payload.questions || []) as PublicEvaluationQuestion[]
+    };
+};
+
+export const evaluatePublicCounseling = async (
+    studentId: string,
+    answers: Array<{ question_id: number; answer_value: number | null; answer_text: string | null }>
+) => {
+    const { data, error } = await rpc('public_counseling_evaluate', {
+        p_student_id: studentId.trim(),
+        p_request_id: null,
+        p_answers: answers
     });
     if (error) throw error;
     return unwrap(data);

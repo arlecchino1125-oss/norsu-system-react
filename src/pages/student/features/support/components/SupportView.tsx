@@ -322,6 +322,54 @@ const SupportRequestDetailsModal = ({ request, personalInfo, formatFullDate, sho
         </div>
 );
 
+/** Support Path Guide Modal explaining what to prepare. */
+const SupportPathModal = ({ onClose }: { onClose: () => void }) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 student-mobile-modal-overlay" onClick={onClose}>
+        <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl student-mobile-modal-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">Support Path</p>
+                    <h3 className="mt-0.5 text-lg font-black text-slate-950">What to Prepare</h3>
+                </div>
+                <button
+                    type="button"
+                    aria-label="Close guide"
+                    onClick={onClose}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 active:scale-95"
+                >
+                    <CloseIcon />
+                </button>
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto p-6 text-left">
+                {[
+                    { step: '1', title: 'Need Description', desc: 'Describe the specific access, physical, or academic learning accommodations you require.' },
+                    { step: '2', title: 'Supporting Proof', desc: 'Attach medical certificates, psychological reports, PWD IDs, or relevant documents if available.' },
+                    { step: '3', title: 'Staff Review & Routing', desc: 'Your request is confidentially routed to the designated CARE student support specialists.' },
+                ].map((item) => (
+                    <div key={item.step} className="flex items-start gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-xs font-black text-white">{item.step}</span>
+                        <div className="min-w-0">
+                            <p className="text-sm font-black text-slate-950">{item.title}</p>
+                            <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{item.desc}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50 p-4 px-6">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-black text-white transition hover:bg-slate-800 active:scale-95"
+                >
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
+);
+
 export default function SupportView({
     formatFullDate,
     personalInfo,
@@ -333,6 +381,7 @@ export default function SupportView({
     const [showSupportModal, setShowSupportModal] = useState(false);
     const [showReadFirstGuide, setShowReadFirstGuide] = useState(false);
     const [hasReadFirstAcknowledged, setHasReadFirstAcknowledged] = useState(false);
+    const [showSupportPathModal, setShowSupportPathModal] = useState(false);
 
     const { supportRequests, refreshSupportRequests } = useStudentSupportData({
         studentId: personalInfo.studentId
@@ -351,48 +400,120 @@ export default function SupportView({
 
     return (
         <div className="student-support-root mx-auto max-w-6xl space-y-4 page-transition sm:space-y-5">
+            {/* Unified Header & Read-First Guide Card */}
             <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Student Services</p>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Student Services</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Accommodations</span>
+                        </div>
                         <h2 className="mt-1 text-xl font-black leading-tight text-slate-950 sm:text-2xl">Additional Support</h2>
-                        <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">Request accommodations or support for disability, learning, access, or special student needs.</p>
+                        <p className="mt-1 max-w-xl text-xs sm:text-sm font-medium leading-relaxed text-slate-500">
+                            Request accommodations or support for disability, learning, access, or special student needs.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setShowSupportPathModal(true)}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 active:scale-95"
+                        >
+                            <svg className="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                                <polyline points="10 9 9 9 8 9" />
+                            </svg>
+                            What to Prepare
+                        </button>
+                        <button
+                            type="button"
+                            aria-expanded={showReadFirstGuide}
+                            onClick={() => setShowReadFirstGuide((isOpen) => !isOpen)}
+                            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 active:scale-95 ${
+                                showReadFirstGuide
+                                    ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                        >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                            </svg>
+                            {showReadFirstGuide ? 'Hide Guide' : 'Read Guide'}
+                        </button>
+
+                        {hasReadFirstAcknowledged && (
+                            <button
+                                type="button"
+                                onClick={openSupportForm}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 active:scale-95"
+                            >
+                                Apply Now
+                                <ArrowIcon />
+                            </button>
+                        )}
                     </div>
                 </div>
-            </section>
 
-            <section className="rounded-2xl border border-blue-100 bg-white p-3 shadow-sm sm:p-4">
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-500">Read First</p>
-                        <h3 className="mt-1 text-sm font-black leading-5 text-slate-950">Additional support application guide</h3>
-                        <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500">Review the document before opening the form.</p>
-                    </div>
-                    <button
-                        type="button"
-                        aria-expanded={showReadFirstGuide}
-                        onClick={() => setShowReadFirstGuide((isOpen) => !isOpen)}
-                        className="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-black text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-                    >
-                        {showReadFirstGuide ? 'Hide' : 'Read'}
-                    </button>
+                {/* Status / Acknowledgment Notice Strip */}
+                <div className="mt-3.5 border-t border-slate-100 pt-3">
+                    {hasReadFirstAcknowledged ? (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
+                                    <CheckIcon />
+                                </span>
+                                <p className="truncate text-xs font-bold text-emerald-900">
+                                    Application guide completed — form unlocked.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={openSupportForm}
+                                className="inline-flex shrink-0 items-center gap-1 text-xs font-black text-emerald-800 hover:text-emerald-950 sm:hidden"
+                            >
+                                Apply →
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/60 px-3 py-2">
+                            <p className="text-[11px] font-semibold text-blue-900">
+                                Open the guide, read the document, and confirm to unlock the application form.
+                            </p>
+                            {!showReadFirstGuide && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowReadFirstGuide(true)}
+                                    className="shrink-0 text-[11px] font-bold text-blue-700 hover:underline"
+                                >
+                                    Open →
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
 
+                {/* Expanded Guide Content */}
                 {showReadFirstGuide && (
-                    <div className="mt-3 border-t border-slate-100 pt-3">
-                        <div className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-3 text-center">
+                    <div className="mt-3 border-t border-slate-100 pt-3 space-y-3">
+                        <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3 text-center">
                             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-blue-500">Form for Students Who Require Additional Support</p>
-                            <p className="mt-1 text-[11px] font-bold leading-4 text-slate-700">Negros Oriental State University</p>
-                            <p className="text-[10px] font-semibold leading-4 text-slate-500">Office of the Campus Student Affairs and Services, Guihulngan Campus</p>
+                            <p className="mt-1 text-xs font-bold text-slate-800">Negros Oriental State University</p>
+                            <p className="text-[10px] font-medium text-slate-500">Office of the Campus Student Affairs and Services, Guihulngan Campus</p>
                         </div>
 
-                        <div className="mt-3 space-y-2.5">
+                        <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
                             {SUPPORT_APPLICATION_SECTIONS.map((section) => (
                                 <article key={section.title} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                                    <h4 className="text-[12px] font-black leading-5 text-slate-950">{section.title}</h4>
+                                    <h4 className="text-xs font-black text-slate-950">{section.title}</h4>
                                     <div className="mt-1.5 space-y-1.5">
                                         {section.paragraphs.map((paragraph) => (
-                                            <p key={paragraph} className="text-[11px] font-medium leading-5 text-slate-600">{paragraph}</p>
+                                            <p key={paragraph} className="text-[11px] font-medium leading-relaxed text-slate-600">{paragraph}</p>
                                         ))}
                                     </div>
                                 </article>
@@ -401,44 +522,24 @@ export default function SupportView({
 
                         <button
                             type="button"
-                            onClick={() => setHasReadFirstAcknowledged(true)}
-                            className={`mt-3 flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${hasReadFirstAcknowledged ? 'border-emerald-100 bg-emerald-50 text-emerald-800' : 'border-blue-100 bg-blue-50 text-blue-900 hover:bg-blue-100'}`}
+                            onClick={() => {
+                                setHasReadFirstAcknowledged(true);
+                                setShowReadFirstGuide(false);
+                            }}
+                            className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 active:scale-[0.99] ${
+                                hasReadFirstAcknowledged
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                    : 'border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100'
+                            }`}
                         >
                             <span className="min-w-0">
-                                <span className="block text-[11px] font-black leading-4">I have read the application guide</span>
-                                <span className="mt-0.5 block text-[10px] font-semibold leading-4 opacity-80">This enables the form button below.</span>
+                                <span className="block text-xs font-black">I have read the application guide</span>
+                                <span className="mt-0.5 block text-[10px] font-semibold opacity-80">This unlocks the application form.</span>
                             </span>
-                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border ${hasReadFirstAcknowledged ? 'border-emerald-200 bg-emerald-500 text-white' : 'border-blue-200 bg-white text-transparent'}`}>
+                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border ${hasReadFirstAcknowledged ? 'border-emerald-200 bg-emerald-500 text-white' : 'border-blue-300 bg-white text-transparent'}`}>
                                 <CheckIcon />
                             </span>
                         </button>
-                    </div>
-                )}
-
-                {hasReadFirstAcknowledged && (
-                    <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
-                        <div className="flex items-start gap-2">
-                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
-                                <CheckIcon />
-                            </span>
-                            <p className="text-[11px] font-semibold leading-5 text-blue-900">Read-first guide completed. You can now continue to the application form.</p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={openSupportForm}
-                            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:mt-0 sm:w-auto sm:shrink-0"
-                        >
-                            Proceed to Form
-                            <ArrowIcon />
-                        </button>
-                    </div>
-                )}
-
-                {!hasReadFirstAcknowledged && (
-                    <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
-                        <p className="text-[11px] font-semibold leading-5 text-slate-500">
-                            Open the guide, read the document, then tap the check mark to unlock the form.
-                        </p>
                     </div>
                 )}
             </section>
@@ -498,27 +599,10 @@ export default function SupportView({
                 )}
             </section>
 
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-                <div className="mb-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Support Path</p>
-                    <h3 className="mt-1 text-base font-black text-slate-950">What to prepare</h3>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    {[
-                        { step: '1', title: 'Need', copy: 'Describe the access or learning support you need.' },
-                        { step: '2', title: 'Proof', copy: 'Attach medical, psychological, or related documents if available.' },
-                        { step: '3', title: 'Review', copy: 'Your request is routed to the proper student support team.' },
-                    ].map((item) => (
-                        <div key={item.step} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-xs font-black text-white">{item.step}</span>
-                            <div className="min-w-0">
-                                <p className="text-sm font-black text-slate-950">{item.title}</p>
-                                <p className="mt-0.5 text-xs leading-5 text-slate-500">{item.copy}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
+            {showSupportPathModal && createPortal(
+                <SupportPathModal onClose={() => setShowSupportPathModal(false)} />,
+                document.body
+            )}
 
             {showSupportRequestsModal && createPortal(
                 <SupportRequestsDrawer
