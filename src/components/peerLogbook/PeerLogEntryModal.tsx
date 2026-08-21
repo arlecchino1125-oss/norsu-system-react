@@ -54,12 +54,13 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 const inputClass = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500';
 
 const AssistedStudentPicker = ({
-    selectedId, selectedLabel, onPick, onClear
+    selectedId, selectedLabel, onPick, onClear, searchFn
 }: {
     selectedId: string | null;
     selectedLabel: string;
     onPick: (student: any) => void;
     onClear: () => void;
+    searchFn?: (term: string) => Promise<any[]>;
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const term = searchTerm.trim();
@@ -69,8 +70,9 @@ const AssistedStudentPicker = ({
     // roster and returns at most five, name and id only. Under two characters it
     // returns whoever this peer logged most recently, so a follow-up is one tap.
     const { data: options = [], isFetching } = useQuery({
-        queryKey: ['peer-logbook-student-search', term],
+        queryKey: ['peer-logbook-student-search', term, Boolean(searchFn)],
         queryFn: async () => {
+            if (searchFn) return await searchFn(term);
             const { data, error } = await supabase.rpc('search_students_for_peer', { p_term: term });
             if (error) throw error;
             return data || [];
@@ -127,7 +129,7 @@ const AssistedStudentPicker = ({
 };
 
 export default function PeerLogEntryModal({
-    entry, monthKey, readOnly, isSaving, onClose, onSave, onDelete
+    entry, monthKey, readOnly, isSaving, onClose, onSave, onDelete, searchFn
 }: {
     entry: PeerLogEntry | null;
     monthKey: string;
@@ -136,6 +138,7 @@ export default function PeerLogEntryModal({
     onClose: () => void;
     onSave: (draft: PeerLogEntryDraft) => void;
     onDelete?: () => void;
+    searchFn?: (term: string) => Promise<any[]>;
 }) {
     const monthStart = monthStartOf(monthKey);
     const today = todayIso();
@@ -217,6 +220,7 @@ export default function PeerLogEntryModal({
                 <AssistedStudentPicker
                     selectedId={draft.assisted_student_id}
                     selectedLabel={pickedLabel}
+                    searchFn={searchFn}
                     // Initials are written now, not derived later: a peer cannot
                     // read another student's record, so nothing can look the name
                     // up again once this modal closes.

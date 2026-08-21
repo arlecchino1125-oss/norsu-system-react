@@ -10,7 +10,7 @@ const formatLoggedTime = (value: string) =>
     new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function PeerLogbookMonth({
-    entries, monthKey, readOnly, isSaving, onSaveEntry, onDeleteEntry, isLoading = false
+    entries, monthKey, readOnly, isSaving, onSaveEntry, onDeleteEntry, isLoading = false, searchStudentsFn
 }: {
     entries: PeerLogEntry[];
     monthKey: string;
@@ -19,6 +19,7 @@ export default function PeerLogbookMonth({
     onSaveEntry: (draft: PeerLogEntryDraft, entryId: string | null) => Promise<void>;
     onDeleteEntry: (entryId: string) => Promise<void>;
     isLoading?: boolean;
+    searchStudentsFn?: (term: string) => Promise<any[]>;
 }) {
     const [openEntry, setOpenEntry] = useState<PeerLogEntry | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -77,6 +78,7 @@ export default function PeerLogbookMonth({
                     monthKey={monthKey}
                     readOnly={readOnly}
                     isSaving={isSaving}
+                    searchFn={searchStudentsFn}
                     onClose={closeModal}
                     // Close only once the write lands. Closing on the call would
                     // discard everything typed if the save failed -- the likeliest

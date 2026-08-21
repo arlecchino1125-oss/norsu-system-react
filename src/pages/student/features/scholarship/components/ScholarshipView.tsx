@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import type { StudentRemainingFlatViewProps } from '../../../types';
+import { isScholarshipExpired, normalizeScholarshipUrl } from '../../../../../utils/scholarshipHelpers';
 
 const formatScholarshipDate = (value: string) => {
     if (!value) return 'Date unavailable';
@@ -13,12 +14,6 @@ const formatScholarshipDate = (value: string) => {
         day: 'numeric',
         year: 'numeric'
     });
-};
-
-const isScholarshipExpired = (deadline: string) => {
-    if (!deadline) return false;
-    const date = new Date(deadline);
-    return !Number.isNaN(date.getTime()) && date < new Date();
 };
 
 const CloseIcon = () => (
@@ -46,8 +41,9 @@ export default function ScholarshipView({
     isApplyingScholarshipId,
     Icons
 }: StudentRemainingFlatViewProps) {
-    const openScholarships = scholarshipsList.filter((scholarship: any) => !isScholarshipExpired(scholarship.deadline)).length;
-    const appliedScholarships = scholarshipsList.filter((scholarship: any) =>
+    const activeScholarships = scholarshipsList.filter((scholarship: any) => !isScholarshipExpired(scholarship.deadline));
+    const openScholarships = activeScholarships.length;
+    const appliedScholarships = activeScholarships.filter((scholarship: any) =>
         myApplications.some((app: any) => app.scholarship_id === scholarship.id)
     ).length;
 
@@ -68,7 +64,8 @@ export default function ScholarshipView({
                     type="button"
                     onClick={() => {
                         if (hasUrl) {
-                            window.open(selectedScholarship.application_url, '_blank', 'noopener,noreferrer');
+                            const targetUrl = normalizeScholarshipUrl(selectedScholarship.application_url);
+                            window.open(targetUrl, '_blank', 'noopener,noreferrer');
                         }
                     }}
                     disabled={!hasUrl}
@@ -148,7 +145,7 @@ export default function ScholarshipView({
                 </div>
             </section>
 
-            {scholarshipsList.length === 0 ? (
+            {activeScholarships.length === 0 ? (
                 <section className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center shadow-sm animate-fade-in-up sm:rounded-2xl sm:p-8">
                     <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 sm:h-14 sm:w-14 sm:rounded-2xl">
                         <Icons.Scholarship />
@@ -163,11 +160,11 @@ export default function ScholarshipView({
                             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.16em]">Scholarship Board</p>
                             <h3 className="mt-1 text-sm font-black text-slate-950 sm:text-base">Available scholarships</h3>
                         </div>
-                        <p className="text-xs font-bold text-slate-500">{scholarshipsList.length} scholarship{scholarshipsList.length !== 1 ? 's' : ''}</p>
+                        <p className="text-xs font-bold text-slate-500">{activeScholarships.length} scholarship{activeScholarships.length !== 1 ? 's' : ''}</p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3">
-                        {scholarshipsList.map((scholarship: any, idx: number) => {
+                        {activeScholarships.map((scholarship: any, idx: number) => {
                             const isApplied = myApplications.some((app: any) => app.scholarship_id === scholarship.id);
                             const isExpired = isScholarshipExpired(scholarship.deadline);
 

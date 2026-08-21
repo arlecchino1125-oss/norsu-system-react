@@ -38,31 +38,34 @@ export default function PublicRatingModal({
     if (typeof document === 'undefined') return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-transparent p-3 sm:items-center sm:p-4" onClick={onClose}>
-            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-transparent p-0 sm:items-center sm:p-4" onClick={onClose}>
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
             <div
-                className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-scale-in"
+                className="relative flex h-[94vh] sm:h-auto sm:max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl border-0 sm:border border-slate-200 bg-white shadow-2xl animate-scale-in"
                 onClick={(clickEvent) => clickEvent.stopPropagation()}
             >
-                <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white sm:px-5">
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Event Evaluation</p>
-                            <h3 className="mt-1 text-[15px] font-black leading-tight text-white sm:text-lg">Participant Evaluation</h3>
-                            <p className="mt-1 line-clamp-2 text-[12px] font-semibold leading-5 text-slate-300 sm:text-xs">{ratingForm.title}</p>
+                <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-3.5 text-white sm:px-5 sm:py-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                            <span className="inline-flex rounded bg-blue-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-blue-300">
+                                Event Rating
+                            </span>
+                            <h3 className="mt-1 line-clamp-1 text-base font-black leading-snug text-white sm:text-lg">
+                                {ratingForm.title || 'Participant Evaluation'}
+                            </h3>
                         </div>
                         <button
                             type="button"
                             aria-label="Close evaluation form"
                             onClick={onClose}
-                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                         >
                             <CloseIcon />
                         </button>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-5">
+                <div className="flex-1 overflow-y-auto bg-slate-50 p-3.5 sm:p-5">
                     <div className="space-y-3">
                         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -6,7 +6,7 @@ import { Scholarship } from '../../../../../types/models';
 import { splitFullName } from '../../../../../utils/nameUtils';
 import { buildStudentAddress } from '../../../../../utils/studentFields';
 import type { CareStaffDashboardFunctions } from '../../../types';
-import { parseScholarship, serializeRequirements } from '../../../../../utils/scholarshipHelpers';
+import { parseScholarship, serializeRequirements, isScholarshipExpired } from '../../../../../utils/scholarshipHelpers';
 export interface ScholarshipApplicantStudent {
     student_id: string;
     first_name?: string | null;
@@ -146,8 +146,10 @@ export function useCareStaffScholarship({ functions }: any) {
     const [isEditing, setIsEditing] = useState(false);
 
     // Derived states with metadata parsed
-    const parsedScholarships = (scholarships || []).map(parseScholarship);
-    const parsedClosedScholarships = (closedScholarships || []).map(parseScholarship);
+    const allRawScholarships = [...(scholarships || []), ...(closedScholarships || [])];
+    const parsedAll = allRawScholarships.map(parseScholarship);
+    const parsedScholarships = parsedAll.filter(s => Boolean(s.is_active) && !isScholarshipExpired(s.deadline));
+    const parsedClosedScholarships = parsedAll.filter(s => !s.is_active || isScholarshipExpired(s.deadline));
 
     // Modal State
     const [showScholarshipModal, setShowScholarshipModal] = useState(false);

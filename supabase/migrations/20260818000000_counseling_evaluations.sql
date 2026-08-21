@@ -510,7 +510,7 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Student ID was not found.');
     END IF;
 
-    IF NOT public.public_throttle_take(v_student.student_id, 'counseling_evaluate', 5, interval '5 minutes') THEN
+    IF NOT public.public_throttle_take(v_student.student_id, 'counseling_evaluate', 2, interval '5 minutes') THEN
         RETURN jsonb_build_object('success', false, 'error', 'Too many attempts. Please wait a few minutes and try again.');
     END IF;
 

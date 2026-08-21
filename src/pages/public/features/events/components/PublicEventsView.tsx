@@ -86,10 +86,11 @@ interface PublicEventsViewProps {
     onTimeOut: (event: PublicEvent) => void;
     onRate: (event: PublicEvent) => void;
     onEvaluate: (event: PublicEvent) => void;
+    onRequireSignIn?: () => void;
 }
 
 const EventDetailModal = ({
-    item, status, isSignedIn, timingInEventId, timingOutEventId, onClose, onTimeIn, onTimeOut, onRate, onEvaluate
+    item, status, isSignedIn, timingInEventId, timingOutEventId, onClose, onTimeIn, onTimeOut, onRate, onEvaluate, onRequireSignIn
 }: any) => {
     const state = getEventState(item, status);
     const isTimingIn = timingInEventId === item.id;
@@ -97,16 +98,16 @@ const EventDetailModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[9998] flex items-end justify-center bg-transparent p-3 sm:items-center sm:p-4"
+            className="fixed inset-0 z-[9998] flex items-end justify-center bg-transparent p-0 sm:items-center sm:p-4"
             onClick={onClose}
         >
-            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
             <div
-                className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-scale-in"
+                className="relative flex h-[94vh] sm:h-auto sm:max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl border-0 sm:border border-slate-200 bg-white shadow-2xl animate-scale-in"
                 onClick={(clickEvent: any) => clickEvent.stopPropagation()}
             >
-                <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-4 text-white sm:px-5">
-                    <div className="flex items-start justify-between gap-4">
+                <div className="shrink-0 border-b border-slate-800 bg-slate-950 px-4 py-3.5 text-white sm:px-5 sm:py-4">
+                    <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Event Details</p>
                             <h3 className="mt-1 line-clamp-2 text-[15px] font-black leading-tight text-white sm:text-lg">{item.title}</h3>
@@ -129,7 +130,7 @@ const EventDetailModal = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
                             aria-label="Close event details"
                         >
                             <CloseIcon />
@@ -137,7 +138,7 @@ const EventDetailModal = ({
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-5">
+                <div className="flex-1 overflow-y-auto bg-slate-50 p-3.5 sm:p-5">
                     <div className="space-y-3">
                         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
                             <h4 className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px]">Description</h4>
@@ -182,9 +183,9 @@ const EventDetailModal = ({
                         </div>
 
                         {state.isAttendanceActivity && (
-                            <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
+                            <section className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
                                 <div className="mb-3 flex items-center justify-between gap-3">
-                                    <h4 className="text-sm font-black text-slate-950 sm:text-base">Attendance</h4>
+                                    <h4 className="text-sm font-black text-slate-950 sm:text-base">Your Attendance</h4>
                                     {isSignedIn && (
                                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-600">
                                             {state.isTimedOut ? 'Completed' : state.isTimedIn ? 'Checked in' : 'Pending'}
@@ -192,7 +193,7 @@ const EventDetailModal = ({
                                     )}
                                 </div>
 
-                                {(status?.time_in || status?.time_out) && (
+                                {isSignedIn && (status?.time_in || status?.time_out) && (
                                     <div className="mb-3 grid gap-2 sm:grid-cols-2">
                                         <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
                                             <p className="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-600">Time In</p>
@@ -211,12 +212,24 @@ const EventDetailModal = ({
                                     </p>
                                 )}
 
-                                {state.isTimedIn && state.isTimedOut ? (
-                                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-center">
-                                        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-sm">
+                                {!isSignedIn ? (
+                                    <div className="rounded-xl border border-violet-200/80 bg-violet-50/70 p-3.5 text-center">
+                                        <p className="text-xs font-black text-violet-950">Student ID Required to Interact</p>
+                                        <p className="mt-1 text-[11px] leading-relaxed text-violet-700">Enter your Student ID to record attendance (Time In/Time Out), rate, or evaluate this activity.</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => { onClose(); onRequireSignIn ? onRequireSignIn() : onTimeIn(item); }}
+                                            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-violet-700 active:scale-95"
+                                        >
+                                            Enter Student ID →
+                                        </button>
+                                    </div>
+                                ) : state.isTimedOut ? (
+                                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 sm:p-3.5">
+                                        <div className="flex items-center gap-2 text-emerald-800">
                                             <Icons.CheckCircle />
+                                            <span className="text-xs sm:text-sm font-black">Attendance Complete</span>
                                         </div>
-                                        <p className="text-sm font-black text-emerald-900">Attendance completed</p>
                                         <p className="mt-1 text-[12px] leading-5 text-emerald-700">You have successfully timed in and timed out of this event.</p>
                                     </div>
                                 ) : state.isTimedIn ? (
@@ -257,7 +270,7 @@ const EventDetailModal = ({
                                     </button>
                                 )}
 
-                                {state.canRate && (
+                                {isSignedIn && state.canRate && (
                                     <button
                                         type="button"
                                         onClick={() => { onClose(); onRate(item); }}
@@ -268,9 +281,7 @@ const EventDetailModal = ({
                                     </button>
                                 )}
 
-                                {/* Separate from the rating above: staff may attach their own
-                                evaluation form, and both are filled independently. */}
-                                {state.canEvaluate && (
+                                {isSignedIn && state.canEvaluate && (
                                     <button
                                         type="button"
                                         onClick={() => { onClose(); onEvaluate(item); }}
@@ -302,73 +313,49 @@ export default function PublicEventsView({
     onTimeIn,
     onTimeOut,
     onRate,
-    onEvaluate
+    onEvaluate,
+    onRequireSignIn
 }: PublicEventsViewProps) {
-    const [eventFilter, setEventFilter] = useState('All');
     const [eventsPage, setEventsPage] = useState(1);
     const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
 
-    const filteredEvents = eventsList.filter((item) => {
-        if (eventFilter === 'Activities') return isAttendanceActivityType(item.type);
-        if (eventFilter === 'Announcements') return item.type === 'Announcement';
-        return true;
-    });
-    const activityCount = eventsList.filter((item) => isAttendanceActivityType(item.type)).length;
-    const announcementCount = eventsList.filter((item) => item.type === 'Announcement').length;
+    // Only attendance activities — announcements are shown on the hub screen
+    const filteredEvents = eventsList.filter((item) => isAttendanceActivityType(item.type));
 
     const totalEventPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PAGE_SIZE));
     const safeEventsPage = Math.min(eventsPage, totalEventPages);
     const pagedEvents = filteredEvents.slice((safeEventsPage - 1) * EVENTS_PAGE_SIZE, safeEventsPage * EVENTS_PAGE_SIZE);
 
-    const selectEventFilter = (nextFilter: string) => {
-        setEventFilter(nextFilter);
-        setEventsPage(1);
-    };
-
     return (
         <>
-            <div className="mx-auto max-w-6xl space-y-3 page-transition sm:space-y-5">
-                <section className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                        <div className="min-w-0">
-                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-blue-500 sm:text-[10px] sm:tracking-[0.16em]">Student Services</p>
-                            <h2 className="mt-1 text-lg font-black leading-tight text-slate-950 sm:text-2xl">Events &amp; Announcements</h2>
-                            <p className="mt-1 max-w-xl text-[12px] leading-5 text-slate-500 sm:text-sm sm:leading-6">Stay updated with campus activities and important news.</p>
+            <div className="mx-auto max-w-lg space-y-3 page-transition px-4 pt-5 pb-10">
+                {/* Guest banner */}
+                {!isSignedIn && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-violet-200/90 bg-violet-50/80 p-3.5 sm:p-4 text-violet-950 shadow-sm animate-fade-in-up">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-2xl shrink-0">🪪</span>
+                            <div className="min-w-0">
+                                <p className="text-xs sm:text-sm font-black leading-tight text-violet-950">Viewing as Guest</p>
+                                <p className="mt-0.5 text-[11px] sm:text-xs leading-tight text-violet-700">Enter your Student ID to record attendance, rate, or evaluate.</p>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 sm:w-80 sm:shrink-0">
+                        {onRequireSignIn && (
                             <button
                                 type="button"
-                                onClick={() => selectEventFilter('All')}
-                                className={`rounded-xl border px-3 py-2 text-left transition ${eventFilter === 'All' ? 'border-blue-300 bg-blue-100 shadow-sm' : 'border-blue-100 bg-blue-50 hover:bg-blue-100'}`}
+                                onClick={onRequireSignIn}
+                                className="shrink-0 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-black text-white shadow-sm transition hover:bg-violet-700 active:scale-95"
                             >
-                                <p className="text-[8px] font-black uppercase tracking-[0.08em] text-blue-600 sm:text-[9px] sm:tracking-[0.12em]">All</p>
-                                <p className="mt-1 text-lg font-black leading-none text-blue-950 sm:text-xl">{eventsList.length}</p>
+                                Enter ID
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => selectEventFilter('Activities')}
-                                className={`rounded-xl border px-3 py-2 text-left transition ${eventFilter === 'Activities' ? 'border-emerald-300 bg-emerald-100 shadow-sm' : 'border-emerald-100 bg-emerald-50 hover:bg-emerald-100'}`}
-                            >
-                                <p className="text-[8px] font-black uppercase tracking-[0.08em] text-emerald-600 sm:text-[9px] sm:tracking-[0.12em]">Activities</p>
-                                <p className="mt-1 text-lg font-black leading-none text-emerald-950 sm:text-xl">{activityCount}</p>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => selectEventFilter('Announcements')}
-                                className={`rounded-xl border px-3 py-2 text-left transition ${eventFilter === 'Announcements' ? 'border-sky-300 bg-sky-100 shadow-sm' : 'border-sky-100 bg-sky-50 hover:bg-sky-100'}`}
-                            >
-                                <p className="text-[8px] font-black uppercase tracking-[0.04em] text-sky-600 sm:text-[9px] sm:tracking-[0.08em]">News</p>
-                                <p className="mt-1 text-lg font-black leading-none text-sky-950 sm:text-xl">{announcementCount}</p>
-                            </button>
-                        </div>
+                        )}
                     </div>
-                </section>
+                )}
 
-                <section className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
+                <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
                     <div className="mb-3 sm:mb-4">
-                        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.16em]">Campus Board</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 sm:text-[10px] sm:tracking-[0.16em]">Campus Activities</p>
                         <div className="mt-1 flex items-center justify-between gap-3">
-                            <h3 className="text-sm font-black text-slate-950 sm:text-base">Available updates</h3>
+                            <h3 className="text-sm font-black text-slate-950 sm:text-base">Available events</h3>
                             <button
                                 type="button"
                                 onClick={onRefresh}
@@ -392,8 +379,8 @@ export default function PublicEventsView({
                             <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 sm:h-14 sm:w-14 sm:rounded-2xl">
                                 <Icons.Events />
                             </div>
-                            <h3 className="mt-3 text-sm font-black text-slate-950 sm:mt-4 sm:text-base">No items available</h3>
-                            <p className="mx-auto mt-2 max-w-xs text-[12px] leading-5 text-slate-500 sm:max-w-sm sm:text-sm sm:leading-6">New activities and announcements from the care staff will appear here when they are ready for you.</p>
+                            <h3 className="mt-3 text-sm font-black text-slate-950 sm:mt-4 sm:text-base">No events available</h3>
+                            <p className="mx-auto mt-2 max-w-xs text-[12px] leading-5 text-slate-500 sm:max-w-sm sm:text-sm sm:leading-6">New activities and events from the care staff will appear here when they are ready for you.</p>
                         </div>
                     ) : (
                         <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3 sm:mt-4">
@@ -582,6 +569,7 @@ export default function PublicEventsView({
                     onTimeOut={onTimeOut}
                     onRate={onRate}
                     onEvaluate={onEvaluate}
+                    onRequireSignIn={onRequireSignIn}
                 />,
                 document.body
             )}

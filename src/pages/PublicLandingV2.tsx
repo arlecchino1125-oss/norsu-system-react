@@ -28,14 +28,14 @@ const SHOULD_PLAY_BACKGROUND_VIDEO =
 
 const PUBLIC_LANDING_PORTALS = [
     {
-        title: 'NAT Portal',
-        description: 'Apply for admission testing, review schedules, and check application progress.',
-        audience: 'Applicants and prospective students',
-        bestFor: 'Choose this if you are applying for admission, checking a NAT schedule, or reviewing your application progress.',
-        cta: 'Apply now',
+        title: 'Public Services',
+        description: 'Attend events, complete needs assessments, submit counseling evaluations, and leave service feedback.',
+        audience: 'All students and visitors',
+        bestFor: 'Choose this if you want to attend an event, fill a needs-assessment form, evaluate a counseling session, or leave general service feedback — no login required.',
+        cta: 'Open public services',
         icon: FileText,
         accent: 'orange',
-        route: '/nat'
+        route: '/public/events'
     },
     {
         title: 'Student Portal',
@@ -66,8 +66,20 @@ const PUBLIC_LANDING_PORTALS = [
         icon: Briefcase,
         accent: 'purple',
         route: '/care-staff'
-    }
+    },
+    {
+        title: 'NAT Portal',
+        description: 'Apply for admission testing, review schedules, and check application progress.',
+        audience: 'Applicants and prospective students',
+        bestFor: 'Choose this if you are applying for admission, checking a NAT schedule, or reviewing your application progress.',
+        cta: 'Apply now',
+        icon: GraduationCap,
+        accent: 'blue',
+        route: '/nat'
+    },
 ] as const;
+
+
 
 export default function PublicLandingV2() {
     const navigate = useNavigate();
@@ -222,7 +234,7 @@ export default function PublicLandingV2() {
                                                 key={portal.title}
                                                 type="button"
                                                 onClick={() => navigate(portal.route)}
-                                                className="animate-fade-in-up group rounded-2xl border border-white/20 bg-white/30 p-3 text-left shadow-md shadow-black/5 transition-all duration-200 hover:-translate-y-1 hover:border-white/60 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent dark:border-slate-700/30 dark:bg-slate-900/40 dark:shadow-black/20 dark:hover:border-slate-600/50 dark:hover:bg-slate-900/60 sm:rounded-[1.5rem] sm:p-4 md:rounded-[2rem] md:p-5"
+                                                className={`animate-fade-in-up group rounded-2xl border border-white/20 bg-white/30 p-3 text-left shadow-md shadow-black/5 transition-all duration-200 hover:-translate-y-1 hover:border-white/60 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent dark:border-slate-700/30 dark:bg-slate-900/40 dark:shadow-black/20 dark:hover:border-slate-600/50 dark:hover:bg-slate-900/60 sm:rounded-[1.5rem] sm:p-4 md:rounded-[2rem] md:p-5${index === PUBLIC_LANDING_PORTALS.length - 1 && PUBLIC_LANDING_PORTALS.length % 2 !== 0 ? ' col-span-2 max-w-[50%] mx-auto w-full' : ''}`}
                                                 style={getAnimationDelayStyle(350 + (index * 70))}
                                             >
                                                 <div className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl ${accentClass} dark:bg-slate-800 sm:mb-4 sm:h-12 sm:w-12 sm:rounded-2xl`}>
