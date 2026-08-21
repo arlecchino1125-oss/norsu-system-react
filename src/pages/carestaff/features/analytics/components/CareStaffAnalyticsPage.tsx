@@ -4,7 +4,7 @@ import { m, AnimatePresence } from 'framer-motion';
 import {
     Users, Clock, Filter, ArrowUpDown, ArrowLeft, ChevronRight, Search,
     BarChart2, TrendingUp, RefreshCw, ChevronDown,
-    Sparkles, Activity, FileBarChart
+    Sparkles, Activity, FileBarChart, Download, FileSpreadsheet, FileText, Loader2
 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
@@ -12,6 +12,7 @@ import PaginationControls from '../../../../../components/PaginationControls';
 import QuestionChart from '../../../../../components/charts/QuestionChart';
 import YearLevelChart from '../../../../../components/charts/YearLevelChart';
 import TopQuestionsChart from '../../../../../components/charts/TopQuestionsChart';
+import { exportNeedsAssessmentExcel, exportNeedsAssessmentPdf } from '../utils/needsAssessmentExport';
 import type { CareStaffDashboardFunctions } from '../../../types';
 
 interface CareStaffAnalyticsPageProps {
@@ -438,7 +439,10 @@ const QuestionRow = ({ stat, index, isOpen, onToggle }: any) => {
     );
 };
 
-const QuestionsTab = ({ submissions, questionStats, compareTitle, unmatchedCount }: any) => {
+const QuestionsTab = ({
+    submissions, questionStats, compareTitle, unmatchedCount,
+    onExportPdf, onExportExcel, isExporting
+}: any) => {
     const [openQuestionId, setOpenQuestionId] = useState<number | null>(null);
 
     return (
@@ -464,9 +468,29 @@ const QuestionsTab = ({ submissions, questionStats, compareTitle, unmatchedCount
                         </p>
                     )}
                 </div>
-                <span className="text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
-                    N = {submissions.length}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={onExportPdf}
+                        disabled={isExporting || submissions.length === 0}
+                        title="Export Questions as PDF Report"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-sm hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                        <FileText size={13} className="text-rose-500" /> PDF
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onExportExcel}
+                        disabled={isExporting || submissions.length === 0}
+                        title="Export Questions as Excel Spreadsheet"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-sm hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                        <FileSpreadsheet size={13} className="text-emerald-600" /> Excel
+                    </button>
+                    <span className="text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+                        N = {submissions.length}
+                    </span>
+                </div>
             </div>
 
             {questionStats.length === 0 ? (
@@ -539,91 +563,156 @@ const AnalyticsKpiCards = ({ stats, compareStats, compareTitle }: any) => (
 const AnalyticsHeader = ({
     forms, selectedFormId, onFormSelect, onRefresh, isRefreshingData,
     compareFormId, setCompareFormId, compareStats, compareForm, compareOptions,
-    departmentFilter, setDepartmentFilter, allDepartments, stats
-}: any) => (
-    <m.div variants={fadeUp} className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 p-6">
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-5">
-            <div>
-                <div className="flex items-center gap-3 mb-1">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                        <BarChart2 size={22} className="text-white" />
+    departmentFilter, setDepartmentFilter, allDepartments, stats,
+    onExportPdf, onExportExcel, isExporting
+}: any) => {
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <m.div variants={fadeUp} className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-xl shadow-purple-500/5 ring-1 ring-slate-200/50 p-6">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-5">
+                <div>
+                    <div className="flex items-center gap-3 mb-1">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                            <BarChart2 size={22} className="text-white" />
+                        </div>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Student Analytics</h1>
                     </div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Student Analytics</h1>
+                    <p className="text-slate-500 font-medium ml-14">Deep dive into student responses and trends.</p>
                 </div>
-                <p className="text-slate-500 font-medium ml-14">Deep dive into student responses and trends.</p>
-            </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-                <m.button
-                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                    onClick={onRefresh}
-                    disabled={isRefreshingData}
-                    className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-slate-700 border border-slate-200 shadow-sm hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors"
-                >
-                    <RefreshCw size={15} className={isRefreshingData ? 'animate-spin text-purple-500' : ''} />
-                    {isRefreshingData ? 'Refreshing…' : 'Refresh Data'}
-                </m.button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+                    {/* Export Results Dropdown */}
+                    <div ref={exportMenuRef} className="relative">
+                        <m.button
+                            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                            onClick={() => setShowExportMenu(prev => !prev)}
+                            disabled={isExporting || stats.total === 0}
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-purple-500/20 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 transition-all cursor-pointer"
+                        >
+                            {isExporting ? (
+                                <Loader2 size={15} className="animate-spin" />
+                            ) : (
+                                <Download size={15} />
+                            )}
+                            <span>{isExporting ? 'Exporting…' : 'Export Results'}</span>
+                            <ChevronDown size={13} className={`transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
+                        </m.button>
 
-                <div className="relative">
-                    <select
-                        aria-label="Analytics form"
-                        value={selectedFormId || ''}
-                        onChange={e => onFormSelect(Number(e.target.value))}
-                        className="appearance-none w-full sm:w-auto pl-4 pr-10 py-2.5 border border-purple-200 rounded-2xl font-bold text-purple-700 bg-purple-50 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 text-sm cursor-pointer shadow-sm"
+                        {showExportMenu && (
+                            <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-purple-500/10 py-2 z-50 animate-scale-in">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowExportMenu(false); onExportPdf(); }}
+                                    className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-3 transition-colors cursor-pointer"
+                                >
+                                    <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                                        <FileText size={16} className="text-rose-600" />
+                                    </div>
+                                    <div>
+                                        <div>Export PDF Report</div>
+                                        <div className="text-[11px] font-normal text-slate-400">Executive & itemized summary</div>
+                                    </div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowExportMenu(false); onExportExcel(); }}
+                                    className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-3 transition-colors cursor-pointer"
+                                >
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                        <FileSpreadsheet size={16} className="text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <div>Export Excel (.xlsx)</div>
+                                        <div className="text-[11px] font-normal text-slate-400">Full data tables & statistics</div>
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <m.button
+                        whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                        onClick={onRefresh}
+                        disabled={isRefreshingData}
+                        className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-slate-700 border border-slate-200 shadow-sm hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors"
                     >
-                        {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
-                        {forms.length === 0 && <option>No Forms Available</option>}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 pointer-events-none" />
-                </div>
-            </div>
-        </div>
+                        <RefreshCw size={15} className={isRefreshingData ? 'animate-spin text-purple-500' : ''} />
+                        {isRefreshingData ? 'Refreshing…' : 'Refresh Data'}
+                    </m.button>
 
-        {/* Filters + stats in one band, so the table starts above the fold */}
-        <div className="flex flex-wrap items-end gap-4 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/60">
-            <div className="flex flex-col gap-1.5">
-                <label htmlFor="care-analytics-compare" className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Compare To</label>
-                <div className="relative">
-                    <select
-                        id="care-analytics-compare"
-                        value={compareFormId ?? ''}
-                        onChange={e => setCompareFormId(e.target.value ? Number(e.target.value) : null)}
-                        disabled={compareOptions.length === 0}
-                        title={compareOptions.length === 0 ? 'Duplicate this form to run it again, then its runs can be compared here.' : undefined}
-                        className={`appearance-none pl-4 pr-9 py-2.5 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-64 cursor-pointer border disabled:cursor-not-allowed disabled:opacity-60 ${compareFormId
-                            ? 'bg-purple-50 border-purple-200 text-purple-700'
-                            : 'bg-white border-slate-200 text-slate-600'
-                            }`}
-                    >
-                        <option value="">{compareOptions.length === 0 ? 'No other runs yet' : 'No comparison'}</option>
-                        {compareOptions.map((f: any) => (
-                            <option key={f.id} value={f.id}>{f.title}</option>
-                        ))}
-                    </select>
-                    <ChevronDown size={13} className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${compareFormId ? 'text-purple-500' : 'text-slate-400'}`} />
+                    <div className="relative">
+                        <select
+                            aria-label="Analytics form"
+                            value={selectedFormId || ''}
+                            onChange={e => onFormSelect(Number(e.target.value))}
+                            className="appearance-none w-full sm:w-auto pl-4 pr-10 py-2.5 border border-purple-200 rounded-2xl font-bold text-purple-700 bg-purple-50 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 text-sm cursor-pointer shadow-sm"
+                        >
+                            {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
+                            {forms.length === 0 && <option>No Forms Available</option>}
+                        </select>
+                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-500 pointer-events-none" />
+                    </div>
                 </div>
             </div>
 
-            <AnalyticsKpiCards stats={stats} compareStats={compareStats} compareTitle={compareForm?.title} />
+            {/* Filters + stats in one band, so the table starts above the fold */}
+            <div className="flex flex-wrap items-end gap-4 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/60">
+                <div className="flex flex-col gap-1.5">
+                    <label htmlFor="care-analytics-compare" className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Compare To</label>
+                    <div className="relative">
+                        <select
+                            id="care-analytics-compare"
+                            value={compareFormId ?? ''}
+                            onChange={e => setCompareFormId(e.target.value ? Number(e.target.value) : null)}
+                            disabled={compareOptions.length === 0}
+                            title={compareOptions.length === 0 ? 'Duplicate this form to run it again, then its runs can be compared here.' : undefined}
+                            className={`appearance-none pl-4 pr-9 py-2.5 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-64 cursor-pointer border disabled:cursor-not-allowed disabled:opacity-60 ${compareFormId
+                                ? 'bg-purple-50 border-purple-200 text-purple-700'
+                                : 'bg-white border-slate-200 text-slate-600'
+                                }`}
+                        >
+                            <option value="">{compareOptions.length === 0 ? 'No other runs yet' : 'No comparison'}</option>
+                            {compareOptions.map((f: any) => (
+                                <option key={f.id} value={f.id}>{f.title}</option>
+                            ))}
+                        </select>
+                        <ChevronDown size={13} className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${compareFormId ? 'text-purple-500' : 'text-slate-400'}`} />
+                    </div>
+                </div>
 
-            <div className="flex flex-col gap-1.5 ml-auto">
-                <label htmlFor="care-analytics-department" className="text-[11px] font-black text-slate-500 uppercase tracking-widest">College Filter</label>
-                <div className="relative">
-                    <select
-                        id="care-analytics-department"
-                        value={departmentFilter}
-                        onChange={e => setDepartmentFilter(e.target.value)}
-                        className="appearance-none pl-4 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-52 cursor-pointer"
-                    >
-                        <option value="All">All Colleges</option>
-                        {allDepartments.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
-                    </select>
-                    <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <AnalyticsKpiCards stats={stats} compareStats={compareStats} compareTitle={compareForm?.title} />
+
+                <div className="flex flex-col gap-1.5 ml-auto">
+                    <label htmlFor="care-analytics-department" className="text-[11px] font-black text-slate-500 uppercase tracking-widest">College Filter</label>
+                    <div className="relative">
+                        <select
+                            id="care-analytics-department"
+                            value={departmentFilter}
+                            onChange={e => setDepartmentFilter(e.target.value)}
+                            className="appearance-none pl-4 pr-9 py-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-52 cursor-pointer"
+                        >
+                            <option value="All">All Colleges</option>
+                            {allDepartments.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                        </select>
+                        <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
                 </div>
             </div>
-        </div>
-    </m.div>
-);
+        </m.div>
+    );
+};
 
 /**
  * Reads every row of a table in id order, a page at a time.
@@ -769,6 +858,17 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const [respondentSearch, setRespondentSearch] = useState('');
     const [respondentPage, setRespondentPage] = useState(1);
     const [topQuestionScoreFilter, setTopQuestionScoreFilter] = useState('5');
+    const [isExporting, setIsExporting] = useState(false);
+
+    const activeFilterLabel = useMemo(() => {
+        if (departmentFilter === 'All' && courseFilter === 'All') {
+            return 'All Colleges & Programs';
+        }
+        const parts = [];
+        if (departmentFilter !== 'All') parts.push(`College: ${departmentFilter}`);
+        if (courseFilter !== 'All') parts.push(`Course: ${courseFilter}`);
+        return parts.join(' | ');
+    }, [departmentFilter, courseFilter]);
 
     const { data: qForms } = useQuery({
         queryKey: ['analytics_forms'],
@@ -933,6 +1033,54 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const compareForm = forms.find((f: any) => f.id === compareFormId);
     const compareOptions = useMemo(() => sameLineageForms(forms, selectedFormId), [forms, selectedFormId]);
 
+    const handleExportPdf = async () => {
+        if (!selectedFormId || questionStats.length === 0) {
+            functions.showToast('No assessment data available to export.', 'error');
+            return;
+        }
+        setIsExporting(true);
+        try {
+            const currentForm = forms.find((f: any) => f.id === selectedFormId);
+            await exportNeedsAssessmentPdf({
+                formTitle: currentForm?.title || 'Student Needs Assessment',
+                filterLabel: activeFilterLabel,
+                totalRespondents: filteredSubmissions.length,
+                stats: questionStats,
+                compareTitle: compareForm?.title
+            });
+            functions.showToast('Needs Assessment PDF report downloaded.', 'success');
+        } catch (err) {
+            console.error('Failed to export PDF:', err);
+            functions.showToast('Failed to generate PDF report.', 'error');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleExportExcel = async () => {
+        if (!selectedFormId || questionStats.length === 0) {
+            functions.showToast('No assessment data available to export.', 'error');
+            return;
+        }
+        setIsExporting(true);
+        try {
+            const currentForm = forms.find((f: any) => f.id === selectedFormId);
+            await exportNeedsAssessmentExcel({
+                formTitle: currentForm?.title || 'Student Needs Assessment',
+                filterLabel: activeFilterLabel,
+                totalRespondents: filteredSubmissions.length,
+                stats: questionStats,
+                compareTitle: compareForm?.title
+            });
+            functions.showToast('Needs Assessment Excel spreadsheet downloaded.', 'success');
+        } catch (err) {
+            console.error('Failed to export Excel:', err);
+            functions.showToast('Failed to generate Excel file.', 'error');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <m.div variants={stagger} initial="hidden" animate="show" className="space-y-5 pb-10">
 
@@ -952,6 +1100,9 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 setDepartmentFilter={setDepartmentFilter}
                 allDepartments={allDepartments}
                 stats={stats}
+                onExportPdf={handleExportPdf}
+                onExportExcel={handleExportExcel}
+                isExporting={isExporting}
             />
 
             {/* ── TAB BAR ── */}
@@ -999,6 +1150,9 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             questionStats={questionStats}
                             compareTitle={compareForm?.title}
                             unmatchedCount={unmatchedCount}
+                            onExportPdf={handleExportPdf}
+                            onExportExcel={handleExportExcel}
+                            isExporting={isExporting}
                         />
                     )}
 
