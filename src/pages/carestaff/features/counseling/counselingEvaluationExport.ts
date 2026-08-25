@@ -155,7 +155,7 @@ export const exportCounselingEvaluationsExcel = async (
         { wch: 18 },
         { wch: 18 },
         { wch: 22 },
-        ...orderedQuestions.map(() => ({ wch: 30 }))
+        ...orderedQuestions.map((q) => ({ wch: q.question_type === 'scale' ? 10 : 45 }))
     ];
 
     const wb = XLSX.utils.book_new();
@@ -271,11 +271,47 @@ export const exportCounselingEvaluationsPdf = async (
 
     const responsesStartY = ((doc as any).lastAutoTable?.finalY ?? 50) + 7;
 
+    // ── QUESTIONS REFERENCE KEY ──
+    const scaleQuestions = orderedQuestions.filter((q) => q.question_type === 'scale');
+    const textQuestions = orderedQuestions.filter((q) => q.question_type !== 'scale');
+    let tableStartY = responsesStartY;
+
+    if (scaleQuestions.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(30, 41, 59);
+        doc.text('QUESTIONS REFERENCE KEY', 14, responsesStartY);
+
+        const legendRows: string[][] = [];
+        for (let i = 0; i < orderedQuestions.length; i += 2) {
+            const qA = orderedQuestions[i];
+            const qB = orderedQuestions[i + 1];
+            const labelA = `Q${i + 1}: ${qA.question_text} ${qA.question_type === 'scale' ? '(Scale 1-5)' : '(Text Response)'}`;
+            const labelB = qB
+                ? `Q${i + 2}: ${qB.question_text} ${qB.question_type === 'scale' ? '(Scale 1-5)' : '(Text Response)'}`
+                : '';
+            legendRows.push([labelA, labelB]);
+        }
+
+        autoTable(doc, {
+            body: legendRows,
+            startY: responsesStartY + 2,
+            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+            theme: 'plain',
+            columnStyles: {
+                0: { cellWidth: 135, fontStyle: 'normal' },
+                1: { cellWidth: 135, fontStyle: 'normal' }
+            }
+        });
+
+        tableStartY = ((doc as any).lastAutoTable?.finalY ?? responsesStartY) + 6;
+    }
+
     // ── EVALUATION RESPONSES TABLE ──
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
-    doc.text('DETAILED EVALUATION RESPONSES', 14, responsesStartY);
+    doc.text('DETAILED EVALUATION RESPONSES', 14, tableStartY);
 
     const tableHeaders = [
         'Student',
@@ -284,7 +320,9 @@ export const exportCounselingEvaluationsPdf = async (
         'Sex / Gender',
         'Source',
         'Date',
-        ...orderedQuestions.map((q, i) => `Q${i + 1}: ${q.question_text}`)
+        ...orderedQuestions.map((q, i) =>
+            q.question_type === 'scale' ? `Q${i + 1}` : `Q${i + 1}: ${q.question_text}`
+        )
     ];
 
     const tableRows = evaluations.map((resp) => {
@@ -300,20 +338,45 @@ export const exportCounselingEvaluationsPdf = async (
         ];
     });
 
+    const fixedColsWidth = 24 + 14 + 22 + 18 + 11 + 13; // = 102mm
+    const scaleColWidth = 8.5;
+    const totalScaleWidth = scaleQuestions.length * scaleColWidth;
+    const remainingForText = Math.max(30, 277 - fixedColsWidth - totalScaleWidth);
+    const textColWidth = textQuestions.length > 0 ? remainingForText / textQuestions.length : 30;
+
+    const columnStyles: Record<number, any> = {
+        0: { cellWidth: 24, fontStyle: 'bold' },
+        1: { cellWidth: 14, halign: 'center' },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 18 },
+        4: { cellWidth: 11, halign: 'center' },
+        5: { cellWidth: 13, halign: 'center' }
+    };
+
+    orderedQuestions.forEach((q, i) => {
+        const colIdx = 6 + i;
+        if (q.question_type === 'scale') {
+            columnStyles[colIdx] = {
+                cellWidth: scaleColWidth,
+                halign: 'center',
+                fontStyle: 'bold'
+            };
+        } else {
+            columnStyles[colIdx] = {
+                cellWidth: textColWidth,
+                halign: 'left'
+            };
+        }
+    });
+
     autoTable(doc, {
         head: [tableHeaders],
         body: tableRows,
-        startY: responsesStartY + 3,
+        startY: tableStartY + 3,
+        margin: { left: 10, right: 10 },
         styles: { fontSize: 6.5, cellPadding: 1.5, overflow: 'linebreak' },
-        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
-        columnStyles: {
-            0: { cellWidth: 28, fontStyle: 'bold' },
-            1: { cellWidth: 16 },
-            2: { cellWidth: 26 },
-            3: { cellWidth: 24 },
-            4: { cellWidth: 14, halign: 'center' },
-            5: { cellWidth: 16, halign: 'center' }
-        }
+        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles
     });
 
     doc.save(`Counseling_Evaluations_${new Date().toISOString().slice(0, 10)}.pdf`);

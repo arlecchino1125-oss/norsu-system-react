@@ -199,10 +199,10 @@ describe('counselingEvaluationExport', () => {
     });
 
     describe('exportCounselingEvaluationsPdf', () => {
-        it('generates a PDF report with Demographics and Responses tables', async () => {
+        it('generates a PDF report with Demographics, Questions Key, and Responses tables', async () => {
             await exportCounselingEvaluationsPdf(mockEvaluations, mockQuestions);
 
-            expect(mockAutoTable).toHaveBeenCalledTimes(2); // Demographics table + Responses table
+            expect(mockAutoTable).toHaveBeenCalledTimes(3); // Demographics table + Questions Key table + Responses table
             expect(mockJsPdfInstance.save).toHaveBeenCalledTimes(1);
             expect(mockJsPdfInstance.save.mock.calls[0][0]).toMatch(/^Counseling_Evaluations_\d{4}-\d{2}-\d{2}\.pdf$/);
         });
