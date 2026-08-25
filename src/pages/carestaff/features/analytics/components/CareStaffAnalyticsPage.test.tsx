@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildQuestionStats, collectAllRows, sameLineageForms, withComparisonDeltas } from './CareStaffAnalyticsPage';
+import {
+    buildQuestionStats,
+    collectAllRows,
+    fetchCohortQuestionStats,
+    sameLineageForms,
+    withComparisonDeltas
+} from './CareStaffAnalyticsPage';
 
 describe('collectAllRows', () => {
     /** Stands in for PostgREST: honours the cursor, but never returns more than
@@ -172,3 +178,15 @@ describe('buildQuestionStats', () => {
         expect(stat.average).toBe(0);
     });
 });
+
+describe('fetchCohortQuestionStats', () => {
+    it('returns zeroes for all questions when submissionIds list is empty', async () => {
+        const stats = await fetchCohortQuestionStats([{ id: 1 }, { id: 2 }], []);
+        expect(stats).toHaveLength(2);
+        expect(stats[0].total).toBe(0);
+        expect(stats[0].counts).toEqual([0, 0, 0, 0, 0]);
+        expect(stats[1].total).toBe(0);
+        expect(stats[1].counts).toEqual([0, 0, 0, 0, 0]);
+    });
+});
+

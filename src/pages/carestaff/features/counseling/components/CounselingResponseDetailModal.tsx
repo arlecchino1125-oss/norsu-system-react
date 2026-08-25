@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ClipboardList, Link2, FileQuestion } from 'lucide-react';
+import { ClipboardList, Download, FileQuestion, Link2 } from 'lucide-react';
 
 import { formatDateTime } from '../../../../../utils/formatters';
+import { exportSingleCounselingEvaluationPdf } from '../counselingEvaluationExport';
 import type {
     CounselingEvaluationQuestion,
     CounselingEvaluationResponse
@@ -29,10 +30,21 @@ export default function CounselingResponseDetailModal({
     response,
     questions
 }: CounselingResponseDetailModalProps) {
+    const [isExporting, setIsExporting] = useState(false);
+
     if (!open || typeof document === 'undefined') return null;
 
     const linked = response.counseling_request_id != null;
     const orderedQuestions = [...questions].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+
+    const handleDownloadPdf = async () => {
+        setIsExporting(true);
+        try {
+            await exportSingleCounselingEvaluationPdf(response, questions);
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     return createPortal(
         <div className="fixed inset-0 z-[75] flex items-end justify-center bg-slate-950/50 p-3 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
@@ -115,11 +127,20 @@ export default function CounselingResponseDetailModal({
                     )}
                 </div>
 
-                <div className="shrink-0 border-t border-slate-100 bg-white p-4">
+                <div className="shrink-0 border-t border-slate-100 bg-white p-4 flex items-center gap-3">
+                    <button
+                        type="button"
+                        disabled={isExporting}
+                        onClick={handleDownloadPdf}
+                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-bold text-purple-700 transition hover:bg-purple-100 disabled:opacity-50"
+                    >
+                        <Download size={15} />
+                        {isExporting ? 'Generating PDF...' : 'Download PDF'}
+                    </button>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-800"
+                        className="flex-1 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white transition hover:bg-slate-800"
                     >
                         Close
                     </button>

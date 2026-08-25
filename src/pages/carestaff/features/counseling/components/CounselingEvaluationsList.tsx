@@ -1,9 +1,30 @@
-import React, { useMemo, useState } from 'react';
-import { ChevronDown, ClipboardList, Eye, FileQuestion, Link2, RefreshCw, Search, Settings2, Users } from 'lucide-react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
+import {
+    ChevronDown,
+    ClipboardList,
+    Download,
+    Eye,
+    FileQuestion,
+    FileSpreadsheet,
+    FileText,
+    Link2,
+    Loader2,
+    RefreshCw,
+    Search,
+    Settings2,
+    Users
+} from 'lucide-react';
 
 import { formatDateTime } from '../../../../../utils/formatters';
 import { Button } from '../../../../../components/ui/Button';
 import CounselingResponseDetailModal from './CounselingResponseDetailModal';
+import {
+    computeEvaluationDemographics,
+    exportCounselingEvaluationsCsv,
+    exportCounselingEvaluationsExcel,
+    exportCounselingEvaluationsPdf,
+    exportSingleCounselingEvaluationPdf
+} from '../counselingEvaluationExport';
 import type {
     CounselingEvaluationQuestion,
     CounselingEvaluationResponse
@@ -32,6 +53,87 @@ const SourceBadge = ({ linked }: { linked: boolean }) =>
         </span>
     );
 
+/** Collapsible gender demographics counter — deduped by student_id */
+const GenderCounterBar = ({ evaluations }: { evaluations: CounselingEvaluationResponse[] }) => {
+    const [open, setOpen] = useState(false);
+
+    const counts = useMemo(() => {
+        const demo = computeEvaluationDemographics(evaluations);
+        return { sex: demo.sexCounts, gender: demo.genderCounts, total: demo.uniqueStudents };
+    }, [evaluations]);
+
+    if (counts.total === 0) return null;
+
+    return (
+        <div className="border-b border-slate-100">
+            <button
+                type="button"
+                onClick={() => setOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-slate-50/60 transition-colors"
+            >
+                <div className="flex items-center gap-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-100 text-purple-700">
+                        <Users size={11} />
+                    </div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        Gender Demographics
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400">
+                        — {counts.total} unique students
+                    </span>
+                </div>
+                <ChevronDown
+                    size={13}
+                    className={`text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                />
+            </button>
+
+            {open && (
+                <div className="grid grid-cols-1 gap-3 px-4 pb-3 sm:grid-cols-2">
+                    {/* Sex */}
+                    <div>
+                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Sex Assigned at Birth
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {Object.entries(counts.sex)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([label, count]) => (
+                                    <span
+                                        key={label}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                                    >
+                                        {label}
+                                        <strong className="tabular-nums font-black text-slate-900">{count}</strong>
+                                    </span>
+                                ))}
+                        </div>
+                    </div>
+                    {/* Gender Identity */}
+                    <div>
+                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Gender Identity
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {Object.entries(counts.gender)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([label, count]) => (
+                                    <span
+                                        key={label}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-purple-100 bg-purple-50/60 px-2.5 py-1 text-[11px] font-semibold text-purple-700"
+                                    >
+                                        {label}
+                                        <strong className="tabular-nums font-black text-purple-900">{count}</strong>
+                                    </span>
+                                ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 /** One row per student; expanding shows every evaluation response for that
  *  student (system-session linked AND open), each tagged with its source. */
 export default function CounselingEvaluationsList({
@@ -47,13 +149,31 @@ export default function CounselingEvaluationsList({
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [selectedResponse, setSelectedResponse] = useState<CounselingEvaluationResponse | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [exportingType, setExportingType] = useState<string | null>(null);
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const [downloadingSingleId, setDownloadingSingleId] = useState<number | null>(null);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    // Close export dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setExportMenuOpen(false);
+            }
+        };
+        if (exportMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [exportMenuOpen]);
 
     const grouped = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
         const map = new Map<string, CounselingEvaluationResponse[]>();
-        
+
         for (const row of evaluations) {
-            const matches = !query || 
+            const matches =
+                !query ||
                 (row.student_name && row.student_name.toLowerCase().includes(query)) ||
                 (row.student_id && row.student_id.toLowerCase().includes(query)) ||
                 (row.department && row.department.toLowerCase().includes(query)) ||
@@ -74,7 +194,43 @@ export default function CounselingEvaluationsList({
         });
     }, [evaluations, searchTerm]);
 
+    const filteredEvaluations = useMemo(() => {
+        const list: CounselingEvaluationResponse[] = [];
+        for (const [, responses] of grouped) {
+            list.push(...responses);
+        }
+        return list;
+    }, [grouped]);
+
     const toggle = (key: string) => setExpandedId((prev) => (prev === key ? null : key));
+
+    const handleExport = async (format: 'excel' | 'pdf' | 'csv') => {
+        setExportingType(format);
+        setExportMenuOpen(false);
+        const scopeLabel = searchTerm.trim() ? `Search: "${searchTerm.trim()}"` : undefined;
+        const targetList = searchTerm.trim() ? filteredEvaluations : evaluations;
+
+        try {
+            if (format === 'excel') {
+                await exportCounselingEvaluationsExcel(targetList, questions, scopeLabel);
+            } else if (format === 'pdf') {
+                await exportCounselingEvaluationsPdf(targetList, questions, scopeLabel);
+            } else if (format === 'csv') {
+                exportCounselingEvaluationsCsv(targetList, questions);
+            }
+        } finally {
+            setExportingType(null);
+        }
+    };
+
+    const handleDownloadSinglePdf = async (resp: CounselingEvaluationResponse) => {
+        setDownloadingSingleId(resp.id);
+        try {
+            await exportSingleCounselingEvaluationPdf(resp, questions);
+        } finally {
+            setDownloadingSingleId(null);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -117,6 +273,66 @@ export default function CounselingEvaluationsList({
                             {hasForm ? 'Manage Evaluation Form' : 'Build Evaluation Form'}
                         </Button>
                     )}
+                    {evaluations.length > 0 && (
+                        <div className="relative shrink-0" ref={exportMenuRef}>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                className="shrink-0"
+                                leftIcon={
+                                    exportingType ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <Download size={14} />
+                                    )
+                                }
+                                rightIcon={<ChevronDown size={12} className={`transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />}
+                                disabled={Boolean(exportingType)}
+                                onClick={() => setExportMenuOpen((prev) => !prev)}
+                            >
+                                {exportingType ? 'Exporting...' : 'Export'}
+                            </Button>
+
+                            {exportMenuOpen && (
+                                <div className="absolute right-0 top-full z-30 mt-1.5 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl animate-scale-in">
+                                    <div className="px-3 py-1.5 border-b border-slate-100">
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                            Export Format
+                                        </p>
+                                        {searchTerm.trim() && (
+                                            <p className="text-[10px] text-purple-600 font-semibold truncate">
+                                                Filtering {filteredEvaluations.length} items
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport('excel')}
+                                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition"
+                                    >
+                                        <FileSpreadsheet size={15} className="text-emerald-600 shrink-0" />
+                                        <span>Excel Spreadsheet (.xlsx)</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport('pdf')}
+                                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition"
+                                    >
+                                        <FileText size={15} className="text-rose-600 shrink-0" />
+                                        <span>PDF Summary Report (.pdf)</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExport('csv')}
+                                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition"
+                                    >
+                                        <Download size={15} className="text-blue-600 shrink-0" />
+                                        <span>CSV Data File (.csv)</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -128,6 +344,8 @@ export default function CounselingEvaluationsList({
                     </p>
                 </div>
             )}
+
+            <GenderCounterBar evaluations={evaluations} />
 
             <div className="min-h-0 flex-1 overflow-y-auto">
                 {grouped.length === 0 ? (
@@ -162,6 +380,16 @@ export default function CounselingEvaluationsList({
                                             <span className="block truncate text-xs text-slate-500">
                                                 {first?.student_id} · {first?.department || 'Department'} {first?.course ? `· ${first.course}` : ''}
                                             </span>
+                                            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                                    {first?.sex || 'Sex —'}
+                                                </span>
+                                                {first?.gender_identity && (
+                                                    <span className="inline-flex items-center rounded-md border border-purple-100/60 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                                                        {first.gender_identity}
+                                                    </span>
+                                                )}
+                                            </span>
                                         </span>
                                         <span className="hidden shrink-0 items-center gap-1.5 text-[11px] font-bold sm:flex">
                                             {linkedCount > 0 && (
@@ -178,6 +406,7 @@ export default function CounselingEvaluationsList({
                                         <div className="border-t border-slate-100 bg-slate-50/50 p-3 pl-12 space-y-2">
                                             {responses.map((resp) => {
                                                 const isLinked = resp.counseling_request_id != null;
+                                                const isDownloadingThis = downloadingSingleId === resp.id;
                                                 return (
                                                     <div
                                                         key={resp.id}
@@ -196,15 +425,33 @@ export default function CounselingEvaluationsList({
                                                                 </p>
                                                             )}
                                                         </div>
-                                                        <Button
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            onClick={() => setSelectedResponse(resp)}
-                                                            leftIcon={<Eye size={13} />}
-                                                            className="shrink-0"
-                                                        >
-                                                            View Answers
-                                                        </Button>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={isDownloadingThis}
+                                                                onClick={() => handleDownloadSinglePdf(resp)}
+                                                                leftIcon={
+                                                                    isDownloadingThis ? (
+                                                                        <Loader2 size={13} className="animate-spin" />
+                                                                    ) : (
+                                                                        <Download size={13} />
+                                                                    )
+                                                                }
+                                                                className="text-slate-600 hover:text-purple-700 hover:bg-purple-50"
+                                                            >
+                                                                {isDownloadingThis ? 'PDF...' : 'PDF'}
+                                                            </Button>
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                onClick={() => setSelectedResponse(resp)}
+                                                                leftIcon={<Eye size={13} />}
+                                                                className="shrink-0"
+                                                            >
+                                                                View Answers
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}

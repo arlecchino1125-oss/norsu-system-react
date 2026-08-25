@@ -3,12 +3,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Users, Clock, Filter, ArrowUpDown, ArrowLeft, ChevronRight, Search,
     BarChart2, RefreshCw, ChevronDown, Sparkles, Activity, FileBarChart,
-    Download, FileSpreadsheet, FileText, Loader2, HelpCircle
+    Download, FileSpreadsheet, FileText, Loader2, HelpCircle, X
 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
 import PaginationControls from '../../../../../components/PaginationControls';
-import { exportNeedsAssessmentExcel, exportNeedsAssessmentPdf } from '../utils/needsAssessmentExport';
+import {
+    computeGenderDemographics,
+    exportNeedsAssessmentExcel,
+    exportNeedsAssessmentPdf,
+    type GenderDemographics,
+    type NeedsAssessmentExportPayload
+} from '../utils/needsAssessmentExport';
 import type { CareStaffDashboardFunctions } from '../../../types';
 
 interface CareStaffAnalyticsPageProps {
@@ -121,7 +127,7 @@ const RespondentDetail = ({ student, questions, onBack }: any) => {
                 </button>
             </div>
 
-            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-6 py-3.5 border-b border-slate-100 text-xs shrink-0 bg-white">
+            <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 px-6 py-3.5 border-b border-slate-100 text-xs shrink-0 bg-white">
                 <div>
                     <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Student ID</dt>
                     <dd className="font-mono font-bold text-slate-900 mt-0.5">{student.students?.student_id || '—'}</dd>
@@ -137,6 +143,14 @@ const RespondentDetail = ({ student, questions, onBack }: any) => {
                 <div>
                     <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Year Level</dt>
                     <dd className="font-bold text-purple-700 uppercase mt-0.5">{student.students?.year_level || '—'}</dd>
+                </div>
+                <div>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Sex Assigned</dt>
+                    <dd className="font-bold text-slate-900 mt-0.5">{student.students?.sex || '—'}</dd>
+                </div>
+                <div>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Gender Identity</dt>
+                    <dd className="font-bold text-purple-700 mt-0.5">{student.students?.gender_identity || '—'}</dd>
                 </div>
             </dl>
 
@@ -275,6 +289,16 @@ const RespondentsTab = ({
                                         </div>
                                         <div className="font-mono text-[11px] text-slate-400 mt-0.5 font-medium">
                                             {sub.students?.student_id || 'ID Unknown'}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-semibold text-slate-600">
+                                                {sub.students?.sex || 'Sex —'}
+                                            </span>
+                                            {sub.students?.gender_identity && (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-[10px] font-semibold text-purple-700 border border-purple-100/60">
+                                                    {sub.students?.gender_identity}
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="max-w-[20rem] px-6 py-4">
@@ -578,6 +602,8 @@ const QuestionsTab = ({
     onExportPdf, onExportExcel, isExporting
 }: any) => {
     const [openQuestionId, setOpenQuestionId] = useState<number | null>(null);
+    const [showDemographics, setShowDemographics] = useState(false);
+    const demographics = useMemo(() => computeGenderDemographics(submissions), [submissions]);
 
     return (
         <div className="flex-1 flex flex-col min-h-0 space-y-3">
@@ -619,6 +645,144 @@ const QuestionsTab = ({
                         N = {submissions.length}
                     </span>
                 </div>
+            </div>
+
+            {/* Respondent Demographic Breakdown Card — collapsible */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs shrink-0">
+                <button
+                    type="button"
+                    onClick={() => setShowDemographics(prev => !prev)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 cursor-pointer hover:bg-slate-50/60 transition-colors rounded-2xl"
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                            <Users size={13} />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Respondent Demographics
+                        </h4>
+                        <span className="text-[11px] font-semibold text-slate-500 ml-1">
+                            — {demographics.total.toLocaleString()} respondents
+                        </span>
+                    </div>
+                    <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${showDemographics ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showDemographics && <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 pb-4 pt-1 border-t border-slate-100">
+                    {/* Sex Assigned at Birth */}
+                    <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sex Assigned at Birth</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div className="bg-rose-50/60 border border-rose-100/80 rounded-xl p-2.5 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[11px] font-semibold text-slate-600">Female</p>
+                                    <p className="text-sm font-black text-rose-700 tabular-nums leading-tight mt-0.5">
+                                        {demographics.sexCounts.female.toLocaleString()}
+                                    </p>
+                                </div>
+                                <span className="text-[10px] font-bold text-rose-600/80 bg-white/80 px-1.5 py-0.5 rounded-md border border-rose-100">
+                                    {demographics.total > 0 ? ((demographics.sexCounts.female / demographics.total) * 100).toFixed(1) : 0}%
+                                </span>
+                            </div>
+
+                            <div className="bg-sky-50/60 border border-sky-100/80 rounded-xl p-2.5 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[11px] font-semibold text-slate-600">Male</p>
+                                    <p className="text-sm font-black text-sky-700 tabular-nums leading-tight mt-0.5">
+                                        {demographics.sexCounts.male.toLocaleString()}
+                                    </p>
+                                </div>
+                                <span className="text-[10px] font-bold text-sky-600/80 bg-white/80 px-1.5 py-0.5 rounded-md border border-sky-100">
+                                    {demographics.total > 0 ? ((demographics.sexCounts.male / demographics.total) * 100).toFixed(1) : 0}%
+                                </span>
+                            </div>
+
+                            {demographics.sexCounts.other > 0 && (
+                                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex items-center justify-between col-span-2 sm:col-span-1">
+                                    <div>
+                                        <p className="text-[11px] font-semibold text-slate-600">Other / Unset</p>
+                                        <p className="text-sm font-black text-slate-700 tabular-nums leading-tight mt-0.5">
+                                            {demographics.sexCounts.other.toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded-md border border-slate-200">
+                                        {demographics.total > 0 ? ((demographics.sexCounts.other / demographics.total) * 100).toFixed(1) : 0}%
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Gender Identity */}
+                    <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gender Identity</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div className="bg-purple-50/60 border border-purple-100/80 rounded-xl p-2.5 flex items-center justify-between">
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-semibold text-slate-600 truncate" title="CIS Gender">CIS Gender</p>
+                                    <p className="text-sm font-black text-purple-700 tabular-nums leading-tight mt-0.5">
+                                        {demographics.genderCounts.cisgender.toLocaleString()}
+                                    </p>
+                                </div>
+                                <span className="text-[10px] font-bold text-purple-600/80 bg-white/80 px-1.5 py-0.5 rounded-md border border-purple-100 shrink-0 ml-1">
+                                    {demographics.total > 0 ? ((demographics.genderCounts.cisgender / demographics.total) * 100).toFixed(1) : 0}%
+                                </span>
+                            </div>
+
+                            <div className="bg-indigo-50/60 border border-indigo-100/80 rounded-xl p-2.5 flex items-center justify-between">
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-semibold text-slate-600 truncate" title="Transgender">Transgender</p>
+                                    <p className="text-sm font-black text-indigo-700 tabular-nums leading-tight mt-0.5">
+                                        {demographics.genderCounts.transgender.toLocaleString()}
+                                    </p>
+                                </div>
+                                <span className="text-[10px] font-bold text-indigo-600/80 bg-white/80 px-1.5 py-0.5 rounded-md border border-indigo-100 shrink-0 ml-1">
+                                    {demographics.total > 0 ? ((demographics.genderCounts.transgender / demographics.total) * 100).toFixed(1) : 0}%
+                                </span>
+                            </div>
+
+                            <div className="bg-amber-50/60 border border-amber-100/80 rounded-xl p-2.5 flex items-center justify-between">
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-semibold text-slate-600 truncate" title="Non-binary gender">Non-binary</p>
+                                    <p className="text-sm font-black text-amber-700 tabular-nums leading-tight mt-0.5">
+                                        {demographics.genderCounts.nonBinary.toLocaleString()}
+                                    </p>
+                                </div>
+                                <span className="text-[10px] font-bold text-amber-600/80 bg-white/80 px-1.5 py-0.5 rounded-md border border-amber-100 shrink-0 ml-1">
+                                    {demographics.total > 0 ? ((demographics.genderCounts.nonBinary / demographics.total) * 100).toFixed(1) : 0}%
+                                </span>
+                            </div>
+
+                            {demographics.genderCounts.preferNotToSay > 0 && (
+                                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex items-center justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-[11px] font-semibold text-slate-600 truncate" title="Prefer not to say">Prefer not to say</p>
+                                        <p className="text-sm font-black text-slate-700 tabular-nums leading-tight mt-0.5">
+                                            {demographics.genderCounts.preferNotToSay.toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded-md border border-slate-200 shrink-0 ml-1">
+                                        {demographics.total > 0 ? ((demographics.genderCounts.preferNotToSay / demographics.total) * 100).toFixed(1) : 0}%
+                                    </span>
+                                </div>
+                            )}
+
+                            {demographics.genderCounts.other > 0 && (
+                                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex items-center justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-[11px] font-semibold text-slate-600 truncate" title="Other / Unset">Other / Unset</p>
+                                        <p className="text-sm font-black text-slate-700 tabular-nums leading-tight mt-0.5">
+                                            {demographics.genderCounts.other.toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded-md border border-slate-200 shrink-0 ml-1">
+                                        {demographics.total > 0 ? ((demographics.genderCounts.other / demographics.total) * 100).toFixed(1) : 0}%
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>}
             </div>
 
             {/* Questions in a Bordered White Card, Internally Scrollable */}
@@ -717,6 +881,255 @@ const AnalyticsStatsBar = ({
         </div>
     </div>
 );
+
+interface ExportFilterModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    format: 'pdf' | 'excel';
+    submissions: any[];
+    onExport: (selectedSexes: string[], selectedGenders: string[], format: 'pdf' | 'excel') => void;
+    isExporting: boolean;
+}
+
+const ExportFilterModal = ({
+    isOpen,
+    onClose,
+    format,
+    submissions,
+    onExport,
+    isExporting
+}: ExportFilterModalProps) => {
+    const availableSexes = useMemo(() => {
+        const set = new Set<string>();
+        for (const s of submissions) {
+            const raw = (s.students?.sex || '').trim();
+            if (raw) set.add(raw);
+            else set.add('Other / Unspecified');
+        }
+        if (set.size === 0) {
+            set.add('Female');
+            set.add('Male');
+        }
+        return Array.from(set).sort();
+    }, [submissions]);
+
+    const availableGenders = useMemo(() => {
+        const set = new Set<string>();
+        for (const s of submissions) {
+            const raw = (s.students?.gender_identity || '').trim();
+            if (raw) set.add(raw);
+            else set.add('Other / Unspecified');
+        }
+        if (set.size === 0) {
+            set.add('CIS Gender');
+            set.add('Transgender');
+            set.add('Non-binary gender');
+        }
+        return Array.from(set).sort();
+    }, [submissions]);
+
+    const [selectedSexes, setSelectedSexes] = useState<string[]>([]);
+    const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
+    const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>(format);
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedSexes(availableSexes);
+            setSelectedGenders(availableGenders);
+            setExportFormat(format);
+        }
+    }, [isOpen, availableSexes, availableGenders, format]);
+
+    const isAllSexes = selectedSexes.length === availableSexes.length;
+    const isAllGenders = selectedGenders.length === availableGenders.length;
+
+    const toggleSex = (sex: string) => {
+        setSelectedSexes(prev => prev.includes(sex) ? prev.filter(s => s !== sex) : [...prev, sex]);
+    };
+
+    const toggleGender = (gender: string) => {
+        setSelectedGenders(prev => prev.includes(gender) ? prev.filter(g => g !== gender) : [...prev, gender]);
+    };
+
+    const toggleAllSexes = () => {
+        setSelectedSexes(isAllSexes ? [] : [...availableSexes]);
+    };
+
+    const toggleAllGenders = () => {
+        setSelectedGenders(isAllGenders ? [] : [...availableGenders]);
+    };
+
+    const matchingSubmissions = useMemo(() => {
+        return submissions.filter(s => {
+            const sex = (s.students?.sex || '').trim() || 'Other / Unspecified';
+            const gender = (s.students?.gender_identity || '').trim() || 'Other / Unspecified';
+            return selectedSexes.includes(sex) && selectedGenders.includes(gender);
+        });
+    }, [submissions, selectedSexes, selectedGenders]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                {/* Modal Header */}
+                <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 className="font-extrabold text-base text-slate-900">Export Assessment Results</h3>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">Filter exported questions data by demographic checklist</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isExporting}
+                        className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                        aria-label="Close export dialog"
+                    >
+                        <X size={15} />
+                    </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar">
+                    {/* Format Toggle */}
+                    <div>
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Export Format</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setExportFormat('pdf')}
+                                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all ${exportFormat === 'pdf' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                            >
+                                <FileText size={16} className="text-rose-500" />
+                                <span>PDF Report (.pdf)</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setExportFormat('excel')}
+                                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all ${exportFormat === 'excel' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                            >
+                                <FileSpreadsheet size={16} className="text-emerald-600" />
+                                <span>Excel Sheet (.xlsx)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Sex Checklist */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sex Assigned at Birth</label>
+                            <button
+                                type="button"
+                                onClick={toggleAllSexes}
+                                className="text-[11px] font-bold text-purple-600 hover:text-purple-800"
+                            >
+                                {isAllSexes ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {availableSexes.map(sex => {
+                                const count = submissions.filter(s => ((s.students?.sex || '').trim() || 'Other / Unspecified') === sex).length;
+                                const isChecked = selectedSexes.includes(sex);
+                                return (
+                                    <label
+                                        key={sex}
+                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => toggleSex(sex)}
+                                                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
+                                            />
+                                            <span>{sex}</span>
+                                        </div>
+                                        <span className="text-[11px] font-bold tabular-nums text-slate-500">({count})</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Gender Identity Checklist */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gender Identity</label>
+                            <button
+                                type="button"
+                                onClick={toggleAllGenders}
+                                className="text-[11px] font-bold text-purple-600 hover:text-purple-800"
+                            >
+                                {isAllGenders ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                            {availableGenders.map(gender => {
+                                const count = submissions.filter(s => ((s.students?.gender_identity || '').trim() || 'Other / Unspecified') === gender).length;
+                                const isChecked = selectedGenders.includes(gender);
+                                return (
+                                    <label
+                                        key={gender}
+                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => toggleGender(gender)}
+                                                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
+                                            />
+                                            <span>{gender}</span>
+                                        </div>
+                                        <span className="text-[11px] font-bold tabular-nums text-slate-500">({count} respondents)</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Live Count Preview */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
+                        <span className="text-slate-600 font-medium">Matching Respondents:</span>
+                        <span className="font-extrabold text-purple-700 text-sm tabular-nums">
+                            {matchingSubmissions.length.toLocaleString()} <span className="text-slate-400 text-xs font-normal">of {submissions.length.toLocaleString()}</span>
+                        </span>
+                    </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isExporting}
+                        className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onExport(selectedSexes, selectedGenders, exportFormat)}
+                        disabled={isExporting || matchingSubmissions.length === 0}
+                        className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                        {isExporting ? (
+                            <>
+                                <Loader2 size={14} className="animate-spin" />
+                                <span>Generating {exportFormat.toUpperCase()}…</span>
+                            </>
+                        ) : (
+                            <>
+                                <Download size={14} />
+                                <span>Export {exportFormat.toUpperCase()} ({matchingSubmissions.length})</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 /** Main Page Header styled like Student Population banner */
 const AnalyticsHeader = ({
@@ -868,7 +1281,7 @@ const fetchAnalyticsSubmissions = async (selectedFormId: number | null): Promise
 
     const studentResults = await Promise.all(idChunks.map(chunk => supabase
         .from('students')
-        .select('student_id, first_name, last_name, department, course, year_level, sex')
+        .select('student_id, first_name, last_name, department, course, year_level, sex, gender_identity')
         .in('student_id', chunk)));
 
     for (const { data: students } of studentResults) {
@@ -876,6 +1289,41 @@ const fetchAnalyticsSubmissions = async (selectedFormId: number | null): Promise
     }
 
     return (subs as any[]).map(sub => ({ ...sub, students: studentMap[sub.student_id] || {} }));
+};
+
+export const fetchCohortQuestionStats = async (questions: any[], submissionIds: number[]) => {
+    if (submissionIds.length === 0) {
+        return buildQuestionStats(questions, []);
+    }
+    const idChunks: number[][] = [];
+    for (let i = 0; i < submissionIds.length; i += 500) {
+        idChunks.push(submissionIds.slice(i, i + 500));
+    }
+    const answerResults = await Promise.all(idChunks.map(chunk => supabase
+        .from('needs_assessment_answers')
+        .select('question_id, answer_value')
+        .in('submission_id', chunk)
+        .gte('answer_value', 1)
+        .lte('answer_value', 5)
+    ));
+    const countsByQuestion = new Map<number, number[]>();
+    for (const question of questions) countsByQuestion.set(question.id, [0, 0, 0, 0, 0]);
+
+    for (const { data: answers } of answerResults) {
+        for (const ans of answers ?? []) {
+            const counts = countsByQuestion.get(Number(ans.question_id));
+            if (!counts) continue;
+            const score = Number(ans.answer_value);
+            if (score >= 1 && score <= 5) counts[score - 1] += 1;
+        }
+    }
+
+    return questions.map((question) => {
+        const counts = countsByQuestion.get(question.id) ?? [0, 0, 0, 0, 0];
+        const total = counts.reduce((sum, n) => sum + n, 0);
+        const weighted = counts.reduce((sum, n, index) => sum + n * (index + 1), 0);
+        return { question, counts, total, average: total === 0 ? 0 : weighted / total };
+    });
 };
 
 const fetchAnswerStats = async (formId: number | null, department: string, course: string): Promise<any[]> => {
@@ -1090,49 +1538,81 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const compareForm = forms.find((f: any) => f.id === compareFormId);
     const compareOptions = useMemo(() => sameLineageForms(forms, selectedFormId), [forms, selectedFormId]);
 
-    const handleExportPdf = async () => {
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportModalFormat, setExportModalFormat] = useState<'pdf' | 'excel'>('pdf');
+
+    const handleOpenExportPdf = () => {
         if (!selectedFormId || questionStats.length === 0) {
             functions.showToast('No assessment data available to export.', 'error');
             return;
         }
-        setIsExporting(true);
-        try {
-            const currentForm = forms.find((f: any) => f.id === selectedFormId);
-            await exportNeedsAssessmentPdf({
-                formTitle: currentForm?.title || 'Student Needs Assessment',
-                filterLabel: activeFilterLabel,
-                totalRespondents: filteredSubmissions.length,
-                stats: questionStats,
-                compareTitle: compareForm?.title
-            });
-            functions.showToast('Needs Assessment PDF report downloaded.', 'success');
-        } catch (err) {
-            console.error('Failed to export PDF:', err);
-            functions.showToast('Failed to generate PDF report.', 'error');
-        } finally {
-            setIsExporting(false);
-        }
+        setExportModalFormat('pdf');
+        setShowExportModal(true);
     };
 
-    const handleExportExcel = async () => {
+    const handleOpenExportExcel = () => {
         if (!selectedFormId || questionStats.length === 0) {
             functions.showToast('No assessment data available to export.', 'error');
             return;
         }
+        setExportModalFormat('excel');
+        setShowExportModal(true);
+    };
+
+    const handlePerformExport = async (selectedSexes: string[], selectedGenders: string[], format: 'pdf' | 'excel') => {
+        if (!selectedFormId || questionStats.length === 0) return;
         setIsExporting(true);
         try {
             const currentForm = forms.find((f: any) => f.id === selectedFormId);
-            await exportNeedsAssessmentExcel({
+            const matchingSubmissions = filteredSubmissions.filter((s: any) => {
+                const sex = (s.students?.sex || '').trim() || 'Other / Unspecified';
+                const gender = (s.students?.gender_identity || '').trim() || 'Other / Unspecified';
+                return selectedSexes.includes(sex) && selectedGenders.includes(gender);
+            });
+
+            if (matchingSubmissions.length === 0) {
+                functions.showToast('No respondents matched the selected demographic filters.', 'error');
+                return;
+            }
+
+            const isFullCohort = matchingSubmissions.length === filteredSubmissions.length;
+            let exportStats = questionStats;
+            if (!isFullCohort) {
+                const matchingIds = matchingSubmissions.map((s: any) => s.id);
+                exportStats = await fetchCohortQuestionStats(scaleQuestions, matchingIds);
+            }
+
+            const exportDemographics = computeGenderDemographics(matchingSubmissions);
+
+            let genderFilterDesc = '';
+            if (!isFullCohort) {
+                const parts: string[] = [];
+                if (selectedSexes.length > 0 && selectedSexes.length < 3) parts.push(`Sex: ${selectedSexes.join(', ')}`);
+                if (selectedGenders.length > 0 && selectedGenders.length < 5) parts.push(`Gender: ${selectedGenders.join(', ')}`);
+                genderFilterDesc = parts.join(' | ');
+            }
+
+            const payload: NeedsAssessmentExportPayload = {
                 formTitle: currentForm?.title || 'Student Needs Assessment',
                 filterLabel: activeFilterLabel,
-                totalRespondents: filteredSubmissions.length,
-                stats: questionStats,
+                genderFilterLabel: genderFilterDesc || undefined,
+                totalRespondents: matchingSubmissions.length,
+                stats: exportStats,
+                demographics: exportDemographics,
                 compareTitle: compareForm?.title
-            });
-            functions.showToast('Needs Assessment Excel spreadsheet downloaded.', 'success');
+            };
+
+            if (format === 'pdf') {
+                await exportNeedsAssessmentPdf(payload);
+                functions.showToast('Needs Assessment PDF report downloaded.', 'success');
+            } else {
+                await exportNeedsAssessmentExcel(payload);
+                functions.showToast('Needs Assessment Excel spreadsheet downloaded.', 'success');
+            }
+            setShowExportModal(false);
         } catch (err) {
-            console.error('Failed to export Excel:', err);
-            functions.showToast('Failed to generate Excel file.', 'error');
+            console.error('Failed to export:', err);
+            functions.showToast(`Failed to generate ${format.toUpperCase()} export.`, 'error');
         } finally {
             setIsExporting(false);
         }
@@ -1147,8 +1627,8 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 onFormSelect={handleFormSelect}
                 onRefresh={handleRefreshData}
                 isRefreshingData={isRefreshingData}
-                onExportPdf={handleExportPdf}
-                onExportExcel={handleExportExcel}
+                onExportPdf={handleOpenExportPdf}
+                onExportExcel={handleOpenExportExcel}
                 isExporting={isExporting}
                 totalCount={stats.total}
             />
@@ -1213,8 +1693,8 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             questionStats={questionStats}
                             compareTitle={compareForm?.title}
                             unmatchedCount={unmatchedCount}
-                            onExportPdf={handleExportPdf}
-                            onExportExcel={handleExportExcel}
+                            onExportPdf={handleOpenExportPdf}
+                            onExportExcel={handleOpenExportExcel}
                             isExporting={isExporting}
                         />
                     )}
@@ -1245,6 +1725,16 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                     )}
                 </div>
             )}
+
+            {/* Demographic Export Filter Modal (Checklist Only) */}
+            <ExportFilterModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                format={exportModalFormat}
+                submissions={filteredSubmissions}
+                onExport={handlePerformExport}
+                isExporting={isExporting}
+            />
         </div>
     );
 };

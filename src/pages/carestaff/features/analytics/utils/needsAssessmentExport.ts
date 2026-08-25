@@ -1,6 +1,22 @@
 import { loadJsPdfAutoTable, loadXlsx } from '../../../../../lib/exportVendors';
 import { escapeSpreadsheetRows } from '../../../../../utils/inputSecurity';
 
+export interface GenderDemographics {
+    sexCounts: {
+        female: number;
+        male: number;
+        other: number;
+    };
+    genderCounts: {
+        cisgender: number;
+        transgender: number;
+        nonBinary: number;
+        preferNotToSay: number;
+        other: number;
+    };
+    total: number;
+}
+
 export interface QuestionStatItem {
     question: {
         id: number;
@@ -31,8 +47,10 @@ export interface ProcessedItemAnalysis {
 export interface NeedsAssessmentExportPayload {
     formTitle: string;
     filterLabel?: string;
+    genderFilterLabel?: string;
     totalRespondents: number;
     stats: QuestionStatItem[];
+    demographics?: GenderDemographics;
     compareTitle?: string;
 }
 
@@ -43,6 +61,32 @@ export const LIKERT_SCALE_LEGEND = [
     { range: '1.80 – 2.59', level: '2', label: 'Low Need', priority: 'Low Priority / Routine Monitoring' },
     { range: '1.00 – 1.79', level: '1', label: 'Very Low Need', priority: 'Minimal Concern / No Action Required' }
 ];
+
+export const computeGenderDemographics = (submissions: any[] = []): GenderDemographics => {
+    let female = 0, male = 0, sexOther = 0;
+    let cisgender = 0, transgender = 0, nonBinary = 0, preferNotToSay = 0, genderOther = 0;
+
+    for (const sub of submissions) {
+        const student = sub?.students || {};
+        const rawSex = String(student.sex || '').trim().toLowerCase();
+        if (rawSex === 'female' || rawSex === 'f') female += 1;
+        else if (rawSex === 'male' || rawSex === 'm') male += 1;
+        else sexOther += 1;
+
+        const rawGender = String(student.gender_identity || '').trim().toLowerCase();
+        if (rawGender.includes('cis')) cisgender += 1;
+        else if (rawGender.includes('trans')) transgender += 1;
+        else if (rawGender.includes('non-binary') || rawGender.includes('nonbinary')) nonBinary += 1;
+        else if (rawGender.includes('prefer not')) preferNotToSay += 1;
+        else genderOther += 1;
+    }
+
+    return {
+        sexCounts: { female, male, other: sexOther },
+        genderCounts: { cisgender, transgender, nonBinary, preferNotToSay, other: genderOther },
+        total: submissions.length
+    };
+};
 
 export const getDescriptiveEquivalent = (mean: number): string => {
     if (!mean || mean <= 0) return 'No Data';
@@ -139,8 +183,10 @@ export const processQuestionStatsForExport = (stats: QuestionStatItem[]) => {
 export const exportNeedsAssessmentExcel = async ({
     formTitle,
     filterLabel = 'All Colleges',
+    genderFilterLabel,
     totalRespondents,
-    stats
+    stats,
+    demographics
 }: NeedsAssessmentExportPayload): Promise<void> => {
     const XLSX = await loadXlsx();
     const { items, grandMean, grandMeanEquivalent, topHighestNeeds, topLowestNeeds } = processQuestionStatsForExport(stats);
@@ -151,6 +197,25 @@ export const exportNeedsAssessmentExcel = async ({
         day: 'numeric'
     });
 
+    const effectiveDemographics = demographics ?? computeGenderDemographics([]);
+    const totalDemo = totalRespondents || effectiveDemographics.total;
+
+    const demographicRows: any[][] = [
+        ['========================================================================================'],
+        ['RESPONDENT DEMOGRAPHIC PROFILE (GENDER & SEX BREAKDOWN)'],
+        ['========================================================================================'],
+        ['Demographic Category', 'Identifier / Group', 'Count (f)', 'Percentage (%)'],
+        ['Sex Assigned at Birth', 'Female', effectiveDemographics.sexCounts.female, totalDemo > 0 ? `${((effectiveDemographics.sexCounts.female / totalDemo) * 100).toFixed(1)}%` : '0%'],
+        ['Sex Assigned at Birth', 'Male', effectiveDemographics.sexCounts.male, totalDemo > 0 ? `${((effectiveDemographics.sexCounts.male / totalDemo) * 100).toFixed(1)}%` : '0%'],
+        ...(effectiveDemographics.sexCounts.other > 0 ? [['Sex Assigned at Birth', 'Other / Unspecified', effectiveDemographics.sexCounts.other, totalDemo > 0 ? `${((effectiveDemographics.sexCounts.other / totalDemo) * 100).toFixed(1)}%` : '0%']] : []),
+        ['Gender Identity', 'CIS Gender', effectiveDemographics.genderCounts.cisgender, totalDemo > 0 ? `${((effectiveDemographics.genderCounts.cisgender / totalDemo) * 100).toFixed(1)}%` : '0%'],
+        ['Gender Identity', 'Transgender', effectiveDemographics.genderCounts.transgender, totalDemo > 0 ? `${((effectiveDemographics.genderCounts.transgender / totalDemo) * 100).toFixed(1)}%` : '0%'],
+        ['Gender Identity', 'Non-binary gender', effectiveDemographics.genderCounts.nonBinary, totalDemo > 0 ? `${((effectiveDemographics.genderCounts.nonBinary / totalDemo) * 100).toFixed(1)}%` : '0%'],
+        ...(effectiveDemographics.genderCounts.preferNotToSay > 0 ? [['Gender Identity', 'Prefer not to say', effectiveDemographics.genderCounts.preferNotToSay, totalDemo > 0 ? `${((effectiveDemographics.genderCounts.preferNotToSay / totalDemo) * 100).toFixed(1)}%` : '0%']] : []),
+        ...(effectiveDemographics.genderCounts.other > 0 ? [['Gender Identity', 'Other / Unspecified', effectiveDemographics.genderCounts.other, totalDemo > 0 ? `${((effectiveDemographics.genderCounts.other / totalDemo) * 100).toFixed(1)}%` : '0%']] : []),
+        []
+    ];
+
     // Sheet 1: Executive Summary & Priority Analysis
     const summaryRows: any[][] = [
         ['NEGROS ORIENTAL STATE UNIVERSITY - GUIHULNGAN CAMPUS'],
@@ -158,11 +223,13 @@ export const exportNeedsAssessmentExcel = async ({
         [],
         ['Assessment Form:', formTitle],
         ['Filter / Scope:', filterLabel],
+        ...(genderFilterLabel ? [['Gender Filter / Demographics:', genderFilterLabel]] : []),
         ['Total Respondents (N):', totalRespondents],
         ['Assessment Grand Mean:', grandMean > 0 ? grandMean.toFixed(2) : 'N/A'],
         ['Overall Descriptive Interpretation:', grandMeanEquivalent],
         ['Report Generated Date:', generatedDate],
         [],
+        ...demographicRows,
         ['========================================================================================'],
         ['TOP 5 HIGHEST NEED STATEMENTS (PRIORITY AREAS FOR COUNSELING & INTERVENTION)'],
         ['========================================================================================'],
@@ -280,8 +347,10 @@ export const exportNeedsAssessmentExcel = async ({
 export const exportNeedsAssessmentPdf = async ({
     formTitle,
     filterLabel = 'All Colleges',
+    genderFilterLabel,
     totalRespondents,
-    stats
+    stats,
+    demographics
 }: NeedsAssessmentExportPayload): Promise<void> => {
     const { jsPDF, autoTable } = await loadJsPdfAutoTable();
     const { items, grandMean, grandMeanEquivalent, topHighestNeeds, topLowestNeeds } = processQuestionStatsForExport(stats);
@@ -293,49 +362,114 @@ export const exportNeedsAssessmentPdf = async ({
         day: 'numeric'
     });
 
+    const effectiveDemographics = demographics ?? computeGenderDemographics([]);
+    const totalDemo = totalRespondents || effectiveDemographics.total;
+
     // ── PAGE 1: HEADER & EXECUTIVE SUMMARY ──
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(30, 41, 59);
-    doc.text('NEGROS ORIENTAL STATE UNIVERSITY', 14, 13);
+    doc.text('NEGROS ORIENTAL STATE UNIVERSITY', 14, 12);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
-    doc.text('GUIHULNGAN CAMPUS • OFFICE OF THE CAMPUS CARE CENTER DIRECTOR', 14, 18);
+    doc.text('GUIHULNGAN CAMPUS • OFFICE OF THE CAMPUS CARE CENTER DIRECTOR', 14, 17);
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setTextColor(15, 23, 42);
-    doc.text('STUDENT NEEDS ASSESSMENT RESULTS & PRIORITY REPORT', 14, 26);
+    doc.text('STUDENT NEEDS ASSESSMENT RESULTS & PRIORITY REPORT', 14, 24);
 
     // Meta Block
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(51, 65, 85);
-    doc.text(`Assessment Form: ${formTitle}`, 14, 33);
-    doc.text(`Scope / Filter: ${filterLabel}`, 14, 38);
-    doc.text(`Total Respondents (N): ${totalRespondents}`, 140, 33);
-    doc.text(`Date Generated: ${generatedDate}`, 140, 38);
+    doc.text(`Assessment Form: ${formTitle}`, 14, 30);
+    doc.text(`Scope / Filter: ${filterLabel}${genderFilterLabel ? ` | Gender: ${genderFilterLabel}` : ''}`, 14, 35);
+    doc.text(`Total Respondents (N): ${totalRespondents}`, 140, 30);
+    doc.text(`Date Generated: ${generatedDate}`, 140, 35);
 
     // Grand Mean Badge
     doc.setFillColor(245, 243, 255);
     doc.setDrawColor(221, 214, 254);
-    doc.roundedRect(215, 23, 68, 18, 2, 2, 'FD');
+    doc.roundedRect(215, 20, 68, 17, 2, 2, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(109, 40, 217);
-    doc.text('OVERALL GRAND MEAN', 218, 29);
-    doc.setFontSize(13);
-    doc.text(`${grandMean > 0 ? grandMean.toFixed(2) : '—'}`, 218, 37);
     doc.setFontSize(7.5);
+    doc.setTextColor(109, 40, 217);
+    doc.text('OVERALL GRAND MEAN', 218, 26);
+    doc.setFontSize(12);
+    doc.text(`${grandMean > 0 ? grandMean.toFixed(2) : '—'}`, 218, 33);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text(`(${grandMeanEquivalent})`, 236, 37);
+    doc.text(`(${grandMeanEquivalent})`, 235, 33);
+
+    // Demographic Profile Summary Table
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text('RESPONDENT DEMOGRAPHIC PROFILE (GENDER & SEX BREAKDOWN)', 14, 42);
+
+    const demoBody: any[][] = [
+        [
+            'Female',
+            effectiveDemographics.sexCounts.female.toLocaleString(),
+            `${totalDemo > 0 ? ((effectiveDemographics.sexCounts.female / totalDemo) * 100).toFixed(1) : 0}%`,
+            'CIS Gender',
+            effectiveDemographics.genderCounts.cisgender.toLocaleString(),
+            `${totalDemo > 0 ? ((effectiveDemographics.genderCounts.cisgender / totalDemo) * 100).toFixed(1) : 0}%`
+        ],
+        [
+            'Male',
+            effectiveDemographics.sexCounts.male.toLocaleString(),
+            `${totalDemo > 0 ? ((effectiveDemographics.sexCounts.male / totalDemo) * 100).toFixed(1) : 0}%`,
+            'Transgender',
+            effectiveDemographics.genderCounts.transgender.toLocaleString(),
+            `${totalDemo > 0 ? ((effectiveDemographics.genderCounts.transgender / totalDemo) * 100).toFixed(1) : 0}%`
+        ],
+        [
+            effectiveDemographics.sexCounts.other > 0 ? 'Other / Unspecified' : '',
+            effectiveDemographics.sexCounts.other > 0 ? effectiveDemographics.sexCounts.other.toLocaleString() : '',
+            effectiveDemographics.sexCounts.other > 0 ? `${((effectiveDemographics.sexCounts.other / totalDemo) * 100).toFixed(1)}%` : '',
+            'Non-binary gender',
+            effectiveDemographics.genderCounts.nonBinary.toLocaleString(),
+            `${totalDemo > 0 ? ((effectiveDemographics.genderCounts.nonBinary / totalDemo) * 100).toFixed(1) : 0}%`
+        ]
+    ];
+
+    if (effectiveDemographics.genderCounts.preferNotToSay > 0 || effectiveDemographics.genderCounts.other > 0) {
+        const extraLabel = effectiveDemographics.genderCounts.preferNotToSay > 0 ? 'Prefer not to say' : 'Other / Unspecified';
+        const extraCount = effectiveDemographics.genderCounts.preferNotToSay > 0 ? effectiveDemographics.genderCounts.preferNotToSay : effectiveDemographics.genderCounts.other;
+        demoBody.push([
+            '', '', '',
+            extraLabel,
+            extraCount.toLocaleString(),
+            `${totalDemo > 0 ? ((extraCount / totalDemo) * 100).toFixed(1) : 0}%`
+        ]);
+    }
+
+    autoTable(doc, {
+        head: [['Sex Assigned at Birth', 'Count', '%', 'Gender Identity', 'Count', '%']],
+        body: demoBody,
+        startY: 45,
+        styles: { fontSize: 7, cellPadding: 1.2, overflow: 'linebreak' },
+        headStyles: { fillColor: [109, 40, 217], textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+            0: { cellWidth: 48, fontStyle: 'bold' },
+            1: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 48, fontStyle: 'bold' },
+            4: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+            5: { cellWidth: 20, halign: 'center' }
+        }
+    });
+
+    const highestStartY = ((doc as any).lastAutoTable?.finalY ?? 45) + 5;
 
     // Top 5 Highest Need Statements Table
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setTextColor(185, 28, 28);
-    doc.text('TOP HIGHEST NEED STATEMENTS (AREAS OF GREATEST STUDENT CONCERN)', 14, 48);
+    doc.text('TOP HIGHEST NEED STATEMENTS (AREAS OF GREATEST STUDENT CONCERN)', 14, highestStartY);
 
     autoTable(doc, {
         head: [['Rank', '#', 'Statement / Need Indicator', 'Scale 5 (f / %)', 'Weighted Mean', 'Descriptive Interpretation']],
@@ -347,8 +481,8 @@ export const exportNeedsAssessmentPdf = async ({
             item.weightedMean.toFixed(2),
             item.descriptiveEquivalent
         ]),
-        startY: 51,
-        styles: { fontSize: 7.5, cellPadding: 2, overflow: 'linebreak' },
+        startY: highestStartY + 2.5,
+        styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
         headStyles: { fillColor: [239, 68, 68], textColor: 255, fontStyle: 'bold' },
         columnStyles: {
             0: { cellWidth: 18, fontStyle: 'bold' },
@@ -360,11 +494,11 @@ export const exportNeedsAssessmentPdf = async ({
         }
     });
 
-    const lowestStartY = ((doc as any).lastAutoTable?.finalY ?? 51) + 7;
+    const lowestStartY = ((doc as any).lastAutoTable?.finalY ?? highestStartY) + 5;
 
     // Top 5 Lowest Need Statements Table
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
     doc.text('TOP LOWEST NEED STATEMENTS (AREAS OF LEAST CONCERN)', 14, lowestStartY);
 
@@ -378,8 +512,8 @@ export const exportNeedsAssessmentPdf = async ({
             item.weightedMean.toFixed(2),
             item.descriptiveEquivalent
         ]),
-        startY: lowestStartY + 3,
-        styles: { fontSize: 7.5, cellPadding: 2, overflow: 'linebreak' },
+        startY: lowestStartY + 2.5,
+        styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
         headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold' },
         columnStyles: {
             0: { cellWidth: 18, fontStyle: 'bold' },

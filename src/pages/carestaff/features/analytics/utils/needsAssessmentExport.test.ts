@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    computeGenderDemographics,
     getDescriptiveEquivalent,
     processQuestionStatsForExport,
     sanitizeFileName
@@ -117,4 +118,38 @@ describe('needsAssessmentExport statistical processing', () => {
             expect(grandMeanEquivalent).toBe('High Need');
         });
     });
+
+    describe('computeGenderDemographics', () => {
+        it('calculates counts for Female, Male, and other sexes accurately', () => {
+            const mockSubs = [
+                { students: { sex: 'Female', gender_identity: 'Cis-gender' } },
+                { students: { sex: 'Female', gender_identity: 'CIS Gender' } },
+                { students: { sex: 'female', gender_identity: 'Transgender' } },
+                { students: { sex: 'Male', gender_identity: 'Cisgender' } },
+                { students: { sex: 'male', gender_identity: 'Non-binary gender' } },
+                { students: { sex: 'Other', gender_identity: 'Prefer not to say' } },
+                { students: {} }
+            ];
+
+            const result = computeGenderDemographics(mockSubs);
+            expect(result.total).toBe(7);
+            expect(result.sexCounts.female).toBe(3);
+            expect(result.sexCounts.male).toBe(2);
+            expect(result.sexCounts.other).toBe(2);
+
+            expect(result.genderCounts.cisgender).toBe(3);
+            expect(result.genderCounts.transgender).toBe(1);
+            expect(result.genderCounts.nonBinary).toBe(1);
+            expect(result.genderCounts.preferNotToSay).toBe(1);
+            expect(result.genderCounts.other).toBe(1);
+        });
+
+        it('handles empty or missing submissions cleanly', () => {
+            const emptyResult = computeGenderDemographics([]);
+            expect(emptyResult.total).toBe(0);
+            expect(emptyResult.sexCounts).toEqual({ female: 0, male: 0, other: 0 });
+            expect(emptyResult.genderCounts).toEqual({ cisgender: 0, transgender: 0, nonBinary: 0, preferNotToSay: 0, other: 0 });
+        });
+    });
 });
+

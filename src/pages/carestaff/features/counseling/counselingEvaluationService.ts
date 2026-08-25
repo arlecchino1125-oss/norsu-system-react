@@ -59,6 +59,8 @@ export interface CounselingEvaluationResponse {
     department: string | null;
     course: string | null;
     year_level: string | null;
+    sex: string | null;
+    gender_identity: string | null;
     submitted_at: string;
     counseling_requests?: { id: number; created_at: string; scheduled_date: string | null } | null;
     counseling_evaluation_answers?: Array<{ question_id: number; answer_value: number | null; answer_text: string | null }>;
@@ -196,11 +198,18 @@ export const getCounselingEvaluations = async (): Promise<CounselingEvaluationRe
         .select(
             `id, form_id, counseling_request_id, student_id, student_name, department, course, year_level, submitted_at,
              counseling_requests(id, created_at, scheduled_date),
-             counseling_evaluation_answers(question_id, answer_value, answer_text)`
+             counseling_evaluation_answers(question_id, answer_value, answer_text),
+             students(sex, gender_identity)`
         )
         .order('submitted_at', { ascending: false })
         .limit(10000);
 
     if (error) throw error;
-    return (data ?? []) as CounselingEvaluationResponse[];
+    // ponytail: flatten students join into top-level sex/gender_identity
+    return ((data ?? []) as any[]).map(row => ({
+        ...row,
+        sex: row.students?.sex ?? null,
+        gender_identity: row.students?.gender_identity ?? null,
+        students: undefined
+    })) as CounselingEvaluationResponse[];
 };
