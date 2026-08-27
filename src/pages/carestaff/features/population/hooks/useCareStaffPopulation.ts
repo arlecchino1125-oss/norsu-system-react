@@ -39,9 +39,10 @@ import {
     type DeptStudentAnnotation
 } from '../../../../../services/deptStudentAnnotationService';
 import { getDepartmentNameFromCourseRecords } from '../../../../../utils/courseDepartment';
-import { isR2Reference, openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../../../../utils/storageAssets';
+import { isR2Reference, resolveStoredAssetUrlsBulk, getStoredAssetLabel, type R2BulkLocatorEntry } from '../../../../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../../../../utils/inputSecurity';
-import { loadXlsx } from '../../../../../lib/exportVendors';
+import { loadXlsx, loadFflate } from '../../../../../lib/exportVendors';
+import { getProfileCategoryForDatabaseField } from '../../../../../services/r2DocumentService';
 
 import { PROFILE_CATEGORIES } from '../profileCategories';
 import { useResponsivePageSize } from '../../../../../hooks/useResponsivePageSize';
@@ -106,6 +107,35 @@ const handleDownloadTemplate = () => {
     window.URL.revokeObjectURL(url);
 };
 
+// Strips characters that are unsafe in zip entry names / filenames.
+const sanitizeExportFilename = (name: string) => {
+    const cleaned = String(name || '').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_');
+    return (cleaned || 'file').replace(/[^a-zA-Z0-9._ -]/g, '_');
+};
+
+// The single source of truth for a bundled document's path inside the ZIP.
+// Both the workbook cell and the ZIP writer call this, so the spreadsheet can
+// never point at an entry the archive does not contain.
+export const buildZipDocumentPath = (studentId: string, header: string, rawValue: string) => {
+    const folder = sanitizeExportFilename(header);
+    const fileName = sanitizeExportFilename(getStoredAssetLabel(rawValue, `${folder}-${studentId}`));
+    return `documents/${sanitizeExportFilename(studentId)}/${folder}/${fileName}`;
+};
+
+// Triggers a browser download for fflate-generated ZIP bytes.
+const triggerExportZipDownload = (data: Uint8Array, filename: string) => {
+    const bytes = new Uint8Array(data);
+    const blob = new Blob([bytes], { type: 'application/zip' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+};
+
 export function useCareStaffPopulation({
     functions,
     pendingProfileId,
@@ -145,6 +175,8 @@ export function useCareStaffPopulation({
     const [courseApplicantCountsLoading, setCourseApplicantCountsLoading] = useState(false);
     const [courseApplicantCountsLoaded, setCourseApplicantCountsLoaded] = useState(false);
     const refreshInFlightRef = useRef(false);
+    const zipExportInFlightRef = useRef(false);
+    const [exportStatus, setExportStatus] = useState<string | null>(null);
 
     // Modals
     const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
@@ -1237,132 +1269,287 @@ export function useCareStaffPopulation({
             .includes(needle);
     });
 
-    const handleExportExcel = async () => {
-        functions.showToast('Preparing your Excel file...', 'info');
-        try {
-            const XLSX = await loadXlsx();
+    // ponytail: shared export helpers — reuse already-filtered data when possible,
+    // otherwise fetch everything from DB and apply the active client-side filters.
+    const getFilteredExportStudents = async (): Promise<any[]> => {
+        if (schoolYearFilter !== 'All') {
+            // Historical mode: filteredStudents already has all active filters applied in memory
+            return filteredStudents as any[];
+        }
+        // Live mode: fetch everything then apply active client-side filters
+        const raw = await getAllStudentsForExport();
+        return (raw || []).filter((s: any) => {
+            const matchesSearch = !debouncedSearchTerm.trim() || studentMatchesSearch(s, debouncedSearchTerm);
+            const matchesDept = departmentFilter === 'All' || s.department === departmentFilter;
+            const matchesCourse = courseFilter === 'All' || s.course === courseFilter;
+            const matchesYear = yearFilter === 'All' || s.year_level === yearFilter;
+            const matchesStatus = statusFilter === 'All'
+                || (statusFilter === 'Incomplete'
+                    ? s.status === 'Inactive' || s.profile_completed !== true
+                    : s.status === 'Active' && s.profile_completed === true);
+            const matchesSection = sectionFilter === 'All' || s.section === sectionFilter;
+            const matchesAnnotations = !annotationFilterActive || annotationStudentIdSet.has(Number(s.id));
+            const matchesBackground = backgroundFilter.length === 0 || backgroundFilter.some(col => s[col] === true);
+            return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesStatus && matchesSection && matchesAnnotations && matchesBackground;
+        });
+    };
 
-            // ponytail: use already-filtered data when possible; only fetch from DB in "All years" mode
-            let allStudents: any[];
-            if (schoolYearFilter !== 'All') {
-                // Historical mode: filteredStudents already has all active filters applied in memory
-                allStudents = filteredStudents;
-            } else {
-                // Live mode: fetch everything then apply active client-side filters
-                const raw = await getAllStudentsForExport();
-                allStudents = (raw || []).filter((s: any) => {
-                    const matchesSearch = !debouncedSearchTerm.trim() || studentMatchesSearch(s, debouncedSearchTerm);
-                    const matchesDept = departmentFilter === 'All' || s.department === departmentFilter;
-                    const matchesCourse = courseFilter === 'All' || s.course === courseFilter;
-                    const matchesYear = yearFilter === 'All' || s.year_level === yearFilter;
-                    const matchesStatus = statusFilter === 'All'
-                        || (statusFilter === 'Incomplete'
-                            ? s.status === 'Inactive' || s.profile_completed !== true
-                            : s.status === 'Active' && s.profile_completed === true);
-                    const matchesSection = sectionFilter === 'All' || s.section === sectionFilter;
-                    const matchesAnnotations = !annotationFilterActive || annotationStudentIdSet.has(Number(s.id));
-                    const matchesBackground = backgroundFilter.length === 0 || backgroundFilter.some(col => s[col] === true);
-                    return matchesSearch && matchesDept && matchesCourse && matchesYear && matchesStatus && matchesSection && matchesAnnotations && matchesBackground;
-                });
-            }
+    const buildExportColumns = () => PROFILE_CATEGORIES.flatMap(category =>
+        category.fields.map((field: any) => ({
+            header: field.label,
+            db: field.db,
+            compute: field.compute,
+            // documentType distinguishes real supporting-document fields (which we bundle in ZIP)
+            // from the profile photo (which we always leave as "Available in portal").
+            documentType: field.type === 'document' ? 'document' : (field.type === 'profilePhoto' ? 'profilePhoto' : null),
+            type: field.type === 'document' || field.type === 'profilePhoto' ? 'file' : field.type,
+            bucket: field.type === 'profilePhoto' ? 'profile-pictures' : 'support_documents',
+        }))
+    );
 
-            if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); return; }
+    // Builds the shared student workbook (used by both Excel and ZIP exports).
+    // In 'zip' mode, bundled document cells carry the in-archive path instead of a
+    // signed URL — the links expire, the files sitting next to them do not.
+    // Returns the resolved support_documents URL map so the ZIP writer can reuse it
+    // instead of re-signing every document one at a time.
+    const buildStudentExportWorkbook = async (students: any[], exportColumns: any[], mode: 'excel' | 'zip' = 'excel') => {
+        const XLSX = await loadXlsx();
 
-            const exportColumns: any[] = PROFILE_CATEGORIES.flatMap(category =>
-                category.fields.map((field: any) => ({
-                    header: field.label,
-                    db: field.db,
-                    compute: field.compute,
-                    type: field.type === 'document' || field.type === 'profilePhoto' ? 'file' : field.type,
-                    bucket: field.type === 'profilePhoto' ? 'profile-pictures' : 'support_documents',
-                }))
-            );
-
-            // Group paths by bucket to resolve them in bulk
-            const pathsByBucket: Record<string, string[]> = {};
-            for (const student of allStudents) {
-                for (const col of exportColumns) {
-                    if (col.type === 'file' && col.bucket !== 'profile-pictures') {
-                        const val = col.compute ? col.compute(student) : student[col.db];
-                        const rawValue = String(val || '').trim();
-                        if (rawValue) {
-                            const bucket = col.bucket || 'support_documents';
-                            if (!pathsByBucket[bucket]) {
-                                pathsByBucket[bucket] = [];
+        // Group paths by bucket to resolve them in bulk. R2 claim documents need an
+        // authoritative locator (category + student_id); without one they surface as
+        // "Available in portal" instead of a working signed URL.
+        const pathsByBucket: Record<string, string[]> = {};
+        const r2Entries: Record<string, R2BulkLocatorEntry> = {};
+        for (const student of students) {
+            for (const col of exportColumns) {
+                if (col.type === 'file' && col.bucket !== 'profile-pictures') {
+                    const val = col.compute ? col.compute(student) : student[col.db];
+                    const rawValue = String(val || '').trim();
+                    if (rawValue) {
+                        const bucket = col.bucket || 'support_documents';
+                        if (!pathsByBucket[bucket]) {
+                            pathsByBucket[bucket] = [];
+                        }
+                        pathsByBucket[bucket].push(rawValue);
+                        if (bucket === 'support_documents' && isR2Reference(rawValue)) {
+                            const studentId = String(student.student_id || '').trim();
+                            if (studentId) {
+                                r2Entries[rawValue] = {
+                                    key: rawValue,
+                                    locator: { category: getProfileCategoryForDatabaseField(col.db), studentId }
+                                };
                             }
-                            pathsByBucket[bucket].push(rawValue);
                         }
                     }
                 }
             }
+        }
 
-            // Resolve URLs in parallel per bucket
-            const resolvedUrlsMapByBucket: Record<string, Record<string, string | null>> = {};
-            const bucketNames = Object.keys(pathsByBucket);
-            const bulkPromises = bucketNames.map(async (bucket) => {
-                const uniquePaths = pathsByBucket[bucket];
-                const resolvedMap = await resolveStoredAssetUrlsBulk(
-                    bucket,
-                    uniquePaths,
-                    STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS
-                );
-                resolvedUrlsMapByBucket[bucket] = resolvedMap;
-            });
-            await Promise.all(bulkPromises);
+        // Resolve URLs in parallel per bucket
+        const resolvedUrlsMapByBucket: Record<string, Record<string, string | null>> = {};
+        const bucketNames = Object.keys(pathsByBucket);
+        const bulkPromises = bucketNames.map(async (bucket) => {
+            const uniquePaths = pathsByBucket[bucket];
+            const resolvedMap = await resolveStoredAssetUrlsBulk(
+                bucket,
+                uniquePaths,
+                STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS,
+                r2Entries
+            );
+            resolvedUrlsMapByBucket[bucket] = resolvedMap;
+        });
+        await Promise.all(bulkPromises);
 
-            const headers = exportColumns.map(c => c.header);
-            const fileColumnIndexes = exportColumns.reduce((indexes: number[], col: any, index: number) => {
-                if (col.type === 'file') indexes.push(index);
-                return indexes;
-            }, []);
-            const rows = [];
-            for (const student of allStudents) {
-                const row = [];
-                for (const col of exportColumns) {
-                    const val = col.compute ? col.compute(student) : student[col.db];
-                    if (col.type === 'boolean') {
-                        row.push(val ? 'Yes' : 'No');
-                    } else if (col.type === 'file') {
-                        const rawValue = String(val || '').trim();
-                        const bucket = col.bucket || 'support_documents';
-                        // ponytail: profile photos always show 'Available in portal' — old Supabase/GDrive
-                        // paths would otherwise leak signed/raw URLs. Migrate old photos to R2 later.
-                        const resolvedUrl = rawValue
-                            ? (bucket === 'profile-pictures' ? 'Available in portal' : (resolvedUrlsMapByBucket[bucket]?.[rawValue] || (isR2Reference(rawValue) ? 'Available in portal' : rawValue)))
-                            : '';
-                        row.push(escapeSpreadsheetFormula(resolvedUrl));
+        const headers = exportColumns.map(c => c.header);
+        const fileColumnIndexes = exportColumns.reduce((indexes: number[], col: any, index: number) => {
+            if (col.type === 'file') indexes.push(index);
+            return indexes;
+        }, []);
+        const rows = [];
+        for (const student of students) {
+            const row = [];
+            for (const col of exportColumns) {
+                const val = col.compute ? col.compute(student) : student[col.db];
+                if (col.type === 'boolean') {
+                    row.push(val ? 'Yes' : 'No');
+                } else if (col.type === 'file') {
+                    const rawValue = String(val || '').trim();
+                    const bucket = col.bucket || 'support_documents';
+                    const resolved = rawValue ? resolvedUrlsMapByBucket[bucket]?.[rawValue] : null;
+                    const studentId = String(student.student_id || '').trim();
+                    // ponytail: profile photos always show 'Available in portal' — old Supabase/GDrive
+                    // paths would otherwise leak signed/raw URLs. Migrate old photos to R2 later.
+                    let cellValue: string;
+                    if (!rawValue) {
+                        cellValue = '';
+                    } else if (bucket === 'profile-pictures') {
+                        cellValue = 'Available in portal';
+                    } else if (mode === 'zip' && col.documentType === 'document' && resolved && studentId) {
+                        cellValue = buildZipDocumentPath(studentId, col.header, rawValue);
                     } else {
-                        row.push(escapeSpreadsheetFormula(val ?? ''));
+                        cellValue = resolved || (isR2Reference(rawValue) ? 'Available in portal' : rawValue);
                     }
+                    row.push(escapeSpreadsheetFormula(cellValue));
+                } else {
+                    row.push(escapeSpreadsheetFormula(val ?? ''));
                 }
-                rows.push(row);
             }
+            rows.push(row);
+        }
 
-            const wsData = [headers, ...rows];
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-            fileColumnIndexes.forEach((columnIndex: number) => {
-                rows.forEach((row, rowIndex) => {
-                    const fileUrl = String(row[columnIndex] || '').trim();
-                    if (!/^https?:\/\//i.test(fileUrl)) return;
+        const wsData = [headers, ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        fileColumnIndexes.forEach((columnIndex: number) => {
+            rows.forEach((row, rowIndex) => {
+                const fileUrl = String(row[columnIndex] || '').trim();
+                if (!/^https?:\/\//i.test(fileUrl)) return;
 
-                    const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 1, c: columnIndex });
-                    if (ws[cellRef]) {
-                        ws[cellRef].l = {
-                            Target: fileUrl,
-                            Tooltip: 'Open uploaded file'
-                        };
-                    }
-                });
+                const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 1, c: columnIndex });
+                if (ws[cellRef]) {
+                    ws[cellRef].l = {
+                        Target: fileUrl,
+                        Tooltip: 'Open uploaded file'
+                    };
+                }
             });
-            // Auto-size columns
-            ws['!cols'] = headers.map((h: string) => ({ wch: Math.max(h.length, 18) }));
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Student Data');
+        });
+        // Auto-size columns
+        ws['!cols'] = headers.map((h: string) => ({ wch: Math.max(h.length, 18) }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Student Data');
+        return { wb, resolvedUrls: resolvedUrlsMapByBucket['support_documents'] || {} };
+    };
+
+    const handleExportExcel = async () => {
+        setExportStatus('Loading export libraries...');
+        try {
+            const XLSX = await loadXlsx();
+
+            setExportStatus('Fetching student data...');
+            const allStudents = await getFilteredExportStudents();
+
+            if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); setExportStatus(null); return; }
+
+            const exportColumns = buildExportColumns();
+
+            setExportStatus(`Resolving document links for ${allStudents.length} students...`);
+            const { wb } = await buildStudentExportWorkbook(allStudents, exportColumns);
+            setExportStatus('Writing Excel file...');
             XLSX.writeFile(wb, `SDAF_Student_Data_${new Date().toISOString().split('T')[0]}.xlsx`);
             functions.showToast(`Exported ${allStudents.length} students to Excel!`, 'success');
         } catch (err: any) {
             console.error('Export error:', err);
-            functions.showToast('Export failed: ', 'error');
+            functions.showToast('Export failed.', 'error');
+        } finally {
+            setExportStatus(null);
+        }
+    };
+
+    // ZIP export: the profile workbook plus the actual supporting-document files.
+    // Profile photos are intentionally excluded (they stay "Available in portal" in the workbook).
+    const handleExportZip = async () => {
+        if (zipExportInFlightRef.current) return;
+        zipExportInFlightRef.current = true;
+        setExportStatus('Loading export libraries...');
+        try {
+            const XLSX = await loadXlsx();
+            const { zipSync } = await loadFflate();
+
+            setExportStatus('Fetching student data...');
+            const allStudents: any[] = await getFilteredExportStudents();
+            if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); setExportStatus(null); return; }
+
+            const exportColumns = buildExportColumns();
+            const date = new Date().toISOString().split('T')[0];
+
+            setExportStatus(`Resolving document links for ${allStudents.length} students...`);
+            const { wb, resolvedUrls } = await buildStudentExportWorkbook(allStudents, exportColumns, 'zip');
+            const xlsxBytes = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+
+            const zipFiles: Record<string, Uint8Array> = {
+                [`SDAF_Student_Data_${date}.xlsx`]: xlsxBytes
+            };
+
+            // Only bundle actual supporting-document fields; profilePhoto is skipped by design.
+            const docColumns = exportColumns.filter((col: any) => col.documentType === 'document');
+            if (docColumns.length === 0) {
+                functions.showToast('No supporting documents to bundle.', 'info');
+                setExportStatus(null);
+                return;
+            }
+
+            // Flatten into one fetch job per (student, document field).
+            const jobs: { student: any; col: any }[] = [];
+            for (const student of allStudents) {
+                for (const col of docColumns) {
+                    const raw = col.compute ? col.compute(student) : student[col.db];
+                    if (String(raw || '').trim()) jobs.push({ student, col });
+                }
+            }
+
+            if (jobs.length === 0) {
+                setExportStatus('Compressing ZIP...');
+                triggerExportZipDownload(zipSync(zipFiles, { level: 6 }), `SDAF_Student_Data_${date}.zip`);
+                functions.showToast(`Exported ${allStudents.length} students to ZIP!`, 'success');
+                setExportStatus(null);
+                return;
+            }
+
+            let completed = 0;
+            let bundled = 0;
+            const CONCURRENCY = 5;
+            let cursor = 0;
+            // Returns early when a document cannot be bundled; the caller counts the
+            // shortfall so a partial archive is never reported as a complete one.
+            const bundleJob = async (job: { student: any; col: any }) => {
+                const studentId = String(job.student.student_id || '').trim();
+                const raw = job.col.compute ? job.col.compute(job.student) : job.student[job.col.db];
+                const rawValue = String(raw || '').trim();
+                if (!rawValue || !studentId) return;
+
+                // Reuse the workbook's bulk-signed URLs (one edge call per 100 documents)
+                // rather than re-signing every document individually.
+                const resolvedUrl = resolvedUrls[rawValue];
+                if (!resolvedUrl) return;
+
+                const response = await fetch(resolvedUrl);
+                if (!response.ok) return;
+                const bytes = new Uint8Array(await response.arrayBuffer());
+                if (bytes.length === 0) return;
+
+                zipFiles[buildZipDocumentPath(studentId, job.col.header, rawValue)] = bytes;
+                bundled++;
+            };
+            const worker = async () => {
+                while (cursor < jobs.length) {
+                    const job = jobs[cursor++];
+                    try {
+                        await bundleJob(job);
+                    } catch (err) {
+                        console.warn('Failed to fetch supporting document for export:', err);
+                    }
+                    completed++;
+                    setExportStatus(`Downloading documents... ${completed}/${jobs.length}`);
+                }
+            };
+            setExportStatus(`Downloading documents... 0/${jobs.length}`);
+            await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
+
+            setExportStatus('Compressing ZIP...');
+            triggerExportZipDownload(zipSync(zipFiles, { level: 6 }), `SDAF_Student_Data_${date}.zip`);
+            const missing = jobs.length - bundled;
+            functions.showToast(
+                missing > 0
+                    ? `Exported ${allStudents.length} students, but only ${bundled} of ${jobs.length} document(s) downloaded — ${missing} missing from the ZIP.`
+                    : `Exported ${allStudents.length} students with ${bundled} supporting document(s)!`,
+                missing > 0 ? 'error' : 'success'
+            );
+        } catch (err: any) {
+            console.error('ZIP export error:', err);
+            functions.showToast('ZIP export failed.', 'error');
+        } finally {
+            zipExportInFlightRef.current = false;
+            setExportStatus(null);
         }
     };
 
@@ -1669,6 +1856,8 @@ export function useCareStaffPopulation({
         bulkTargetCount,
         filteredArchivedStudents,
         handleExportExcel,
+        handleExportZip,
+        exportStatus,
         handleSwapIds,
         handleSort,
         visibleTableStudents,

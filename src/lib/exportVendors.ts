@@ -1,6 +1,7 @@
 let jsPdfModulePromise: Promise<typeof import('jspdf')> | null = null;
 let jsPdfAutoTablePromise: Promise<typeof import('jspdf-autotable')> | null = null;
 let xlsxModulePromise: Promise<typeof import('xlsx')> | null = null;
+let fflateModulePromise: Promise<typeof import('fflate')> | null = null;
 
 export const loadJsPdf = async () => {
     const { jsPDF } = await (jsPdfModulePromise ??= import('jspdf'));
@@ -23,3 +24,6 @@ export const loadJsPdfAutoTable = async () => {
 
 export const loadXlsx = async () =>
     xlsxModulePromise ??= import('xlsx');
+
+export const loadFflate = async () =>
+    fflateModulePromise ??= import('fflate');

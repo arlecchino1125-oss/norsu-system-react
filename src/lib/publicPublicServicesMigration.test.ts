@@ -10,6 +10,9 @@ const migration = migrationFile ? readFileSync(resolve(migrationsDirectory, migr
 
 const latestDefinitionOf = (functionName) => {
     const pattern = new RegExp(
+
+        // eslint-disable-next-line no-useless-escape -- string is compiled as a RegExp below, so the backslash is required
+
         'create\\s+(?:or\\s+replace\\s+)?function\\s+public\\\.' + functionName + '\\b[\\s\\S]*?\\n\\$\\$;',
         'gi'
     );
@@ -39,6 +42,9 @@ describe('public needs assessment + general feedback migration', () => {
     it('grants every new RPC to anon so the public portal can call it', () => {
         for (const name of NEW_RPCS) {
             expect(migration, name + ' was not granted to anon').toMatch(
+
+                // eslint-disable-next-line no-useless-escape -- string is compiled as a RegExp below, so the backslash is required
+
                 new RegExp('grant\\s+execute\\s+on\\s+function\\s+public\\\.' + name + '\\b[^;]*to\\s+anon,\\s*authenticated', 'i')
             );
         }
@@ -77,3 +83,5 @@ describe('public needs assessment + general feedback migration', () => {
         expect(latestDefinitionOf('public_submit_general_feedback').body).toMatch(/p_student_id text DEFAULT NULL/i);
     });
 });
+        // eslint-disable-next-line no-useless-escape -- string is compiled as a RegExp below, so the backslash is required
+        // eslint-disable-next-line no-useless-escape -- string is compiled as a RegExp below, so the backslash is required

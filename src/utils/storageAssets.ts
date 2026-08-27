@@ -228,17 +228,22 @@ export const resolveStoredAssetUrlsBulk = async (
         const entries = r2Inputs
             .map((value) => r2Entries[value])
             .filter((entry): entry is R2BulkLocatorEntry => Boolean(entry));
-        if (entries.length > 0) {
+        // ponytail: the edge fn rejects batches over 100 locators — chunk and merge.
+        const mergedUrls: Record<string, string> = {};
+        for (let i = 0; i < entries.length; i += 100) {
+            const chunk = entries.slice(i, i + 100);
+            if (chunk.length === 0) continue;
             const result = await invokeEdgeFunction<R2BulkViewResponse>('manage-r2-documents', {
                 requireAuth: true,
-                body: { action: 'create-view-batch', entries },
+                body: { action: 'create-view-batch', entries: chunk },
                 fallbackMessage: 'Unable to load private documents.'
             });
-            for (const value of r2Inputs) {
-                const entry = r2Entries[value];
-                const url = entry ? result?.urls?.[entry.key] : null;
-                if (url) resultMap[value] = url;
-            }
+            Object.assign(mergedUrls, result?.urls || {});
+        }
+        for (const value of r2Inputs) {
+            const entry = r2Entries[value];
+            const url = entry ? mergedUrls[entry.key] : null;
+            if (url) resultMap[value] = url;
         }
     }
 

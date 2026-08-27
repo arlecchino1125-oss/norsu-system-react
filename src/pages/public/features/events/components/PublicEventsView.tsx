@@ -218,7 +218,14 @@ const EventDetailModal = ({
                                         <p className="mt-1 text-[11px] leading-relaxed text-violet-700">Enter your Student ID to record attendance (Time In/Time Out), rate, or evaluate this activity.</p>
                                         <button
                                             type="button"
-                                            onClick={() => { onClose(); onRequireSignIn ? onRequireSignIn() : onTimeIn(item); }}
+                                            onClick={() => {
+                                                onClose();
+                                                if (onRequireSignIn) {
+                                                    onRequireSignIn();
+                                                } else {
+                                                    onTimeIn(item);
+                                                }
+                                            }}
                                             className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-violet-700 active:scale-95"
                                         >
                                             Enter Student ID →

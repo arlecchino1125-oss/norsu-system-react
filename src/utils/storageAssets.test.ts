@@ -118,4 +118,28 @@ describe('R2 stored asset resolution', () => {
             [legacyValue]: legacyValue
         });
     });
+
+    it('chunks r2 batch resolution into 100-entry edge calls', async () => {
+        const values = Array.from({ length: 150 }, (_, i) => `r2:students/${i + 1}/profile/claims/pwd/${i + 1}.jpg`);
+        const entries = Object.fromEntries(values.map((value, i) => [
+            value,
+            { key: value, locator: { category: 'claim-pwd' as const, studentId: String(i + 1) } }
+        ]));
+        invokeMock.mockImplementation(async (_name: string, opts: any) => {
+            const bodyEntries = (opts?.body?.entries || []) as { key: string }[];
+            return {
+                success: true,
+                urls: Object.fromEntries(bodyEntries.map((entry) => [entry.key, `https://r2.example/${entry.key}`])),
+                expiresAt: '2026-07-13T00:05:00.000Z'
+            };
+        });
+
+        const result = await resolveStoredAssetUrlsBulk('support_documents', values, 300, entries);
+
+        expect(invokeMock).toHaveBeenCalledTimes(2);
+        expect((invokeMock.mock.calls[0][1] as any).body.entries).toHaveLength(100);
+        expect((invokeMock.mock.calls[1][1] as any).body.entries).toHaveLength(50);
+        expect(Object.keys(result)).toHaveLength(150);
+        expect(result[values[0]]).toContain('https://r2.example/');
+    });
 });

@@ -5,7 +5,7 @@ import {
     PieChart, List, ArrowUpDown, TrendingUp, CheckCircle2,
     Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
     FileSpreadsheet, RefreshCw, Settings, Flag, MessageSquareMore,
-    Users2, X, Check, Filter, XCircle
+    Users2, X, Check, Filter, XCircle, FileArchive, Loader2
 } from 'lucide-react';
 import { AsyncButton } from '../../../../../components/ui/Button';
 import type { CareStaffDashboardFunctions } from '../../../types';
@@ -26,7 +26,7 @@ interface CareStaffPopulationPageProps {
 }
 
 const PopulationHeader = ({
-    isRefreshingData, handleRefreshData, handleExportExcel, canExportStudents, canArchiveRecords, canRestoreRecords,
+    isRefreshingData, handleRefreshData, canArchiveRecords, canRestoreRecords,
     overviewLoading, populationOverview, openArchivedStudentsModal, setShowIdSwapModal,
     setShowEnrollmentModal, viewMode, setViewMode
 }: any) => (
@@ -52,17 +52,6 @@ const PopulationHeader = ({
                 <RefreshCw size={14} className={isRefreshingData ? 'animate-spin' : ''} />
                 <span>Refresh</span>
             </button>
-
-            {canExportStudents && (
-                <button
-                    type="button"
-                    onClick={handleExportExcel}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm"
-                >
-                    <FileSpreadsheet size={14} />
-                    <span>Export Excel</span>
-                </button>
-            )}
 
             {(canArchiveRecords || canRestoreRecords) && (
                 <button
@@ -107,89 +96,144 @@ const PopulationHeader = ({
 
 const PopulationToolbar = ({
     searchTerm, setSearchTerm, overviewLoading, populationOverview,
-    activeFilterCount, onOpenFilters
+    activeFilterCount, onOpenFilters,
+    handleExportExcel, handleExportZip, canExportStudents, exportStatus
 }: any) => (
     <m.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1, ease: 'easeOut' }}
-        className="bg-white rounded-2xl border border-slate-200/70 p-2.5 md:p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shrink-0"
+        className="bg-white rounded-2xl border border-slate-200/70 p-2.5 md:p-3 shadow-2xs flex flex-col gap-2.5 shrink-0"
     >
-        {/* Search by Name or ID */}
-        <div className="relative w-full md:w-64 lg:w-72 shrink-0">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <label htmlFor="population-search" className="sr-only">Search students by name or ID</label>
-            <input
-                id="population-search"
-                type="text"
-                placeholder="Search by Name or ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-3 text-xs md:text-sm font-medium transition-all focus:bg-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10"
-            />
-        </div>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Search by Name or ID */}
+            <div className="relative w-full md:w-64 lg:w-72 shrink-0">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <label htmlFor="population-search" className="sr-only">Search students by name or ID</label>
+                <input
+                    id="population-search"
+                    type="text"
+                    placeholder="Search by Name or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-3 text-xs md:text-sm font-medium transition-all focus:bg-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10"
+                />
+            </div>
 
-        {/* Tinted Stat Cards */}
-        <div className="grid grid-cols-3 gap-2 flex-1 min-w-0 max-w-2xl">
-            {/* Total Population */}
-            <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#f8f5ff] border border-purple-100/80 min-w-0">
-                <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                    <Users size={15} />
+            {/* Tinted Stat Cards */}
+            <div className="grid grid-cols-3 gap-2 flex-1 min-w-0 max-w-lg">
+                {/* Total Population */}
+                <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#f8f5ff] border border-purple-100/80 min-w-0">
+                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+                        <Users size={15} />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[9px] md:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate">TOTAL POPULATION</p>
+                        <p className="text-sm md:text-base font-extrabold text-purple-900 leading-tight">
+                            {overviewLoading ? '...' : (populationOverview.totalPopulation || 0).toLocaleString()}
+                        </p>
+                    </div>
                 </div>
-                <div className="min-w-0">
-                    <p className="text-[9px] md:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate">TOTAL POPULATION</p>
-                    <p className="text-sm md:text-base font-extrabold text-purple-900 leading-tight">
-                        {overviewLoading ? '...' : (populationOverview.totalPopulation || 0).toLocaleString()}
-                    </p>
+
+                {/* Active Students */}
+                <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#f0fdf4] border border-emerald-100/80 min-w-0">
+                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                        <CheckCircle2 size={15} />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[9px] md:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate">ACTIVE STUDENTS</p>
+                        <p className="text-sm md:text-base font-extrabold text-emerald-900 leading-tight">
+                            {overviewLoading ? '...' : (populationOverview.activeStudents || 0).toLocaleString()}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Archived Students */}
+                <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#fffbeb] border border-amber-100/80 min-w-0">
+                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                        <Archive size={15} />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[9px] md:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate">ARCHIVED STUDENTS</p>
+                        <p className="text-sm md:text-base font-extrabold text-amber-900 leading-tight">
+                            {overviewLoading ? '...' : (populationOverview.archivedStudents || 0).toLocaleString()}
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            {/* Active Students */}
-            <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#f0fdf4] border border-emerald-100/80 min-w-0">
-                <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                    <CheckCircle2 size={15} />
-                </div>
-                <div className="min-w-0">
-                    <p className="text-[9px] md:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate">ACTIVE STUDENTS</p>
-                    <p className="text-sm md:text-base font-extrabold text-emerald-900 leading-tight">
-                        {overviewLoading ? '...' : (populationOverview.activeStudents || 0).toLocaleString()}
-                    </p>
-                </div>
-            </div>
-
-            {/* Archived Students */}
-            <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#fffbeb] border border-amber-100/80 min-w-0">
-                <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
-                    <Archive size={15} />
-                </div>
-                <div className="min-w-0">
-                    <p className="text-[9px] md:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate">ARCHIVED STUDENTS</p>
-                    <p className="text-sm md:text-base font-extrabold text-amber-900 leading-tight">
-                        {overviewLoading ? '...' : (populationOverview.archivedStudents || 0).toLocaleString()}
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        {/* Persistent Filters Button */}
-        <div className="shrink-0 flex items-center justify-end">
-            <button
-                type="button"
-                onClick={onOpenFilters}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs md:text-sm font-bold transition-all shadow-2xs ${activeFilterCount > 0
-                    ? 'bg-purple-600 border-purple-600 text-white hover:bg-purple-700 shadow-purple-500/20'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-purple-300 hover:bg-purple-50/40'
-                    }`}
-            >
-                <Filter size={14} />
-                <span>Filters</span>
-                {activeFilterCount > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1.5 rounded-full bg-white text-purple-700 text-[10px] font-extrabold">
-                        {activeFilterCount}
-                    </span>
+            {/* Export buttons + Filter — grouped on the right */}
+            <div className="shrink-0 flex items-center gap-2 justify-end">
+                {canExportStudents && (
+                    <div className="relative group">
+                        <button
+                            type="button"
+                            onClick={handleExportExcel}
+                            disabled={!!exportStatus}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold transition-all hover:border-purple-300 hover:bg-purple-50/40 shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <FileSpreadsheet size={14} />
+                            <span>Excel</span>
+                        </button>
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-10">
+                            Export student profiles as an Excel spreadsheet with signed document links
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                        </div>
+                    </div>
                 )}
-            </button>
+                {canExportStudents && (
+                    <div className="relative group">
+                        <button
+                            type="button"
+                            onClick={handleExportZip}
+                            disabled={!!exportStatus}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold transition-all hover:border-purple-300 hover:bg-purple-50/40 shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <FileArchive size={14} />
+                            <span>ZIP</span>
+                        </button>
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-10">
+                            Export Excel + actual supporting documents bundled in a ZIP file
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                        </div>
+                    </div>
+                )}
+                <button
+                    type="button"
+                    onClick={onOpenFilters}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs md:text-sm font-bold transition-all shadow-2xs ${activeFilterCount > 0
+                        ? 'bg-purple-600 border-purple-600 text-white hover:bg-purple-700 shadow-purple-500/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-purple-300 hover:bg-purple-50/40'
+                        }`}
+                >
+                    <Filter size={14} />
+                    <span>Filters</span>
+                    {activeFilterCount > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1.5 rounded-full bg-white text-purple-700 text-[10px] font-extrabold">
+                            {activeFilterCount}
+                        </span>
+                    )}
+                </button>
+            </div>
         </div>
+
+        {/* Export progress bar */}
+        <AnimatePresence>
+            {exportStatus && (
+                <m.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                >
+                    <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-purple-50 border border-purple-200/60">
+                        <Loader2 size={14} className="animate-spin text-purple-600 shrink-0" />
+                        <span className="text-xs font-semibold text-purple-700">{exportStatus}</span>
+                    </div>
+                </m.div>
+            )}
+        </AnimatePresence>
     </m.div>
 );
 
@@ -831,7 +875,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
         setShowPhotoModal, openProfileModal, fetchEnrollmentKeys, handleRefreshData,
         applyBulkCourseYearWindow, clearBulkCourseYearWindow, syncEnrollmentKeysFromStudents, handleAddCourse, handleUpdateCourseLimit, handleBulkUpload,
         handleDownloadTemplate, departmentNames, filteredCourseOptions, schoolYearOptions, courseRowsForManagement,
-        bulkTargetCount, filteredArchivedStudents, handleExportExcel, canExportStudents, handleSwapIds, handleSort,
+        bulkTargetCount, filteredArchivedStudents, handleExportExcel, handleExportZip, exportStatus, canExportStudents, handleSwapIds, handleSort,
         effectiveTotal, isStudentTableLoading, totalPages,
         startIndex, paginatedStudents, studentAnnotationsById, paginationItems, endIndex,
         courseYearCountMap, openArchivedStudentsModal, handleDeleteKey, handleGenerateKey
@@ -847,8 +891,6 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
             <PopulationHeader
                 isRefreshingData={isRefreshingData}
                 handleRefreshData={handleRefreshData}
-                handleExportExcel={handleExportExcel}
-                canExportStudents={canExportStudents}
                 canArchiveRecords={canArchiveRecords}
                 canRestoreRecords={canRestoreRecords}
                 overviewLoading={overviewLoading}
@@ -868,6 +910,10 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 populationOverview={populationOverview}
                 activeFilterCount={activeFilterCount}
                 onOpenFilters={() => setIsFilterDrawerOpen(true)}
+                handleExportExcel={handleExportExcel}
+                handleExportZip={handleExportZip}
+                canExportStudents={canExportStudents}
+                exportStatus={exportStatus}
             />
 
             {/* 3. Table / Stats View */}
