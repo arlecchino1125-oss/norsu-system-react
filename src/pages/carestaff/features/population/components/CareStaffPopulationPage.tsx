@@ -17,6 +17,7 @@ import StudentProfileModal from './StudentProfileModal';
 import IdSwapModal from './IdSwapModal';
 import { STUDENT_BACKGROUND_FILTERS } from '../constants';
 import { renderCareStudentPaddingRows, getArchivedSnapshotForSchoolYear } from '../utils';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 interface CareStaffPopulationPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
@@ -599,7 +600,7 @@ const PopulationTable = ({
                                     >
                                         {/* Student Name */}
                                         <td className="py-3.5 px-6 font-bold text-slate-800 text-[13.5px]">
-                                            {student.first_name} {student.last_name}
+                                            {toTitleCase(`${student.first_name || ''} ${student.last_name || ''}`)}
                                         </td>
 
                                         {/* Student ID */}
@@ -1013,7 +1014,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                         </div>
                         <div className="p-6 space-y-4">
                             <p className="text-xs md:text-sm text-slate-700 leading-relaxed">
-                                Archive <span className="font-bold text-slate-900">{studentToDelete.first_name} {studentToDelete.last_name}</span> ({studentToDelete.student_id}) and mark the linked enrollment key as archived?
+                                Archive <span className="font-bold text-slate-900">{toTitleCase(`${studentToDelete.first_name || ''} ${studentToDelete.last_name || ''}`)}</span> ({studentToDelete.student_id}) and mark the linked enrollment key as archived?
                             </p>
                             <p className="text-[11.5px] text-slate-500 leading-relaxed bg-amber-50/70 border border-amber-200/60 rounded-xl p-3 text-amber-800">
                                 The student record remains preserved in the archive history and can be restored at any time.

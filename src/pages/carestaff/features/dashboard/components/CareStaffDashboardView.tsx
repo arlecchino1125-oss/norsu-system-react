@@ -16,6 +16,7 @@ import {
     SUPPORT_STATUS,
     isCounselingAwaitingDept
 } from '../../../../../utils/workflow';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 interface CareStaffDashboardViewProps {
     setActiveTab: (tab: string) => void;
@@ -220,17 +221,17 @@ const isDateInThisWeek = (date: Date) => {
 const renderActivityDetail = (detail: string, type: string) => {
     if (!detail) return null;
     // Pattern: "Student Name (StudentID) modified: XYZ"
-    const studentWithIdMatch = detail.match(/^([^(]+?\s*\([^)]+\))\s*(.*)$/);
+    const studentWithIdMatch = detail.match(/^([^(]+?)(\s*\([^)]+\))\s*(.*)$/);
     if (studentWithIdMatch) {
         return (
             <>
-                <span className="font-bold text-slate-800">{studentWithIdMatch[1]}</span>
-                {studentWithIdMatch[2] ? ` ${studentWithIdMatch[2]}` : ''}
+                <span className="font-bold text-slate-800">{toTitleCase(studentWithIdMatch[1])}{studentWithIdMatch[2]}</span>
+                {studentWithIdMatch[3] ? ` ${studentWithIdMatch[3]}` : ''}
             </>
         );
     }
     if (type === 'Counseling' || type === 'Support' || type === 'Profile' || type === 'Application') {
-        return <span className="font-bold text-slate-800">{detail}</span>;
+        return <span className="font-bold text-slate-800">{toTitleCase(detail)}</span>;
     }
     return <span className="font-medium text-slate-600">{detail}</span>;
 };

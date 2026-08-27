@@ -4,6 +4,7 @@ import {
     COUNSELING_STATUS,
     isWithCareStaffCounseling
 } from '../../../../../utils/workflow';
+import { toTitleCase } from '../../../../../utils/formatters';
 import CounselingEvaluationsList from '../../../../carestaff/features/counseling/components/CounselingEvaluationsList';
 import {
     getCounselingEvaluations,
@@ -199,7 +200,7 @@ const DeptCounseledPage = ({
             ) : (
                 <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
                     {counseledStudents.map(({ request, recordCount }) => {
-                        const studentName = request?.student_name || 'Student';
+                        const studentName = toTitleCase(request?.student_name, 'Student');
                         const studentKey = getCounseledStudentKey(request);
 
                         return (

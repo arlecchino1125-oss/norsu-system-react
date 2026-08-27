@@ -1,6 +1,6 @@
 import { Download } from 'lucide-react';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
-import { formatDate, formatDateTime, generateExportFilename } from '../../../../../utils/formatters';
+import { formatDate, formatDateTime, generateExportFilename, toTitleCase } from '../../../../../utils/formatters';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import PaginationControls from '../../../../../components/PaginationControls';
 import { Button } from '../../../../../components/ui/Button';
@@ -55,7 +55,7 @@ const EvaluationFormModal = ({ evaluation, printRef, criteriaLabels, onPrint, on
                         </div>
                     </div>
                     <div className="info-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
-                                <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Name</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{evaluation.student_name}</p></div>
+                                <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Name</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{toTitleCase(evaluation.student_name, '—')}</p></div>
                                 <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Sex</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{evaluation.sex || '—'}</p></div>
                                 <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>College / Course</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{evaluation.college || '—'}</p></div>
                                 <div className="info-item"><p style={{ display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: '#9ca3af', marginBottom: '2px' }}>Date of Activity</p><p style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>{formatDate(evaluation.date_of_activity)}</p></div>
@@ -129,7 +129,7 @@ const CsmFeedbackModal = ({ feedback, ccQuestions, getCcAnswerText, onClose }: a
                     <div>
                         <p className="text-[10px] uppercase tracking-widest text-blue-200 mb-1">Client Satisfaction Measurement</p>
                         <h3 className="text-lg font-extrabold leading-tight">{feedback.service_availed || 'General Feedback'}</h3>
-                        <p className="text-xs text-blue-200 mt-1">Submitted by {feedback.student_name}</p>
+                        <p className="text-xs text-blue-200 mt-1">Submitted by {toTitleCase(feedback.student_name, 'Student')}</p>
                     </div>
                     <Button variant="ghost" size="sm" onClick={onClose} className="!bg-white/15 hover:!bg-white/25 !text-white !rounded-xl">✕</Button>
                 </div>
@@ -420,7 +420,7 @@ const CareStaffFeedbackPage = ({ functions }: CareStaffFeedbackPageProps) => {
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs">{item.student.charAt(0)}</div>
                                     <div>
-                                        <h4 className="font-bold text-gray-900 text-xs">{item.student}</h4>
+                                        <h4 className="font-bold text-gray-900 text-xs">{toTitleCase(item.student, 'Student')}</h4>
                                         <p className="text-[10px] text-gray-400">{formatDate(item.date)}</p>
                                     </div>
                                 </div>

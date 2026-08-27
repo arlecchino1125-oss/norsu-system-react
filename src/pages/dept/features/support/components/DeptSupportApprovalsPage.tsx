@@ -11,6 +11,7 @@ import {
 import { SUPPORT_STATUS, isDeptSupportCompleted } from '../../../../../utils/workflow';
 import { getTextInputLimitProps, validateTextInput } from '../../../../../utils/inputSecurity';
 import { AsyncButton } from '../../../../../components/ui/Button';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const renderDetailedDescription = (desc: any) => {
     if (!desc) return <p className="text-sm text-gray-500 italic">No description provided.</p>;
@@ -145,7 +146,7 @@ const SendMessageModal = ({ form, setForm, notice, setNotice, onSend, onClose }:
                     <h3 className="text-lg font-bold">Message Student</h3>
                     <button type="button" aria-label="Close message dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
                 </div>
-                <p className="text-xs text-gray-500 mb-4">Sending a message to <strong>{form.student_name}</strong>. They will receive this in their portal notifications.</p>
+                <p className="text-xs text-gray-500 mb-4">Sending a message to <strong>{toTitleCase(form.student_name, 'Student')}</strong>. They will receive this in their portal notifications.</p>
                 <div className="space-y-4">
                     {notice && (
                         <div className={`rounded-lg border px-3 py-2 text-xs font-semibold ${notice.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
@@ -197,7 +198,7 @@ const SupportViewDetailModal = ({
                     <section className="bg-gray-50 p-5 rounded-xl border border-gray-200">
                         <h4 className="font-bold text-sm text-purple-600 mb-4 uppercase tracking-wider border-b border-gray-200 pb-2">Student Information</h4>
                         <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><p className="block text-xs font-bold text-gray-500">Full Name</p><div className="font-semibold text-gray-900">{req.student_name}</div></div>
+                            <div><p className="block text-xs font-bold text-gray-500">Full Name</p><div className="font-semibold text-gray-900">{toTitleCase(req.student_name, '—')}</div></div>
                             <div><p className="block text-xs font-bold text-gray-500">Date Filed</p><div className="font-semibold text-gray-900">{new Date(req.created_at).toLocaleDateString()}</div></div>
                             <div><p className="block text-xs font-bold text-gray-500">Date of Birth</p><div className="font-semibold text-gray-900">{student?.dob || '-'}</div></div>
                             <div><p className="block text-xs font-bold text-gray-500">Program — Year</p><div className="font-semibold text-gray-900">{student?.course || '-'} - {student?.year_level || '-'}</div></div>
@@ -294,7 +295,7 @@ const ReferToCareModal = ({ form, setForm, referrerName, sigRef, isSubmitting, o
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h3 className="text-lg font-bold">Refer to CARE Staff</h3>
-                        <p className="text-xs text-gray-400 mt-1">Student: {form.student_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">Student: {toTitleCase(form.student_name, 'Student')}</p>
                     </div>
                     <button type="button" aria-label="Close CARE referral" onClick={onClose} className="text-gray-400 hover:text-gray-600"><XCircle size={24} /></button>
                 </div>
@@ -302,7 +303,7 @@ const ReferToCareModal = ({ form, setForm, referrerName, sigRef, isSubmitting, o
                     {/* Auto-filled referrer */}
                     <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                         <div><p className="text-[10px] font-bold text-gray-400 uppercase">Referred By</p><p className="text-sm font-semibold text-gray-900">{referrerName}</p></div>
-                        <div><p className="text-[10px] font-bold text-gray-400 uppercase">Student</p><p className="text-sm font-semibold text-gray-900">{form.student_name}</p></div>
+                        <div><p className="text-[10px] font-bold text-gray-400 uppercase">Student</p><p className="text-sm font-semibold text-gray-900">{toTitleCase(form.student_name, 'Student')}</p></div>
                     </div>
 
                     <div>
@@ -400,7 +401,7 @@ const CompletedSupportTab = ({ requests, findStudentForRequest, matchesCascadeFi
                     <div key={req.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow opacity-90">
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h3 className="font-bold text-gray-900 text-lg">{req.student_name}</h3>
+                                <h3 className="font-bold text-gray-900 text-lg">{toTitleCase(req.student_name, '—')}</h3>
                                 <p className="text-xs text-gray-400">{req.student_id}</p>
                                 <div className="flex gap-2 mt-2">
                                     <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-bold">{req.support_type}</span>
@@ -439,7 +440,7 @@ const ScheduledSupportTab = ({ requests, findStudentForRequest, matchesCascadeFi
                     <div key={req.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h3 className="font-bold text-gray-900 text-lg">{req.student_name}</h3>
+                                <h3 className="font-bold text-gray-900 text-lg">{toTitleCase(req.student_name, '—')}</h3>
                                 <p className="text-xs text-gray-400">{req.student_id}</p>
                                 <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold mt-1 inline-block">{req.support_type}</span>
                             </div>
@@ -489,7 +490,7 @@ const QueueSupportTab = ({ requests, findStudentForRequest, matchesCascadeFilter
                         return [(
                         <tr key={req.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onView(req)}>
                             <td className="p-4">
-                                <div className="font-bold text-gray-900">{req.student_name}</div>
+                                <div className="font-bold text-gray-900">{toTitleCase(req.student_name, '—')}</div>
                                 <div className="text-xs text-gray-400">{req.student_id}</div>
                             </td>
                             <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold">{req.support_type}</span></td>
@@ -772,7 +773,7 @@ const DeptSupportApprovalsPage = ({
                                     <div className="space-y-3 text-sm text-gray-700">
                                         <div className="flex justify-between">
                                             <span className="text-xs text-gray-500">Date: {new Date(viewReq.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                                            <span className="text-xs text-gray-500">Re: {viewReq.student_name}</span>
+                                            <span className="text-xs text-gray-500">Re: {toTitleCase(viewReq.student_name, '—')}</span>
                                         </div>
                                         {notesText && (
                                             <div className="mt-3">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, Clock3, HeartHandshake } from 'lucide-react';
+import { toTitleCase } from '../../../utils/formatters';
 
 const formatFullDate = (date: any) => {
     return new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -99,7 +100,7 @@ export const StudentHero = ({ firstName, onVolunteerClick }: any) => {
                         Student dashboard
                     </div>
                     <h2 className="mt-2 text-xl font-black leading-tight text-slate-950 sm:mt-3 sm:text-3xl">
-                        Welcome back, {firstName}.
+                        Welcome back, {toTitleCase(firstName, 'Student')}.
                     </h2>
                     <p className="mt-1 text-sm font-semibold text-slate-500">{formatFullDate(time)}</p>
                 </div>

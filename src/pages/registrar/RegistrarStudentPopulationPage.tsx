@@ -8,6 +8,7 @@ import { getProfileCategoryForDatabaseField } from '../../services/r2DocumentSer
 import { getDepartmentNameFromCourseRecords } from '../../utils/courseDepartment';
 import { openStoredAsset } from '../../utils/storageAssets';
 import { getStudentsPage, getDepartments, getCoursesWithDepartments } from '../../services/careStaffService';
+import { toTitleCase } from '../../utils/formatters';
 import type { StudentFilters } from '../../types/query';
 
 // Registrar-safe profile categories: identity / enrollment / academic only.
@@ -132,7 +133,7 @@ const RegistrarProfileModal = ({
                         </button>
                         <div>
                             <h2 className="text-xl font-bold text-slate-900">
-                                {student.last_name}, {student.first_name} {student.suffix || ''} {student.middle_name || ''}
+                                {toTitleCase(`${student.last_name}, ${student.first_name} ${student.suffix || ''} ${student.middle_name || ''}`)}
                             </h2>
                             <p className="text-sm text-slate-500 font-mono">{student.student_id} &bull; {student.course} &bull; {student.year_level}</p>
                         </div>
@@ -247,7 +248,7 @@ const RegistrarProfileModal = ({
 
                 <div className="p-6 text-center bg-white border-t border-slate-100">
                     <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-tight">
-                        {[student.first_name, student.middle_name, student.last_name, student.suffix].filter(Boolean).join(' ')}
+                        {toTitleCase([student.first_name, student.middle_name, student.last_name, student.suffix].filter(Boolean).join(' '))}
                     </h3>
                     <p className="font-mono text-base text-blue-600 font-bold mt-1.5">
                         {student.student_id}
@@ -448,7 +449,7 @@ export default function RegistrarStudentPopulationPage() {
                                 ) : (
                                     students.map(student => (
                                         <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-6 py-4"><span className="font-bold text-slate-900">{student.last_name}, {student.first_name} {student.middle_name || ''}</span></td>
+                                            <td className="px-6 py-4"><span className="font-bold text-slate-900">{toTitleCase(`${student.last_name}, ${student.first_name} ${student.middle_name || ''}`)}</span></td>
                                             <td className="px-6 py-4 font-mono text-slate-600">{student.student_id}</td>
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-slate-800">{student.course || '-'}</div>

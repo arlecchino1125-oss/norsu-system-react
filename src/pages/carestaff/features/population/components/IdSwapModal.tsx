@@ -1,5 +1,6 @@
 import { RefreshCw, User, X } from 'lucide-react';
 import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 interface IdSwapModalProps {
     handleSwapIds: (e: React.FormEvent) => Promise<void>;
@@ -156,7 +157,7 @@ const IdSwapModal = ({
                                                     )}
                                                     <div className="min-w-0 flex-1">
                                                         <p className="text-xs font-bold text-slate-900 truncate">
-                                                            {[sourceStudent.first_name, sourceStudent.middle_name, sourceStudent.last_name, sourceStudent.suffix].filter(Boolean).join(' ')}
+                                                            {toTitleCase([sourceStudent.first_name, sourceStudent.middle_name, sourceStudent.last_name, sourceStudent.suffix].filter(Boolean).join(' '))}
                                                         </p>
                                                         <p className="text-[11px] font-mono text-purple-600 font-bold mt-0.5">{sourceStudent.student_id}</p>
                                                         <p className="text-[11px] text-slate-500 truncate mt-0.5">{sourceStudent.course || 'No course assigned'}</p>
@@ -202,7 +203,7 @@ const IdSwapModal = ({
                                                     )}
                                                     <div className="min-w-0 flex-1">
                                                         <p className="text-xs font-bold text-slate-900 truncate">
-                                                            {[targetStudent.first_name, targetStudent.middle_name, targetStudent.last_name, targetStudent.suffix].filter(Boolean).join(' ')}
+                                                            {toTitleCase([targetStudent.first_name, targetStudent.middle_name, targetStudent.last_name, targetStudent.suffix].filter(Boolean).join(' '))}
                                                         </p>
                                                         <p className="text-[11px] font-mono text-amber-600 font-bold mt-0.5">{targetStudent.student_id}</p>
                                                         <p className="text-[11px] text-slate-500 truncate mt-0.5">{targetStudent.course || 'No course assigned'}</p>

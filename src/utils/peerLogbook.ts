@@ -1,3 +1,5 @@
+import { toTitleCase } from './formatters';
+
 /** Shared pieces for the peer support logbook (student + care staff views). */
 
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -61,8 +63,8 @@ export const initialsFrom = (first?: string | null, last?: string | null): strin
 
 /** Roster display name: first, middle initial, last, suffix. */
 export const facilitatorName = (s: any): string =>
-    [s?.first_name, s?.middle_name ? `${String(s.middle_name).charAt(0)}.` : '', s?.last_name, s?.suffix]
-        .filter(Boolean).join(' ') || '—';
+    toTitleCase([s?.first_name, s?.middle_name ? `${String(s.middle_name).charAt(0)}.` : '', s?.last_name, s?.suffix]
+        .filter(Boolean).join(' ')) || '—';
 
 /**
  * What a logbook shows for the student assisted. Always initials, whether the

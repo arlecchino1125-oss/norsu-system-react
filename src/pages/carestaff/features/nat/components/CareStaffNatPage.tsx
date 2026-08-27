@@ -21,7 +21,7 @@ import {
     XCircle
 } from 'lucide-react';
 import { m } from 'framer-motion';
-import { formatDate, formatDateTime, formatTime } from '../../../../../utils/formatters';
+import { formatDate, formatDateTime, formatTime, toTitleCase } from '../../../../../utils/formatters';
 import StatusBadge from '../../../../../components/StatusBadge';
 import { AsyncButton, Button } from '../../../../../components/ui/Button';
 import SearchableSelect from '../../../../../components/ui/SearchableSelect';
@@ -504,7 +504,7 @@ const NatCompletedTab = ({
                                         <div className="flex items-center gap-3">
                                             <ApplicantAvatar name={`${app.first_name} ${app.last_name}`} />
                                             <div className="min-w-0">
-                                                <p className="font-bold text-gray-900">{app.first_name} {app.last_name}</p>
+                                                <p className="font-bold text-gray-900">{toTitleCase(`${app.first_name || ''} ${app.last_name || ''}`)}</p>
                                                 <p className="font-mono text-xs text-gray-400">{app.reference_id}</p>
                                             </div>
                                         </div>
@@ -711,7 +711,7 @@ const NatTestTakersTab = ({
                                         <div className="flex items-center gap-3">
                                             <ApplicantAvatar name={`${r.first_name} ${r.last_name}`} />
                                             <div className="min-w-0">
-                                                <p className="font-bold text-gray-900">{r.first_name} {r.last_name}</p>
+                                                <p className="font-bold text-gray-900">{toTitleCase(`${r.first_name || ''} ${r.last_name || ''}`)}</p>
                                                 <p className="font-mono text-xs text-gray-400">{r.reference_id}</p>
                                             </div>
                                         </div>
@@ -805,7 +805,7 @@ const NatApplicationsTab = ({
                                         <div className="flex items-center gap-3">
                                             <ApplicantAvatar name={`${app.first_name} ${app.last_name}`} />
                                             <div className="min-w-0">
-                                                <p className="font-bold text-gray-900">{app.first_name} {app.last_name}</p>
+                                                <p className="font-bold text-gray-900">{toTitleCase(`${app.first_name || ''} ${app.last_name || ''}`)}</p>
                                                 <p className="font-mono text-xs text-gray-400">{app.reference_id}</p>
                                             </div>
                                         </div>

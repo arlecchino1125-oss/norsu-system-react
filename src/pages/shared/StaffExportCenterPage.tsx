@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, FileText, Loader2, Printer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getDepartmentInterviewQueue } from '../../services/deptService';
-import { generateExportFilename } from '../../utils/formatters';
+import { generateExportFilename, toTitleCase } from '../../utils/formatters';
 import { exportTablePdf, exportToCsv, printTableDocument } from '../../utils/dashboardUtils';
 
 type StaffExportScope = 'department' | 'care';
@@ -43,15 +43,17 @@ const normalizeDateText = (value: unknown) => {
 };
 
 const getApplicantName = (application: any) =>
-    [
-        application?.first_name,
-        application?.middle_name,
-        application?.last_name,
-        application?.suffix
-    ]
-        .map((value) => String(value || '').trim())
-        .filter(Boolean)
-        .join(' ')
+    toTitleCase(
+        [
+            application?.first_name,
+            application?.middle_name,
+            application?.last_name,
+            application?.suffix
+        ]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+            .join(' ')
+    )
     || 'Applicant';
 
 const getActiveCourseName = (application: any) => {
@@ -173,7 +175,7 @@ const getDepartmentCounselingPayload = async (departmentName: unknown): Promise<
         fileBase: 'department_counseling_requests',
         headers: ['Student', 'Student ID', 'Request Type', 'Status', 'Scheduled Date', 'Created At'],
         rows: (data || []).map((row: any) => [
-            String(row?.student_name || '').trim(),
+            toTitleCase(String(row?.student_name || '').trim()),
             String(row?.student_id || '').trim(),
             String(row?.request_type || '').trim(),
             String(row?.status || '').trim(),
@@ -202,7 +204,7 @@ const getDepartmentSupportPayload = async (departmentName: unknown): Promise<Exp
         fileBase: 'department_support_requests',
         headers: ['Student', 'Student ID', 'Support Type', 'Status', 'Created At', 'Resolution Notes'],
         rows: (data || []).map((row: any) => [
-            String(row?.student_name || '').trim(),
+            toTitleCase(String(row?.student_name || '').trim()),
             String(row?.student_id || '').trim(),
             String(row?.support_type || '').trim(),
             String(row?.status || '').trim(),
@@ -275,7 +277,7 @@ const getCareCounselingPayload = async (): Promise<ExportPayload> => {
         fileBase: 'care_counseling_requests',
         headers: ['Student', 'Student ID', 'College', 'Request Type', 'Status', 'Scheduled Date', 'Created At'],
         rows: (data || []).map((row: any) => [
-            String(row?.student_name || '').trim(),
+            toTitleCase(String(row?.student_name || '').trim()),
             String(row?.student_id || '').trim(),
             String(row?.department || '').trim(),
             String(row?.request_type || '').trim(),
@@ -299,7 +301,7 @@ const getCareSupportPayload = async (): Promise<ExportPayload> => {
         fileBase: 'care_support_requests',
         headers: ['Student', 'Student ID', 'College', 'Support Type', 'Status', 'Created At', 'Resolution Notes'],
         rows: (data || []).map((row: any) => [
-            String(row?.student_name || '').trim(),
+            toTitleCase(String(row?.student_name || '').trim()),
             String(row?.student_id || '').trim(),
             String(row?.department || '').trim(),
             String(row?.support_type || '').trim(),

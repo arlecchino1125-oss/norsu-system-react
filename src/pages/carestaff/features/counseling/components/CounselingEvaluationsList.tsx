@@ -15,7 +15,7 @@ import {
     Users
 } from 'lucide-react';
 
-import { formatDateTime } from '../../../../../utils/formatters';
+import { formatDateTime, toTitleCase } from '../../../../../utils/formatters';
 import { Button } from '../../../../../components/ui/Button';
 import CounselingResponseDetailModal from './CounselingResponseDetailModal';
 import {
@@ -69,30 +69,30 @@ const GenderCounterBar = ({ evaluations }: { evaluations: CounselingEvaluationRe
             <button
                 type="button"
                 onClick={() => setOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-slate-50/60 transition-colors"
+                className="flex w-full items-center justify-between gap-2 px-5 py-3 text-left hover:bg-slate-50/60 transition-colors"
             >
-                <div className="flex items-center gap-2">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-100 text-purple-700">
-                        <Users size={11} />
+                <div className="flex items-center gap-2.5">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
+                        <Users size={13} />
                     </div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                         Gender Demographics
                     </span>
-                    <span className="text-[11px] font-semibold text-slate-400">
+                    <span className="text-xs font-semibold text-purple-600">
                         — {counts.total} unique students
                     </span>
                 </div>
                 <ChevronDown
-                    size={13}
+                    size={14}
                     className={`text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
                 />
             </button>
 
             {open && (
-                <div className="grid grid-cols-1 gap-3 px-4 pb-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 px-5 pb-4 sm:grid-cols-2 bg-slate-50/40">
                     {/* Sex */}
                     <div>
-                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
                             Sex Assigned at Birth
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -101,7 +101,7 @@ const GenderCounterBar = ({ evaluations }: { evaluations: CounselingEvaluationRe
                                 .map(([label, count]) => (
                                     <span
                                         key={label}
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs"
                                     >
                                         {label}
                                         <strong className="tabular-nums font-black text-slate-900">{count}</strong>
@@ -111,7 +111,7 @@ const GenderCounterBar = ({ evaluations }: { evaluations: CounselingEvaluationRe
                     </div>
                     {/* Gender Identity */}
                     <div>
-                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
                             Gender Identity
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -120,7 +120,7 @@ const GenderCounterBar = ({ evaluations }: { evaluations: CounselingEvaluationRe
                                 .map(([label, count]) => (
                                     <span
                                         key={label}
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-purple-100 bg-purple-50/60 px-2.5 py-1 text-[11px] font-semibold text-purple-700"
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-semibold text-purple-700 shadow-2xs"
                                     >
                                         {label}
                                         <strong className="tabular-nums font-black text-purple-900">{count}</strong>
@@ -253,45 +253,45 @@ export default function CounselingEvaluationsList({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {/* Toolbar */}
             <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 className="text-sm font-black text-slate-900">Evaluation Responses</h2>
+                <div className="relative min-w-[240px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Filter student or ID..."
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-9 pr-3 text-xs focus:border-purple-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-purple-200 transition"
+                    />
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative min-w-[200px]">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Filter student or ID..."
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs focus:border-purple-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-purple-200"
-                        />
-                    </div>
+                <div className="flex items-center gap-2.5">
                     {!readOnly && onManageForm && (
-                        <Button variant="secondary" size="sm" onClick={onManageForm} leftIcon={<Settings2 size={14} />} className="shrink-0">
-                            {hasForm ? 'Manage Evaluation Form' : 'Build Evaluation Form'}
-                        </Button>
+                        <button
+                            type="button"
+                            onClick={onManageForm}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+                        >
+                            <FileText size={14} className="text-purple-600" />
+                            <span>{hasForm ? 'Manage Evaluation Form' : 'Build Evaluation Form'}</span>
+                        </button>
                     )}
                     {evaluations.length > 0 && (
                         <div className="relative shrink-0" ref={exportMenuRef}>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                className="shrink-0"
-                                leftIcon={
-                                    exportingType ? (
-                                        <Loader2 size={14} className="animate-spin" />
-                                    ) : (
-                                        <Download size={14} />
-                                    )
-                                }
-                                rightIcon={<ChevronDown size={12} className={`transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />}
+                            <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition disabled:opacity-50"
                                 disabled={Boolean(exportingType)}
                                 onClick={() => setExportMenuOpen((prev) => !prev)}
                             >
-                                {exportingType ? 'Exporting...' : 'Export'}
-                            </Button>
+                                {exportingType ? (
+                                    <Loader2 size={14} className="animate-spin text-purple-600" />
+                                ) : (
+                                    <Download size={14} className="text-slate-600" />
+                                )}
+                                <span>{exportingType ? 'Exporting...' : 'Export'}</span>
+                                <ChevronDown size={12} className={`text-slate-400 transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
 
                             {exportMenuOpen && (
                                 <div className="absolute right-0 top-full z-30 mt-1.5 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl animate-scale-in">
@@ -337,7 +337,7 @@ export default function CounselingEvaluationsList({
             </div>
 
             {!hasForm && !readOnly && (
-                <div className="flex items-center gap-3 border-b border-amber-100 bg-amber-50 px-4 py-3">
+                <div className="flex items-center gap-3 border-b border-amber-100 bg-amber-50 px-5 py-3">
                     <ClipboardList size={16} className="shrink-0 text-amber-600" />
                     <p className="text-xs font-semibold text-amber-800">
                         No active evaluation form yet. Build one and students can evaluate completed sessions (and record open evaluations).
@@ -347,14 +347,16 @@ export default function CounselingEvaluationsList({
 
             <GenderCounterBar evaluations={evaluations} />
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
                 {grouped.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-14 text-center">
-                        <Users size={32} className="text-slate-300" />
-                        <p className="mt-3 text-sm font-bold text-slate-700">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+                            <Users size={28} />
+                        </div>
+                        <p className="mt-3 text-base font-bold text-slate-800">
                             {searchTerm ? 'No evaluations matched your search' : 'No evaluations yet'}
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">Responses will appear here as students evaluate their sessions.</p>
+                        <p className="mt-1 text-xs text-slate-400">Responses will appear here as students evaluate their sessions.</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-slate-100">
@@ -368,49 +370,55 @@ export default function CounselingEvaluationsList({
                                     <button
                                         type="button"
                                         onClick={() => toggle(key)}
-                                        className="flex w-full items-center gap-3 px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                                        className="flex w-full items-center gap-3.5 px-5 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                                     >
-                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-sm font-black text-purple-700">
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100 text-sm font-black text-purple-700">
                                             {String(first?.student_name || 'S').charAt(0).toUpperCase()}
                                         </span>
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block truncate text-sm font-black text-slate-900">
-                                                {first?.student_name || 'Student'}
+                                        <span className="min-w-0 flex-1 overflow-hidden">
+                                            <span className="block truncate text-sm font-bold text-slate-900">
+                                                {toTitleCase(first?.student_name, 'Student')}
                                             </span>
-                                            <span className="block truncate text-xs text-slate-500">
+                                            <span className="block truncate text-xs text-slate-400 mt-0.5">
                                                 {first?.student_id} · {first?.department || 'Department'} {first?.course ? `· ${first.course}` : ''}
                                             </span>
-                                            <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                                                <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                            <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                <span className="inline-flex items-center rounded-lg border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-semibold text-pink-700">
                                                     {first?.sex || 'Sex —'}
                                                 </span>
                                                 {first?.gender_identity && (
-                                                    <span className="inline-flex items-center rounded-md border border-purple-100/60 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                                                    <span className="inline-flex items-center rounded-lg border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
                                                         {first.gender_identity}
                                                     </span>
                                                 )}
                                             </span>
                                         </span>
-                                        <span className="hidden shrink-0 items-center gap-1.5 text-[11px] font-bold sm:flex">
-                                            {linkedCount > 0 && (
-                                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">{linkedCount} linked</span>
-                                            )}
+                                        <span className="flex shrink-0 items-center gap-2">
                                             {openCount > 0 && (
-                                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{openCount} open</span>
+                                                <span className="text-xs font-bold text-amber-600">
+                                                    {openCount} open
+                                                </span>
                                             )}
+                                            {linkedCount > 0 && openCount === 0 && (
+                                                <span className="text-xs font-bold text-emerald-600">
+                                                    {linkedCount} linked
+                                                </span>
+                                            )}
+                                            <div className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 text-slate-400">
+                                                <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                            </div>
                                         </span>
-                                        <ChevronDown size={16} className={`shrink-0 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                     </button>
 
                                     {isExpanded && (
-                                        <div className="border-t border-slate-100 bg-slate-50/50 p-3 pl-12 space-y-2">
+                                        <div className="border-t border-slate-100 bg-slate-50/50 p-3.5 pl-14 space-y-2">
                                             {responses.map((resp) => {
                                                 const isLinked = resp.counseling_request_id != null;
                                                 const isDownloadingThis = downloadingSingleId === resp.id;
                                                 return (
                                                     <div
                                                         key={resp.id}
-                                                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm transition hover:border-purple-200"
+                                                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs transition hover:border-purple-200"
                                                     >
                                                         <div className="min-w-0">
                                                             <div className="flex items-center gap-2">
@@ -426,28 +434,25 @@ export default function CounselingEvaluationsList({
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
+                                                            <button
+                                                                type="button"
                                                                 disabled={isDownloadingThis}
                                                                 onClick={() => handleDownloadSinglePdf(resp)}
-                                                                leftIcon={
-                                                                    isDownloadingThis ? (
-                                                                        <Loader2 size={13} className="animate-spin" />
-                                                                    ) : (
-                                                                        <Download size={13} />
-                                                                    )
-                                                                }
-                                                                className="text-slate-600 hover:text-purple-700 hover:bg-purple-50"
+                                                                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-purple-700 transition"
                                                             >
-                                                                {isDownloadingThis ? 'PDF...' : 'PDF'}
-                                                            </Button>
+                                                                {isDownloadingThis ? (
+                                                                    <Loader2 size={13} className="animate-spin text-purple-600" />
+                                                                ) : (
+                                                                    <Download size={13} />
+                                                                )}
+                                                                <span>{isDownloadingThis ? 'PDF...' : 'PDF'}</span>
+                                                            </button>
                                                             <Button
                                                                 variant="secondary"
                                                                 size="sm"
                                                                 onClick={() => setSelectedResponse(resp)}
                                                                 leftIcon={<Eye size={13} />}
-                                                                className="shrink-0"
+                                                                className="rounded-xl border border-slate-200 bg-white text-xs font-semibold px-2.5 py-1 text-slate-700 hover:bg-slate-50"
                                                             >
                                                                 View Answers
                                                             </Button>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { XCircle } from 'lucide-react';
 import { getCounselingRequestsPage } from '../../../../../services/deptService';
 import { COUNSELING_STATUS, isWithCareStaffCounseling } from '../../../../../utils/workflow';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const HISTORY_PAGE_SIZE = 200;
 const HISTORY_PAGE_LIMIT = 10;
@@ -87,7 +88,7 @@ export function DeptHistoryModal({ showHistoryModal, setShowHistoryModal, select
                             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl dark:bg-gray-800">
                                 <div className="p-6 border-b border-gray-100 flex justify-between items-center dark:border-gray-700">
                                     <div>
-                                        <h3 className="font-bold text-lg dark:text-white">Case History: {selectedHistoryStudent.student_name || 'Student'}</h3>
+                                        <h3 className="font-bold text-lg dark:text-white">Case History: {toTitleCase(selectedHistoryStudent.student_name, 'Student')}</h3>
                                         <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedHistoryStudent.student_id || 'Unavailable'}</p>
                                     </div>
                                     <button type="button" aria-label="Close case history" onClick={() => setShowHistoryModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XCircle /></button>

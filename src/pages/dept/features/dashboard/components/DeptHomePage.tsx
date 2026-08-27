@@ -20,6 +20,7 @@ import {
     isWithCareStaffCounseling
 } from '../../../../../utils/workflow';
 import { useLiveClock } from '../../../../../components/ClockDisplay';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 
@@ -106,7 +107,7 @@ const TodaySchedulePanel = ({
                                 onClick={() => setActiveModule('admissions')}
                                 className={`w-full rounded-xl border border-blue-200 bg-white px-3 py-3 text-left hover:border-blue-300 transition ${FOCUS_RING}`}
                             >
-                                <p className="text-sm font-bold text-gray-900">{[app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Applicant'}</p>
+                                <p className="text-sm font-bold text-gray-900">{toTitleCase([app?.first_name, app?.last_name].filter(Boolean).join(' ')) || 'Applicant'}</p>
                                 <p className="mt-1 text-xs text-blue-700">{getTimeLabel(app?.interview_date)}</p>
                                 <p className="mt-1 text-xs text-gray-500">{app?.interview_venue || app?.priority_course || 'Interview details available in admissions'}</p>
                             </button>
@@ -133,7 +134,7 @@ const TodaySchedulePanel = ({
                                 onClick={() => onOpenCounselingRequest(request)}
                                 className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-3 text-left hover:border-emerald-300 transition ${FOCUS_RING}`}
                             >
-                                <p className="text-sm font-bold text-gray-900">{request?.student_name || 'Student'}</p>
+                                <p className="text-sm font-bold text-gray-900">{toTitleCase(request?.student_name, 'Student')}</p>
                                 <p className="mt-1 text-xs text-emerald-700">{getTimeLabel(getCounselingScheduledDate(request))}</p>
                                 <p className="mt-1 text-xs text-gray-500">{request?.request_type || 'Counseling request'}</p>
                             </button>

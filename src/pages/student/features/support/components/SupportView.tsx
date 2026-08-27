@@ -7,6 +7,7 @@ import {
     openStoredAsset
 } from '../../../../../utils/storageAssets';
 import { CARE_STAFF_ACTIVE_SUPPORT_STATUSES, SUPPORT_STATUS } from '../../../../../utils/workflow';
+import { toTitleCase } from '../../../../../utils/formatters';
 import type { StudentRemainingFlatViewProps } from '../../../types';
 
 const SupportFormModal = lazy(() => import('./SupportFormModal'));
@@ -225,7 +226,7 @@ const SupportRequestDetailsModal = ({ request, personalInfo, formatFullDate, sho
                 <div className="flex-1 space-y-4 overflow-y-auto p-4 student-mobile-modal-scroll-panel sm:p-5">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         {[
-                            { label: 'Student', value: request.student_name || `${personalInfo.firstName} ${personalInfo.lastName}`.trim() || 'Not set' },
+                            { label: 'Student', value: toTitleCase(request.student_name || `${personalInfo.firstName} ${personalInfo.lastName}`.trim(), 'Not set') },
                             { label: 'Program', value: `${personalInfo.course || ''} ${personalInfo.year ? `- ${personalInfo.year}` : ''}`.trim() || 'Not set' },
                             { label: 'Contact', value: personalInfo.mobile || personalInfo.email || 'Not set' },
                         ].map((item) => (

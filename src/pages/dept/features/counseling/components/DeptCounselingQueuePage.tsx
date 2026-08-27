@@ -6,6 +6,7 @@ import {
     isCounselingAwaitingDept,
     isWithCareStaffCounseling
 } from '../../../../../utils/workflow';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const ITEMS_PER_PAGE_DEFAULT = 15;
 const PAGE_SIZE_OPTIONS = [10, 15, 25, 50];
@@ -96,7 +97,7 @@ const CounselingViewModal = ({
                 </div>
                 {/* Read-only form fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div><label htmlFor="dept-request-student-name" className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input id="dept-request-student-name" readOnly value={request.student_name || ''} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
+                    <div><label htmlFor="dept-request-student-name" className="block text-xs font-bold text-gray-500 mb-1">Name of Student</label><input id="dept-request-student-name" readOnly value={toTitleCase(request.student_name, '')} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                     <div><label htmlFor="dept-request-course-year" className="block text-xs font-bold text-gray-500 mb-1">Course & Year</label><input id="dept-request-course-year" readOnly value={request.course_year || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                     <div><label htmlFor="dept-request-contact-number" className="block text-xs font-bold text-gray-500 mb-1">Contact Number</label><input id="dept-request-contact-number" readOnly value={request.contact_number || 'N/A'} className="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 cursor-not-allowed" /></div>
                 </div>
@@ -290,10 +291,10 @@ const DeptCounselingQueuePage = ({
                             return (
                         <div key={req.id} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all animate-fade-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
                             <div className="flex items-start justify-between">
-                                <button type="button" aria-label={`View counseling request for ${req.student_name}`} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="flex min-w-0 flex-1 cursor-pointer items-start gap-4 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                                <button type="button" aria-label={`View counseling request for ${toTitleCase(req.student_name, 'Student')}`} onClick={() => { setSelectedCounselingReq(req); setShowCounselingViewModal(true); }} className="flex min-w-0 flex-1 cursor-pointer items-start gap-4 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                                     <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">{req.student_name.charAt(0)}</span>
                                     <span className="min-w-0">
-                                        <span className="block font-bold text-gray-900">{req.student_name}</span>
+                                        <span className="block font-bold text-gray-900">{toTitleCase(req.student_name, 'Student')}</span>
                                         {req.course_year && <span className="block text-xs text-gray-500">{req.course_year}</span>}
                                         <span className="mt-2 block text-[10px] text-gray-400">{new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                     </span>
@@ -362,7 +363,7 @@ const DeptCounselingQueuePage = ({
                         </div>
                         <form onSubmit={handleApproveAndSchedule} className="p-6 space-y-4">
                             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                                <p className="text-sm font-bold text-emerald-900">{selectedCounselingReq.student_name}</p>
+                                <p className="text-sm font-bold text-emerald-900">{toTitleCase(selectedCounselingReq.student_name, 'Student')}</p>
                                 <p className="text-xs text-emerald-700 mt-1 line-clamp-2">{selectedCounselingReq.reason_for_referral || selectedCounselingReq.description}</p>
                             </div>
                             <div><label htmlFor="dept-session-date" className="block text-xs font-bold text-gray-500 mb-1">Session Date <span className="text-red-400">*</span></label><input id="dept-session-date" type="date" value={scheduleData.date} onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })} className="w-full px-4 py-2 border rounded-xl text-sm" required /></div>
@@ -384,7 +385,7 @@ const DeptCounselingQueuePage = ({
                         </div>
                         <div className="p-6 space-y-4">
                             <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-                                <p className="text-sm font-bold text-red-900">{selectedCounselingReq.student_name}</p>
+                                <p className="text-sm font-bold text-red-900">{toTitleCase(selectedCounselingReq.student_name, 'Student')}</p>
                                 <p className="text-xs text-red-700 mt-1 line-clamp-2">{selectedCounselingReq.reason_for_referral || selectedCounselingReq.description}</p>
                             </div>
                             <div><label htmlFor="dept-rejection-notes" className="block text-xs font-bold text-gray-500 mb-1">Reason for Rejection (Optional)</label><textarea id="dept-rejection-notes" value={rejectNotes} onChange={e => setRejectNotes(e.target.value)} className="w-full px-4 py-2 border rounded-xl text-sm h-24" placeholder="Explain why this request is being rejected..."></textarea></div>

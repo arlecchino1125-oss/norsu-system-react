@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ClipboardList, Download, FileQuestion, Link2 } from 'lucide-react';
 
-import { formatDateTime } from '../../../../../utils/formatters';
+import { formatDateTime, toTitleCase } from '../../../../../utils/formatters';
 import { exportSingleCounselingEvaluationPdf } from '../counselingEvaluationExport';
 import type {
     CounselingEvaluationQuestion,
@@ -56,7 +56,7 @@ export default function CounselingResponseDetailModal({
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Counseling Evaluation</p>
-                            <h3 className="mt-1 truncate text-lg font-black">{response.student_name || response.student_id}</h3>
+                            <h3 className="mt-1 truncate text-lg font-black">{toTitleCase(response.student_name) || response.student_id}</h3>
                             <p className="mt-1 text-xs font-semibold text-slate-400">{formatDateTime(response.submitted_at)}</p>
                         </div>
                         <button

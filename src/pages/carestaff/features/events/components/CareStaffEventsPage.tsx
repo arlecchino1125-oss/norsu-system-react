@@ -8,7 +8,7 @@ import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { supabase } from '../../../../../lib/supabase';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
-import { formatDate } from '../../../../../utils/formatters';
+import { formatDate, toTitleCase } from '../../../../../utils/formatters';
 import { Button } from '../../../../../components/ui/Button';
 import Modal from '../../../../../components/ui/Modal';
 import { Card, CardContent, CardHeader } from '../../../../../components/ui/Card';
@@ -441,7 +441,7 @@ const AttendeesModal = ({
                                     <tbody className="divide-y divide-green-50">
                                         {pageItems.map((att) => (
                                             <tr key={att.id} className="bg-green-50/20 hover:bg-green-50/60">
-                                                <td className="px-4 py-2"><p className="font-bold text-gray-900">{att.student_name}</p><p className="text-[10px] text-gray-500">{att.department}</p></td>
+                                                <td className="px-4 py-2"><p className="font-bold text-gray-900">{toTitleCase(att.student_name, '—')}</p><p className="text-[10px] text-gray-500">{att.department}</p></td>
                                                 <td className="px-4 py-2 text-gray-600 font-medium">{att.course || '-'}</td>
                                                 <td className="px-4 py-2 text-gray-600 font-medium">{att.year_level || '-'}{att.section ? ` — ${att.section}` : ''}</td>
                                                 <td className="px-4 py-2 text-gray-600">{new Date(att.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
@@ -704,7 +704,7 @@ const RegistrantsModal = ({
                                 {filteredRegistrations.map((registration: any) => (
                                     <tr key={registration.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-3">
-                                            <p className="font-bold text-gray-900">{registration.student_name || '-'}</p>
+                                            <p className="font-bold text-gray-900">{toTitleCase(registration.student_name, '-')}</p>
                                             <p className="text-xs text-gray-500">{registration.student_id} | {registration.department || '-'}</p>
                                         </td>
                                         <td className="px-6 py-3 text-gray-600 text-xs font-medium">{registration.course || '-'}</td>

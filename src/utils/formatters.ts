@@ -64,3 +64,26 @@ export const getValidProfileImageUrl = (url: string | null | undefined): string 
     // If it's already a direct link or something else, return it as-is
     return url;
 };
+
+/**
+ * Formats a text or name string into Title Case (e.g. "JOHN DOE" -> "John Doe").
+ * Handles uppercase, lowercase, mixed case, and preserves hyphens, apostrophes, and parentheses.
+ * @param str The raw input string
+ * @param fallback Optional fallback value if str is null or empty
+ */
+export const toTitleCase = (str: string | null | undefined, fallback = ''): string => {
+    if (!str || typeof str !== 'string') return fallback;
+    let trimmed = str.trim();
+    if (!trimmed) return fallback;
+
+    // ponytail: handle students filling out "0", "none", or "n/a" as their extension name
+    // since almost all names are passed through this formatter, this is the smallest 
+    // global diff to fix trailing bad suffixes from both UI joins and DB pre-joins.
+    trimmed = trimmed.replace(/\s+(0|none|n\/?a)$/i, '');
+
+    return trimmed
+        .toLowerCase()
+        // Match the beginning of string or any boundary character (space, hyphen, underscore, quotes, slash, brackets)
+        // followed by a lowercase letter or accented letter.
+        .replace(/(^|[\s\-_'’/([{\\]+)([a-z\u00C0-\u024F])/gu, (_, boundary, char) => `${boundary}${char.toUpperCase()}`);
+};

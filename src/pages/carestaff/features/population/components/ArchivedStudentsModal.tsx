@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Archive, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { formatDateTimeDisplay, buildCareStudentPaginationItems } from '../utils';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 interface ArchivedStudentsModalProps {
     archivedSearchTerm: string;
@@ -115,7 +116,7 @@ const ArchivedStudentsModal = ({
                                     <div className="min-w-0 space-y-2.5">
                                         <div>
                                             <p className="font-bold text-sm text-slate-900">
-                                                {student.first_name} {student.last_name}
+                                                {toTitleCase(`${student.first_name || ''} ${student.last_name || ''}`)}
                                             </p>
                                             <p className="font-mono text-xs font-semibold text-slate-500 mt-0.5">{student.student_id}</p>
                                         </div>

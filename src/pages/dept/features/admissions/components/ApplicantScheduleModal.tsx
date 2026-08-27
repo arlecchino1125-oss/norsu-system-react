@@ -1,5 +1,6 @@
 import React from 'react';
 import { Mail, CalendarDays, X, Check, Clock, User, MapPin } from 'lucide-react';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 export function ApplicantScheduleModal({
     showApplicantScheduleModal,
@@ -42,7 +43,7 @@ export function ApplicantScheduleModal({
                                 </div>
                                 <div>
                                     <p className="font-semibold text-slate-900">
-                                        {selectedApplicants[0].first_name} {selectedApplicants[0].last_name}
+                                        {toTitleCase(`${selectedApplicants[0].first_name || ''} ${selectedApplicants[0].last_name || ''}`.trim())}
                                     </p>
                                     <p className="text-sm text-slate-500">{selectedApplicants[0].reference_id}</p>
                                 </div>

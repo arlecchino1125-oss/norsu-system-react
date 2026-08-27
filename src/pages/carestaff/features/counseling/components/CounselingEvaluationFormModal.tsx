@@ -32,7 +32,7 @@ const TYPE_OPTIONS: Array<{ value: CounselingEvaluationQuestionType; label: stri
 ];
 
 const inputClass =
-    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-200';
+    'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-200 transition';
 
 /** Mirrors the database CHECK constraints so staff get a readable message
  *  instead of a raw Postgres violation. */
@@ -179,58 +179,73 @@ export default function CounselingEvaluationFormModal({
             zIndex="z-[80]"
             footer={
                 <>
-                    <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSave} isLoading={isSaving}>
+                    <Button variant="secondary" onClick={onClose} disabled={isSaving} className="rounded-xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                        Cancel
+                    </Button>
+                    <Button variant="primary" onClick={handleSave} isLoading={isSaving} className="rounded-xl bg-purple-600 hover:bg-purple-700 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-purple-500/20">
                         Save Evaluation Form
                     </Button>
                 </>
             }
         >
             {isLoading ? (
-                <p className="py-10 text-center text-sm text-gray-400">Loading…</p>
+                <p className="py-10 text-center text-sm text-slate-400">Loading…</p>
             ) : (
                 <div className="space-y-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <label className="block">
-                            <span className="mb-1 block text-xs font-bold text-gray-700">Title</span>
+                            <span className="mb-1.5 block text-xs font-bold text-slate-700">Title</span>
                             <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Evaluation title" />
                         </label>
-                        {templates.length > 0 && (
-                            <label className="block">
-                                <span className="mb-1 block text-xs font-bold text-gray-700">Copy from an Evaluation Template</span>
-                                <select
-                                    aria-label="Copy from an Evaluation Template"
-                                    className={inputClass}
-                                    defaultValue=""
-                                    onChange={(e) => void applyTemplate(e.target.value)}
-                                >
-                                    <option value="">Choose a template to apply...</option>
-                                    {templates.map((template) => (
-                                        <option key={template.id} value={template.id}>{template.title}</option>
-                                    ))}
-                                </select>
-                            </label>
-                        )}
+                        <label className="block">
+                            <span className="mb-1.5 block text-xs font-bold text-slate-700">Copy from an Evaluation Template</span>
+                            <select
+                                aria-label="Copy from an Evaluation Template"
+                                className={inputClass}
+                                defaultValue=""
+                                onChange={(e) => void applyTemplate(e.target.value)}
+                            >
+                                <option value="">Choose a template to apply...</option>
+                                {templates.map((template) => (
+                                    <option key={template.id} value={template.id}>{template.title}</option>
+                                ))}
+                            </select>
+                        </label>
                     </div>
 
                     <label className="block">
-                        <span className="mb-1 block text-xs font-bold text-gray-700">Description <span className="font-normal text-gray-400">(optional)</span></span>
-                        <textarea className={inputClass} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Shown to students above the questions." />
+                        <span className="mb-1.5 block text-xs font-bold text-slate-700">
+                            Description <span className="font-normal text-slate-400">(optional)</span>
+                        </span>
+                        <textarea
+                            className={inputClass}
+                            rows={3}
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Please evaluate your overall experience by providing honest feedback. Your responses will help us improve and enhance future services and experiences."
+                        />
                     </label>
 
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 rounded border-gray-300" />
-                        Accepting responses
+                    <label className="flex items-center gap-2.5 text-sm font-semibold text-slate-700 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={isActive}
+                            onChange={(e) => setIsActive(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 accent-purple-600"
+                        />
+                        <span>Accepting responses</span>
                     </label>
 
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         {questions.map((question, index) => (
-                            <div key={question.clientId} className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-                                <div className="mb-3 flex items-center gap-2">
-                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-600 text-xs font-black text-white">{index + 1}</span>
+                            <div key={question.clientId} className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-5 space-y-3.5 shadow-2xs">
+                                <div className="flex items-center gap-2.5">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-600 text-xs font-black text-white">
+                                        {index + 1}
+                                    </span>
                                     <select
                                         aria-label={`Question ${index + 1} type`}
-                                        className={`${inputClass} max-w-[11rem]`}
+                                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-200"
                                         value={question.question_type}
                                         onChange={(e) => updateQuestion(question.clientId, { question_type: e.target.value as CounselingEvaluationQuestionType })}
                                     >
@@ -239,9 +254,9 @@ export default function CounselingEvaluationFormModal({
                                         ))}
                                     </select>
                                     <div className="ml-auto flex items-center gap-1">
-                                        <Button variant="ghost" size="sm" aria-label="Move question up" disabled={index === 0} onClick={() => moveQuestion(index, -1)} leftIcon={<ArrowUp size={13} />} />
-                                        <Button variant="ghost" size="sm" aria-label="Move question down" disabled={index === questions.length - 1} onClick={() => moveQuestion(index, 1)} leftIcon={<ArrowDown size={13} />} />
-                                        <Button variant="ghost" size="sm" aria-label={`Remove question ${index + 1}`} onClick={() => setQuestions((prev) => prev.filter((q) => q.clientId !== question.clientId))} leftIcon={<Trash2 size={13} className="text-red-400" />} />
+                                        <Button variant="ghost" size="sm" aria-label="Move question up" disabled={index === 0} onClick={() => moveQuestion(index, -1)} leftIcon={<ArrowUp size={13} />} className="text-slate-400 hover:text-slate-700" />
+                                        <Button variant="ghost" size="sm" aria-label="Move question down" disabled={index === questions.length - 1} onClick={() => moveQuestion(index, 1)} leftIcon={<ArrowDown size={13} />} className="text-slate-400 hover:text-slate-700" />
+                                        <Button variant="ghost" size="sm" aria-label={`Remove question ${index + 1}`} onClick={() => setQuestions((prev) => prev.filter((q) => q.clientId !== question.clientId))} leftIcon={<Trash2 size={13} className="text-rose-500" />} className="text-rose-500 hover:bg-rose-50" />
                                     </div>
                                 </div>
 
@@ -253,28 +268,36 @@ export default function CounselingEvaluationFormModal({
                                 />
 
                                 {question.question_type === 'scale' && (
-                                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                         <label className="block">
-                                            <span className="mb-1 block text-[11px] font-bold text-gray-500">Lowest rating</span>
+                                            <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                Lowest rating
+                                            </span>
                                             <input type="number" className={inputClass} value={question.scale_min} onChange={(e) => updateQuestion(question.clientId, { scale_min: Number(e.target.value) })} />
                                         </label>
                                         <label className="block">
-                                            <span className="mb-1 block text-[11px] font-bold text-gray-500">Highest rating</span>
+                                            <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                Highest rating
+                                            </span>
                                             <input type="number" className={inputClass} value={question.scale_max} onChange={(e) => updateQuestion(question.clientId, { scale_max: Number(e.target.value) })} />
                                         </label>
                                         <label className="block">
-                                            <span className="mb-1 block text-[11px] font-bold text-gray-500">Low label</span>
+                                            <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                Low label
+                                            </span>
                                             <input className={inputClass} value={question.scale_min_label} onChange={(e) => updateQuestion(question.clientId, { scale_min_label: e.target.value })} placeholder="Poor" />
                                         </label>
                                         <label className="block">
-                                            <span className="mb-1 block text-[11px] font-bold text-gray-500">High label</span>
+                                            <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                High label
+                                            </span>
                                             <input className={inputClass} value={question.scale_max_label} onChange={(e) => updateQuestion(question.clientId, { scale_max_label: e.target.value })} placeholder="Excellent" />
                                         </label>
                                     </div>
                                 )}
 
                                 {question.question_type === 'choice' && (
-                                    <div className="mt-3 space-y-2">
+                                    <div className="space-y-2">
                                         {question.choices.map((choice, choiceIndex) => (
                                             <div key={`${question.clientId}-choice-${choiceIndex}`} className="flex items-center gap-2">
                                                 <input
@@ -294,25 +317,35 @@ export default function CounselingEvaluationFormModal({
                                                     aria-label={`Remove choice ${choiceIndex + 1}`}
                                                     disabled={question.choices.length <= 2}
                                                     onClick={() => updateQuestion(question.clientId, { choices: question.choices.filter((_, i) => i !== choiceIndex) })}
-                                                    leftIcon={<Trash2 size={13} className="text-gray-400" />}
+                                                    leftIcon={<Trash2 size={13} className="text-slate-400" />}
                                                 />
                                             </div>
                                         ))}
-                                        <Button variant="ghost" size="sm" onClick={() => updateQuestion(question.clientId, { choices: [...question.choices, ''] })} leftIcon={<Plus size={13} />}>
+                                        <Button variant="ghost" size="sm" onClick={() => updateQuestion(question.clientId, { choices: [...question.choices, ''] })} leftIcon={<Plus size={13} />} className="text-purple-600 hover:bg-purple-50">
                                             Add choice
                                         </Button>
                                     </div>
                                 )}
 
-                                <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-gray-600">
-                                    <input type="checkbox" checked={question.is_required} onChange={(e) => updateQuestion(question.clientId, { is_required: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
-                                    Required
+                                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={question.is_required}
+                                        onChange={(e) => updateQuestion(question.clientId, { is_required: e.target.checked })}
+                                        className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 accent-purple-600"
+                                    />
+                                    <span>Required</span>
                                 </label>
                             </div>
                         ))}
                     </div>
 
-                    <Button variant="secondary" onClick={() => setQuestions((prev) => [...prev, createDraftQuestion()])} leftIcon={<Plus size={14} />}>
+                    <Button
+                        variant="secondary"
+                        onClick={() => setQuestions((prev) => [...prev, createDraftQuestion()])}
+                        leftIcon={<Plus size={14} className="text-purple-600" />}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50"
+                    >
                         Add Question
                     </Button>
                 </div>

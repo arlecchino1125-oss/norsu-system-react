@@ -20,6 +20,7 @@ import { exportCareActivitiesLogbookPdf } from '../../../../../utils/careActivit
 import { formatHours, sessionDate, sessionHours, splitAmPm, totalHours } from '../../../../../utils/volunteerHours';
 import { sendTransactionalEmailNotification } from '../../../../../lib/transactionalEmail';
 import { buildPeerFacilitatorStatusEmailPayload } from '../../../../../utils/peerFacilitatorEmail';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 /**
  * Live React Query implementation of the CARE staff Peer Facilitators page scoped
@@ -333,7 +334,7 @@ const ApplicationsTab = ({ toolbarHost, showToastMessage }: { toolbarHost: HTMLE
                                 pagedApplications.map((app: any) => (
                                     <tr key={app.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-bold text-gray-900">{app.students?.first_name} {app.students?.last_name}</div>
+                                            <div className="font-bold text-gray-900">{toTitleCase(`${app.students?.first_name || ''} ${app.students?.last_name || ''}`.trim())}</div>
                                             <div className="text-xs text-gray-500">{app.student_id}</div>
                                         </td>
                                         <td className="px-6 py-4 text-gray-600">{courseYear(app.students)}</td>
@@ -465,7 +466,7 @@ const AddFacilitatorModal = ({
                                                 onClick={() => setSelectedStudent(s)}
                                             >
                                                 <div>
-                                                    <span className="font-bold text-sm text-slate-800">{s.first_name} {s.last_name}</span>
+                                                    <span className="font-bold text-sm text-slate-800">{toTitleCase(`${s.first_name || ''} ${s.last_name || ''}`.trim())}</span>
                                                     <br />
                                                     <span className="text-xs text-slate-500">{s.student_id} • {s.course}</span>
                                                 </div>
@@ -483,7 +484,7 @@ const AddFacilitatorModal = ({
                     <div>
                         <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 mb-4 flex justify-between items-center">
                             <div>
-                                <span className="block font-bold text-sm text-slate-900">{selectedStudent.first_name} {selectedStudent.last_name}</span>
+                                <span className="block font-bold text-sm text-slate-900">{toTitleCase(`${selectedStudent.first_name || ''} ${selectedStudent.last_name || ''}`.trim())}</span>
                                 <span className="block text-xs text-slate-600">{selectedStudent.student_id} • {selectedStudent.course}</span>
                             </div>
                             <Button variant="secondary" size="sm" onClick={() => setSelectedStudent(null)}>Change</Button>

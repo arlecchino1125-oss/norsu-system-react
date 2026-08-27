@@ -35,6 +35,7 @@ import {
 import { getDepartmentNameFromCourseRecords } from '../../../../../utils/courseDepartment';
 import { openStoredAsset, resolveStoredAssetUrl, resolveStoredAssetUrlsBulk } from '../../../../../utils/storageAssets';
 import { escapeSpreadsheetFormula } from '../../../../../utils/inputSecurity';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 
 declare const XLSX: any;
@@ -82,7 +83,7 @@ const StudentProfileModal = ({
                 onClose={() => setProfileViewStudent(null)}
                 anchorId="staff-content-region"
                 size="full"
-                title={`${profileViewStudent.last_name}, ${profileViewStudent.first_name} ${profileViewStudent.suffix || ''} ${profileViewStudent.middle_name || ''}`}
+                title={toTitleCase(`${profileViewStudent.last_name}, ${profileViewStudent.first_name} ${profileViewStudent.suffix || ''} ${profileViewStudent.middle_name || ''}`)}
                 subtitle={`${profileViewStudent.student_id} · ${profileViewStudent.course} · ${profileViewStudent.year_level}`}
                 headerMeta={(
                     <div className="flex items-center gap-3">
@@ -257,7 +258,7 @@ footer={(
 
                     <div className="p-6 text-center bg-white border-t border-slate-100">
                         <h3 className="text-2xl font-bold text-slate-800 tracking-tight leading-tight">
-                            {[profileViewStudent.first_name, profileViewStudent.middle_name, profileViewStudent.last_name, profileViewStudent.suffix].filter(Boolean).join(' ')}
+                            {toTitleCase([profileViewStudent.first_name, profileViewStudent.middle_name, profileViewStudent.last_name, profileViewStudent.suffix].filter(Boolean).join(' '))}
                         </h3>
                         <p className="font-mono text-base text-blue-600 font-bold mt-1.5">
                             {profileViewStudent.student_id}

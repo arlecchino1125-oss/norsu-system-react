@@ -3,6 +3,7 @@ import { CalendarDays, Clock, MapPin, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getDepartmentInterviewQueue } from '../../services/deptService';
 import { COUNSELING_STATUS, getCounselingScheduledDate } from '../../utils/workflow';
+import { toTitleCase } from '../../utils/formatters';
 
 type StaffCalendarScope = 'department' | 'care';
 type CalendarItemType = 'Interview' | 'Counseling' | 'Event';
@@ -169,7 +170,7 @@ const StaffCalendarPage = ({
                     sortAt: String(application?.interview_date || ''),
                     dateLabel: formatDateLabel(application?.interview_date),
                     timeLabel: formatTimeLabel(application?.interview_date),
-                    title: [application?.first_name, application?.last_name].map((value: unknown) => String(value || '').trim()).filter(Boolean).join(' ') || 'Applicant',
+                    title: toTitleCase([application?.first_name, application?.last_name].map((value: unknown) => String(value || '').trim()).filter(Boolean).join(' ')) || 'Applicant',
                     details: [
                         String(application?.reference_id || '').trim() ? `Ref: ${application.reference_id}` : null,
                         getInterviewCourseName(application)
@@ -187,7 +188,7 @@ const StaffCalendarPage = ({
                 sortAt: String(getCounselingScheduledDate(request) || ''),
                 dateLabel: formatDateLabel(getCounselingScheduledDate(request)),
                 timeLabel: formatTimeLabel(getCounselingScheduledDate(request)),
-                title: String(request?.student_name || '').trim() || 'Student',
+                title: toTitleCase(String(request?.student_name || '').trim()) || 'Student',
                 details: [
                     String(request?.request_type || '').trim() || 'Counseling session',
                     scope === 'care' ? String(request?.department || '').trim() || null : null

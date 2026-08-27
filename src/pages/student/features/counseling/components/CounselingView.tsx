@@ -9,6 +9,7 @@ import {
 } from '../../../../../utils/workflow';
 import { getEvaluatedCounselingRequestIds } from '../studentCounselingEvaluationService';
 import CounselingEvaluationModal from './CounselingEvaluationModal';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const CounselingFormModal = lazy(() => import('./CounselingFormModal'));
 
@@ -235,7 +236,7 @@ const RequestDetailsModal = ({ request, isEvaluated, formatFullDate, Icons, onCl
                         {request.counselor_name && (
                             <div>
                                 <p className="font-bold text-slate-400">Assigned Counselor</p>
-                                <p className="mt-0.5 font-bold text-slate-800">{request.counselor_name}</p>
+                                <p className="mt-0.5 font-bold text-slate-800">{toTitleCase(request.counselor_name, '')}</p>
                             </div>
                         )}
                         {request.reason_for_referral && (

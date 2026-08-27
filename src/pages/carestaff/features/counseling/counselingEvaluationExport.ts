@@ -1,6 +1,6 @@
 import { loadJsPdfAutoTable, loadXlsx } from '../../../../lib/exportVendors';
 import { buildCsv, escapeSpreadsheetRows } from '../../../../utils/inputSecurity';
-import { formatDateTime } from '../../../../utils/formatters';
+import { formatDateTime, toTitleCase } from '../../../../utils/formatters';
 import type { CounselingEvaluationQuestion, CounselingEvaluationResponse } from './counselingEvaluationService';
 
 export interface EvaluationDemographics {
@@ -130,7 +130,7 @@ export const exportCounselingEvaluationsExcel = async (
     const dataRows = evaluations.map((resp) => {
         const isLinked = resp.counseling_request_id != null;
         return [
-            resp.student_name || '',
+            toTitleCase(resp.student_name),
             resp.student_id,
             resp.department || '',
             resp.course || '',
@@ -328,7 +328,7 @@ export const exportCounselingEvaluationsPdf = async (
     const tableRows = evaluations.map((resp) => {
         const isLinked = resp.counseling_request_id != null;
         return [
-            resp.student_name || '—',
+            toTitleCase(resp.student_name || ''),
             resp.student_id || '—',
             `${resp.department || '—'}${resp.course ? ` / ${resp.course}` : ''}`,
             `${resp.sex || '—'} / ${resp.gender_identity || '—'}`,
@@ -409,7 +409,7 @@ export const exportCounselingEvaluationsCsv = (
     const dataRows = evaluations.map((resp) => {
         const isLinked = resp.counseling_request_id != null;
         return [
-            resp.student_name || '',
+            toTitleCase(resp.student_name || ''),
             resp.student_id || '',
             resp.department || '',
             resp.course || '',
@@ -485,7 +485,7 @@ export const exportSingleCounselingEvaluationPdf = async (
     doc.text('STUDENT NAME:', margin + 4, y);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(response.student_name || '—', margin + 34, y);
+    doc.text(toTitleCase(response.student_name || '—'), margin + 34, y);
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(100, 116, 139);

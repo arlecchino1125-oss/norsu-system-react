@@ -21,6 +21,7 @@ import {
 import { getApplicationDetailsById } from '../../../../../services/applicationDetailsService';
 import { getDepartmentApplicationsPage, getDepartmentCourseNames } from '../../../../../services/deptService';
 import { buildCsv } from '../../../../../utils/inputSecurity';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const SCHEDULABLE_STATUSES = new Set([
     'Qualified for Interview (1st Choice)',
@@ -85,7 +86,7 @@ const formatCreatedAtLabel = (value: unknown) => {
     return parsed.toLocaleString();
 };
 
-const getApplicantFullName = (app: any) => [
+const getApplicantFullName = (app: any) => toTitleCase([
     app?.first_name,
     app?.middle_name,
     app?.last_name,
@@ -93,7 +94,7 @@ const getApplicantFullName = (app: any) => [
 ]
     .map((value) => String(value || '').trim())
     .filter(Boolean)
-    .join(' ');
+    .join(' '));
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 const ITEMS_PER_PAGE_DEFAULT = 15;
@@ -265,13 +266,13 @@ return (
                                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                                     <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Personal Information</p>
                                     <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">First Name</p><p className="text-sm font-bold text-gray-800">{selectedApplicantDetails?.first_name || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Last Name</p><p className="text-sm font-bold text-gray-800">{selectedApplicantDetails?.last_name || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Middle Name</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.middle_name || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">First Name</p><p className="text-sm font-bold text-gray-800">{toTitleCase(selectedApplicantDetails?.first_name, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Last Name</p><p className="text-sm font-bold text-gray-800">{toTitleCase(selectedApplicantDetails?.last_name, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Middle Name</p><p className="text-sm text-gray-700">{toTitleCase(selectedApplicantDetails?.middle_name, '—')}</p></div>
                                         <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Suffix</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.suffix || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Date of Birth</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.dob || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Age</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.age || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Place of Birth</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.place_of_birth || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Place of Birth</p><p className="text-sm text-gray-700">{toTitleCase(selectedApplicantDetails?.place_of_birth, '—')}</p></div>
                                         <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Nationality</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.nationality || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Sex</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.sex || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Gender Identity</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.gender_identity || '—'}</p></div>
@@ -282,9 +283,9 @@ return (
                                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                                     <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Address</p>
                                     <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Street</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.street || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">City/Municipality</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.city || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Province</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.province || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Street</p><p className="text-sm text-gray-700">{toTitleCase(selectedApplicantDetails?.street, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">City/Municipality</p><p className="text-sm text-gray-700">{toTitleCase(selectedApplicantDetails?.city, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Province</p><p className="text-sm text-gray-700">{toTitleCase(selectedApplicantDetails?.province, '—')}</p></div>
                                         <div><p className="block text-[10px] font-bold text-gray-400 mb-0.5">Zip Code</p><p className="text-sm text-gray-700">{selectedApplicantDetails?.zip_code || '—'}</p></div>
                                     </div>
                                 </div>

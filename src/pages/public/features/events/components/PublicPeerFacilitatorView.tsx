@@ -16,6 +16,7 @@ import {
     monthStartOf,
     shouldPromptSubmit
 } from '../../../../../utils/peerLogbook';
+import { toTitleCase } from '../../../../../utils/formatters';
 import {
     getPublicPeerAttendance,
     submitPublicPeerTimeIn,
@@ -64,7 +65,7 @@ export default function PublicPeerFacilitatorView({
         enabled: Boolean(studentId)
     });
 
-    const peerName = [attendanceData?.first_name || identity.student.first_name, attendanceData?.last_name || identity.student.last_name].filter(Boolean).join(' ') || 'CARE Peer Facilitator';
+    const peerName = toTitleCase([attendanceData?.first_name || identity.student.first_name, attendanceData?.last_name || identity.student.last_name].filter(Boolean).join(' ')) || 'CARE Peer Facilitator';
     const programYearSection = [attendanceData?.course || identity.student.course, attendanceData?.year_level || identity.student.year_level, attendanceData?.section || identity.student.section].filter(Boolean).join(' / ') || 'NORSU Student';
     const peerBadgeYear = attendanceData?.peer_year || identity.student.peer_year || 'Active';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { XCircle } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
-import { formatDate, formatDateTime, formatTime } from '../../../../../utils/formatters';
+import { formatDate, formatDateTime, formatTime, toTitleCase } from '../../../../../utils/formatters';
 import StatusBadge from '../../../../../components/StatusBadge';
 
 import { PASS_STATUS, FAIL_STATUS } from '../constants';
@@ -84,13 +84,13 @@ const NatApplicationDetailsModal = ({
                                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100/80 p-5">
                                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Personal Information</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">First Name</p><p className="text-sm font-extrabold text-slate-800">{selectedApp.first_name || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Last Name</p><p className="text-sm font-extrabold text-slate-800">{selectedApp.last_name || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Middle Name</p><p className="text-sm font-semibold text-slate-700">{selectedApp.middle_name || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">First Name</p><p className="text-sm font-extrabold text-slate-800">{toTitleCase(selectedApp.first_name, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Last Name</p><p className="text-sm font-extrabold text-slate-800">{toTitleCase(selectedApp.last_name, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Middle Name</p><p className="text-sm font-semibold text-slate-700">{toTitleCase(selectedApp.middle_name, '—')}</p></div>
                                         <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Suffix</p><p className="text-sm font-semibold text-slate-700">{selectedApp.suffix || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Date of Birth</p><p className="text-sm font-semibold text-slate-700">{selectedApp.dob || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Age</p><p className="text-sm font-semibold text-slate-700">{selectedApp.age || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Place of Birth</p><p className="text-sm font-semibold text-slate-700">{selectedApp.place_of_birth || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Place of Birth</p><p className="text-sm font-semibold text-slate-700">{toTitleCase(selectedApp.place_of_birth, '—')}</p></div>
                                         <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Nationality</p><p className="text-sm font-semibold text-slate-700">{selectedApp.nationality || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Sex</p><p className="text-sm font-semibold text-slate-700">{selectedApp.sex || '—'}</p></div>
                                         <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Gender Identity</p><p className="text-sm font-semibold text-slate-700">{selectedApp.gender_identity || '—'}</p></div>
@@ -102,9 +102,9 @@ const NatApplicationDetailsModal = ({
                                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100/80 p-5">
                                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Address</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Street</p><p className="text-sm font-semibold text-slate-700">{selectedApp.street || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">City/Municipality</p><p className="text-sm font-semibold text-slate-700">{selectedApp.city || '—'}</p></div>
-                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Province</p><p className="text-sm font-semibold text-slate-700">{selectedApp.province || '—'}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Street</p><p className="text-sm font-semibold text-slate-700">{toTitleCase(selectedApp.street, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">City/Municipality</p><p className="text-sm font-semibold text-slate-700">{toTitleCase(selectedApp.city, '—')}</p></div>
+                                        <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Province</p><p className="text-sm font-semibold text-slate-700">{toTitleCase(selectedApp.province, '—')}</p></div>
                                         <div><p className="block text-[10px] font-bold text-slate-450 uppercase mb-0.5">Zip Code</p><p className="text-sm font-semibold text-slate-700">{selectedApp.zip_code || '—'}</p></div>
                                     </div>
                                 </div>

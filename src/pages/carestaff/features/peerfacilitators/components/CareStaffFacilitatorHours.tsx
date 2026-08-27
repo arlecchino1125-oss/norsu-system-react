@@ -5,6 +5,7 @@ import { supabase } from '../../../../../lib/supabase';
 import { Card } from '../../../../../components/ui/Card';
 import Modal from '../../../../../components/ui/Modal';
 import { formatHours, sessionDate, sessionHours, splitAmPm, totalHours } from '../../../../../utils/volunteerHours';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const COLUMNS = `
     id, student_id, time_in, time_out,
@@ -103,7 +104,7 @@ export default function CareStaffFacilitatorHours({ refreshSignal = 0 }: CareSta
             .reduce((acc: Map<string, any>, session: any) => {
                 const entry = acc.get(session.student_id) ?? {
                     student_id: session.student_id,
-                    name: [session.students?.first_name, session.students?.last_name].filter(Boolean).join(' ') || session.student_id,
+                    name: toTitleCase([session.students?.first_name, session.students?.last_name].filter(Boolean).join(' ')) || session.student_id,
                     course: [session.students?.course, session.students?.year_level].filter(Boolean).join(' - ') || session.students?.department || 'N/A',
                     sessions: []
                 };

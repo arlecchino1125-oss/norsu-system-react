@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronRight, Download, Search } from 'lucide-react';
 import Modal from '../../../../../components/ui/Modal';
 import { Button } from '../../../../../components/ui/Button';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
-import { formatDate } from '../../../../../utils/formatters';
+import { formatDate, toTitleCase } from '../../../../../utils/formatters';
 import {
     getEvaluationResults,
     type EvaluationAnswer,
@@ -164,7 +164,7 @@ export default function EventEvaluationResultsModal({
             onClose={handleClose}
             size="full"
             anchorId="staff-content-region"
-            title={selected ? (selected.student_name ?? selected.student_id) : (form?.title || 'Evaluation Results')}
+            title={selected ? (toTitleCase(selected.student_name) || selected.student_id) : (form?.title || 'Evaluation Results')}
             headerMeta={
                 <dl className="flex flex-wrap gap-x-5 gap-y-2 text-xs sm:justify-end sm:text-right">
                     <div>
@@ -285,7 +285,7 @@ export default function EventEvaluationResultsModal({
                                             className="cursor-pointer transition hover:bg-purple-50/60"
                                         >
                                             <td className="whitespace-nowrap px-3 py-2 font-semibold text-gray-900">{response.student_id}</td>
-                                            <td className="whitespace-nowrap px-3 py-2 text-gray-700">{response.student_name}</td>
+                                            <td className="whitespace-nowrap px-3 py-2 text-gray-700">{toTitleCase(response.student_name, '—')}</td>
                                             <td className="max-w-[16rem] px-3 py-2 text-gray-500"><span className="block truncate" title={response.course ?? undefined}>{response.course}</span></td>
                                             <td className="whitespace-nowrap px-3 py-2 text-gray-500">{response.year_level}</td>
                                             <td className="whitespace-nowrap px-3 py-2 text-gray-400">{new Date(response.submitted_at).toLocaleDateString()}</td>

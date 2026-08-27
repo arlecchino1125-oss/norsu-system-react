@@ -6,7 +6,7 @@ import { createDeferredChannelCleanup } from '../../../../../lib/realtime';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { supabase } from '../../../../../lib/supabase';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
-import { formatDateTime, generateExportFilename } from '../../../../../utils/formatters';
+import { formatDateTime, generateExportFilename, toTitleCase } from '../../../../../utils/formatters';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import PaginationControls from '../../../../../components/PaginationControls';
 import { Button } from '../../../../../components/ui/Button';
@@ -164,7 +164,7 @@ const CareStaffLogbookPage = ({ functions }: CareStaffLogbookPageProps) => {
                             visits.length === 0 ? <tr><td colSpan={5} className="p-6 text-center text-gray-500">No visits recorded.</td></tr> :
                                 visits.map(v => (
                                     <tr key={v.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-3 font-bold text-gray-900">{v.student_name}<div className="text-xs text-gray-400 font-normal">{v.student_id}</div></td>
+                                        <td className="px-6 py-3 font-bold text-gray-900">{toTitleCase(v.student_name, '—')}<div className="text-xs text-gray-400 font-normal">{v.student_id}</div></td>
                                         <td className="px-6 py-3 text-gray-600">{v.reason}</td>
                                         <td className="px-6 py-3 text-gray-500">{formatDateTime(v.time_in)}</td>
                                         <td className="px-6 py-3 text-gray-500">{v.time_out ? formatDateTime(v.time_out) : '-'}</td>

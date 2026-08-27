@@ -8,6 +8,7 @@ import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileI
 import { fetchDepartmentNameForCourse } from '../../../../../utils/courseDepartment';
 import { supabase } from '../../../../../lib/supabase';
 import { getProfileDocumentCategory, uploadProfileDocument } from '../profileDocumentStorage';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const INPUT_CLASS = 'w-full appearance-auto rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-5 text-slate-700 shadow-sm outline-none transition-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:rounded-lg sm:px-3 sm:py-2 sm:text-sm';
 
@@ -197,7 +198,7 @@ const Section = ({ icon, gradient, title, children, cardClass, cardStyle }: any)
 
 /** Identity header: photo, name, chips, academic summary, and the edit button. */
 const ProfileHeaderCard = ({ personalInfo, isUploadingPhoto, onPickPhoto, onEdit }: any) => {
-    const studentFullName = [personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ') || 'Student';
+    const studentFullName = toTitleCase([personalInfo.firstName, personalInfo.middleName, personalInfo.lastName, personalInfo.suffix].filter(Boolean).join(' ')) || 'Student';
     const profileStatus = personalInfo.status || 'Active';
     const profileChips = [
         personalInfo.year,

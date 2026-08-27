@@ -7,6 +7,7 @@ import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import Modal from '../../../../../components/ui/Modal';
 import PaginationControls from '../../../../../components/PaginationControls';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const APPLICATIONS_PAGE_SIZE = 10;
 
@@ -48,7 +49,7 @@ const ApplicationReviewModal = ({ application, onClose }: any) => (
                     <h4 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2 mb-3">Applicant Details</h4>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                         {([
-                            ['Name', [application.students?.first_name, application.students?.middle_name ? `${String(application.students.middle_name).charAt(0)}.` : '', application.students?.last_name, application.students?.suffix].filter(Boolean).join(' ')],
+                            ['Name', toTitleCase([application.students?.first_name, application.students?.middle_name ? `${String(application.students.middle_name).charAt(0)}.` : '', application.students?.last_name, application.students?.suffix].filter(Boolean).join(' '))],
                             ['Student ID No.', application.student_id],
                             ['Email', application.students?.email],
                             ['Age', application.students?.age],
@@ -307,7 +308,7 @@ export default function CareStaffVolunteerFormsTable({ functions, refreshSignal 
                                 pagedApplications.map(app => (
                                     <tr key={app.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-bold text-gray-900">{app.students?.first_name} {app.students?.last_name}</div>
+                                            <div className="font-bold text-gray-900">{toTitleCase(`${app.students?.first_name || ''} ${app.students?.last_name || ''}`) || '—'}</div>
                                             <div className="text-xs text-gray-500">{app.student_id}</div>
                                         </td>
                                         <td className="px-6 py-4 text-gray-600">

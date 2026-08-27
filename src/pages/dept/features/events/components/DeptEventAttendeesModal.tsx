@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Download, MapPin, Search, X } from 'lucide-react';
 
 import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const formatClock = (value?: string | null) => {
     if (!value) return null;
@@ -199,7 +200,7 @@ export function DeptEventAttendeesModal(props: any) {
                                 {visibleAttendees.map((att: any) => (
                                     <tr key={att.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <td className="px-4 py-2.5">
-                                            <p className="font-bold text-gray-900 dark:text-white">{att.student_name}</p>
+                                            <p className="font-bold text-gray-900 dark:text-white">{toTitleCase(att.student_name, '—')}</p>
                                             {/* Student ID, not department: every row in this view shares
                                                 the same department, so printing it was pure noise. */}
                                             <p className="text-xs text-gray-400">{att.student_id}</p>

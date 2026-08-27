@@ -1,5 +1,6 @@
 import React from 'react';
 import { CalendarDays } from 'lucide-react';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 const BOARD_SECTIONS = [
     {
@@ -112,7 +113,7 @@ const DeptInterviewQueuePage = ({
                                         {(groupedRows[section.key] || []).map((app: any, index: number) => (
                                             <tr key={app.id} className={index !== groupedRows[section.key].length - 1 ? 'border-b border-gray-100' : ''}>
                                                 <td className="px-4 py-3">
-                                                    <div className="font-semibold text-gray-900">{app.first_name} {app.last_name}</div>
+                                                    <div className="font-semibold text-gray-900">{toTitleCase(`${app.first_name || ''} ${app.last_name || ''}`.trim())}</div>
                                                     {app.email && <div className="text-xs text-gray-500">{app.email}</div>}
                                                 </td>
                                                 <td className="px-4 py-3 text-xs text-gray-600">{app.reference_id || '-'}</td>

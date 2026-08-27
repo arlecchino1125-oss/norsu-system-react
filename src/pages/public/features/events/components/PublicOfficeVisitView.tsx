@@ -1,6 +1,7 @@
 import React from 'react';
 import type { PublicIdentity } from '../hooks/usePublicEvents';
 import { usePublicOfficeVisit } from '../hooks/usePublicOfficeVisit';
+import { toTitleCase } from '../../../../../utils/formatters';
 
 interface PublicOfficeVisitViewProps {
     identity: PublicIdentity | null;
@@ -104,7 +105,7 @@ export default function PublicOfficeVisitView({
 
                     <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 space-y-1.5">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visitor</p>
-                        <p className="text-sm font-black text-slate-900">{activeVisit.studentName}</p>
+                        <p className="text-sm font-black text-slate-900">{toTitleCase(activeVisit.studentName, 'Visitor')}</p>
                         {activeVisit.studentId && (
                             <p className="text-xs font-semibold text-slate-500">ID: {activeVisit.studentId}</p>
                         )}
@@ -305,7 +306,7 @@ export default function PublicOfficeVisitView({
                         </div>
 
                         <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-left text-xs space-y-1">
-                            <p><strong className="text-slate-500">Visitor:</strong> <span className="font-bold text-slate-900">{lastCompletedVisit.student_name}</span></p>
+                            <p><strong className="text-slate-500">Visitor:</strong> <span className="font-bold text-slate-900">{toTitleCase(lastCompletedVisit.student_name, 'Visitor')}</span></p>
                             <p><strong className="text-slate-500">Reason:</strong> <span className="font-bold text-slate-900">{lastCompletedVisit.reason}</span></p>
                             <p><strong className="text-slate-500">Time Out:</strong> <span className="font-bold text-slate-900">{formatTimeLabel(lastCompletedVisit.time_out)}</span></p>
                         </div>

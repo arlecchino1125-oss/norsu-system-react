@@ -7,6 +7,7 @@ import { splitFullName } from '../../../../../utils/nameUtils';
 import { buildStudentAddress } from '../../../../../utils/studentFields';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import { parseScholarship, serializeRequirements, isScholarshipExpired } from '../../../../../utils/scholarshipHelpers';
+import { toTitleCase } from '../../../../../utils/formatters';
 export interface ScholarshipApplicantStudent {
     student_id: string;
     first_name?: string | null;
@@ -106,7 +107,7 @@ const getStudentMiddleName = (row: ScholarshipApplicantRecord) => row.student?.m
 const getStudentFullName = (row: ScholarshipApplicantRecord) => {
     const student = row.student;
     if (student) {
-        return [student.first_name, student.middle_name, student.last_name, student.suffix].filter(Boolean).join(' ');
+        return toTitleCase([student.first_name, student.middle_name, student.last_name, student.suffix].filter(Boolean).join(' '));
     }
     return row.student_id;
 };

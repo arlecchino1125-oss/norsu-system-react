@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from '../../../../../components/StatusBadge';
 import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
-import { formatDate } from '../../../../../utils/formatters';
+import { formatDate, toTitleCase } from '../../../../../utils/formatters';
 import { buildStudentAddress } from '../../../../../utils/studentFields';
 import {
     getStoredAssetEntries,
@@ -37,7 +37,7 @@ const SupportRequestModal = ({
             anchorId="staff-content-region"
             size="full"
             title="Support Application"
-            subtitle={`${request.student_name || 'Student'} · Filed ${formatDate(request.created_at)}`}
+            subtitle={`${toTitleCase(request.student_name, 'Student')} · Filed ${formatDate(request.created_at)}`}
             headerMeta={(
                 <div className="flex items-center gap-3">
                     <StatusBadge status={request.status} />
@@ -53,7 +53,7 @@ const SupportRequestModal = ({
                                 <GraduationCap size={16} /> Student Information
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-sm relative z-10">
-                                <div><p className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Full Name</p><div className="font-semibold text-gray-900 text-base">{request.student_name}</div></div>
+                                <div><p className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Full Name</p><div className="font-semibold text-gray-900 text-base">{toTitleCase(request.student_name, '—')}</div></div>
                                 <div><p className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Date Filed</p><div className="font-semibold text-gray-900 text-base">{formatDate(request.created_at)}</div></div>
                                 <div><p className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Date of Birth</p><div className="font-semibold text-gray-900 text-base">{student?.dob || '-'}</div></div>
                                 <div><p className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Program — Year</p><div className="font-semibold text-gray-900 text-base">{request.course_year || `${student?.course || '-'} - ${student?.year_level || '-'}`}</div></div>
@@ -390,7 +390,7 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
                                                         <GraduationCap size={17} className="text-purple-600" />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-semibold text-gray-900">{req.student_name}</p>
+                                                        <p className="font-semibold text-gray-900">{toTitleCase(req.student_name, '—')}</p>
                                                         <p className="text-xs text-gray-500">{req.student_id}</p>
                                                     </div>
                                                 </div>
