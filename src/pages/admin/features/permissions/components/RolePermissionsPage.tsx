@@ -746,6 +746,14 @@ export default function RolePermissionsPage() {
                                             <RotateCcw className="h-4 w-4" />
                                             Reset to Defaults
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/privacy-policy')}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                                        >
+                                            <Shield className="h-4 w-4" />
+                                            Privacy Policy
+                                        </button>
                                     </div>
                                 </div>
                             </div>

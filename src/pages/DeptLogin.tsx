@@ -192,10 +192,14 @@ export default function DeptLogin() {
                                         </p>
                                     </div>
 
-                                    <div className="text-center pt-1">
-                                        <a href="/" className="inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-extrabold text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-500/20">
+                                    <div className="flex items-center justify-center gap-3 pt-1 text-sm font-extrabold text-slate-500">
+                                        <a href="/" className="inline-flex items-center justify-center gap-2 rounded-full px-3 py-1.5 transition-colors hover:bg-teal-50 hover:text-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-500/20">
                                             <ArrowLeft size={16} />
                                             Back to Main Portal
+                                        </a>
+                                        <span className="text-slate-300">•</span>
+                                        <a href="/privacy-policy" className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 transition-colors hover:bg-teal-50 hover:text-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-500/20">
+                                            Privacy Policy
                                         </a>
                                     </div>
                                 </form>

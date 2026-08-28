@@ -181,9 +181,13 @@ export default function AdminLogin() {
                                         </m.button>
                                     </div>
 
-                                    <div className="text-center pt-4">
-                                        <a href="/" className="text-xs font-bold text-slate-500 hover:text-red-400 transition-colors uppercase tracking-widest font-sans">
-                                            [ Terminate Session ]
+                                    <div className="flex items-center justify-center gap-3 pt-4 text-xs font-bold text-slate-500 font-sans">
+                                        <a href="/" className="hover:text-red-400 transition-colors uppercase tracking-widest">
+                                            [ Back to Main ]
+                                        </a>
+                                        <span className="text-slate-700">•</span>
+                                        <a href="/privacy-policy" className="hover:text-red-400 transition-colors uppercase tracking-widest">
+                                            [ Privacy Policy ]
                                         </a>
                                     </div>
                                 </form>

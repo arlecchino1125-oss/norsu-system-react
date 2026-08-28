@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/useAuth';
 import {
     GraduationCap, ArrowLeft, FileText, Info, Check, User, Key,
-    Calendar, MapPin, Loader2, Printer, X, Clock, HelpCircle, LogOut, Mail, Moon, Phone, ArrowRight, SunMedium, Menu
+    Calendar, MapPin, Loader2, Printer, X, Clock, HelpCircle, LogOut, Mail, Moon, Phone, ArrowRight, SunMedium, Menu, Shield
 } from 'lucide-react';
 import { m, Variants } from 'framer-motion';
 import { invokeEdgeFunction } from '../lib/invokeEdgeFunction';
@@ -525,6 +525,13 @@ const NATLayout = ({ children, title = "NORSU Admission Test", showBack = false,
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        <Link
+                            to="/privacy-policy"
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-3.5 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all hover:border-blue-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-sky-400 dark:hover:text-sky-300"
+                        >
+                            <Shield className="h-4 w-4" aria-hidden="true" />
+                            <span className="hidden md:inline">Privacy Policy</span>
+                        </Link>
                         {onToggleTheme && (
                             <button
                                 type="button"

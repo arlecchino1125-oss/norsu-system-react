@@ -193,6 +193,13 @@ export default function AdminDashboard() {
                                             <span>Role Permissions</span>
                                         </button>
                                         <button type="button"
+                                            onClick={() => navigate('/privacy-policy')}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                                        >
+                                            <Shield size={16} />
+                                            <span>Privacy Policy</span>
+                                        </button>
+                                        <button type="button"
                                             onClick={handleLogout}
                                             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10 sm:col-span-2 xl:col-span-1"
                                         >

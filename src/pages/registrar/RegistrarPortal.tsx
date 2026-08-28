@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { LayoutDashboard, LogOut, Menu, Users, Download, XCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { LayoutDashboard, LogOut, Menu, Users, Download, XCircle, Shield } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../lib/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import NorsuBrand from '../../components/NorsuBrand';
@@ -98,14 +98,21 @@ export default function RegistrarPortal() {
                     </nav>
                 </div>
 
-                <div className="mt-auto p-6 border-t border-slate-800">
+                <div className="mt-auto p-6 border-t border-slate-800 space-y-2">
+                    <Link
+                        to="/privacy-policy"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:bg-slate-800 hover:text-white rounded-xl transition-all font-medium text-sm"
+                    >
+                        <Shield size={18} />
+                        Privacy Policy
+                    </Link>
                     <button
                         type="button"
                         onClick={async () => {
                             await logout();
                             navigate('/');
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-3 text-slate-400 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all font-medium text-sm"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all font-medium text-sm"
                     >
                         <LogOut size={18} />
                         Secure Logout

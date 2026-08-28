@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { RefreshCw, Settings, LogOut, User } from 'lucide-react';
+import { RefreshCw, Settings, LogOut, User, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import type { NavSection } from './Sidebar';
 import NotificationBell from '../NotificationBell';
@@ -228,6 +229,14 @@ export default function StaffPortalLayout({
                         Profile &amp; Settings
                       </button>
                     )}
+                    <Link
+                      to="/privacy-policy"
+                      onClick={() => setProfileOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+                    >
+                      <Shield size={15} className="text-slate-400" />
+                      Privacy Policy
+                    </Link>
                     <button
                       type="button"
                       onClick={() => { setProfileOpen(false); onLogout(); }}

@@ -154,9 +154,13 @@ export default function RegistrarLogin() {
                                         </m.button>
                                     </div>
 
-                                    <div className="text-center pt-4">
-                                        <a href="/" className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors">
+                                    <div className="flex items-center justify-center gap-3 pt-4 text-sm font-medium text-slate-500">
+                                        <a href="/" className="hover:text-teal-600 transition-colors">
                                             Return to Homepage
+                                        </a>
+                                        <span className="text-slate-300">•</span>
+                                        <a href="/privacy-policy" className="hover:text-teal-600 transition-colors">
+                                            Privacy Policy
                                         </a>
                                     </div>
                                 </form>

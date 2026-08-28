@@ -1,4 +1,5 @@
-import { X } from 'lucide-react';
+import { X, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface StudentSidebarLink {
     id: string;
@@ -97,11 +98,22 @@ export function StudentSidebar({
                     ))}
                 </nav>
 
-                <div className="border-t border-slate-200/80 bg-slate-50/80 p-3">
+                <div className="border-t border-slate-200/80 bg-slate-50/80 p-3 space-y-2">
+                    <Link
+                        to="/privacy-policy"
+                        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-black text-slate-700 shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                    >
+                        <span className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                                <Shield className="h-4 w-4" />
+                            </span>
+                            Privacy Policy
+                        </span>
+                    </Link>
                     <button
                         type="button"
                         onClick={onLogout}
-                        className="flex w-full items-center justify-between rounded-2xl border border-rose-100 bg-white px-3 py-3 text-sm font-black text-rose-600 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+                        className="flex w-full items-center justify-between rounded-2xl border border-rose-100 bg-white px-3 py-2.5 text-sm font-black text-rose-600 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
                     >
                         <span className="flex items-center gap-3">
                             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-500">

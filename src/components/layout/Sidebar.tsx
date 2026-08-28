@@ -1,6 +1,7 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import NorsuBrand from '../NorsuBrand';
 
 interface NavItem {
@@ -211,8 +212,16 @@ export default function Sidebar({
         {bottomSections.map((section, i) => renderSection(section, i, 'bot'))}
       </nav>
 
-      {/* Logout */}
-      <div className="border-t border-white/5 p-3 relative z-10 bg-[#060A10]/50 backdrop-blur-md">
+      {/* Footer Actions */}
+      <div className="border-t border-white/5 p-3 space-y-1 relative z-10 bg-[#060A10]/50 backdrop-blur-md">
+        <Link
+          to="/privacy-policy"
+          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-400/80 transition-all hover:bg-white/5 hover:text-slate-200 focus:outline-none ${isCollapsed ? 'justify-center' : ''}`}
+          title={isCollapsed ? 'Privacy Policy' : undefined}
+        >
+          <Shield size={18} className="shrink-0 group-hover:scale-110 transition-transform" />
+          {!isCollapsed && <span className="tracking-wide">Privacy Policy</span>}
+        </Link>
         <button
           type="button"
           onClick={onLogout}

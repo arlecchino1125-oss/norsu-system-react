@@ -191,6 +191,12 @@ export function LoginPanel({
                                 >
                                     <UserPlus size={16} /> Create Account
                                 </m.button>
+
+                                <div className="mt-2 flex items-center justify-center gap-3 text-xs font-medium text-indigo-200/50">
+                                    <a href="/" className="hover:text-sky-300 transition-colors">Back to Main Portal</a>
+                                    <span className="text-indigo-400/30">•</span>
+                                    <a href="/privacy-policy" className="hover:text-sky-300 transition-colors">Privacy Policy</a>
+                                </div>
                             </div>
                         </form>
                     </div>
