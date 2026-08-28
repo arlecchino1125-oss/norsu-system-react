@@ -1,0 +1,73 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-student
+dist-ssr
+coverage
+.vite
+backups
+.env
+.env.*
+!.env.example
+!.env.r2-migration.example
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local AI/tooling runtime directories
+.claude/settings.local.json
+.codex-runtime/
+.sixth/
+.agents/
+scratch/
+
+# One-off patches and scratch artifacts
+*.patch
+
+# Mobile build outputs (Capacitor)
+android/
+apps/student/student/android/app/build/
+apps/student/student/android/.gradle/
+apps/student/student/ios/App/App/public/
+android/app/build/
+android/app/.cxx/
+android/build/
+android/.gradle/
+android/local.properties
+android/.idea/
+# Web build snapshot synced into the Android assets; irrelevant in remote mode
+# (server.url serves the deployed site) and only pollutes the repo.
+android/app/src/main/assets/public/
+
+# Local tooling / scratch
+.superpowers/
+_docx_work/
+diff.txt
+
+# Untracked local files
+MAIN LANDING PAGE REWORK/
+public/care-seal.png
+public/contact-photo.jpg
+public/norsu-seal.png
+typecheck-output.txt
+PEER FACILITATOR MONITORING LOGBOOK (CARE Activities) (1).docx
+PEER FACILITATOR MONITORING LOGBOOK (Peer Support).docx
+STUDENT CHECKLIST - 2026-08-03.xlsx
+.mcp.json
