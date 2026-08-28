@@ -35,7 +35,7 @@ const PUBLIC_LANDING_PORTALS = [
         cta: 'Open public services',
         icon: FileText,
         accent: 'orange',
-        route: '/public/events'
+        route: '/public'
     },
     {
         title: 'Student Portal',

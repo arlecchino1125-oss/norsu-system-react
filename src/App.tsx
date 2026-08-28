@@ -281,8 +281,8 @@ function App() {
                   </LazyRoute>
                 } />
 
-                {/* Public Events Endpoint */}
-                <Route path="/public/events" element={
+                {/* Public Services Endpoint */}
+                <Route path="/public" element={
                   <LazyRoute>
                     <PublicEventsPage />
                   </LazyRoute>
