@@ -72,7 +72,7 @@ export default function PublicScholarshipsView({
     const navigate = useNavigate();
     const [expandedId, setExpandedId] = useState<number | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterType, setFilterType] = useState<'all' | 'open' | 'portal' | 'external'>('all');
+    const [filterType, setFilterType] = useState<'all' | 'portal' | 'external'>('all');
     const [applyingId, setApplyingId] = useState<number | null>(null);
     const [appliedIds, setAppliedIds] = useState<Set<number>>(new Set());
 
@@ -103,10 +103,11 @@ export default function PublicScholarshipsView({
         }
     };
 
+    // Strictly show only active, non-expired (open) scholarships
     const parsedScholarships = useMemo(() => {
         return (scholarshipsList || [])
             .map(parseScholarship)
-            .filter(s => !isScholarshipExpired(s.deadline));
+            .filter((s: any) => !isScholarshipExpired(s.deadline));
     }, [scholarshipsList]);
 
     const filteredScholarships = useMemo(() => {
@@ -126,8 +127,6 @@ export default function PublicScholarshipsView({
             return true;
         });
     }, [parsedScholarships, searchQuery, filterType]);
-
-    const openCount = parsedScholarships.length;
 
     if (isLoading) {
         return (
@@ -150,11 +149,11 @@ export default function PublicScholarshipsView({
     }
 
     return (
-        <div className="mx-auto max-w-lg px-4 pt-5 pb-20 space-y-4 animate-fade-in">
+        <div className="mx-auto max-w-lg px-3.5 pt-3.5 pb-16 space-y-3 sm:px-4 sm:pt-5 sm:pb-20 sm:space-y-4 animate-fade-in">
             {/* ── Search & Filter Controls ── */}
             <div className="space-y-2">
                 <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 sm:pl-3.5">
                         <Icons.Search />
                     </div>
                     <input
@@ -162,45 +161,38 @@ export default function PublicScholarshipsView({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search scholarships by title or keywords..."
-                        className="w-full rounded-2xl border border-black/[0.08] bg-white py-3 pl-10 pr-4 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/20 shadow-sm"
+                        className="w-full rounded-xl border border-black/[0.08] bg-white py-2.5 pl-9 pr-3 text-[11px] font-semibold text-slate-900 placeholder:text-slate-400 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/20 shadow-sm sm:rounded-2xl sm:py-3 sm:pl-10 sm:pr-4 sm:text-xs"
                     />
                     {searchQuery && (
                         <button
                             type="button"
                             onClick={() => setSearchQuery('')}
-                            className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-xs font-bold text-slate-400 hover:text-slate-600"
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-[11px] font-bold text-slate-400 hover:text-slate-600 sm:pr-3.5 sm:text-xs"
                         >
                             Clear
                         </button>
                     )}
                 </div>
 
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-[11px] sm:text-xs">
                     <button
                         type="button"
                         onClick={() => setFilterType('all')}
-                        className={`shrink-0 rounded-xl px-3 py-1.5 font-bold transition-all ${filterType === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`shrink-0 rounded-lg px-2.5 py-1 sm:rounded-xl sm:px-3 sm:py-1.5 font-bold transition-all ${filterType === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                     >
-                        All ({scholarshipsList.length})
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setFilterType('open')}
-                        className={`shrink-0 rounded-xl px-3 py-1.5 font-bold transition-all ${filterType === 'open' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                        Open ({openCount})
+                        All ({parsedScholarships.length})
                     </button>
                     <button
                         type="button"
                         onClick={() => setFilterType('portal')}
-                        className={`shrink-0 rounded-xl px-3 py-1.5 font-bold transition-all ${filterType === 'portal' ? 'bg-rose-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`shrink-0 rounded-lg px-2.5 py-1 sm:rounded-xl sm:px-3 sm:py-1.5 font-bold transition-all ${filterType === 'portal' ? 'bg-rose-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                     >
                         Student Portal
                     </button>
                     <button
                         type="button"
                         onClick={() => setFilterType('external')}
-                        className={`shrink-0 rounded-xl px-3 py-1.5 font-bold transition-all ${filterType === 'external' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`shrink-0 rounded-lg px-2.5 py-1 sm:rounded-xl sm:px-3 sm:py-1.5 font-bold transition-all ${filterType === 'external' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                     >
                         Official Website
                     </button>
@@ -209,17 +201,17 @@ export default function PublicScholarshipsView({
 
             {/* ── Scholarship Cards List ── */}
             {filteredScholarships.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center shadow-sm sm:rounded-2xl sm:p-8">
+                    <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500 sm:mb-3 sm:h-12 sm:w-12 sm:rounded-2xl">
                         <Icons.Scholarship />
                     </div>
-                    <h3 className="text-sm font-black text-slate-900">No scholarships found</h3>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    <h3 className="text-xs font-black text-slate-900 sm:text-sm">No scholarships found</h3>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500 sm:text-xs">
                         {searchQuery ? 'Try clearing your search filters.' : 'There are currently no active scholarships listed. Please check back later!'}
                     </p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5 sm:space-y-3">
                     {filteredScholarships.map((item) => {
                         const isExpanded = expandedId === item.id;
                         const expired = isScholarshipExpired(item.deadline);
@@ -229,17 +221,17 @@ export default function PublicScholarshipsView({
                         return (
                             <div
                                 key={item.id}
-                                className="w-full overflow-hidden rounded-2xl border border-black/[0.07] bg-white text-left shadow-sm transition-all duration-200"
+                                className="w-full overflow-hidden rounded-xl border border-black/[0.07] bg-white text-left shadow-sm transition-all duration-200 sm:rounded-2xl"
                             >
                                 <button
                                     type="button"
                                     onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                                    className="flex w-full flex-col px-4 py-4 text-left transition-colors hover:bg-slate-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+                                    className="flex w-full flex-col px-3.5 py-3 text-left transition-colors hover:bg-slate-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 sm:px-4 sm:py-4"
                                 >
-                                    <div className="flex w-full items-start justify-between gap-3">
+                                    <div className="flex w-full items-start justify-between gap-2.5 sm:gap-3">
                                         <div className="min-w-0 flex-1">
-                                            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                            <div className="mb-1 flex flex-wrap items-center gap-1 sm:mb-1.5 sm:gap-1.5">
+                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider ${
                                                     expired 
                                                         ? 'bg-slate-100 text-slate-500 border border-slate-200' 
                                                         : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -247,7 +239,7 @@ export default function PublicScholarshipsView({
                                                     {expired ? 'Closed' : 'Open'}
                                                 </span>
 
-                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider ${
                                                     isExternal
                                                         ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                                         : 'bg-purple-50 text-purple-700 border border-purple-200'
@@ -256,7 +248,7 @@ export default function PublicScholarshipsView({
                                                 </span>
                                             </div>
 
-                                            <h3 className="text-[15px] font-bold leading-snug text-slate-900">
+                                            <h3 className="text-[13.5px] font-bold leading-snug text-slate-900 sm:text-[15px]">
                                                 {item.title}
                                             </h3>
                                         </div>

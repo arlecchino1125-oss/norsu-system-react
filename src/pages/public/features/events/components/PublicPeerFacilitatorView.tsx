@@ -257,51 +257,51 @@ export default function PublicPeerFacilitatorView({
     };
 
     return (
-        <div className="mx-auto max-w-4xl space-y-5 page-transition">
+        <div className="mx-auto max-w-4xl px-3.5 pt-3.5 pb-12 space-y-3.5 sm:px-4 sm:pt-5 sm:pb-16 sm:space-y-5 page-transition">
             {/* 1. Header Banner */}
-            <section className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent p-5 shadow-sm sm:p-6 backdrop-blur-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                            <HeartHandshake size={16} />
+            <section className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent p-4 shadow-sm sm:rounded-3xl sm:p-6 backdrop-blur-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded-xl bg-emerald-600 text-white shadow-sm">
+                            <HeartHandshake size={14} className="sm:w-4 sm:h-4" />
                         </span>
-                        <span className="rounded-full bg-emerald-600 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white">
+                        <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-white sm:px-3 sm:text-[10px]">
                             Active Peer Facilitator
                         </span>
                         {peerBadgeYear && (
-                            <span className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-700">
+                            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 sm:text-[11px]">
                                 {peerBadgeYear}
                             </span>
                         )}
                     </div>
-                    <span className="text-[11px] font-bold text-slate-500">
+                    <span className="text-[10px] font-bold text-slate-500 sm:text-[11px]">
                         ID: <span className="font-mono text-slate-700">{studentId}</span>
                     </span>
                 </div>
 
-                <h2 className="mt-2 text-xl font-black text-slate-900 sm:text-2xl">
+                <h2 className="mt-1.5 text-lg font-black text-slate-900 sm:mt-2 sm:text-2xl">
                     {peerName}
                 </h2>
-                <p className="text-xs font-semibold text-slate-500">
+                <p className="text-[11px] font-semibold text-slate-500 sm:text-xs">
                     {programYearSection}
                 </p>
-                <p className="mt-2 max-w-xl text-xs leading-relaxed text-slate-600">
+                <p className="mt-1.5 max-w-xl text-[11px] leading-relaxed text-slate-600 sm:mt-2 sm:text-xs">
                     Your volunteer hours and submitted monthly logbooks are synchronized in real-time with the CARE Center office.
                 </p>
             </section>
 
             {/* 2. Navigation Tabs */}
-            <div className="flex rounded-2xl bg-slate-200/80 p-1 text-xs font-bold text-slate-600">
+            <div className="flex rounded-xl bg-slate-200/80 p-1 text-[11px] font-bold text-slate-600 sm:rounded-2xl sm:text-xs">
                 <button
                     type="button"
                     onClick={() => setActiveTab('hours')}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 transition-all ${
+                    className={`flex flex-1 items-center justify-center gap-1 sm:gap-1.5 rounded-lg py-2 transition-all sm:rounded-xl sm:py-2.5 ${
                         activeTab === 'hours'
                             ? 'bg-white text-emerald-700 shadow-sm font-black'
                             : 'hover:text-slate-900'
                     }`}
                 >
-                    <Clock size={15} />
+                    <Clock size={14} />
                     <span>Volunteer Hours</span>
                 </button>
                 <button

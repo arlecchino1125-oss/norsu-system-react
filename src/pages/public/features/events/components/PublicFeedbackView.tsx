@@ -59,9 +59,9 @@ const EMPTY_FORM: PublicFeedbackForm = {
     suggestions: '',
 };
 
-const sectionCardClass = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5';
-const fieldLabelClass = 'mb-1.5 block text-[10px] font-black uppercase tracking-[0.1em] text-slate-500';
-const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100';
+const sectionCardClass = 'rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm sm:rounded-2xl sm:p-5';
+const fieldLabelClass = 'mb-1 block text-[9px] font-black uppercase tracking-[0.1em] text-slate-500 sm:mb-1.5 sm:text-[10px]';
+const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 sm:py-2.5 sm:text-sm';
 
 export default function PublicFeedbackView({ identity, onRequireSignIn, showToast }: PublicFeedbackViewProps) {
     const [form, setForm] = useState<PublicFeedbackForm>(EMPTY_FORM);
@@ -127,9 +127,9 @@ export default function PublicFeedbackView({ identity, onRequireSignIn, showToas
     };
 
     return (
-        <div className="mx-auto max-w-lg px-4 pt-5 pb-10 animate-fade-in space-y-4">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 shadow-sm">
-                <p className="min-w-0 text-xs font-semibold text-amber-800">
+        <div className="mx-auto max-w-lg px-3.5 pt-3.5 pb-10 animate-fade-in space-y-3 sm:px-4 sm:pt-5 sm:pb-12 sm:space-y-4">
+            <div className="flex items-center justify-between gap-2.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5 shadow-sm sm:rounded-2xl sm:gap-3 sm:px-4 sm:py-3">
+                <p className="min-w-0 text-[11px] font-semibold text-amber-800 sm:text-xs">
                     {identity
                         ? <>Signed in as <strong className="font-black text-amber-900">{identity.student.student_id}</strong> — your feedback will be attributed to your record.</>
                         : 'You are submitting anonymously. Your Student ID is optional but helps the office follow up.'}
@@ -138,7 +138,7 @@ export default function PublicFeedbackView({ identity, onRequireSignIn, showToas
                     <button
                         type="button"
                         onClick={onRequireSignIn}
-                        className="shrink-0 rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-amber-600"
+                        className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-amber-600 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-xs"
                     >
                         Sign In (optional)
                     </button>

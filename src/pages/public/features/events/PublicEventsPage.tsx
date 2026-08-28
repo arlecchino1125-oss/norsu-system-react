@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { HelpCircle } from "lucide-react";
+import PublicHelpGuideModal from "./components/PublicHelpGuideModal";
 import PublicEventsView from "./components/PublicEventsView";
 import PublicOfficeVisitView from "./components/PublicOfficeVisitView";
 import PublicCounselingView from "./components/PublicCounselingView";
@@ -15,10 +18,12 @@ import { usePublicAssessmentData, usePublicAssessmentActions } from "./hooks/use
 import { usePublicScholarshipsData } from "./hooks/usePublicScholarships";
 import PublicScholarshipsView from "./components/PublicScholarshipsView";
 import PublicPeerFacilitatorView from "./components/PublicPeerFacilitatorView";
+import PublicAnnouncementsSlideshow from "./components/PublicAnnouncementsSlideshow";
 import PublicPrivacyFooter from "./components/PublicPrivacyFooter";
 import type { PublicAssessmentForm, PublicAssessmentQuestion } from "./publicEventsService";
 import type { PublicEvent } from "./publicEventsService";
 import { isAttendanceActivityType } from "../../../../utils/eventAudience";
+import { isScholarshipExpired } from "../../../../utils/scholarshipHelpers";
 
 const SERVICES = [
     { id: "events" as const, emoji: "📅", color: "#4f46e5", colorLight: "#eef2ff", title: "Events & Attendance", description: "Browse campus activities. Sign in with your Student ID to record attendance (time in/out), rate, and evaluate.", access: "anonymous" as const },
@@ -50,13 +55,13 @@ function AccessPill({ type, hasId, serviceId }: { type: "student-id" | "anonymou
     if (serviceId === "events") {
         if (hasId) {
             return (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-emerald-700">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />ID ready
                 </span>
             );
         }
         return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-blue-700">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />Public view · ID to interact
             </span>
         );
@@ -64,13 +69,13 @@ function AccessPill({ type, hasId, serviceId }: { type: "student-id" | "anonymou
     if (serviceId === "office_visit") {
         if (hasId) {
             return (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-emerald-700">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />ID ready
                 </span>
             );
         }
         return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700">
+            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-sky-700">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-500" />ID or Guest Name
             </span>
         );
@@ -78,36 +83,36 @@ function AccessPill({ type, hasId, serviceId }: { type: "student-id" | "anonymou
     if (serviceId === "scholarship") {
         if (hasId) {
             return (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-emerald-700">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />ID ready
                 </span>
             );
         }
         return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
+            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-rose-700">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-500" />Public view · ID to apply
             </span>
         );
     }
     if (serviceId === "peer_facilitator") {
         return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-emerald-700">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />Active Peer Facilitator
             </span>
         );
     }
     if (type === "anonymous") return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-emerald-700">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />No ID needed
         </span>
     );
     if (hasId) return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-emerald-700">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />ID ready
         </span>
     );
     return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">
+        <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[9.5px] sm:px-2.5 sm:text-[11px] font-semibold text-violet-700">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet-500" />Needs Student ID
         </span>
     );
@@ -157,20 +162,20 @@ function ServiceScreenShell({ service, studentId, onBack, children }: { service:
             <div className="relative flex-shrink-0 overflow-hidden" style={{ background: `linear-gradient(145deg, ${service.color}dd 0%, ${service.color} 100%)` }}>
                 <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white opacity-10" />
                 <div className="pointer-events-none absolute -right-4 top-8 h-24 w-24 rounded-full bg-white opacity-10" />
-                <div className="flex items-center justify-between px-5 pt-5">
-                    <button type="button" onClick={onBack} className="group flex items-center gap-1.5 text-xs font-semibold text-white/80 transition-all hover:text-white active:opacity-60">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform group-hover:-translate-x-0.5"><path d="M10 3L6 8l4 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <div className="flex items-center justify-between px-4 pt-3.5 sm:px-5 sm:pt-5">
+                    <button type="button" onClick={onBack} className="group flex items-center gap-1 text-[11px] font-semibold text-white/80 transition-all hover:text-white active:opacity-60 sm:gap-1.5 sm:text-xs">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="transition-transform group-hover:-translate-x-0.5 sm:h-4 sm:w-4"><path d="M10 3L6 8l4 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         Back
                     </button>
-                    {studentId && <span className="font-mono text-[11px] text-white/60">{studentId}</span>}
+                    {studentId && <span className="font-mono text-[10px] text-white/60 sm:text-[11px]">{studentId}</span>}
                 </div>
-                <div className="px-5 pb-6 pt-4">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl shadow-inner transition-transform hover:scale-105" style={{ background: "rgba(255,255,255,0.15)" }}>{service.emoji}</div>
-                    <h1 className="text-[24px] font-extrabold leading-tight tracking-tight text-white">{service.title}</h1>
-                    <p className="mt-2 text-sm leading-relaxed text-white/65">{service.description}</p>
+                <div className="px-4 pb-4 pt-2.5 sm:px-5 sm:pb-6 sm:pt-4">
+                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-inner transition-transform hover:scale-105 sm:mb-4 sm:h-14 sm:w-14 sm:rounded-2xl sm:text-2xl" style={{ background: "rgba(255,255,255,0.15)" }}>{service.emoji}</div>
+                    <h1 className="text-[20px] font-extrabold leading-tight tracking-tight text-white sm:text-[24px]">{service.title}</h1>
+                    <p className="mt-1 text-xs leading-relaxed text-white/75 sm:mt-2 sm:text-sm">{service.description}</p>
                 </div>
             </div>
-            <div className="flex-1 pb-10">{children}</div>
+            <div className="flex-1 pb-8 sm:pb-10">{children}</div>
             <PublicPrivacyFooter />
         </div>
     );
@@ -201,13 +206,14 @@ export default function PublicEventsPage() {
     const { timingInEventId, timingOutEventId, showRatingModal, setShowRatingModal, ratingForm, setRatingForm, isSubmittingRating, handleTimeIn, handleTimeOut, handleRateEvent, submitRating } = usePublicEventActions({ identity, showToast, refreshStatus, refreshEvents });
     const { formsList: assessmentFormsList, isLoading: assessmentLoading, isError: assessmentError, refreshForms: refreshAssessmentForms } = usePublicAssessmentData(identity, { enabled: activeServiceId === "assessment" });
     const assessmentActions = usePublicAssessmentActions(identity, showToast, refreshAssessmentForms);
-    const { scholarshipsList, isLoading: scholarshipsLoading, isError: scholarshipsError } = usePublicScholarshipsData({ enabled: activeServiceId === "scholarship" });
+    const { scholarshipsList = [], isLoading: scholarshipsLoading, isError: scholarshipsError } = usePublicScholarshipsData();
 
     const [evaluationEvent, setEvaluationEvent] = useState<PublicEvent | null>(null);
     const [showCounselingEvalModal, setShowCounselingEvalModal] = useState(false);
     const [showCounselingRequestModal, setShowCounselingRequestModal] = useState(false);
     const [activeAssessmentForm, setActiveAssessmentForm] = useState<PublicAssessmentForm | null>(null);
     const [assessmentQuestions, setAssessmentQuestions] = useState<PublicAssessmentQuestion[] | null>(null);
+    const [showGuideModal, setShowGuideModal] = useState(false);
 
     const requestAction = useCallback((type: ActionType, event: PublicEvent) => {
         if (!identity) { setShowSheet(true); return; }
@@ -292,89 +298,109 @@ export default function PublicEventsPage() {
             <header className="relative overflow-hidden" style={{ background: "linear-gradient(145deg, #2a1280 0%, #4c1fa8 55%, #6d28d9 100%)" }}>
                 <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white opacity-10" />
                 <div className="pointer-events-none absolute -right-4 top-8 h-24 w-24 rounded-full bg-white opacity-10" />
-                <div className="flex items-center justify-between px-5 pt-5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">Student Access</p>
-                    <span className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white/70">Service Hub</span>
+                <div className="flex items-center justify-between px-4 pt-3.5 sm:px-5 sm:pt-5">
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/50 sm:text-[10px]">Student Access</p>
+                    <Link
+                        to="/student/login"
+                        className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-white/20 sm:px-3.5 sm:py-1 sm:text-xs"
+                    >
+                        Student Portal
+                    </Link>
                 </div>
-                <div className="px-5 pb-4 pt-3">
-                    <div className="flex items-center gap-3">
-                        <div className="flex shrink-0 items-center -space-x-2">
+                <div className="px-4 pb-3 pt-2 sm:px-5 sm:pb-4 sm:pt-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="flex shrink-0 items-center -space-x-1.5 sm:-space-x-2">
                             <img
                                 src="/norsu.png"
                                 alt="NORSU Logo"
-                                className="h-11 w-11 rounded-full border-2 border-white/40 bg-white object-contain p-0.5 shadow-md"
+                                className="h-9 w-9 rounded-full border-2 border-white/40 bg-white object-contain p-0.5 shadow-md sm:h-11 sm:w-11"
                             />
                             <img
                                 src="/carecenter.png"
                                 alt="CARE Center Logo"
-                                className="h-11 w-11 rounded-full border-2 border-white/40 bg-white object-contain p-0.5 shadow-md"
+                                className="h-9 w-9 rounded-full border-2 border-white/40 bg-white object-contain p-0.5 shadow-md sm:h-11 sm:w-11"
                             />
                         </div>
                         <div className="min-w-0">
-                            <h1 className="text-[24px] font-extrabold leading-tight tracking-tight text-white sm:text-[28px]">
+                            <h1 className="text-[20px] font-extrabold leading-tight tracking-tight text-white sm:text-[26px]">
                                 CARE CENTER
                             </h1>
-                            <p className="text-[13px] font-medium tracking-normal text-white/80 sm:text-[15px]">
+                            <p className="text-[11.5px] font-medium tracking-normal text-white/80 sm:text-[14px]">
                                 NORSU-Guihulngan Campus Public Hub
                             </p>
                         </div>
                     </div>
-                    <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-white/65">
+                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-white/65 sm:mt-2.5 sm:text-sm">
                         Pick what you need below. Your Student ID is only asked once for the whole session.
                     </p>
                 </div>
-                <div className="mx-5 mb-5 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-4 py-3">
+
+                {/* ── Purple Header Announcements, Events & Scholarships Slideshow ── */}
+                <PublicAnnouncementsSlideshow
+                    announcements={eventsList.filter((e: any) => !isAttendanceActivityType(e.type) || e.type === 'Announcement')}
+                    events={eventsList.filter((e: any) => isAttendanceActivityType(e.type))}
+                    scholarships={scholarshipsList.filter((s: any) => !isScholarshipExpired(s.deadline))}
+                    isLoading={isLoading || scholarshipsLoading}
+                    onOpenEvents={() => {
+                        setActiveServiceId('events');
+                    }}
+                    onOpenScholarships={() => {
+                        setActiveServiceId('scholarship');
+                    }}
+                />
+
+                <div className="mx-4 mb-4 flex items-center gap-2.5 rounded-xl border border-white/15 bg-white/10 px-3.5 py-2.5 sm:mx-5 sm:mb-5 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
                     {studentId ? (
                         <>
-                            <span className="text-lg">✅</span>
+                            <span className="text-base sm:text-lg">✅</span>
                             <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold leading-snug text-white">ID saved for this session</p>
-                                <p className="mt-0.5 font-mono text-[11px] text-white/50">{studentId}</p>
+                                <p className="text-[11px] font-semibold leading-snug text-white sm:text-xs">ID saved for this session</p>
+                                <p className="mt-0.5 font-mono text-[10px] text-white/50 sm:text-[11px]">{studentId}</p>
                             </div>
-                            <button type="button" onClick={handleSignOut} className="text-[11px] font-semibold text-white/40 transition-colors hover:text-white/70">Change</button>
+                            <button type="button" onClick={handleSignOut} className="text-[10px] font-semibold text-white/40 transition-colors hover:text-white/70 sm:text-[11px]">Change</button>
                         </>
                     ) : (
                         <>
-                            <span className="text-lg">🪪</span>
-                            <p className="flex-1 text-xs leading-snug text-white/75">Have your <span className="font-semibold text-white">Student ID</span> handy — you will enter it once when you open your first option.</p>
+                            <span className="text-base sm:text-lg">🪪</span>
+                            <p className="flex-1 text-[11px] leading-snug text-white/75 sm:text-xs">Have your <span className="font-semibold text-white">Student ID</span> handy — you will enter it once when you open your first option.</p>
                         </>
                     )}
                 </div>
             </header>
 
-            <main className="mx-auto w-full max-w-lg flex-1 space-y-3 px-4 pb-10 pt-5">
-                <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">What can we help with?</p>
+            <main className="mx-auto w-full max-w-lg flex-1 space-y-2.5 px-3.5 pb-8 pt-3.5 sm:space-y-3 sm:px-4 sm:pb-10 sm:pt-5">
+                <p className="mb-0.5 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 sm:mb-1 sm:text-[11px]">What can we help with?</p>
                 {visibleServices.map((s, index) => {
                     const isExpanded = expandedId === s.id;
                     return (
                         <div
                             key={s.id}
-                            className="w-full overflow-hidden rounded-2xl border border-black/[0.07] bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300/80 animate-fade-in-up"
+                            className="w-full overflow-hidden rounded-xl border border-black/[0.07] bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300/80 animate-fade-in-up sm:rounded-2xl"
                             style={{ animationDelay: `${index * 40}ms` }}
                         >
                             <button
                                 type="button"
                                 onClick={() => setExpandedId(isExpanded ? null : s.id)}
-                                className="flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-slate-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
+                                className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-slate-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 sm:gap-4 sm:px-4 sm:py-3.5"
                             >
-                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-2xl transition-transform duration-200 group-hover:scale-105" style={{ background: s.colorLight }}>{s.emoji}</div>
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-xl transition-transform duration-200 group-hover:scale-105 sm:h-13 sm:w-13 sm:rounded-xl sm:text-2xl" style={{ background: s.colorLight }}>{s.emoji}</div>
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-[15px] font-bold leading-snug text-slate-900">{s.title}</p>
-                                    <div className="mt-1.5"><AccessPill type={s.access} hasId={Boolean(studentId)} serviceId={s.id} /></div>
+                                    <p className="text-[13.5px] font-bold leading-snug text-slate-900 sm:text-[15px]">{s.title}</p>
+                                    <div className="mt-1 sm:mt-1.5"><AccessPill type={s.access} hasId={Boolean(studentId)} serviceId={s.id} /></div>
                                 </div>
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-300" style={{ background: isExpanded ? s.color : "transparent", border: `1.5px solid ${isExpanded ? s.color : "rgba(0,0,0,0.1)"}` }}>
-                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)", color: isExpanded ? "white" : "#6b7280" }}>
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all duration-300 sm:h-8 sm:w-8" style={{ background: isExpanded ? s.color : "transparent", border: `1.5px solid ${isExpanded ? s.color : "rgba(0,0,0,0.1)"}` }}>
+                                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" className="sm:h-3.5 sm:w-3.5" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)", color: isExpanded ? "white" : "#6b7280" }}>
                                         <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                 </div>
                             </button>
                             {isExpanded && (
-                                <div className="border-t border-black/[0.05] px-4 pb-4 animate-fade-in">
-                                    <p className="mb-4 mt-3 text-sm leading-relaxed text-slate-500">{s.description}</p>
+                                <div className="border-t border-black/[0.05] px-3.5 pb-3.5 animate-fade-in sm:px-4 sm:pb-4">
+                                    <p className="mb-3 mt-2 text-xs leading-relaxed text-slate-500 sm:mb-4 sm:mt-3 sm:text-sm">{s.description}</p>
                                     <button
                                         type="button"
                                         onClick={() => handleOpen(s)}
-                                        className="btn-press w-full rounded-xl py-3 text-sm font-bold text-white transition-all active:scale-[0.98]"
+                                        className="btn-press w-full rounded-lg py-2.5 text-xs font-bold text-white transition-all active:scale-[0.98] sm:rounded-xl sm:py-3 sm:text-sm"
                                         style={{ background: s.color }}
                                     >
                                         {s.access === "student-id" && !studentId ? "Enter ID & Open →" : "Open →"}
@@ -386,52 +412,29 @@ export default function PublicEventsPage() {
                 })}
             </main>
 
-            {/* ── Announcements board ── */}
-            {(() => {
-                const announcements = eventsList.filter((e: any) => !isAttendanceActivityType(e.type) || e.type === 'Announcement');
-                if (isLoading) return null;
-                return (
-                    <section className="mx-auto w-full max-w-lg px-4 pb-10">
-                        <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                            📢 Announcements &amp; News
-                        </p>
-                        {announcements.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 text-center shadow-sm">
-                                <p className="text-xs font-semibold text-slate-400">No announcements posted at this time.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {announcements.map((item: any) => (
-                                    <div
-                                        key={item.id}
-                                        className="rounded-2xl border border-sky-100 bg-white px-4 py-3.5 shadow-sm"
-                                    >
-                                        <span className="inline-flex rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[9px] font-black uppercase text-sky-700">
-                                            {item.type || 'Announcement'}
-                                        </span>
-                                        <p className="mt-2 text-[14px] font-bold leading-snug text-slate-900">
-                                            {item.title}
-                                        </p>
-                                        {item.description && (
-                                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
-                                                {item.description}
-                                            </p>
-                                        )}
-                                        <p className="mt-2 text-[10px] font-semibold text-slate-400">
-                                            {item.event_date || item.created_at
-                                                ? new Date(item.event_date || item.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-                                                : ''}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-                );
-            })()}
-
             {/* ── Privacy Policy Footer ── */}
             <PublicPrivacyFooter />
+
+            {/* ── Floating Help & Guide Button ── */}
+            <button
+                type="button"
+                onClick={() => setShowGuideModal(true)}
+                className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-white/25 bg-gradient-to-r from-violet-700 via-purple-700 to-indigo-700 px-3.5 py-2.5 text-xs font-bold text-white shadow-xl shadow-purple-950/40 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:shadow-violet-600/50 hover:border-white/40 active:scale-95 sm:bottom-6 sm:right-6 sm:px-4 sm:py-2.5 sm:text-sm"
+                aria-label="Open Public Services Guide and FAQs"
+            >
+                <HelpCircle size={16} className="text-violet-200" />
+                <span>Guide & FAQs</span>
+            </button>
+
+            {/* ── Public Help & FAQs Modal ── */}
+            <PublicHelpGuideModal
+                open={showGuideModal}
+                onClose={() => setShowGuideModal(false)}
+                onSelectService={(serviceId) => {
+                    const s = ALL_SERVICES.find((srv) => srv.id === serviceId);
+                    if (s) handleOpen(s);
+                }}
+            />
 
             {showSheet && <IdBottomSheet serviceName={SERVICES.find((s) => s.id === pendingServiceId)?.title ?? "service"} onConfirm={handleIdConfirm} onDismiss={closeSheet} isLoading={sheetLoading} error={sheetError} />}
             {toast && <Toast toast={toast} />}

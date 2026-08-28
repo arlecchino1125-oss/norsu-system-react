@@ -84,33 +84,33 @@ export default function PublicOfficeVisitView({
     } = usePublicOfficeVisit(identity, showToast);
 
     return (
-        <div className="mx-auto max-w-lg px-4 pt-5 pb-20 space-y-4 animate-fade-in">
+        <div className="mx-auto max-w-lg px-3.5 pt-3.5 pb-16 space-y-3 sm:px-4 sm:pt-5 sm:pb-20 sm:space-y-4 animate-fade-in">
             {/* ── Active Visit in Progress Card ── */}
             {activeVisit ? (
-                <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm space-y-4">
-                    <div className="flex items-start justify-between gap-3">
+                <div className="rounded-xl border border-emerald-200 bg-white p-3.5 shadow-sm space-y-3 sm:rounded-2xl sm:p-5 sm:space-y-4">
+                    <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-center gap-2">
-                            <span className="flex h-3 w-3 relative">
+                            <span className="flex h-2.5 w-2.5 sm:h-3 sm:w-3 relative">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-500" />
                             </span>
-                            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700">
+                            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-emerald-700">
                                 Visit In Progress
                             </span>
                         </div>
-                        <span className="rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                        <span className="rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[9px] sm:text-[10px] font-black text-emerald-700">
                             Timed In at {formatTimeLabel(activeVisit.timeIn)}
                         </span>
                     </div>
 
-                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 space-y-1.5">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Visitor</p>
-                        <p className="text-sm font-black text-slate-900">{toTitleCase(activeVisit.studentName, 'Visitor')}</p>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 space-y-1 sm:p-3.5 sm:space-y-1.5">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider sm:text-xs">Visitor</p>
+                        <p className="text-xs font-black text-slate-900 sm:text-sm">{toTitleCase(activeVisit.studentName, 'Visitor')}</p>
                         {activeVisit.studentId && (
-                            <p className="text-xs font-semibold text-slate-500">ID: {activeVisit.studentId}</p>
+                            <p className="text-[11px] font-semibold text-slate-500 sm:text-xs">ID: {activeVisit.studentId}</p>
                         )}
-                        <div className="pt-2 border-t border-slate-200/60">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Reason for Visit</p>
+                        <div className="pt-1.5 border-t border-slate-200/60 sm:pt-2">
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider sm:text-xs">Reason for Visit</p>
                             <p className="text-xs font-bold text-slate-800">{activeVisit.reason}</p>
                         </div>
                     </div>
@@ -119,7 +119,7 @@ export default function PublicOfficeVisitView({
                         type="button"
                         onClick={handleTimeOut}
                         disabled={isSubmitting}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3.5 text-xs font-black text-white shadow-sm transition hover:bg-rose-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-3.5 py-3 text-xs font-black text-white shadow-sm transition hover:bg-rose-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:py-3.5"
                     >
                         <Icons.Clock />
                         {isSubmitting ? 'Recording Time Out...' : 'Time Out from Office Visit'}
@@ -127,7 +127,7 @@ export default function PublicOfficeVisitView({
                 </div>
             ) : (
                 /* ── New Time In Form ── */
-                <div className="rounded-2xl border border-black/[0.07] bg-white p-5 shadow-sm space-y-5">
+                <div className="rounded-xl border border-black/[0.07] bg-white p-3.5 shadow-sm space-y-3.5 sm:rounded-2xl sm:p-5 sm:space-y-5">
                     {/* Header */}
                     <div>
                         <div className="flex items-center gap-2 text-indigo-600 mb-1">

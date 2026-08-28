@@ -77,10 +77,10 @@ const HandIcon = () => (
 );
 
 const SectionCard = ({ children, description, title }: { children: ReactNode; description?: string; title: string }) => (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
         <div className="mb-2 sm:mb-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{title}</p>
-            {description && <p className="mt-0.5 text-xs font-medium leading-5 text-slate-500">{description}</p>}
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500 sm:text-[10px]">{title}</p>
+            {description && <p className="mt-0.5 text-[11px] font-medium leading-4 text-slate-500 sm:text-xs sm:leading-5">{description}</p>}
         </div>
         {children}
     </section>
@@ -88,13 +88,13 @@ const SectionCard = ({ children, description, title }: { children: ReactNode; de
 
 const FieldBlock = ({ children, helper, htmlFor, label }: { children: ReactNode; helper?: string; htmlFor: string; label: string }) => (
     <div>
-        <label htmlFor={htmlFor} className="block text-xs font-black leading-5 text-slate-700">{label}</label>
-        {helper && <p className="mt-0.5 text-xs leading-4 text-slate-500">{helper}</p>}
-        <div className="mt-2">{children}</div>
+        <label htmlFor={htmlFor} className="block text-[11px] font-black leading-4 text-slate-700 sm:text-xs sm:leading-5">{label}</label>
+        {helper && <p className="mt-0.5 text-[10px] leading-3.5 text-slate-500 sm:text-xs sm:leading-4">{helper}</p>}
+        <div className="mt-1.5 sm:mt-2">{children}</div>
     </div>
 );
 
-const textareaClassName = 'w-full resize-none rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm font-semibold leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100';
+const textareaClassName = 'w-full resize-none rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-semibold leading-5 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100 sm:py-2.5 sm:text-sm sm:leading-6';
 
 export default function PublicSupportView({
     identity,
@@ -107,23 +107,23 @@ export default function PublicSupportView({
 
     if (!identity) {
         return (
-            <div className="mx-auto max-w-lg px-4 pt-6 pb-10 text-center animate-fade-in">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
+            <div className="mx-auto max-w-lg px-3.5 pt-4 pb-8 text-center animate-fade-in sm:px-4 sm:pt-6 sm:pb-10">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:rounded-3xl sm:p-8">
+                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-600 sm:mb-4 sm:h-14 sm:w-14 sm:rounded-2xl">
                         <HandIcon />
                     </div>
-                    <h2 className="text-lg font-black text-slate-900 sm:text-xl">Sign in required</h2>
-                    <p className="mt-2 text-xs leading-5 text-slate-600 sm:text-sm">
+                    <h2 className="text-base font-black text-slate-900 sm:text-xl">Sign in required</h2>
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-600 sm:mt-2 sm:text-sm">
                         Please enter your Student ID to submit a confidential support or accommodation request.
                     </p>
-                    <div className="mt-5">
+                    <div className="mt-4 sm:mt-5">
                         <button
                             type="button"
                             onClick={onRequireSignIn}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 py-3.5 text-sm font-black text-white shadow-sm transition hover:bg-teal-500"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 py-3 text-xs font-black text-white shadow-sm transition hover:bg-teal-500 sm:rounded-2xl sm:py-3.5 sm:text-sm"
                         >
                             Sign In with Student ID
-                            <ArrowIcon />
+                            <SubmitIcon />
                         </button>
                     </div>
                 </div>
@@ -231,14 +231,14 @@ export default function PublicSupportView({
     }
 
     return (
-        <div className="mx-auto max-w-lg px-4 pt-5 pb-20 space-y-4 animate-fade-in">
+        <div className="mx-auto max-w-lg px-3.5 pt-3.5 pb-16 space-y-3 sm:px-4 sm:pt-5 sm:pb-20 sm:space-y-4 animate-fade-in">
             {/* Header Identity Card */}
-            <div className="rounded-2xl border border-teal-200 bg-teal-50/70 p-4 flex items-center justify-between">
+            <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3 flex items-center justify-between sm:rounded-2xl sm:p-4">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-teal-600">Verified Student</p>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-teal-600 sm:text-[10px]">Verified Student</p>
                     <p className="text-xs font-black text-teal-950">ID: {identity.student.student_id}</p>
                 </div>
-                <span className="rounded-lg bg-teal-200/60 px-2.5 py-1 text-[10px] font-black text-teal-900">
+                <span className="rounded-md bg-teal-200/60 px-2 py-0.5 text-[9px] font-black text-teal-900 sm:rounded-lg sm:px-2.5 sm:py-1 sm:text-[10px]">
                     Support Services
                 </span>
             </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../lib/useAuth';
-import { GraduationCap, CheckCircle, AlertCircle } from 'lucide-react';
+import { GraduationCap, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { getSafeErrorMessage } from '../../../utils/errorMasking';
 import { useStudentActivation } from '../features/auth/hooks/useStudentActivation';
@@ -309,6 +309,13 @@ export default function StudentLogin() {
 
     return (
         <div className="flex min-h-screen w-full bg-[#0a0f1c] relative overflow-hidden font-inter selection:bg-indigo-500/30">
+            <button
+                onClick={() => navigate('/')}
+                className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-medium text-indigo-200 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white sm:left-8 sm:top-8"
+            >
+                <ArrowLeft size={16} />
+                <span>Back to Public Hub</span>
+            </button>
             <LoginBackdrop isMobileViewport={isMobileViewport} />
 
             <div className="flex w-full z-10 container mx-auto px-4 max-w-7xl">
