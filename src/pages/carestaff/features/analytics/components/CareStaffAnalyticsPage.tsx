@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Users, Clock, Filter, ArrowUpDown, ArrowLeft, ChevronRight, Search,
     BarChart2, RefreshCw, ChevronDown, Sparkles, Activity, FileBarChart,
-    Download, FileSpreadsheet, FileText, Loader2, HelpCircle, X
+    Download, FileSpreadsheet, FileText, Loader2, HelpCircle, X, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
@@ -15,6 +15,11 @@ import {
     type GenderDemographics,
     type NeedsAssessmentExportPayload
 } from '../utils/needsAssessmentExport';
+import {
+    ExportProgressModal,
+    type ExportProgressState as ExportProgress,
+    INITIAL_EXPORT_PROGRESS_STATE as INITIAL_EXPORT_PROGRESS
+} from '../../../../../components/ExportProgressModal';
 import type { CareStaffDashboardFunctions } from '../../../types';
 
 interface CareStaffAnalyticsPageProps {
@@ -188,7 +193,7 @@ const sortHeaderClass = 'w-full cursor-pointer px-6 py-3.5 text-left hover:bg-sl
 /** Respondents Tab */
 const RespondentsTab = ({
     courseFilter, setCourseFilter, courseOptions, respondents, sortConfig, onSort,
-    onViewStudent, search, setSearch, page, setPage
+    onViewStudent, search, setSearch, page, setPage, onExportExcel, isExporting
 }: any) => {
     const tableRef = useRef<HTMLDivElement>(null);
 
@@ -241,12 +246,26 @@ const RespondentsTab = ({
                     </div>
                 </div>
 
-                {/* Student Count on Right */}
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 shrink-0">
-                    <Users size={14} className="text-purple-600" />
-                    <span>
-                        {filtered.length === respondents.length ? `${filtered.length} students` : `${filtered.length} of ${respondents.length} students`}
-                    </span>
+                {/* Actions & Student Count on Right */}
+                <div className="flex items-center gap-3 shrink-0">
+                    {onExportExcel && (
+                        <button
+                            type="button"
+                            onClick={onExportExcel}
+                            disabled={isExporting || respondents.length === 0}
+                            title="Export Student Responses as Excel Spreadsheet"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-2xs hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        >
+                            <FileSpreadsheet size={13} className="text-emerald-600" />
+                            <span>Export Responses</span>
+                        </button>
+                    )}
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                        <Users size={14} className="text-purple-600" />
+                        <span>
+                            {filtered.length === respondents.length ? `${filtered.length} students` : `${filtered.length} of ${respondents.length} students`}
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -882,13 +901,15 @@ const AnalyticsStatsBar = ({
     </div>
 );
 
+export type { ExportProgress };
+export { INITIAL_EXPORT_PROGRESS };
+
 interface ExportFilterModalProps {
     isOpen: boolean;
     onClose: () => void;
     format: 'pdf' | 'excel';
     submissions: any[];
     onExport: (selectedSexes: string[], selectedGenders: string[], format: 'pdf' | 'excel') => void;
-    isExporting: boolean;
 }
 
 const ExportFilterModal = ({
@@ -896,8 +917,7 @@ const ExportFilterModal = ({
     onClose,
     format,
     submissions,
-    onExport,
-    isExporting
+    onExport
 }: ExportFilterModalProps) => {
     const availableSexes = useMemo(() => {
         const set = new Set<string>();
@@ -975,14 +995,17 @@ const ExportFilterModal = ({
                 {/* Modal Header */}
                 <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 className="font-extrabold text-base text-slate-900">Export Assessment Results</h3>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5">Filter exported questions data by demographic checklist</p>
+                        <h3 className="font-extrabold text-base text-slate-900">
+                            Export Assessment Results
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                            Filter exported questions data by demographic checklist
+                        </p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        disabled={isExporting}
-                        className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white transition-colors"
+                        className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white transition-colors cursor-pointer"
                         aria-label="Close export dialog"
                     >
                         <X size={15} />
@@ -993,143 +1016,133 @@ const ExportFilterModal = ({
                 <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar">
                     {/* Format Toggle */}
                     <div>
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Export Format</label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setExportFormat('pdf')}
-                                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all ${exportFormat === 'pdf' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
-                            >
-                                <FileText size={16} className="text-rose-500" />
-                                <span>PDF Report (.pdf)</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setExportFormat('excel')}
-                                className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all ${exportFormat === 'excel' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
-                            >
-                                <FileSpreadsheet size={16} className="text-emerald-600" />
-                                <span>Excel Sheet (.xlsx)</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Sex Checklist */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sex Assigned at Birth</label>
-                            <button
-                                type="button"
-                                onClick={toggleAllSexes}
-                                className="text-[11px] font-bold text-purple-600 hover:text-purple-800"
-                            >
-                                {isAllSexes ? 'Deselect All' : 'Select All'}
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {availableSexes.map(sex => {
-                                const count = submissions.filter(s => ((s.students?.sex || '').trim() || 'Other / Unspecified') === sex).length;
-                                const isChecked = selectedSexes.includes(sex);
-                                return (
-                                    <label
-                                        key={sex}
-                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
+                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Export Format</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setExportFormat('pdf')}
+                                        className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${exportFormat === 'pdf' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
                                     >
-                                        <div className="flex items-center gap-2.5">
-                                            <input
-                                                type="checkbox"
-                                                checked={isChecked}
-                                                onChange={() => toggleSex(sex)}
-                                                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
-                                            />
-                                            <span>{sex}</span>
-                                        </div>
-                                        <span className="text-[11px] font-bold tabular-nums text-slate-500">({count})</span>
-                                    </label>
-                                );
-                            })}
-                        </div>
-                    </div>
+                                        <FileText size={16} className="text-rose-500" />
+                                        <span>PDF Report (.pdf)</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setExportFormat('excel')}
+                                        className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${exportFormat === 'excel' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                                    >
+                                        <FileSpreadsheet size={16} className="text-emerald-600" />
+                                        <span>Excel Sheet (.xlsx)</span>
+                                    </button>
+                                </div>
+                            </div>
 
-                    {/* Gender Identity Checklist */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gender Identity</label>
+                            {/* Sex Checklist */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sex Assigned at Birth</label>
+                                    <button
+                                        type="button"
+                                        onClick={toggleAllSexes}
+                                        className="text-[11px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer"
+                                    >
+                                        {isAllSexes ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {availableSexes.map(sex => {
+                                        const count = submissions.filter(s => ((s.students?.sex || '').trim() || 'Other / Unspecified') === sex).length;
+                                        const isChecked = selectedSexes.includes(sex);
+                                        return (
+                                            <label
+                                                key={sex}
+                                                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
+                                            >
+                                                <div className="flex items-center gap-2.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => toggleSex(sex)}
+                                                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                                                    />
+                                                    <span>{sex}</span>
+                                                </div>
+                                                <span className="text-[11px] font-bold tabular-nums text-slate-500">({count})</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Gender Identity Checklist */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gender Identity</label>
+                                    <button
+                                        type="button"
+                                        onClick={toggleAllGenders}
+                                        className="text-[11px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer"
+                                    >
+                                        {isAllGenders ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {availableGenders.map(gender => {
+                                        const count = submissions.filter(s => ((s.students?.gender_identity || '').trim() || 'Other / Unspecified') === gender).length;
+                                        const isChecked = selectedGenders.includes(gender);
+                                        return (
+                                            <label
+                                                key={gender}
+                                                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
+                                            >
+                                                <div className="flex items-center gap-2.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => toggleGender(gender)}
+                                                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                                                    />
+                                                    <span>{gender}</span>
+                                                </div>
+                                                <span className="text-[11px] font-bold tabular-nums text-slate-500">({count} respondents)</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Live Count Preview */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
+                                <span className="text-slate-600 font-medium">Matching Respondents:</span>
+                                <span className="font-extrabold text-purple-700 text-sm tabular-nums">
+                                    {matchingSubmissions.length.toLocaleString()} <span className="text-slate-400 text-xs font-normal">of {submissions.length.toLocaleString()}</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
                             <button
                                 type="button"
-                                onClick={toggleAllGenders}
-                                className="text-[11px] font-bold text-purple-600 hover:text-purple-800"
+                                onClick={onClose}
+                                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                             >
-                                {isAllGenders ? 'Deselect All' : 'Select All'}
+                                Cancel
                             </button>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                            {availableGenders.map(gender => {
-                                const count = submissions.filter(s => ((s.students?.gender_identity || '').trim() || 'Other / Unspecified') === gender).length;
-                                const isChecked = selectedGenders.includes(gender);
-                                return (
-                                    <label
-                                        key={gender}
-                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
-                                    >
-                                        <div className="flex items-center gap-2.5">
-                                            <input
-                                                type="checkbox"
-                                                checked={isChecked}
-                                                onChange={() => toggleGender(gender)}
-                                                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
-                                            />
-                                            <span>{gender}</span>
-                                        </div>
-                                        <span className="text-[11px] font-bold tabular-nums text-slate-500">({count} respondents)</span>
-                                    </label>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Live Count Preview */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
-                        <span className="text-slate-600 font-medium">Matching Respondents:</span>
-                        <span className="font-extrabold text-purple-700 text-sm tabular-nums">
-                            {matchingSubmissions.length.toLocaleString()} <span className="text-slate-400 text-xs font-normal">of {submissions.length.toLocaleString()}</span>
-                        </span>
-                    </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={isExporting}
-                        className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onExport(selectedSexes, selectedGenders, exportFormat)}
-                        disabled={isExporting || matchingSubmissions.length === 0}
-                        className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                        {isExporting ? (
-                            <>
-                                <Loader2 size={14} className="animate-spin" />
-                                <span>Generating {exportFormat.toUpperCase()}…</span>
-                            </>
-                        ) : (
-                            <>
+                            <button
+                                type="button"
+                                onClick={() => onExport(selectedSexes, selectedGenders, exportFormat)}
+                                disabled={matchingSubmissions.length === 0}
+                                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                            >
                                 <Download size={14} />
                                 <span>Export {exportFormat.toUpperCase()} ({matchingSubmissions.length})</span>
-                            </>
-                        )}
-                    </button>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-    );
-};
+            );
+        };
 
 /** Main Page Header styled like Student Population banner */
 const AnalyticsHeader = ({
@@ -1291,31 +1304,85 @@ const fetchAnalyticsSubmissions = async (selectedFormId: number | null): Promise
     return (subs as any[]).map(sub => ({ ...sub, students: studentMap[sub.student_id] || {} }));
 };
 
-export const fetchCohortQuestionStats = async (questions: any[], submissionIds: number[]) => {
+/**
+ * Fetches all answers for the given submission IDs safely.
+ * Chunks submission IDs so that rows per query remain strictly below PostgREST's 1,000-row limit,
+ * avoiding slow ORDER BY id scans that cause Postgres statement timeouts (error 57014).
+ * Uses a concurrency pool of 4 parallel requests to prevent connection saturation while maintaining fast throughput.
+ */
+export const fetchAllNeedsAssessmentAnswers = async (
+    submissionIds: number[],
+    selectColumns = 'submission_id, question_id, answer_value, answer_text',
+    onlyLikert = false,
+    onProgress?: (loadedSubmissions: number, totalSubmissions: number) => void,
+    questionCount = 40
+) => {
+    if (submissionIds.length === 0) return [];
+    // ponytail: chunk size bounded so chunk * questions < 850, staying strictly below PostgREST's 1,000 row cap
+    const chunkSize = Math.max(5, Math.min(25, Math.floor(850 / Math.max(1, questionCount))));
+    const idChunks: number[][] = [];
+    for (let i = 0; i < submissionIds.length; i += chunkSize) {
+        idChunks.push(submissionIds.slice(i, i + chunkSize));
+    }
+
+    // ponytail: worker pool with concurrency limit of 4 prevents statement timeout (57014)
+    const CONCURRENCY = 4;
+    const results: any[][] = new Array(idChunks.length);
+    let loadedSubmissions = 0;
+    let nextIndex = 0;
+
+    const worker = async () => {
+        while (nextIndex < idChunks.length) {
+            const currentIndex = nextIndex++;
+            const chunk = idChunks[currentIndex];
+
+            let query = supabase
+                .from('needs_assessment_answers')
+                .select(selectColumns)
+                .in('submission_id', chunk);
+
+            if (onlyLikert) {
+                query = query.gte('answer_value', 1).lte('answer_value', 5);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            results[currentIndex] = data ?? [];
+
+            loadedSubmissions += chunk.length;
+            onProgress?.(Math.min(loadedSubmissions, submissionIds.length), submissionIds.length);
+        }
+    };
+
+    const workers = Array.from({ length: Math.min(CONCURRENCY, idChunks.length) }, () => worker());
+    await Promise.all(workers);
+
+    return results.flat();
+};
+
+export const fetchCohortQuestionStats = async (
+    questions: any[],
+    submissionIds: number[],
+    onProgress?: (loaded: number, total: number) => void
+) => {
     if (submissionIds.length === 0) {
         return buildQuestionStats(questions, []);
     }
-    const idChunks: number[][] = [];
-    for (let i = 0; i < submissionIds.length; i += 500) {
-        idChunks.push(submissionIds.slice(i, i + 500));
-    }
-    const answerResults = await Promise.all(idChunks.map(chunk => supabase
-        .from('needs_assessment_answers')
-        .select('question_id, answer_value')
-        .in('submission_id', chunk)
-        .gte('answer_value', 1)
-        .lte('answer_value', 5)
-    ));
+    const answers = await fetchAllNeedsAssessmentAnswers(
+        submissionIds,
+        'question_id, answer_value',
+        true,
+        onProgress,
+        questions.length
+    );
     const countsByQuestion = new Map<number, number[]>();
     for (const question of questions) countsByQuestion.set(question.id, [0, 0, 0, 0, 0]);
 
-    for (const { data: answers } of answerResults) {
-        for (const ans of answers ?? []) {
-            const counts = countsByQuestion.get(Number(ans.question_id));
-            if (!counts) continue;
-            const score = Number(ans.answer_value);
-            if (score >= 1 && score <= 5) counts[score - 1] += 1;
-        }
+    for (const ans of answers) {
+        const counts = countsByQuestion.get(Number(ans.question_id));
+        if (!counts) continue;
+        const score = Number(ans.answer_value);
+        if (score >= 1 && score <= 5) counts[score - 1] += 1;
     }
 
     return questions.map((question) => {
@@ -1324,6 +1391,20 @@ export const fetchCohortQuestionStats = async (questions: any[], submissionIds: 
         const weighted = counts.reduce((sum, n, index) => sum + n * (index + 1), 0);
         return { question, counts, total, average: total === 0 ? 0 : weighted / total };
     });
+};
+
+export const fetchCohortSubmissionsAnswers = async (
+    submissionIds: number[],
+    questionCount = 40,
+    onProgress?: (loaded: number, total: number) => void
+) => {
+    return fetchAllNeedsAssessmentAnswers(
+        submissionIds,
+        'submission_id, question_id, answer_value, answer_text',
+        false,
+        onProgress,
+        questionCount
+    );
 };
 
 const fetchAnswerStats = async (formId: number | null, department: string, course: string): Promise<any[]> => {
@@ -1379,7 +1460,8 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const [respondentSearch, setRespondentSearch] = useState('');
     const [respondentPage, setRespondentPage] = useState(1);
     const [topQuestionScoreFilter, setTopQuestionScoreFilter] = useState('5');
-    const [isExporting, setIsExporting] = useState(false);
+    const [exportProgress, setExportProgress] = useState<ExportProgress>(INITIAL_EXPORT_PROGRESS);
+    const isExporting = exportProgress.isExporting;
 
     const activeFilterLabel = useMemo(() => {
         if (departmentFilter === 'All' && courseFilter === 'All') {
@@ -1547,6 +1629,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
             return;
         }
         setExportModalFormat('pdf');
+        setExportProgress(INITIAL_EXPORT_PROGRESS);
         setShowExportModal(true);
     };
 
@@ -1556,28 +1639,41 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
             return;
         }
         setExportModalFormat('excel');
+        setExportProgress(INITIAL_EXPORT_PROGRESS);
         setShowExportModal(true);
     };
 
     const handlePerformExport = async (selectedSexes: string[], selectedGenders: string[], format: 'pdf' | 'excel') => {
         if (!selectedFormId || questionStats.length === 0) return;
-        setIsExporting(true);
+        const currentForm = forms.find((f: any) => f.id === selectedFormId);
+        const matchingSubmissions = filteredSubmissions.filter((s: any) => {
+            const sex = (s.students?.sex || '').trim() || 'Other / Unspecified';
+            const gender = (s.students?.gender_identity || '').trim() || 'Other / Unspecified';
+            return selectedSexes.includes(sex) && selectedGenders.includes(gender);
+        });
+
+        if (matchingSubmissions.length === 0) {
+            functions.showToast('No respondents matched the selected demographic filters.', 'error');
+            return;
+        }
+
+        setExportProgress({
+            isExporting: true,
+            stage: 'fetching',
+            progressPct: 5,
+            loadedCount: 0,
+            totalCount: matchingSubmissions.length,
+            statusText: `Preparing ${matchingSubmissions.length.toLocaleString()} respondent records…`
+        });
+
         try {
-            const currentForm = forms.find((f: any) => f.id === selectedFormId);
-            const matchingSubmissions = filteredSubmissions.filter((s: any) => {
-                const sex = (s.students?.sex || '').trim() || 'Other / Unspecified';
-                const gender = (s.students?.gender_identity || '').trim() || 'Other / Unspecified';
-                return selectedSexes.includes(sex) && selectedGenders.includes(gender);
-            });
-
-            if (matchingSubmissions.length === 0) {
-                functions.showToast('No respondents matched the selected demographic filters.', 'error');
-                return;
-            }
-
             const isFullCohort = matchingSubmissions.length === filteredSubmissions.length;
             let exportStats = questionStats;
             if (!isFullCohort) {
+                setExportProgress(prev => ({
+                    ...prev,
+                    statusText: 'Calculating demographic question statistics…'
+                }));
                 const matchingIds = matchingSubmissions.map((s: any) => s.id);
                 exportStats = await fetchCohortQuestionStats(scaleQuestions, matchingIds);
             }
@@ -1592,6 +1688,71 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 genderFilterDesc = parts.join(' | ');
             }
 
+            let respondentResponses: any[] | undefined;
+            if (format === 'excel') {
+                const matchingIds = matchingSubmissions.map((s: any) => s.id);
+                const rawAnswers = await fetchCohortSubmissionsAnswers(
+                    matchingIds,
+                    questions.length,
+                    (loaded, total) => {
+                        setExportProgress(prev => ({
+                            ...prev,
+                            stage: 'fetching',
+                            loadedCount: loaded,
+                            totalCount: total,
+                            progressPct: Math.min(85, Math.round(5 + (loaded / total) * 80)),
+                            statusText: `Retrieving student responses (${loaded.toLocaleString()} of ${total.toLocaleString()})…`
+                        }));
+                    }
+                );
+
+                setExportProgress(prev => ({
+                    ...prev,
+                    stage: 'building',
+                    progressPct: 88,
+                    statusText: 'Mapping individual responses to questionnaire items…'
+                }));
+
+                const answersBySubmission = new Map<number, Record<number, number | string>>();
+                for (const ans of rawAnswers) {
+                    let subMap = answersBySubmission.get(ans.submission_id);
+                    if (!subMap) {
+                        subMap = {};
+                        answersBySubmission.set(ans.submission_id, subMap);
+                    }
+                    const val = (ans.answer_value != null && ans.answer_value !== '')
+                        ? ans.answer_value
+                        : (ans.answer_text ?? '—');
+                    subMap[ans.question_id] = val;
+                }
+
+                respondentResponses = matchingSubmissions.map((s: any) => {
+                    const student = s.students || {};
+                    const lastName = (student.last_name || '').trim();
+                    const firstName = (student.first_name || '').trim();
+                    const studentName = (lastName || firstName) ? `${lastName}, ${firstName}`.replace(/^,\s*|,\s*$/g, '') : '—';
+                    return {
+                        submissionId: s.id,
+                        studentId: student.student_id || '—',
+                        studentName,
+                        department: student.department || '—',
+                        course: student.course || '—',
+                        yearLevel: student.year_level || '—',
+                        sex: student.sex || '—',
+                        genderIdentity: student.gender_identity || '—',
+                        submittedAt: s.submitted_at ? new Date(s.submitted_at).toLocaleString() : '—',
+                        answers: answersBySubmission.get(s.id) || {}
+                    };
+                });
+            }
+
+            setExportProgress(prev => ({
+                ...prev,
+                stage: 'building',
+                progressPct: 92,
+                statusText: `Formatting ${format.toUpperCase()} ${format === 'excel' ? 'workbook (3 sheets)' : 'document'}…`
+            }));
+
             const payload: NeedsAssessmentExportPayload = {
                 formTitle: currentForm?.title || 'Student Needs Assessment',
                 filterLabel: activeFilterLabel,
@@ -1599,7 +1760,9 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 totalRespondents: matchingSubmissions.length,
                 stats: exportStats,
                 demographics: exportDemographics,
-                compareTitle: compareForm?.title
+                compareTitle: compareForm?.title,
+                questions,
+                respondentResponses
             };
 
             if (format === 'pdf') {
@@ -1609,12 +1772,21 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 await exportNeedsAssessmentExcel(payload);
                 functions.showToast('Needs Assessment Excel spreadsheet downloaded.', 'success');
             }
+
+            setExportProgress(prev => ({
+                ...prev,
+                stage: 'done',
+                progressPct: 100,
+                statusText: `${format.toUpperCase()} download complete!`
+            }));
+
+            await new Promise(r => setTimeout(r, 650));
             setShowExportModal(false);
+            setExportProgress(INITIAL_EXPORT_PROGRESS);
         } catch (err) {
             console.error('Failed to export:', err);
             functions.showToast(`Failed to generate ${format.toUpperCase()} export.`, 'error');
-        } finally {
-            setIsExporting(false);
+            setExportProgress(INITIAL_EXPORT_PROGRESS);
         }
     };
 
@@ -1720,20 +1892,36 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                                 setSearch={setRespondentSearch}
                                 page={respondentPage}
                                 setPage={setRespondentPage}
+                                onExportExcel={handleOpenExportExcel}
+                                isExporting={isExporting}
                             />
                         )
                     )}
                 </div>
             )}
 
-            {/* Demographic Export Filter Modal (Checklist Only) */}
+            {/* Demographic Export Filter Modal */}
             <ExportFilterModal
                 isOpen={showExportModal}
                 onClose={() => setShowExportModal(false)}
                 format={exportModalFormat}
                 submissions={filteredSubmissions}
                 onExport={handlePerformExport}
-                isExporting={isExporting}
+            />
+
+            {/* Realtime Visual Export Progress Modal */}
+            <ExportProgressModal
+                isOpen={exportProgress.isExporting}
+                format={exportModalFormat}
+                exportProgress={exportProgress}
+                title={exportModalFormat === 'excel' ? 'Exporting Assessment Results' : 'Generating Assessment PDF Report'}
+                subtitle={exportModalFormat === 'excel' ? 'Preparing student responses and institutional analytics workbook' : 'Compiling survey results into executive PDF summary'}
+                badgeDetails={[
+                    { label: `${(exportProgress.totalCount || filteredSubmissions.length).toLocaleString()} Respondents`, tone: 'purple' },
+                    ...(exportModalFormat === 'excel'
+                        ? [{ label: '3 Sheets (Summary, Analysis & Responses)', tone: 'emerald' as const }]
+                        : [{ label: 'Executive PDF Report', tone: 'sky' as const }])
+                ]}
             />
         </div>
     );

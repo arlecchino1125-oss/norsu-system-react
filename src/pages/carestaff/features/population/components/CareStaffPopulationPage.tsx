@@ -10,6 +10,7 @@ import {
 import { AsyncButton } from '../../../../../components/ui/Button';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import { useCareStaffPopulation } from '../hooks/useCareStaffPopulation';
+import { ExportProgressModal } from '../../../../../components/ExportProgressModal';
 import StudentEditModal from './StudentEditModal';
 import ArchivedStudentsModal from './ArchivedStudentsModal';
 import EnrollmentKeysModal from './EnrollmentKeysModal';
@@ -217,24 +218,6 @@ const PopulationToolbar = ({
                 </button>
             </div>
         </div>
-
-        {/* Export progress bar */}
-        <AnimatePresence>
-            {exportStatus && (
-                <m.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                >
-                    <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-purple-50 border border-purple-200/60">
-                        <Loader2 size={14} className="animate-spin text-purple-600 shrink-0" />
-                        <span className="text-xs font-semibold text-purple-700">{exportStatus}</span>
-                    </div>
-                </m.div>
-            )}
-        </AnimatePresence>
     </m.div>
 );
 
@@ -876,7 +859,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
         setShowPhotoModal, openProfileModal, fetchEnrollmentKeys, handleRefreshData,
         applyBulkCourseYearWindow, clearBulkCourseYearWindow, syncEnrollmentKeysFromStudents, handleAddCourse, handleUpdateCourseLimit, handleBulkUpload,
         handleDownloadTemplate, departmentNames, filteredCourseOptions, schoolYearOptions, courseRowsForManagement,
-        bulkTargetCount, filteredArchivedStudents, handleExportExcel, handleExportZip, exportStatus, canExportStudents, handleSwapIds, handleSort,
+        bulkTargetCount, filteredArchivedStudents, handleExportExcel, handleExportZip, exportStatus, exportProgress, exportFormat, canExportStudents, handleSwapIds, handleSort,
         effectiveTotal, isStudentTableLoading, totalPages,
         startIndex, paginatedStudents, studentAnnotationsById, paginationItems, endIndex,
         courseYearCountMap, openArchivedStudentsModal, handleDeleteKey, handleGenerateKey
@@ -1122,6 +1105,22 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 targetId={targetId}
                 targetLoading={targetLoading}
                 targetStudent={targetStudent}
+            />
+
+            {/* 6. Realtime Visual Export Modal */}
+            <ExportProgressModal
+                isOpen={exportProgress.isExporting}
+                format={exportFormat}
+                exportProgress={exportProgress}
+                title={exportFormat === 'zip' ? 'Exporting Student Profiles & Documents' : 'Exporting Student Population'}
+                subtitle={exportFormat === 'zip' ? 'Bundling student profiles and supporting documents into ZIP archive' : 'Generating complete student population Excel spreadsheet'}
+                badgeDetails={[
+                    { label: `${(populationOverview.activeStudents || 0).toLocaleString()} Active Students`, tone: 'purple' },
+                    ...(exportFormat === 'zip'
+                        ? [{ label: 'Supporting Documents Bundled', tone: 'amber' as const }]
+                        : [{ label: 'Document Links Included', tone: 'emerald' as const }])
+                ]}
+                helperNote={exportFormat === 'zip' ? 'Please keep this window open while we download and compress supporting documents.' : 'Please wait while we compile student records and format your spreadsheet.'}
             />
         </div>
     );

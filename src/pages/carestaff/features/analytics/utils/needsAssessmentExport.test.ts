@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildStudentResponsesSheetData,
     computeGenderDemographics,
     getDescriptiveEquivalent,
     processQuestionStatsForExport,
@@ -149,6 +150,107 @@ describe('needsAssessmentExport statistical processing', () => {
             expect(emptyResult.total).toBe(0);
             expect(emptyResult.sexCounts).toEqual({ female: 0, male: 0, other: 0 });
             expect(emptyResult.genderCounts).toEqual({ cisgender: 0, transgender: 0, nonBinary: 0, preferNotToSay: 0, other: 0 });
+        });
+    });
+
+    describe('buildStudentResponsesSheetData', () => {
+        const mockQuestions = [
+            { id: 101, question_text: 'Feeling overwhelmed by academic workload.', question_type: 'scale' },
+            { id: 102, question_text: 'Difficulty managing time effectively.', question_type: 'scale' },
+            { id: 103, question_text: 'Additional feedback or concerns.', question_type: 'text' }
+        ];
+
+        const mockResponses = [
+            {
+                submissionId: 1,
+                studentId: '2023-0001',
+                studentName: 'Dela Cruz, Juan',
+                department: 'College of Arts and Sciences',
+                course: 'BS Computer Science',
+                yearLevel: '3rd Year',
+                sex: 'Male',
+                genderIdentity: 'CIS Gender',
+                submittedAt: '9/4/2026, 9:00:00 AM',
+                answers: {
+                    101: 5,
+                    102: 4,
+                    103: 'Need tutorial sessions'
+                }
+            },
+            {
+                submissionId: 2,
+                studentId: '2023-0002',
+                studentName: 'Santos, Maria',
+                department: 'College of Education',
+                course: 'BSEd English',
+                yearLevel: '2nd Year',
+                sex: 'Female',
+                genderIdentity: 'CIS Gender',
+                submittedAt: '9/4/2026, 9:15:00 AM',
+                answers: {
+                    101: 3
+                }
+            }
+        ];
+
+        it('generates correct headers including all questions formatted as Q1, Q2, etc.', () => {
+            const { headers } = buildStudentResponsesSheetData(mockResponses, mockQuestions);
+
+            expect(headers).toEqual([
+                'Student Name',
+                'Student ID',
+                'College / Department',
+                'Course',
+                'Year Level',
+                'Sex Assigned at Birth',
+                'Gender Identity',
+                'Submitted At',
+                'Q1: Feeling overwhelmed by academic workload.',
+                'Q2: Difficulty managing time effectively.',
+                'Q3: Additional feedback or concerns.'
+            ]);
+        });
+
+        it('maps student demographics and question answers correctly with fallback for missing values', () => {
+            const { rows } = buildStudentResponsesSheetData(mockResponses, mockQuestions);
+
+            expect(rows).toHaveLength(2);
+
+            // Row 1
+            expect(rows[0]).toEqual([
+                'Dela Cruz, Juan',
+                '2023-0001',
+                'College of Arts and Sciences',
+                'BS Computer Science',
+                '3rd Year',
+                'Male',
+                'CIS Gender',
+                '9/4/2026, 9:00:00 AM',
+                5,
+                4,
+                'Need tutorial sessions'
+            ]);
+
+            // Row 2 (with unanswered questions)
+            expect(rows[1]).toEqual([
+                'Santos, Maria',
+                '2023-0002',
+                'College of Education',
+                'BSEd English',
+                '2nd Year',
+                'Female',
+                'CIS Gender',
+                '9/4/2026, 9:15:00 AM',
+                3,
+                '—',
+                '—'
+            ]);
+        });
+
+        it('handles empty responses cleanly', () => {
+            const { headers, rows } = buildStudentResponsesSheetData([], mockQuestions);
+            expect(headers).toHaveLength(8 + mockQuestions.length);
+            expect(rows).toEqual([]);
         });
     });
 });

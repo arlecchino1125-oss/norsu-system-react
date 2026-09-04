@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { supabase } from '../../../../../lib/supabase';
 import {
     buildQuestionStats,
     collectAllRows,
+    fetchAllNeedsAssessmentAnswers,
     fetchCohortQuestionStats,
+    fetchCohortSubmissionsAnswers,
     sameLineageForms,
     withComparisonDeltas
 } from './CareStaffAnalyticsPage';
@@ -187,6 +190,45 @@ describe('fetchCohortQuestionStats', () => {
         expect(stats[0].counts).toEqual([0, 0, 0, 0, 0]);
         expect(stats[1].total).toBe(0);
         expect(stats[1].counts).toEqual([0, 0, 0, 0, 0]);
+    });
+});
+
+describe('fetchCohortSubmissionsAnswers', () => {
+    it('returns empty array when submissionIds list is empty', async () => {
+        const answers = await fetchCohortSubmissionsAnswers([]);
+        expect(answers).toEqual([]);
+    });
+});
+
+describe('fetchAllNeedsAssessmentAnswers', () => {
+    it('returns empty array when submissionIds list is empty', async () => {
+        const answers = await fetchAllNeedsAssessmentAnswers([]);
+        expect(answers).toEqual([]);
+    });
+
+    it('queries answers in bounded chunks and triggers onProgress', async () => {
+        const mockAnswers = [
+            { submission_id: 1, question_id: 10, answer_value: 5, answer_text: null },
+            { submission_id: 2, question_id: 10, answer_value: 4, answer_text: null }
+        ];
+        const selectMock = vi.fn().mockReturnThis();
+        const inMock = vi.fn().mockResolvedValue({ data: mockAnswers, error: null });
+        const fromSpy = vi.spyOn(supabase, 'from').mockReturnValue({
+            select: selectMock,
+            in: inMock
+        } as any);
+
+        const progressUpdates: number[] = [];
+        const result = await fetchAllNeedsAssessmentAnswers(
+            [1, 2],
+            'submission_id, question_id, answer_value, answer_text',
+            false,
+            (loaded) => progressUpdates.push(loaded)
+        );
+
+        expect(result).toHaveLength(2);
+        expect(progressUpdates).toContain(2);
+        fromSpy.mockRestore();
     });
 });
 

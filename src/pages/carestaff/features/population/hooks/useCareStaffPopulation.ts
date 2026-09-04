@@ -45,6 +45,7 @@ import { loadXlsx, loadFflate } from '../../../../../lib/exportVendors';
 import { getProfileCategoryForDatabaseField } from '../../../../../services/r2DocumentService';
 
 import { PROFILE_CATEGORIES } from '../profileCategories';
+import { ExportProgressState, INITIAL_EXPORT_PROGRESS_STATE } from '../../../../../components/ExportProgressModal';
 import { useResponsivePageSize } from '../../../../../hooks/useResponsivePageSize';
 import {
     STUDENT_PROFILE_EXPORT_LINK_EXPIRES_SECONDS,
@@ -176,7 +177,9 @@ export function useCareStaffPopulation({
     const [courseApplicantCountsLoaded, setCourseApplicantCountsLoaded] = useState(false);
     const refreshInFlightRef = useRef(false);
     const zipExportInFlightRef = useRef(false);
-    const [exportStatus, setExportStatus] = useState<string | null>(null);
+    const [exportProgress, setExportProgress] = useState<ExportProgressState>(INITIAL_EXPORT_PROGRESS_STATE);
+    const [exportFormat, setExportFormat] = useState<'excel' | 'zip'>('excel');
+    const exportStatus = exportProgress.isExporting ? exportProgress.statusText : null;
 
     // Modals
     const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
@@ -1421,27 +1424,63 @@ export function useCareStaffPopulation({
     };
 
     const handleExportExcel = async () => {
-        setExportStatus('Loading export libraries...');
+        setExportFormat('excel');
+        setExportProgress({
+            isExporting: true,
+            stage: 'fetching',
+            progressPct: 15,
+            loadedCount: 0,
+            totalCount: 0,
+            unitLabel: 'students',
+            statusText: 'Loading export libraries…'
+        });
         try {
             const XLSX = await loadXlsx();
 
-            setExportStatus('Fetching student data...');
+            setExportProgress(prev => ({
+                ...prev,
+                progressPct: 30,
+                statusText: 'Fetching student population data…'
+            }));
             const allStudents = await getFilteredExportStudents();
 
-            if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); setExportStatus(null); return; }
+            if (!allStudents || allStudents.length === 0) {
+                functions.showToast('No students to export.', 'info');
+                setExportProgress(INITIAL_EXPORT_PROGRESS_STATE);
+                return;
+            }
 
             const exportColumns = buildExportColumns();
 
-            setExportStatus(`Resolving document links for ${allStudents.length} students...`);
+            setExportProgress(prev => ({
+                ...prev,
+                progressPct: 55,
+                totalCount: allStudents.length,
+                statusText: `Resolving document links for ${allStudents.length.toLocaleString()} students…`
+            }));
             const { wb } = await buildStudentExportWorkbook(allStudents, exportColumns);
-            setExportStatus('Writing Excel file...');
+
+            setExportProgress(prev => ({
+                ...prev,
+                stage: 'building',
+                progressPct: 85,
+                statusText: 'Writing Excel workbook…'
+            }));
             XLSX.writeFile(wb, `SDAF_Student_Data_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+            setExportProgress(prev => ({
+                ...prev,
+                stage: 'done',
+                progressPct: 100,
+                statusText: `Exported ${allStudents.length.toLocaleString()} students to Excel!`
+            }));
+            await new Promise(r => setTimeout(r, 650));
             functions.showToast(`Exported ${allStudents.length} students to Excel!`, 'success');
         } catch (err: any) {
             console.error('Export error:', err);
             functions.showToast('Export failed.', 'error');
         } finally {
-            setExportStatus(null);
+            setExportProgress(INITIAL_EXPORT_PROGRESS_STATE);
         }
     };
 
@@ -1450,19 +1489,40 @@ export function useCareStaffPopulation({
     const handleExportZip = async () => {
         if (zipExportInFlightRef.current) return;
         zipExportInFlightRef.current = true;
-        setExportStatus('Loading export libraries...');
+        setExportFormat('zip');
+        setExportProgress({
+            isExporting: true,
+            stage: 'fetching',
+            progressPct: 10,
+            loadedCount: 0,
+            totalCount: 0,
+            unitLabel: 'documents bundled',
+            statusText: 'Loading export libraries…'
+        });
         try {
             const XLSX = await loadXlsx();
             const { zipSync } = await loadFflate();
 
-            setExportStatus('Fetching student data...');
+            setExportProgress(prev => ({
+                ...prev,
+                progressPct: 20,
+                statusText: 'Fetching student population data…'
+            }));
             const allStudents: any[] = await getFilteredExportStudents();
-            if (!allStudents || allStudents.length === 0) { functions.showToast('No students to export.', 'info'); setExportStatus(null); return; }
+            if (!allStudents || allStudents.length === 0) {
+                functions.showToast('No students to export.', 'info');
+                setExportProgress(INITIAL_EXPORT_PROGRESS_STATE);
+                return;
+            }
 
             const exportColumns = buildExportColumns();
             const date = new Date().toISOString().split('T')[0];
 
-            setExportStatus(`Resolving document links for ${allStudents.length} students...`);
+            setExportProgress(prev => ({
+                ...prev,
+                progressPct: 35,
+                statusText: `Resolving document links for ${allStudents.length.toLocaleString()} students…`
+            }));
             const { wb, resolvedUrls } = await buildStudentExportWorkbook(allStudents, exportColumns, 'zip');
             const xlsxBytes = new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
 
@@ -1474,7 +1534,7 @@ export function useCareStaffPopulation({
             const docColumns = exportColumns.filter((col: any) => col.documentType === 'document');
             if (docColumns.length === 0) {
                 functions.showToast('No supporting documents to bundle.', 'info');
-                setExportStatus(null);
+                setExportProgress(INITIAL_EXPORT_PROGRESS_STATE);
                 return;
             }
 
@@ -1488,10 +1548,22 @@ export function useCareStaffPopulation({
             }
 
             if (jobs.length === 0) {
-                setExportStatus('Compressing ZIP...');
+                setExportProgress(prev => ({
+                    ...prev,
+                    stage: 'building',
+                    progressPct: 90,
+                    statusText: 'Compressing archive into ZIP package…'
+                }));
                 triggerExportZipDownload(zipSync(zipFiles, { level: 6 }), `SDAF_Student_Data_${date}.zip`);
+                setExportProgress(prev => ({
+                    ...prev,
+                    stage: 'done',
+                    progressPct: 100,
+                    statusText: `Exported ${allStudents.length} students to ZIP!`
+                }));
+                await new Promise(r => setTimeout(r, 650));
                 functions.showToast(`Exported ${allStudents.length} students to ZIP!`, 'success');
-                setExportStatus(null);
+                setExportProgress(INITIAL_EXPORT_PROGRESS_STATE);
                 return;
             }
 
@@ -1529,15 +1601,45 @@ export function useCareStaffPopulation({
                         console.warn('Failed to fetch supporting document for export:', err);
                     }
                     completed++;
-                    setExportStatus(`Downloading documents... ${completed}/${jobs.length}`);
+                    const docProgress = Math.min(88, Math.round(35 + (completed / jobs.length) * 53));
+                    setExportProgress(prev => ({
+                        ...prev,
+                        stage: 'fetching',
+                        loadedCount: completed,
+                        totalCount: jobs.length,
+                        unitLabel: 'documents bundled',
+                        progressPct: docProgress,
+                        statusText: `Downloading supporting documents (${completed.toLocaleString()} of ${jobs.length.toLocaleString()})…`
+                    }));
                 }
             };
-            setExportStatus(`Downloading documents... 0/${jobs.length}`);
+            setExportProgress(prev => ({
+                ...prev,
+                loadedCount: 0,
+                totalCount: jobs.length,
+                unitLabel: 'documents bundled',
+                progressPct: 35,
+                statusText: `Downloading supporting documents (0 of ${jobs.length.toLocaleString()})…`
+            }));
             await Promise.all(Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, worker));
 
-            setExportStatus('Compressing ZIP...');
+            setExportProgress(prev => ({
+                ...prev,
+                stage: 'building',
+                progressPct: 92,
+                statusText: 'Compressing archive into ZIP package…'
+            }));
             triggerExportZipDownload(zipSync(zipFiles, { level: 6 }), `SDAF_Student_Data_${date}.zip`);
             const missing = jobs.length - bundled;
+
+            setExportProgress(prev => ({
+                ...prev,
+                stage: 'done',
+                progressPct: 100,
+                statusText: `ZIP Download Complete (${bundled} document(s) bundled)!`
+            }));
+            await new Promise(r => setTimeout(r, 650));
+
             functions.showToast(
                 missing > 0
                     ? `Exported ${allStudents.length} students, but only ${bundled} of ${jobs.length} document(s) downloaded — ${missing} missing from the ZIP.`
@@ -1549,7 +1651,7 @@ export function useCareStaffPopulation({
             functions.showToast('ZIP export failed.', 'error');
         } finally {
             zipExportInFlightRef.current = false;
-            setExportStatus(null);
+            setExportProgress(INITIAL_EXPORT_PROGRESS_STATE);
         }
     };
 
@@ -1858,6 +1960,8 @@ export function useCareStaffPopulation({
         handleExportExcel,
         handleExportZip,
         exportStatus,
+        exportProgress,
+        exportFormat,
         handleSwapIds,
         handleSort,
         visibleTableStudents,

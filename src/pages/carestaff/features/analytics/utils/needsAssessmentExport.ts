@@ -44,6 +44,26 @@ export interface ProcessedItemAnalysis {
     fivePercentage: number;
 }
 
+export interface RespondentAnswerExportItem {
+    submissionId: number;
+    studentId: string;
+    studentName: string;
+    department: string;
+    course: string;
+    yearLevel: string;
+    sex: string;
+    genderIdentity: string;
+    submittedAt: string;
+    answers: Record<number, number | string>;
+}
+
+export interface ExportQuestionItem {
+    id: number;
+    question_text: string;
+    question_type?: string;
+    order_index?: number;
+}
+
 export interface NeedsAssessmentExportPayload {
     formTitle: string;
     filterLabel?: string;
@@ -52,7 +72,46 @@ export interface NeedsAssessmentExportPayload {
     stats: QuestionStatItem[];
     demographics?: GenderDemographics;
     compareTitle?: string;
+    questions?: ExportQuestionItem[];
+    respondentResponses?: RespondentAnswerExportItem[];
 }
+
+/**
+ * Assembles headers and rows for the student responses spreadsheet.
+ */
+export const buildStudentResponsesSheetData = (
+    respondentResponses: RespondentAnswerExportItem[] = [],
+    questions: ExportQuestionItem[] = []
+) => {
+    const headers = [
+        'Student Name',
+        'Student ID',
+        'College / Department',
+        'Course',
+        'Year Level',
+        'Sex Assigned at Birth',
+        'Gender Identity',
+        'Submitted At',
+        ...questions.map((q, i) => `Q${i + 1}: ${q.question_text}`)
+    ];
+
+    const rows = respondentResponses.map(resp => [
+        resp.studentName || '—',
+        resp.studentId || '—',
+        resp.department || '—',
+        resp.course || '—',
+        resp.yearLevel || '—',
+        resp.sex || '—',
+        resp.genderIdentity || '—',
+        resp.submittedAt || '—',
+        ...questions.map(q => {
+            const val = resp.answers?.[q.id];
+            return val !== undefined && val !== null && val !== '' ? val : '—';
+        })
+    ]);
+
+    return { headers, rows };
+};
 
 export const LIKERT_SCALE_LEGEND = [
     { range: '4.20 – 5.00', level: '5', label: 'Very High Need', priority: 'Critical Priority / Immediate Intervention' },
@@ -186,7 +245,9 @@ export const exportNeedsAssessmentExcel = async ({
     genderFilterLabel,
     totalRespondents,
     stats,
-    demographics
+    demographics,
+    questions,
+    respondentResponses
 }: NeedsAssessmentExportPayload): Promise<void> => {
     const XLSX = await loadXlsx();
     const { items, grandMean, grandMeanEquivalent, topHighestNeeds, topLowestNeeds } = processQuestionStatsForExport(stats);
@@ -336,6 +397,33 @@ export const exportNeedsAssessmentExcel = async ({
         { wch: 14 }
     ];
     XLSX.utils.book_append_sheet(workbook, detailSheet, 'Statement Analysis');
+
+    // Sheet 3: Individual Student Responses (if provided)
+    if (respondentResponses && respondentResponses.length > 0) {
+        const effectiveQuestions: ExportQuestionItem[] = (questions && questions.length > 0)
+            ? [...questions].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+            : stats.map((s, idx) => ({
+                id: s.question.id,
+                question_text: s.question.question_text,
+                order_index: s.question.order_index ?? idx,
+                question_type: s.question.question_type
+            }));
+
+        const { headers: respHeaders, rows: respRows } = buildStudentResponsesSheetData(respondentResponses, effectiveQuestions);
+        const responsesSheet = XLSX.utils.aoa_to_sheet(escapeSpreadsheetRows([respHeaders, ...respRows]));
+        responsesSheet['!cols'] = [
+            { wch: 25 },
+            { wch: 15 },
+            { wch: 22 },
+            { wch: 22 },
+            { wch: 12 },
+            { wch: 14 },
+            { wch: 18 },
+            { wch: 22 },
+            ...effectiveQuestions.map(q => ({ wch: (q.question_type === 'text' || q.question_type === 'open_ended') ? 45 : 12 }))
+        ];
+        XLSX.utils.book_append_sheet(workbook, responsesSheet, 'Student Responses');
+    }
 
     const fileName = `${sanitizeFileName(formTitle)}_Results_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, fileName);
