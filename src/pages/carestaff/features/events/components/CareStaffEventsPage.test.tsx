@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CareStaffEventsPage from './CareStaffEventsPage';
@@ -91,11 +91,12 @@ describe('CareStaffEventsPage modals', () => {
 
         render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
 
-        expect(screen.getByRole('dialog', { name: 'Event Feedback' })).toBeInTheDocument();
+        const dialog = screen.getByRole('dialog', { name: 'Event Feedback' });
+        expect(dialog).toBeInTheDocument();
         expect(screen.getByText('"Review 20"')).toBeInTheDocument();
         expect(screen.queryByText('"Review 21"')).not.toBeInTheDocument();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Next page' }));
 
         expect(screen.getByText('"Review 21"')).toBeInTheDocument();
         expect(screen.queryByText('"Review 1"')).not.toBeInTheDocument();
@@ -254,3 +255,128 @@ describe('CareStaffEventsPage reschedule & void UI', () => {
         expect(screen.queryByRole('button', { name: 'Void All Attendance' })).not.toBeInTheDocument();
     });
 });
+
+describe('CareStaffEventsPage visual UI & UX', () => {
+    beforeEach(() => {
+        vi.mocked(getEvaluationsForEvents).mockImplementation(() => new Promise(() => {}));
+        vi.mocked(useCareStaffEvents).mockReturnValue(baseHookState as any);
+    });
+
+    it('renders the header with gradient, title, subtitle, and 3 action buttons', () => {
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByRole('heading', { level: 1, name: 'Events & Announcements' })).toBeInTheDocument();
+        expect(screen.getByText('Manage campus activities and broadcast official notices.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Refresh Data' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Evaluation Templates' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Create New' })).toBeInTheDocument();
+    });
+
+    it('renders the toolbar with pill tabs and item counters', () => {
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByRole('button', { name: /All Items/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Activities/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Announcements/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Archived/i })).toBeInTheDocument();
+        expect(screen.getByText('Active: 0')).toBeInTheDocument();
+    });
+
+    it('displays the centered empty state when there are no items', () => {
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByText('No active events or announcements found.')).toBeInTheDocument();
+    });
+
+    it('renders announcement and activity cards with action links, blue theme line, and audience tag', () => {
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            eventFilter: 'Archived',
+            archivedEvents: [
+                {
+                    id: 101,
+                    title: 'Sample notice',
+                    type: 'Announcement',
+                    description: 'Ignore this announcement',
+                    location: 'Online/General',
+                    event_date: '2026-08-28'
+                },
+                {
+                    id: 102,
+                    title: 'Mental Health Awareness Activity',
+                    type: 'Orientation',
+                    description: 'Theme: "From Stress to Strength: Promoting Mental Wellness Among College Students"\nSession details here.',
+                    location: 'NORSU - Guihulngan Campus Gymnasium',
+                    event_date: '2026-08-10',
+                    event_time: '13:00',
+                    end_time: '17:00:00',
+                    attendees: 190,
+                    avgRating: '4.8',
+                    feedbackCount: 10,
+                    audience_type: 'all_students'
+                }
+            ]
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        // Counter label for archived tab
+        expect(screen.getByText('Archived: 2')).toBeInTheDocument();
+
+        // Announcement card
+        expect(screen.getByText('Sample notice')).toBeInTheDocument();
+        expect(screen.getByText('Ignore this announcement')).toBeInTheDocument();
+        expect(screen.getByText('Online/General')).toBeInTheDocument();
+        expect(screen.getByText('2026-08-28')).toBeInTheDocument();
+
+        // Orientation / Activity card
+        expect(screen.getByText('Mental Health Awareness Activity')).toBeInTheDocument();
+        expect(screen.getByText('💙 Theme: "From Stress to Strength: Promoting Mental Wellness Among College Students"')).toBeInTheDocument();
+        expect(screen.getByText('Session details here.')).toBeInTheDocument();
+        expect(screen.getByText('NORSU - Guihulngan Campus Gymnasium')).toBeInTheDocument();
+        expect(screen.getByText('2026-08-10')).toBeInTheDocument();
+        expect(screen.getByText('13:00 → 17:00:00')).toBeInTheDocument();
+        expect(screen.getByText('190 Attendees')).toBeInTheDocument();
+        expect(screen.getByText(/4\.8/)).toBeInTheDocument();
+        expect(screen.getByText('All students')).toBeInTheDocument();
+
+        // Action links
+        expect(screen.getByRole('button', { name: /Reviews \(10\)/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Attendees \(190\)/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Absent/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Extend attendance/i })).toBeInTheDocument();
+    });
+
+    it('renders the pagination container and paginates event lists', () => {
+        const eventsList = Array.from({ length: 15 }, (_, i) => ({
+            id: i + 1,
+            title: `Event ${i + 1}`,
+            type: 'Event',
+            event_date: '2026-09-10',
+            location: 'Main Hall'
+        }));
+
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            events: eventsList
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        // Shows items 1-10 on page 1
+        expect(screen.getByText(/showing/i)).toHaveTextContent('Showing 1–10 of 15');
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+        expect(screen.getByText('Event 1')).toBeInTheDocument();
+        expect(screen.getByText('Event 10')).toBeInTheDocument();
+        expect(screen.queryByText('Event 11')).not.toBeInTheDocument();
+
+        // Navigate to page 2
+        fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+
+        expect(screen.getByText(/showing/i)).toHaveTextContent('Showing 11–15 of 15');
+        expect(screen.getByText('2 / 2')).toBeInTheDocument();
+        expect(screen.getByText('Event 11')).toBeInTheDocument();
+        expect(screen.queryByText('Event 10')).not.toBeInTheDocument();
+    });
+});
+

@@ -37,6 +37,7 @@ import type { CareStaffEventsPageProps } from '../hooks/useCareStaffEvents';
 
 const REGISTRANT_STATUS_OPTIONS = ['All', 'Registered', 'Attended', 'Absent', 'Cancelled'];
 const ITEMS_PER_PAGE = 20;
+const EVENTS_PAGE_SIZE = 10;
 
 const ListPager = ({ page, totalPages, totalItems, onPageChange, itemLabel = 'students' }: { page: number; totalPages: number; totalItems: number; onPageChange: (page: number) => void; itemLabel?: string }) => (
     totalPages > 1 ? (
@@ -855,137 +856,403 @@ const EventDetailModal = ({ detailEvent, setDetailEvent }: any) => createPortal(
     </div>
 ), document.getElementById('staff-content-region') || document.body);
 
-const EventListSection = ({
-    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, onOpenExtend, onOpenReschedule, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults
-}: any) => (
-    <div className="space-y-4">
-        {/* Active Events */}
-        {eventFilter !== 'Archived' && events.flatMap(item => (
-            eventFilter === 'All Items' || isVisibleForStaffFilter(item, eventFilter) ? [(
-                <div key={item.id} className="card-hover bg-white/80 backdrop-blur-sm border border-gray-100/80 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden group">
-                    <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <button type="button" aria-label={`View details for ${item.title}`} className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500" onClick={() => setDetailEvent(item)} />
-                    <div className="pointer-events-none relative z-10 min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-xs font-bold px-3 py-1 rounded-full ${getEventTypeBadgeClass(item.type)}`}>{item.type}</span>
-                            {isAttendanceActivityType(item.type) && item.attendance_required && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">Required</span>}
-                            {isRegistrationEvent(item) && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Registration</span>}
-                        </div>
-                        <h3 className="font-bold text-gray-900 text-lg">{item.title}</h3>
-                        <p className="mt-1 max-w-5xl whitespace-pre-wrap break-words text-sm leading-6 text-gray-600 line-clamp-2">
-                            {item.description || 'No description provided.'}
-                        </p>
-                        <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-                            {item.location && <span className="flex items-center gap-1"><MapPin size={12} />{item.location}</span>}
-                            {item.event_date && <span className="flex items-center gap-1"><Calendar size={12} />{item.event_date}</span>}
-                            {item.event_time && <span className="flex items-center gap-1"><Clock size={12} />{item.event_time}</span>}
-                            {item.end_time && <span className="text-gray-400 text-[10px] ml-1">- {item.end_time}</span>}
-                            {isAttendanceActivityType(item.type) && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Users size={12} />{item.attendees || 0} Attendees</span>}
-                            {isRegistrationEvent(item) && <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Users size={12} />{item.registeredCount || 0}{item.capacity ? `/${item.capacity}` : ''} Registered</span>}
-                            {isAttendanceActivityType(item.type) && item.avgRating && <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Star size={12} />{item.avgRating} <span className="font-normal opacity-75">({item.feedbackCount})</span></span>}
-                        </div>
-                        {isAttendanceActivityType(item.type) && (
-                            <div className="mt-2 max-w-5xl rounded-xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-semibold leading-5 text-slate-700">
-                                <div className="flex items-start gap-2">
-                                    <Users size={13} className="mt-0.5 shrink-0 text-slate-500" />
-                                    <span className="min-w-0 break-words">{getAudienceModeLabel(item)}</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <div className="relative z-20 flex shrink-0 flex-wrap gap-2">
-                        {isAttendanceActivityType(item.type) && (
-                            <>
-                                <Button variant="secondary" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-500" />}>Reviews ({item.feedbackCount || 0})</Button>
-                                {isRegistrationEvent(item) && <Button variant="secondary" size="sm" onClick={() => item.id && handleViewRegistrants(item)} leftIcon={<Users size={14} className="text-emerald-500" />}>Registrants ({item.registeredCount || 0})</Button>}
-                                <Button variant="secondary" size="sm" onClick={() => item.id && handleViewAttendees(item)} leftIcon={<Users size={14} className="text-blue-500" />}>Attendees ({item.attendees || 0})</Button>
-                                <Button variant="secondary" size="sm" onClick={() => item.id && handleViewAbsent(item)} leftIcon={<UserX size={14} className="text-red-500" />}>Absent</Button>
-                                {evaluations?.get(item.id)
-                                    ? (
-                                        <Button variant="secondary" size="sm" onClick={() => item.id && handleViewEvaluationResults(item)} leftIcon={<ClipboardList size={14} className="text-purple-500" />}>
-                                            Evaluation ({evaluations.get(item.id).responseCount})
-                                        </Button>
-                                    )
-                                    : (
-                                        <Button variant="secondary" size="sm" onClick={() => item.id && handleBuildEvaluation(item)} leftIcon={<Plus size={14} className="text-purple-500" />}>
-                                            Create Evaluation
-                                        </Button>
-                                    )}
-                            </>
-                        )}
-                        {isAttendanceActivityType(item.type) && (
-                            <>
-                                <Button variant="secondary" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} />}>Extend</Button>
-                                <Button variant="secondary" size="sm" onClick={() => onOpenReschedule(item)} leftIcon={<Calendar size={14} />}>Reschedule</Button>
-                            </>
-                        )}
-                        <Button variant="secondary" size="sm" onClick={() => handleEditEvent(item)} leftIcon={<CheckCircle size={14} />} />
-                        {canArchiveRecords && (
-                            <Button variant="danger" size="sm" onClick={() => item.id && handleDeleteEvent(item.id)} leftIcon={<Archive size={14} />} />
-                        )}
-                    </div>
-                </div>
-            )] : []
-        ))}
+const parseEventDescription = (description?: string) => {
+    if (!description) return { theme: null, body: '' };
+    const lines = description.split('\n');
+    let theme: string | null = null;
+    const remainingLines: string[] = [];
 
-        {/* Archived Events */}
-        {eventFilter === 'Archived' && archivedEvents.map(item => (
-            <div key={item.id} className="bg-gray-50/80 backdrop-blur-sm border border-gray-200/80 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start gap-4 relative overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
-                <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-gray-300 to-gray-400" />
-                <button type="button" aria-label={`View details for ${item.title}`} className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-500" onClick={() => setDetailEvent(item)} />
-                <div className="pointer-events-none relative z-10 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${getArchivedEventTypeBadgeClass(item.type)}`}>{item.type}</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1"><Archive size={10} /> Archived</span>
-                        {isRegistrationEvent(item) && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">Registration</span>}
-                    </div>
-                    <h3 className="font-bold text-gray-600 text-lg">{item.title}</h3>
-                    <p className="mt-2 max-w-5xl whitespace-pre-wrap break-words text-sm leading-6 text-gray-500 line-clamp-2">
-                        {item.description || 'No description provided.'}
-                    </p>
-                    <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-400">
-                        {item.location && <span className="flex items-center gap-1"><MapPin size={12} />{item.location}</span>}
-                        {item.event_date && <span className="flex items-center gap-1"><Calendar size={12} />{item.event_date}</span>}
-                        {item.event_time && <span className="flex items-center gap-1"><Clock size={12} />{item.event_time}</span>}
-                        {item.end_time && <span className="text-gray-300 text-[10px] ml-1">- {item.end_time}</span>}
-                        {isAttendanceActivityType(item.type) && <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Users size={12} />{item.attendees || 0} Attendees</span>}
-                        {isRegistrationEvent(item) && <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Users size={12} />{item.registeredCount || 0}{item.capacity ? `/${item.capacity}` : ''} Registered</span>}
-                        {isAttendanceActivityType(item.type) && item.avgRating && <span className="bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded text-xs font-bold ml-2 flex items-center gap-1"><Star size={12} />{item.avgRating} <span className="font-normal opacity-75">({item.feedbackCount})</span></span>}
-                    </div>
-                    {isAttendanceActivityType(item.type) && (
-                        <div className="mt-3 max-w-5xl rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-500">
-                            <div className="flex items-start gap-2">
-                                <Users size={13} className="mt-0.5 shrink-0 text-slate-400" />
-                                <span className="min-w-0 break-words">{getAudienceModeLabel(item)}</span>
-                            </div>
-                        </div>
+    for (const line of lines) {
+        const trimmed = line.trim();
+        const match = trimmed.match(/^(?:💙\s*)?Theme:\s*(?:"([^"]+)"|(.+))$/i);
+        if (!theme && match) {
+            theme = (match[1] || match[2] || '').trim();
+        } else {
+            remainingLines.push(line);
+        }
+    }
+
+    return {
+        theme,
+        body: remainingLines.join('\n').trim()
+    };
+};
+
+const getTypeTextColor = (type: unknown) => {
+    if (type === 'Announcement') return 'text-purple-600';
+    if (type === 'Orientation') return 'text-orange-500';
+    if (type === 'Seminar') return 'text-emerald-600';
+    if (type === 'Meeting') return 'text-slate-600';
+    return 'text-blue-600';
+};
+
+const AnnouncementCard = ({
+    item,
+    isArchived,
+    canArchiveRecords,
+    handleEditEvent,
+    handleDeleteEvent,
+    setDetailEvent
+}: {
+    item: SystemEvent;
+    isArchived: boolean;
+    canArchiveRecords?: boolean;
+    handleEditEvent: (item: SystemEvent) => void;
+    handleDeleteEvent: (id: number) => void;
+    setDetailEvent: (item: SystemEvent) => void;
+}) => (
+    <div className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200/80 shadow-xs hover:border-purple-300 hover:shadow-md transition-all duration-200 relative group flex flex-col gap-2">
+        <button
+            type="button"
+            aria-label={`View details for ${item.title}`}
+            className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500"
+            onClick={() => setDetailEvent(item)}
+        />
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-purple-600">Announcement</span>
+                {isArchived && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-500">
+                        <Archive size={11} className="text-gray-400" /> Archived
+                    </span>
+                )}
+            </div>
+            {!isArchived && (
+                <div className="relative z-20 flex items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={() => handleEditEvent(item)}
+                        className="p-1 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors cursor-pointer"
+                        aria-label={`Edit ${item.title}`}
+                    >
+                        <CheckCircle size={15} />
+                    </button>
+                    {canArchiveRecords && (
+                        <button
+                            type="button"
+                            onClick={() => item.id && handleDeleteEvent(item.id)}
+                            className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                            aria-label={`Archive ${item.title}`}
+                        >
+                            <Archive size={15} />
+                        </button>
                     )}
                 </div>
-                <div className="relative z-20 flex shrink-0 flex-wrap gap-2">
-                    {isAttendanceActivityType(item.type) && (
+            )}
+        </div>
+        <h3 className="font-bold text-gray-900 text-lg leading-snug">{item.title}</h3>
+        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words line-clamp-2">
+            {item.description || 'No description provided.'}
+        </p>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 mt-1">
+            {item.location && (
+                <span className="flex items-center gap-1.5">
+                    <MapPin size={13} className="text-gray-400 shrink-0" />
+                    <span>{item.location}</span>
+                </span>
+            )}
+            {item.event_date && (
+                <span className="flex items-center gap-1.5">
+                    <Calendar size={13} className="text-gray-400 shrink-0" />
+                    <span>{item.event_date}</span>
+                </span>
+            )}
+        </div>
+    </div>
+);
+
+const ActivityCard = ({
+    item,
+    isArchived,
+    canArchiveRecords,
+    handleEditEvent,
+    handleDeleteEvent,
+    onOpenExtend,
+    onOpenReschedule,
+    handleViewAttendees,
+    handleViewAbsent,
+    handleViewRegistrants,
+    handleViewFeedback,
+    setDetailEvent,
+    evaluations,
+    handleBuildEvaluation,
+    handleViewEvaluationResults
+}: any) => {
+    const { theme, body } = parseEventDescription(item.description);
+
+    return (
+        <div className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200/80 shadow-xs hover:border-purple-300 hover:shadow-md transition-all duration-200 relative group flex flex-col gap-2">
+            <button
+                type="button"
+                aria-label={`View details for ${item.title}`}
+                className="absolute inset-0 z-10 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500"
+                onClick={() => setDetailEvent(item)}
+            />
+            {/* Top row: type label + badges on left, action links row on right */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs font-bold ${getTypeTextColor(item.type)}`}>
+                        {item.type}
+                    </span>
+                    {isArchived ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-500">
+                            <Archive size={11} className="text-gray-400" /> Archived
+                        </span>
+                    ) : (
                         <>
-                            <Button variant="ghost" size="sm" onClick={() => item.id && handleViewFeedback(item)} leftIcon={<Star size={14} className="text-yellow-400" />}>Reviews ({item.feedbackCount || 0})</Button>
-                            {isRegistrationEvent(item) && <Button variant="ghost" size="sm" onClick={() => item.id && handleViewRegistrants(item)} leftIcon={<Users size={14} className="text-emerald-400" />}>Registrants ({item.registeredCount || 0})</Button>}
-                            <Button variant="ghost" size="sm" onClick={() => item.id && handleViewAttendees(item)} leftIcon={<Users size={14} className="text-blue-400" />}>Attendees ({item.attendees || 0})</Button>
-                            <Button variant="ghost" size="sm" onClick={() => item.id && handleViewAbsent(item)} leftIcon={<UserX size={14} className="text-red-400" />}>Absent</Button>
-                            {evaluations?.get(item.id) && (
-                                <Button variant="ghost" size="sm" onClick={() => item.id && handleViewEvaluationResults(item)} leftIcon={<ClipboardList size={14} className="text-purple-400" />}>
-                                    Evaluation ({evaluations.get(item.id).responseCount})
-                                </Button>
+                            {item.attendance_required && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">
+                                    Required
+                                </span>
+                            )}
+                            {isRegistrationEvent(item) && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                                    Registration
+                                </span>
                             )}
                         </>
                     )}
-                    {isAttendanceActivityType(item.type) && (
-                        <Button variant="ghost" size="sm" onClick={() => onOpenExtend(item)} leftIcon={<Clock size={14} className="text-blue-400" />}>Extend attendance</Button>
+                </div>
+
+                {/* Top-right action links row */}
+                <div className="relative z-20 flex items-center gap-3 sm:gap-4 flex-wrap text-xs font-medium text-gray-500">
+                    <button
+                        type="button"
+                        onClick={() => item.id && handleViewFeedback(item)}
+                        className="inline-flex items-center gap-1 hover:text-amber-600 transition-colors cursor-pointer"
+                        aria-label={`Reviews (${item.feedbackCount || 0})`}
+                    >
+                        <Star size={13} />
+                        <span>Reviews ({item.feedbackCount || 0})</span>
+                    </button>
+
+                    {isRegistrationEvent(item) && (
+                        <button
+                            type="button"
+                            onClick={() => item.id && handleViewRegistrants(item)}
+                            className="inline-flex items-center gap-1 hover:text-emerald-600 transition-colors cursor-pointer"
+                            aria-label={`Registrants (${item.registeredCount || 0})`}
+                        >
+                            <Users size={13} />
+                            <span>Registrants ({item.registeredCount || 0})</span>
+                        </button>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={() => item.id && handleViewAttendees(item)}
+                        className="inline-flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
+                        aria-label={`Attendees (${item.attendees || 0})`}
+                    >
+                        <Users size={13} />
+                        <span>Attendees ({item.attendees || 0})</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => item.id && handleViewAbsent(item)}
+                        className="inline-flex items-center gap-1 hover:text-red-600 transition-colors cursor-pointer"
+                        aria-label="Absent"
+                    >
+                        <UserX size={13} />
+                        <span>Absent</span>
+                    </button>
+
+                    {evaluations?.get(item.id) ? (
+                        <button
+                            type="button"
+                            onClick={() => item.id && handleViewEvaluationResults(item)}
+                            className="inline-flex items-center gap-1 hover:text-purple-600 transition-colors cursor-pointer"
+                            aria-label={`Evaluation (${evaluations.get(item.id).responseCount})`}
+                        >
+                            <ClipboardList size={13} />
+                            <span>Evaluation ({evaluations.get(item.id).responseCount})</span>
+                        </button>
+                    ) : !isArchived ? (
+                        <button
+                            type="button"
+                            onClick={() => item.id && handleBuildEvaluation(item)}
+                            className="inline-flex items-center gap-1 hover:text-purple-600 transition-colors cursor-pointer"
+                            aria-label="Create Evaluation"
+                        >
+                            <Plus size={13} />
+                            <span>Create Evaluation</span>
+                        </button>
+                    ) : null}
+
+                    <button
+                        type="button"
+                        onClick={() => onOpenExtend(item)}
+                        className="inline-flex items-center gap-1 hover:text-teal-600 transition-colors cursor-pointer"
+                        aria-label="Extend attendance"
+                    >
+                        <Clock size={13} />
+                        <span>Extend attendance</span>
+                    </button>
+
+                    {!isArchived && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => onOpenReschedule(item)}
+                                className="inline-flex items-center gap-1 hover:text-indigo-600 transition-colors cursor-pointer"
+                                aria-label="Reschedule"
+                            >
+                                <Calendar size={13} />
+                                <span>Reschedule</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleEditEvent(item)}
+                                className="p-1 rounded text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors cursor-pointer"
+                                aria-label={`Edit ${item.title}`}
+                            >
+                                <CheckCircle size={14} />
+                            </button>
+                            {canArchiveRecords && (
+                                <button
+                                    type="button"
+                                    onClick={() => item.id && handleDeleteEvent(item.id)}
+                                    className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                    aria-label={`Archive ${item.title}`}
+                                >
+                                    <Archive size={14} />
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
-        ))}
 
-        {eventFilter !== 'Archived' && events.filter(i => eventFilter === 'All Items' || isVisibleForStaffFilter(i, eventFilter)).length === 0 && <div className="text-center py-8 text-gray-400">No active events or announcements found.</div>}
-        {eventFilter === 'Archived' && archivedEvents.length === 0 && <div className="text-center py-8 text-gray-400">No archived events yet.</div>}
-    </div>
-);
+            {/* Title */}
+            <h3 className="font-bold text-gray-900 text-lg leading-snug">{item.title}</h3>
+
+            {/* Theme line in blue with 💙 prefix */}
+            {theme && (
+                <p className="text-sm font-medium text-blue-600">
+                    💙 Theme: &quot;{theme}&quot;
+                </p>
+            )}
+
+            {/* Description body */}
+            {body ? (
+                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words line-clamp-2">
+                    {body}
+                </p>
+            ) : !theme && (
+                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words line-clamp-2">
+                    {item.description || 'No description provided.'}
+                </p>
+            )}
+
+            {/* Meta row: location, date, time range, attendee count, star rating */}
+            <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 mt-1">
+                {item.location && (
+                    <span className="flex items-center gap-1.5">
+                        <MapPin size={13} className="text-gray-400 shrink-0" />
+                        <span>{item.location}</span>
+                    </span>
+                )}
+                {item.event_date && (
+                    <span className="flex items-center gap-1.5">
+                        <Calendar size={13} className="text-gray-400 shrink-0" />
+                        <span>{item.event_date}</span>
+                    </span>
+                )}
+                {item.event_time && (
+                    <span className="flex items-center gap-1.5">
+                        <Clock size={13} className="text-gray-400 shrink-0" />
+                        <span>{item.event_time}{item.end_time ? ` → ${item.end_time}` : ''}</span>
+                    </span>
+                )}
+                <span className="flex items-center gap-1.5 text-purple-600 font-semibold">
+                    <Users size={13} className="text-purple-500 shrink-0" />
+                    <span>{item.attendees || 0} Attendees</span>
+                </span>
+                {isRegistrationEvent(item) && (
+                    <span className="flex items-center gap-1.5 text-emerald-600 font-semibold">
+                        <Users size={13} className="text-emerald-500 shrink-0" />
+                        <span>{item.registeredCount || 0}{item.capacity ? `/${item.capacity}` : ''} Registered</span>
+                    </span>
+                )}
+                {item.avgRating && (
+                    <span className="flex items-center gap-1.5 text-amber-600 font-semibold">
+                        <Star size={13} className="text-amber-500 fill-amber-500 shrink-0" />
+                        <span>{item.avgRating} {item.feedbackCount ? `(${item.feedbackCount})` : ''}</span>
+                    </span>
+                )}
+            </div>
+
+            {/* Audience tag at bottom */}
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
+                <Users size={13} className="text-gray-400 shrink-0" />
+                <span>{getAudienceModeLabel(item)}</span>
+            </div>
+        </div>
+    );
+};
+
+const EventListSection = ({
+    eventFilter, events, archivedEvents, canArchiveRecords, handleEditEvent, onOpenExtend, onOpenReschedule, handleViewAttendees, handleViewAbsent, handleViewRegistrants, handleViewFeedback, setDetailEvent, handleDeleteEvent, evaluations, handleBuildEvaluation, handleViewEvaluationResults,
+    displayItems: explicitDisplayItems, isArchivedTab: explicitIsArchivedTab
+}: any) => {
+    const isArchivedTab = explicitIsArchivedTab !== undefined ? explicitIsArchivedTab : eventFilter === 'Archived';
+    const displayItems = explicitDisplayItems !== undefined ? explicitDisplayItems : (
+        isArchivedTab
+            ? (archivedEvents || [])
+            : (events || []).filter((item: SystemEvent) => eventFilter === 'All Items' || isVisibleForStaffFilter(item, eventFilter))
+    );
+
+    if (displayItems.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-28 text-center">
+                <div className="w-12 h-12 rounded-xl bg-gray-100 border border-gray-200/60 flex items-center justify-center text-gray-400 mb-3 shadow-xs">
+                    <Calendar size={22} className="text-gray-400" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700">
+                    No active events or announcements found.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {displayItems.map((item: SystemEvent) => (
+                item.type === 'Announcement' ? (
+                    <AnnouncementCard
+                        key={item.id}
+                        item={item}
+                        isArchived={isArchivedTab}
+                        canArchiveRecords={canArchiveRecords}
+                        handleEditEvent={handleEditEvent}
+                        handleDeleteEvent={handleDeleteEvent}
+                        setDetailEvent={setDetailEvent}
+                    />
+                ) : (
+                    <ActivityCard
+                        key={item.id}
+                        item={item}
+                        isArchived={isArchivedTab}
+                        canArchiveRecords={canArchiveRecords}
+                        handleEditEvent={handleEditEvent}
+                        handleDeleteEvent={handleDeleteEvent}
+                        onOpenExtend={onOpenExtend}
+                        onOpenReschedule={onOpenReschedule}
+                        handleViewAttendees={handleViewAttendees}
+                        handleViewAbsent={handleViewAbsent}
+                        handleViewRegistrants={handleViewRegistrants}
+                        handleViewFeedback={handleViewFeedback}
+                        setDetailEvent={setDetailEvent}
+                        evaluations={evaluations}
+                        handleBuildEvaluation={handleBuildEvaluation}
+                        handleViewEvaluationResults={handleViewEvaluationResults}
+                    />
+                )
+            ))}
+        </div>
+    );
+};
 
 const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
     const {
@@ -1112,6 +1379,8 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         if (existing) setResultsTarget({ formId: existing.form.id, title: event.title, eventDate: event.event_date });
     };
 
+    const [currentPage, setCurrentPage] = useState(1);
+
     const eventTabs = [
         { id: 'All Items', label: 'All Items', count: events.length },
         { id: 'Activities', label: 'Activities', count: events.filter((item) => isVisibleForStaffFilter(item, 'Activities')).length },
@@ -1119,99 +1388,163 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         { id: 'Archived', label: 'Archived', count: archivedEvents.length }
     ];
 
+    const isArchivedTab = eventFilter === 'Archived';
+    const filteredEvents = isArchivedTab
+        ? archivedEvents
+        : events.filter((item: SystemEvent) => eventFilter === 'All Items' || isVisibleForStaffFilter(item, eventFilter));
+
+    const totalEvents = filteredEvents.length;
+    const totalPages = Math.max(1, Math.ceil(totalEvents / EVENTS_PAGE_SIZE));
+    const safePage = Math.min(Math.max(1, currentPage), totalPages);
+    const startItem = totalEvents === 0 ? 0 : (safePage - 1) * EVENTS_PAGE_SIZE + 1;
+    const endItem = Math.min(safePage * EVENTS_PAGE_SIZE, totalEvents);
+    const paginatedEvents = filteredEvents.slice((safePage - 1) * EVENTS_PAGE_SIZE, safePage * EVENTS_PAGE_SIZE);
+
     return (
         <>
-            <div>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div className="flex h-full min-h-0 flex-col gap-4">
+                {/* Header Banner (Dark Gradient) */}
+                <div
+                    style={{ background: 'linear-gradient(135deg, #1e0f40 0%, #2d1b69 100%)' }}
+                    className="rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0"
+                >
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Events & Announcements</h1>
-                        <p className="text-gray-500 text-sm mt-1">Manage campus activities and broadcast official notices.</p>
+                        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Events &amp; Announcements</h1>
+                        <p className="mt-1 text-xs md:text-sm font-medium text-purple-300/70">Manage campus activities and broadcast official notices.</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="secondary"
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        {/* Refresh Data */}
+                        <button
+                            type="button"
                             onClick={handleRefreshData}
                             disabled={isRefreshingData}
-                            isLoading={isRefreshingData}
-                            leftIcon={!isRefreshingData ? <RefreshCw size={16} /> : undefined}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm disabled:opacity-50 cursor-pointer"
                         >
-                            {isRefreshingData ? 'Refreshing...' : 'Refresh Data'}
-                        </Button>
-                        <Button
-                            variant="secondary"
+                            <RefreshCw size={14} className={isRefreshingData ? 'animate-spin' : ''} />
+                            <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                        </button>
+
+                        {/* Evaluation Templates */}
+                        <button
+                            type="button"
                             onClick={() => setShowTemplatesModal(true)}
-                            leftIcon={<ClipboardList size={16} />}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm cursor-pointer"
                         >
-                            Evaluation Templates
-                        </Button>
-                        <Button
-                            variant="primary"
+                            <ClipboardList size={14} />
+                            <span>Evaluation Templates</span>
+                        </button>
+
+                        {/* + Create New */}
+                        <button
+                            type="button"
                             onClick={() => {
                                 setEditingEventId(null);
                                 setNewEvent(createEmptyEvent());
                                 setShowEventModal(true);
                             }}
-                            leftIcon={<Plus size={14} />}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white text-xs font-bold transition-all duration-200 hover:shadow-md cursor-pointer"
                         >
-                            Create New
-                        </Button>
+                            <Plus size={14} className="stroke-[2.5]" />
+                            <span>Create New</span>
+                        </button>
                     </div>
                 </div>
 
-                {/* Filter Tabs */}
-                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="max-w-full overflow-x-auto rounded-full">
-                        <div className="inline-flex min-w-max items-center gap-1 rounded-full border border-gray-200/60 bg-white/60 p-1.5 shadow-sm backdrop-blur-xl">
-                            <AnimatePresence>
-                                {eventTabs.map((tab) => {
-                                    const isActive = eventFilter === tab.id;
-                                    return (
-                                        <button
-                                            key={tab.id}
-                                            type="button"
-                                            aria-pressed={isActive}
-                                            onClick={() => setEventFilter(tab.id)}
-                                            className={`relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-800'}`}
-                                        >
-                                            {isActive && (
-                                                <m.div
-                                                    layoutId="eventFilterBubble"
-                                                    className="absolute inset-0 -z-10 rounded-full bg-purple-600 shadow-md shadow-purple-200"
-                                                    transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                                                />
-                                            )}
-                                            {tab.id === 'Archived' && <Archive size={14} />}
-                                            <span>{tab.label}</span>
-                                            <span className={`text-xs ${isActive ? 'rounded-full bg-white/20 px-1.5 py-0.5 text-white' : 'rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-500'}`}>{tab.count}</span>
-                                        </button>
-                                    );
-                                })}
-                            </AnimatePresence>
-                        </div>
+                {/* White Toolbar */}
+                <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 px-5 md:px-6 py-3 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+                    <div className="flex items-center gap-2 overflow-x-auto py-0.5 max-w-full">
+                        {eventTabs.map((tab) => {
+                            const isActive = eventFilter === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    aria-pressed={isActive}
+                                    onClick={() => {
+                                        setEventFilter(tab.id);
+                                        setCurrentPage(1);
+                                    }}
+                                    className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border transition-all duration-150 shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+                                        isActive
+                                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    {tab.id === 'Archived' && (
+                                        <Archive size={13} className={isActive ? 'text-white' : 'text-gray-400'} />
+                                    )}
+                                    <span>{tab.label}</span>
+                                    <span
+                                        className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold ${
+                                            isActive
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-gray-100 text-gray-500'
+                                        }`}
+                                    >
+                                        {tab.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
-                    <span className="self-start rounded-md border border-gray-200 bg-white px-3 py-1 text-xs font-bold text-gray-400 sm:self-auto">
+                    <span className="text-xs font-semibold text-gray-400 shrink-0 self-end sm:self-auto">
                         {eventFilter === 'Archived' ? `Archived: ${archivedEvents.length}` : `Active: ${events.length}`}
                     </span>
                 </div>
 
-                <EventListSection
-                    eventFilter={eventFilter}
-                    events={events}
-                    archivedEvents={archivedEvents}
-                    canArchiveRecords={canArchiveRecords}
-                    handleEditEvent={handleEditEvent}
-                    onOpenExtend={onOpenExtend}
-                    onOpenReschedule={onOpenReschedule}
-                    handleViewAttendees={handleViewAttendees}
-                    handleViewAbsent={(item: SystemEvent) => handleViewAttendees(item, 'absent')}
-                    handleViewRegistrants={handleViewRegistrants}
-                    handleViewFeedback={handleViewFeedback}
-                    setDetailEvent={setDetailEvent}
-                    handleDeleteEvent={handleDeleteEvent}
-                    evaluations={evaluations}
-                    handleBuildEvaluation={handleBuildEvaluation}
-                    handleViewEvaluationResults={handleViewEvaluationResults}
-                />
+                {/* Content Area */}
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
+                    <EventListSection
+                        eventFilter={eventFilter}
+                        events={events}
+                        archivedEvents={archivedEvents}
+                        displayItems={paginatedEvents}
+                        isArchivedTab={isArchivedTab}
+                        canArchiveRecords={canArchiveRecords}
+                        handleEditEvent={handleEditEvent}
+                        onOpenExtend={onOpenExtend}
+                        onOpenReschedule={onOpenReschedule}
+                        handleViewAttendees={handleViewAttendees}
+                        handleViewAbsent={(item: SystemEvent) => handleViewAttendees(item, 'absent')}
+                        handleViewRegistrants={handleViewRegistrants}
+                        handleViewFeedback={handleViewFeedback}
+                        setDetailEvent={setDetailEvent}
+                        handleDeleteEvent={handleDeleteEvent}
+                        evaluations={evaluations}
+                        handleBuildEvaluation={handleBuildEvaluation}
+                        handleViewEvaluationResults={handleViewEvaluationResults}
+                    />
+                </div>
+
+                {/* Pagination Container */}
+                <div className="bg-white border border-slate-200/80 rounded-2xl md:rounded-3xl px-5 md:px-6 py-3 flex items-center justify-between text-xs text-gray-500 shrink-0 shadow-xs">
+                    <div>
+                        Showing <span className="font-bold text-gray-900">{totalEvents === 0 ? 0 : `${startItem}–${endItem}`}</span> of <span className="font-bold text-gray-900">{totalEvents}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                            disabled={isRefreshingData || safePage <= 1}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+                        <span className="text-xs font-semibold text-gray-700 px-1">
+                            {safePage} / {totalPages}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                            disabled={isRefreshingData || safePage >= totalPages}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
+                            aria-label="Next page"
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Event Modal - Enhanced for Create/Edit */}

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock, MapPin, RefreshCw } from 'lucide-react';
+import { Calendar, CalendarDays, Clock, Filter, MapPin, MessageSquare, RefreshCw, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { getDepartmentInterviewQueue } from '../../services/deptService';
 import { COUNSELING_STATUS, getCounselingScheduledDate } from '../../utils/workflow';
@@ -74,8 +75,6 @@ const ACCENT_STYLES = {
         muted: 'bg-purple-50 text-purple-700 border-purple-100'
     }
 } as const;
-
-import { useQuery } from '@tanstack/react-query';
 
 const StaffCalendarPage = ({
     scope,
@@ -239,127 +238,207 @@ const StaffCalendarPage = ({
         events: items.filter((item) => item.type === 'Event').length
     }), [items]);
 
+    const kpiCards = [
+        {
+            label: 'INTERVIEWS',
+            value: summary.interviews,
+            color: 'text-purple-600',
+            bgColor: 'bg-purple-50',
+            iconColor: 'text-purple-400',
+            icon: Users
+        },
+        {
+            label: 'COUNSELING',
+            value: summary.counseling,
+            color: 'text-blue-600',
+            bgColor: 'bg-blue-50',
+            iconColor: 'text-blue-400',
+            icon: MessageSquare
+        },
+        {
+            label: 'EVENTS',
+            value: summary.events,
+            color: 'text-emerald-600',
+            bgColor: 'bg-emerald-50',
+            iconColor: 'text-emerald-400',
+            icon: Calendar
+        }
+    ];
+
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex h-full min-h-0 flex-col gap-4 animate-fade-in">
+            {/* Header Banner (Dark Gradient) */}
+            <div
+                style={{
+                    background: accent === 'emerald'
+                        ? 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)'
+                        : 'linear-gradient(135deg, #1e0f40 0%, #2d1b69 100%)'
+                }}
+                className={`rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-md border flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0 ${
+                    accent === 'emerald' ? 'border-emerald-900/40' : 'border-purple-900/40'
+                }`}
+            >
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Calendar View</h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <h1 className="text-2xl font-bold tracking-tight text-white">Calendar View</h1>
+                    <p className={`mt-1 text-xs md:text-sm font-medium ${
+                        accent === 'emerald' ? 'text-emerald-200/70' : 'text-purple-300/70'
+                    }`}>
                         Simple upcoming list for interviews, counseling schedules, and events.
                     </p>
                 </div>
-                <button type="button"
+                <button
+                    type="button"
                     onClick={() => void loadCalendarItems()}
                     disabled={isLoading}
-                    className={`inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-700 border shadow-sm disabled:opacity-50 ${styles.button}`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm disabled:opacity-50 cursor-pointer self-start md:self-auto"
                 >
-                    <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                    <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
                     <span>{isLoading ? 'Refreshing...' : 'Refresh Calendar'}</span>
                 </button>
             </div>
 
+            {/* KPI / Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                    { label: 'Interviews', value: summary.interviews },
-                    { label: 'Counseling', value: summary.counseling },
-                    { label: 'Events', value: summary.events }
-                ].map((card) => (
-                    <div key={card.label} className={`rounded-2xl border p-5 bg-white/80 backdrop-blur-sm shadow-sm ${styles.muted}`}>
-                        <p className="text-xs font-bold uppercase tracking-wide">{card.label}</p>
-                        <p className="mt-3 text-3xl font-extrabold text-gray-900">{card.value}</p>
-                    </div>
-                ))}
-            </div>
-
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm p-4 md:p-5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                    <select
-                        aria-label="Filter calendar items by type"
-                        value={selectedType}
-                        onChange={(event) => setSelectedType(event.target.value as 'All' | CalendarItemType)}
-                        className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700"
-                    >
-                        <option value="All">All Types</option>
-                        <option value="Interview">Interviews</option>
-                        <option value="Counseling">Counseling</option>
-                        <option value="Event">Events</option>
-                    </select>
-                    <input
-                        aria-label="Filter calendar items by date"
-                        type="date"
-                        value={selectedDate}
-                        onChange={(event) => setSelectedDate(event.target.value)}
-                        className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700"
-                    />
-                    {(selectedType !== 'All' || selectedDate) && (
-                        <button type="button"
-                            onClick={() => {
-                                setSelectedType('All');
-                                setSelectedDate('');
-                            }}
-                            className="text-sm font-semibold text-red-600 hover:text-red-700"
+                {kpiCards.map((card) => {
+                    const IconComponent = card.icon;
+                    return (
+                        <div
+                            key={card.label}
+                            className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 p-5 md:p-6 shadow-xs flex items-center justify-between"
                         >
-                            Reset Filters
-                        </button>
-                    )}
-                </div>
+                            <div>
+                                <p className={`text-[11px] font-bold tracking-wider uppercase ${card.color}`}>
+                                    {card.label}
+                                </p>
+                                <p className="mt-1 text-3xl md:text-4xl font-extrabold text-gray-900">
+                                    {card.value}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-400 font-medium">
+                                    upcoming
+                                </p>
+                            </div>
+                            <div className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center ${card.bgColor} ${card.iconColor}`}>
+                                <IconComponent size={20} className="stroke-[1.75]" />
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                    <h2 className="font-bold text-gray-900">Upcoming Schedule</h2>
-                </div>
+            {/* Filter Toolbar */}
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 px-5 md:px-6 py-3.5 shadow-xs flex items-center gap-3.5 flex-wrap">
+                <Filter size={18} className="text-gray-400 shrink-0" />
+                <select
+                    aria-label="Filter calendar items by type"
+                    value={selectedType}
+                    onChange={(event) => setSelectedType(event.target.value as 'All' | CalendarItemType)}
+                    className="rounded-xl border border-gray-200 bg-white px-3.5 py-1.5 text-xs md:text-sm text-gray-700 font-medium hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer"
+                >
+                    <option value="All">All Types</option>
+                    <option value="Interview">Interviews</option>
+                    <option value="Counseling">Counseling</option>
+                    <option value="Event">Events</option>
+                </select>
+                <input
+                    aria-label="Filter calendar items by date"
+                    type="date"
+                    value={selectedDate}
+                    onChange={(event) => setSelectedDate(event.target.value)}
+                    className="rounded-xl border border-gray-200 bg-white px-3.5 py-1.5 text-xs md:text-sm text-gray-700 font-medium hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer"
+                />
+                {(selectedType !== 'All' || selectedDate) && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedType('All');
+                            setSelectedDate('');
+                        }}
+                        className="text-xs font-semibold text-purple-600 hover:text-purple-700 hover:underline ml-auto md:ml-2"
+                    >
+                        Reset Filters
+                    </button>
+                )}
+            </div>
 
+            {/* Upcoming Schedule Section Header */}
+            <div className="flex items-center gap-2 px-1 pt-1">
+                <Clock size={18} className={accent === 'emerald' ? 'text-emerald-600' : 'text-purple-600'} />
+                <h2 className="text-base font-bold text-gray-900">Upcoming Schedule</h2>
+            </div>
+
+            {/* Upcoming Schedule Card */}
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 shadow-xs min-h-[340px] flex flex-col justify-center overflow-hidden">
                 {error ? (
-                    <div className="px-5 py-10 text-sm text-red-600">{error}</div>
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-red-600">
+                        <p className="text-sm font-semibold">{error}</p>
+                    </div>
                 ) : isLoading ? (
-                    <div className="px-5 py-10 text-sm text-gray-500">Loading calendar items...</div>
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500">
+                        <RefreshCw size={24} className="animate-spin text-purple-500 mb-2" />
+                        <p className="text-sm font-medium">Loading calendar items...</p>
+                    </div>
                 ) : filteredItems.length === 0 ? (
-                    <div className="px-5 py-10 text-sm text-gray-500">No upcoming items found for the selected filters.</div>
+                    <div className="flex flex-col items-center justify-center p-12 md:p-16 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-300 mb-3 shadow-xs">
+                            <Calendar size={22} className="text-gray-300 stroke-[1.5]" />
+                        </div>
+                        <p className="text-sm font-bold text-gray-800">
+                            No upcoming items found for the selected filters.
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            Try changing the type or clearing the date filter.
+                        </p>
+                    </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-left text-sm">
-                            <thead className="bg-gray-50 border-b border-gray-100">
+                            <thead className="bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-5 py-3 font-semibold text-gray-600">Date</th>
-                                    <th className="px-5 py-3 font-semibold text-gray-600">Type</th>
-                                    <th className="px-5 py-3 font-semibold text-gray-600">Item</th>
-                                    <th className="px-5 py-3 font-semibold text-gray-600">Location / Notes</th>
-                                    <th className="px-5 py-3 font-semibold text-gray-600">Status</th>
+                                    <th className="px-6 py-3.5">Date</th>
+                                    <th className="px-6 py-3.5">Type</th>
+                                    <th className="px-6 py-3.5">Item</th>
+                                    <th className="px-6 py-3.5">Location / Notes</th>
+                                    <th className="px-6 py-3.5">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {filteredItems.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-50/70">
-                                        <td className="px-5 py-4 align-top">
-                                            <div className="flex items-start gap-2">
-                                                <CalendarDays size={16} className={`mt-0.5 ${styles.icon}`} />
+                                    <tr key={item.id} className="hover:bg-gray-50/70 transition-colors">
+                                        <td className="px-6 py-4 align-top">
+                                            <div className="flex items-start gap-2.5">
+                                                <CalendarDays size={16} className={`mt-0.5 shrink-0 ${styles.icon}`} />
                                                 <div>
                                                     <p className="font-semibold text-gray-900">{item.dateLabel}</p>
-                                                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                                        <Clock size={12} />
+                                                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                                        <Clock size={12} className="shrink-0" />
                                                         {item.timeLabel}
                                                     </p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-4 align-top">
-                                            <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-700">
+                                        <td className="px-6 py-4 align-top">
+                                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                                                item.type === 'Interview'
+                                                    ? 'bg-purple-50 text-purple-700 border-purple-200/60'
+                                                    : item.type === 'Counseling'
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200/60'
+                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                                            }`}>
                                                 {item.type}
                                             </span>
                                         </td>
-                                        <td className="px-5 py-4 align-top">
+                                        <td className="px-6 py-4 align-top">
                                             <p className="font-semibold text-gray-900">{item.title}</p>
-                                            <p className="text-xs text-gray-500 mt-1">{item.details || 'No additional details'}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5">{item.details || 'No additional details'}</p>
                                         </td>
-                                        <td className="px-5 py-4 align-top">
-                                            <p className="text-sm text-gray-700 flex items-start gap-1">
-                                                <MapPin size={14} className="mt-0.5 text-gray-400" />
+                                        <td className="px-6 py-4 align-top">
+                                            <p className="text-sm text-gray-700 flex items-start gap-1.5">
+                                                <MapPin size={14} className="mt-0.5 text-gray-400 shrink-0" />
                                                 <span>{item.location}</span>
                                             </p>
                                         </td>
-                                        <td className="px-5 py-4 align-top">
-                                            <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                                        <td className="px-6 py-4 align-top">
+                                            <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
                                                 {item.status}
                                             </span>
                                         </td>

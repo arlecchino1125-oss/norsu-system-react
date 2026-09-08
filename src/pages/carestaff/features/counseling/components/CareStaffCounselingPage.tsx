@@ -3,6 +3,8 @@ import { m } from 'framer-motion';
 import {
     Calendar,
     CheckCircle,
+    ChevronLeft,
+    ChevronRight,
     ClipboardList,
     Clock,
     Eye,
@@ -31,11 +33,43 @@ import {
     type CounselingEvaluationResponse
 } from '../counselingEvaluationService';
 import { useCareStaffCounseling } from '../hooks/useCareStaffCounseling';
+import { COUNSELING_REQUESTS_PAGE_SIZE } from '../counselingData';
 
 interface CareStaffCounselingPageProps {
     functions: any;
     refreshSignal?: number;
 }
+
+const getInitials = (name?: string | null) => {
+    if (!name) return 'ST';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'ST';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
+
+const COUNSELING_TAB_ACTIVE_STYLES: Record<string, { pill: string; badge: string }> = {
+    [COUNSELING_STATUS.REFERRED]: {
+        pill: 'bg-purple-600 text-white border-purple-600 shadow-xs',
+        badge: 'bg-purple-800 text-white'
+    },
+    [COUNSELING_STATUS.STAFF_SCHEDULED]: {
+        pill: 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs',
+        badge: 'bg-blue-100 text-blue-800'
+    },
+    [COUNSELING_STATUS.SUBMITTED]: {
+        pill: 'bg-orange-50 text-orange-700 border-orange-200 shadow-xs',
+        badge: 'bg-orange-100 text-orange-800'
+    },
+    [COUNSELING_STATUS.SCHEDULED]: {
+        pill: 'bg-teal-50 text-teal-700 border-teal-200 shadow-xs',
+        badge: 'bg-teal-100 text-teal-800'
+    },
+    [COUNSELING_STATUS.COMPLETED]: {
+        pill: 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs',
+        badge: 'bg-emerald-100 text-emerald-800'
+    }
+};
 
 const staggerContainer = {
     hidden: { opacity: 0 },
@@ -279,57 +313,37 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
         }
     }, [counselingTab, loadEvaluations, refreshSignal]);
 
-    // KPI Cards configuration for interactive direct filtering
-    const KPI_ITEMS = [
+    const counselingTabs = [
         {
             id: COUNSELING_STATUS.REFERRED,
-            label: 'FORWARDED',
-            count: counselingCounts[COUNSELING_STATUS.REFERRED] || 0,
-            icon: <Send size={15} />,
-            color: 'text-purple-600',
-            activeBorder: 'border-purple-400 bg-purple-50/40'
+            label: 'Forwarded',
+            count: counselingCounts[COUNSELING_STATUS.REFERRED] || 0
         },
         {
             id: COUNSELING_STATUS.STAFF_SCHEDULED,
-            label: 'STAFF SCHEDULED',
-            count: counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0,
-            icon: <Calendar size={15} />,
-            color: 'text-blue-500',
-            activeBorder: 'border-blue-400 bg-blue-50/40'
+            label: 'Staff Scheduled',
+            count: counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0
         },
         {
             id: COUNSELING_STATUS.SUBMITTED,
-            label: 'AWAITING COLLEGE',
-            count: counselingCounts.awaitingDept || 0,
-            icon: <Clock size={15} />,
-            color: 'text-orange-500',
-            activeBorder: 'border-orange-400 bg-orange-50/40'
+            label: 'Awaiting College',
+            count: counselingCounts.awaitingDept || 0
         },
         {
             id: COUNSELING_STATUS.SCHEDULED,
-            label: 'COLLEGE SCHEDULED',
-            count: counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0,
-            icon: <Calendar size={15} />,
-            color: 'text-blue-500',
-            activeBorder: 'border-blue-400 bg-blue-50/40'
+            label: 'College Scheduled',
+            count: counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0
         },
         {
             id: COUNSELING_STATUS.COMPLETED,
-            label: 'COMPLETED',
-            count: counselingCounts[COUNSELING_STATUS.COMPLETED] || 0,
-            icon: <CheckCircle size={15} />,
-            color: 'text-emerald-500',
-            activeBorder: 'border-emerald-400 bg-emerald-50/40'
-        },
-        {
-            id: COUNSELING_STATUS.REJECTED,
-            label: 'REJECTED',
-            count: counselingCounts[COUNSELING_STATUS.REJECTED] || 0,
-            icon: <XCircle size={15} />,
-            color: 'text-red-500',
-            activeBorder: 'border-red-400 bg-red-50/40'
+            label: 'Completed',
+            count: counselingCounts[COUNSELING_STATUS.COMPLETED] || 0
         }
     ];
+
+    const totalPages = Math.max(1, Math.ceil(counselingTotal / COUNSELING_REQUESTS_PAGE_SIZE));
+    const startItem = counselingTotal === 0 ? 0 : (currentPage - 1) * COUNSELING_REQUESTS_PAGE_SIZE + 1;
+    const endItem = Math.min(currentPage * COUNSELING_REQUESTS_PAGE_SIZE, counselingTotal);
 
     return (
         <>
@@ -417,41 +431,45 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                     </div>
                 </div>
 
-                {/* Interactive Clickable KPI Filter Cards */}
+                {/* White Toolbar */}
                 {counselingTab !== 'Calendar' && counselingTab !== 'Evaluations' && (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 shrink-0">
-                        {KPI_ITEMS.map((stat) => {
-                            const isSelected = counselingTab === stat.id;
-                            return (
-                                <button
-                                    type="button"
-                                    key={stat.id}
-                                    onClick={() => setCounselingTab(stat.id)}
-                                    className={`border-2 rounded-2xl px-4 py-3.5 transition-all duration-150 relative flex items-center justify-between text-left ${
-                                        isSelected
-                                            ? stat.activeBorder
-                                            : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'
-                                    }`}
-                                >
-                                    <div className="flex flex-col min-w-0">
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className={`shrink-0 ${stat.color}`}>{stat.icon}</span>
-                                            <span className={`truncate text-[10px] font-extrabold uppercase tracking-wider ${isSelected ? stat.color : 'text-slate-400'}`}>
-                                                {stat.label}
-                                            </span>
-                                        </div>
-                                        <span className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
-                                            {stat.count}
-                                        </span>
-                                    </div>
-                                    <span
-                                        className={`h-2 w-2 shrink-0 rounded-full bg-slate-900 transition-opacity duration-150 ${
-                                            isSelected ? 'opacity-100' : 'opacity-0'
+                    <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 px-5 md:px-6 py-3 shadow-xs flex items-center justify-between gap-3 shrink-0">
+                        {/* Status pills (horizontal row, left side) */}
+                        <div className="flex items-center gap-2 overflow-x-auto py-0.5 max-w-full">
+                            {counselingTabs.map((tab) => {
+                                const isActive = counselingTab === tab.id;
+                                const activeStyle = COUNSELING_TAB_ACTIVE_STYLES[tab.id] || {
+                                    pill: 'bg-purple-600 text-white border-purple-600 shadow-xs',
+                                    badge: 'bg-purple-800 text-white'
+                                };
+                                return (
+                                    <button
+                                        type="button"
+                                        key={tab.id}
+                                        onClick={() => {
+                                            setCounselingTab(tab.id);
+                                            setCurrentPage(1);
+                                        }}
+                                        className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border transition-all duration-150 shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+                                            isActive
+                                                ? activeStyle.pill
+                                                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                                         }`}
-                                    />
-                                </button>
-                            );
-                        })}
+                                    >
+                                        <span>{tab.label}</span>
+                                        <span
+                                            className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold ${
+                                                isActive
+                                                    ? activeStyle.badge
+                                                    : 'bg-gray-100 text-gray-500'
+                                            }`}
+                                        >
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
 
@@ -471,89 +489,128 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                         <div className="min-h-0 flex-1 overflow-auto p-4">
                             <CalendarView requests={counselingReqs} />
                         </div>
-                    ) : loading ? (
-                        <div className="flex min-h-0 flex-1 items-center justify-center p-8 text-sm font-medium text-slate-500">
-                            Loading counseling requests...
-                        </div>
-                    ) : visibleCounselingReqs.length === 0 ? (
-                        <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
-                                <Users size={28} />
-                            </div>
-                            <p className="mt-3 text-base font-bold text-slate-800">No requests found</p>
-                            <p className="mt-1 text-xs text-slate-400">No records currently match this filter.</p>
-                        </div>
                     ) : (
-                        <div className="flex min-h-0 flex-1 flex-col">
-                            <div className="min-h-0 flex-1 overflow-auto" style={{ scrollbarWidth: 'thin' }}>
-                                <m.table variants={staggerContainer} initial="hidden" animate="show" aria-label="Counseling requests" className="w-full text-left border-collapse">
-                                    <thead className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50/95 text-[10px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-sm">
-                                        <tr>
-                                            <th className="px-5 py-3.5 w-[30%]">Student Details</th>
-                                            <th className="px-5 py-3.5 w-[20%]">Referral Info</th>
-                                            <th className="px-5 py-3.5 w-[14%]">Request Date</th>
-                                            <th className="px-5 py-3.5 w-[14%]">Scheduled Date</th>
-                                            <th className="px-5 py-3.5 w-[12%]">Status</th>
-                                            <th className="px-5 py-3.5 text-right w-[10%] min-w-[140px]">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-                                        {visibleCounselingReqs.map((req) => (
-                                            <m.tr variants={itemReveal} key={req.id} className="transition-colors hover:bg-purple-50/30">
-                                                <td className="px-5 py-3.5 min-w-0">
-                                                    <div className="font-bold text-slate-900 truncate">{toTitleCase(req.student_name, '—')}</div>
-                                                    <div className="text-[11px] text-slate-400 truncate">{req.course_year || '—'} · ID: {req.student_id}</div>
-                                                </td>
-                                                <td className="px-5 py-3.5 min-w-0">
-                                                    <div className="font-bold text-purple-700 truncate">{req.referred_by || 'Student Self-Referral'}</div>
-                                                    <div className="text-[11px] text-slate-400 truncate max-w-xs">{req.reason_for_referral || req.description || '—'}</div>
-                                                </td>
-                                                <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap text-xs">{formatDate(req.created_at)}</td>
-                                                <td className="px-5 py-3.5 whitespace-nowrap text-xs">
-                                                    {getCounselingScheduledDate(req) ? (
-                                                        <span className="inline-flex items-center gap-1 font-bold text-indigo-700">
-                                                            <Calendar size={13} /> {new Date(getCounselingScheduledDate(req) as string).toLocaleDateString()}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-slate-400 italic">Not scheduled</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-5 py-3.5 whitespace-nowrap">
-                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${getCounselingStatusTone(req.status)}`}>
-                                                        {getCounselingStatusLabel(req.status)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        <Button variant="ghost" size="sm" onClick={() => handleViewProfile(req.student_id)} leftIcon={<User size={13} />} className="rounded-xl border border-slate-200 text-xs font-semibold px-2.5 py-1 text-slate-600 hover:bg-slate-50 hover:text-purple-600">
-                                                            Profile
-                                                        </Button>
-                                                        <Button variant="secondary" size="sm" onClick={() => { setViewFormReq(req); setShowCounselingFormModal(true); setFormModalView('referral'); }} leftIcon={<Eye size={13} />} className="rounded-xl border border-slate-200 bg-white text-xs font-semibold px-2.5 py-1 text-slate-700 hover:bg-slate-50">
-                                                            View Form
-                                                        </Button>
-                                                        {isCareStaffCounselingSchedulable(req.status) && (
-                                                            <Button
-                                                                variant="primary"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setSelectedApp(req);
-                                                                    setScheduleData({ date: '', time: '', location: 'CARE Center Office', notes: '' });
-                                                                    setShowScheduleModal(true);
-                                                                }}
-                                                                leftIcon={<Calendar size={13} />}
-                                                                className="rounded-xl bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-purple-700"
-                                                            >
-                                                                Schedule
-                                                            </Button>
+                        <>
+                            {loading ? (
+                                <div className="flex min-h-0 flex-1 items-center justify-center p-8 text-sm font-medium text-slate-500">
+                                    Loading counseling requests...
+                                </div>
+                            ) : visibleCounselingReqs.length === 0 ? (
+                                <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+                                        <Users size={28} />
+                                    </div>
+                                    <p className="mt-3 text-base font-bold text-slate-800">No requests found</p>
+                                    <p className="mt-1 text-xs text-slate-400">No records currently match this filter.</p>
+                                </div>
+                            ) : (
+                                <div className="min-h-0 flex-1 overflow-auto" style={{ scrollbarWidth: 'thin' }}>
+                                    <m.table variants={staggerContainer} initial="hidden" animate="show" aria-label="Counseling requests" className="w-full text-left border-collapse">
+                                        <thead className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50/95 text-[11px] font-bold uppercase tracking-widest text-slate-400 backdrop-blur-sm">
+                                            <tr>
+                                                <th scope="col" className="px-6 py-3.5 w-[28%]">Student</th>
+                                                <th scope="col" className="px-6 py-3.5 w-[22%]">Referral Info</th>
+                                                <th scope="col" className="px-6 py-3.5 w-[14%]">Date Filed</th>
+                                                <th scope="col" className="px-6 py-3.5 w-[14%]">Scheduled Date</th>
+                                                <th scope="col" className="px-6 py-3.5 w-[12%]">Status</th>
+                                                <th scope="col" className="px-6 py-3.5 text-right w-[10%] min-w-[140px]">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                                            {visibleCounselingReqs.map((req) => (
+                                                <m.tr variants={itemReveal} key={req.id} className="transition-colors hover:bg-purple-50/30">
+                                                    <td className="px-6 py-4 min-w-0">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-xs text-purple-600">
+                                                                {getInitials(req.student_name)}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="font-bold text-slate-900 leading-snug">{toTitleCase(req.student_name, '—')}</p>
+                                                                <p className="text-xs text-slate-400 truncate">{req.course_year || '—'} · ID: {req.student_id}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 min-w-0">
+                                                        <div className="font-bold text-purple-700 truncate">{req.referred_by || 'Student Self-Referral'}</div>
+                                                        <div className="text-xs text-slate-400 truncate max-w-xs">{req.reason_for_referral || req.description || '—'}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-slate-500 whitespace-nowrap text-sm">{formatDate(req.created_at)}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                        {getCounselingScheduledDate(req) ? (
+                                                            <span className="inline-flex items-center gap-1 font-bold text-indigo-700">
+                                                                <Calendar size={13} /> {new Date(getCounselingScheduledDate(req) as string).toLocaleDateString()}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-400 italic">Not scheduled</span>
                                                         )}
-                                                    </div>
-                                                </td>
-                                            </m.tr>
-                                        ))}
-                                    </tbody>
-                                </m.table>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${getCounselingStatusTone(req.status)}`}>
+                                                            {getCounselingStatusLabel(req.status)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <Button variant="ghost" size="sm" onClick={() => handleViewProfile(req.student_id)} leftIcon={<User size={13} />} className="rounded-xl border border-slate-200 text-xs font-semibold px-2.5 py-1 text-slate-600 hover:bg-slate-50 hover:text-purple-600">
+                                                                Profile
+                                                            </Button>
+                                                            <Button variant="secondary" size="sm" onClick={() => { setViewFormReq(req); setShowCounselingFormModal(true); setFormModalView('referral'); }} leftIcon={<Eye size={13} />} className="rounded-xl border border-slate-200 bg-white text-xs font-semibold px-2.5 py-1 text-slate-700 hover:bg-slate-50">
+                                                                View Form
+                                                            </Button>
+                                                            {isCareStaffCounselingSchedulable(req.status) && (
+                                                                <Button
+                                                                    variant="primary"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setSelectedApp(req);
+                                                                        setScheduleData({ date: '', time: '', location: 'CARE Center Office', notes: '' });
+                                                                        setShowScheduleModal(true);
+                                                                    }}
+                                                                    leftIcon={<Calendar size={13} />}
+                                                                    className="rounded-xl bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-purple-700"
+                                                                >
+                                                                    Schedule
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </m.tr>
+                                            ))}
+                                        </tbody>
+                                    </m.table>
+                                </div>
+                            )}
+
+                            {/* Pagination Footer */}
+                            <div className="mt-auto bg-gray-50/50 border-t border-gray-100 rounded-b-2xl md:rounded-b-3xl px-6 py-3 flex items-center justify-between text-xs text-gray-500 shrink-0">
+                                <div>
+                                    Showing <span className="font-bold text-gray-900">{counselingTotal === 0 ? 0 : `${startItem}–${endItem}`}</span> of <span className="font-bold text-gray-900">{counselingTotal}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                        disabled={loading || isRefreshingData || currentPage <= 1}
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
+                                        aria-label="Previous page"
+                                    >
+                                        <ChevronLeft size={14} />
+                                    </button>
+                                    <span className="text-xs font-semibold text-gray-700 px-1">
+                                        {currentPage} / {totalPages}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                                        disabled={loading || isRefreshingData || currentPage >= totalPages}
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
+                                        aria-label="Next page"
+                                    >
+                                        <ChevronRight size={14} />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        </>
                     )}
                 </div>
             </div>

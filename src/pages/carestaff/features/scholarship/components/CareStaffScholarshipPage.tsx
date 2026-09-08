@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Plus, Award, XCircle, Download, RefreshCw, Edit } from 'lucide-react';
+import { Plus, XCircle, Download, RefreshCw, Edit, User, Users } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
-import { Card } from '../../../../../components/ui/Card';
 import { useCareStaffScholarship } from '../hooks/useCareStaffScholarship';
 import type { CareStaffScholarshipPageProps } from '../hooks/useCareStaffScholarship';
 
@@ -216,81 +215,173 @@ const CareStaffScholarshipPage = ({ functions }: CareStaffScholarshipPageProps) 
     };
 
     return (
-        <div>
-            {/* Main Page Content */}
-            <div className="flex justify-between items-center mb-8">
+        <div className="relative flex h-full min-h-0 flex-col gap-4 animate-fade-in">
+            {/* Header Banner (Dark Gradient) */}
+            <div
+                style={{ background: 'linear-gradient(135deg, #1e0f40 0%, #2d1b69 100%)' }}
+                className="rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0"
+            >
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Scholarship Management</h1>
-                    <p className="text-gray-500 text-sm mt-1">Manage active scholarships and view applicants.</p>
+                    <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Scholarship Management</h1>
+                    <p className="mt-1 text-xs md:text-sm font-medium text-purple-300/70">Manage active scholarships and view applicants.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="secondary"
-                        isLoading={isRefreshingData}
-                        leftIcon={!isRefreshingData ? <RefreshCw size={16} /> : undefined}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                        type="button"
                         onClick={handleRefreshData}
                         disabled={isRefreshingData}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm disabled:opacity-50 cursor-pointer"
                     >
-                        {isRefreshingData ? 'Refreshing...' : 'Refresh Data'}
-                    </Button>
-                    <Button variant="primary" leftIcon={<Plus size={14} />} onClick={openAddScholarship}>
-                        Add Scholarship
-                    </Button>
+                        <RefreshCw size={14} className={isRefreshingData ? 'animate-spin' : ''} />
+                        <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={openAddScholarship}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
+                    >
+                        <Plus size={14} className="stroke-[2.5]" />
+                        <span>Add Scholarship</span>
+                    </button>
                 </div>
             </div>
 
-            <div className="mb-6 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm" role="tablist" aria-label="Scholarship status">
+            {/* Pill Tabs Toolbar */}
+            <div className="flex items-center gap-2.5" role="tablist" aria-label="Scholarship status">
                 <button
                     type="button"
                     role="tab"
                     aria-selected={section === 'active'}
-                    className={`min-h-10 rounded-lg px-4 text-sm font-bold transition-colors ${section === 'active' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                    aria-label={`Active (${parsedScholarships.length})`}
+                    className={`inline-flex items-center rounded-full px-4 py-1.5 text-xs transition-all cursor-pointer ${
+                        section === 'active'
+                            ? 'bg-purple-600 text-white shadow-sm border border-purple-600 font-bold'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 font-semibold'
+                    }`}
                     onClick={() => setSection('active')}
                 >
-                    Active ({parsedScholarships.length})
+                    <span>Active</span>
+                    <span
+                        className={`ml-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                            section === 'active' ? 'bg-purple-700 text-white' : 'bg-gray-100 text-gray-600'
+                        }`}
+                    >
+                        {parsedScholarships.length}
+                    </span>
                 </button>
                 <button
                     type="button"
                     role="tab"
                     aria-selected={section === 'closed'}
-                    className={`min-h-10 rounded-lg px-4 text-sm font-bold transition-colors ${section === 'closed' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                    aria-label={`Closed (${parsedClosedScholarships.length})`}
+                    className={`inline-flex items-center rounded-full px-4 py-1.5 text-xs transition-all cursor-pointer ${
+                        section === 'closed'
+                            ? 'bg-purple-600 text-white shadow-sm border border-purple-600 font-bold'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 font-semibold'
+                    }`}
                     onClick={() => setSection('closed')}
                 >
-                    Closed ({parsedClosedScholarships.length})
+                    <span>Closed</span>
+                    <span
+                        className={`ml-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                            section === 'closed' ? 'bg-purple-700 text-white' : 'bg-gray-100 text-gray-600'
+                        }`}
+                    >
+                        {parsedClosedScholarships.length}
+                    </span>
                 </button>
             </div>
 
+            {/* Content Area */}
             <section role="tabpanel" aria-label={`${section === 'active' ? 'Active' : 'Closed'} scholarships`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {visibleScholarships.map(s => (
-                    <Card key={s.id} hoverEffect className="p-6 flex flex-col justify-between cursor-pointer" onClick={() => setDetailScholarship(s)}>
-                        <div>
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-lg ${section === 'active' ? 'bg-gradient-to-br from-emerald-400 to-green-500 shadow-emerald-200' : 'bg-slate-500 shadow-slate-200'}`}>
-                                    <Award size={20} />
+                {visibleScholarships.length === 0 ? (
+                    <div className="rounded-2xl md:rounded-3xl border border-dashed border-gray-200 bg-white/60 p-12 md:p-16 min-h-[380px] flex flex-col items-center justify-center text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-400 mb-4 shadow-xs">
+                            <User size={22} className="text-purple-400 stroke-[1.5]" />
+                        </div>
+                        <p className="font-bold text-sm text-gray-800">
+                            {section === 'active' ? 'No active scholarships found.' : 'No closed scholarships found.'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            {section === 'active' ? 'Click "Add Scholarship" to create one.' : 'Closed scholarships will appear here.'}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {visibleScholarships.map((s) => (
+                            <div
+                                key={s.id}
+                                onClick={() => setDetailScholarship(s)}
+                                className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-purple-200/60 transition-all duration-200 cursor-pointer min-h-[190px]"
+                            >
+                                <div>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+                                            <User size={18} className="stroke-[1.75]" />
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1">
+                                            {section === 'closed' ? (
+                                                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600">
+                                                    Closed
+                                                </span>
+                                            ) : (
+                                                <span className="rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                                    Open
+                                                </span>
+                                            )}
+                                            <span className="text-xs text-gray-400 font-medium">
+                                                Deadline: {s.deadline ? new Date(s.deadline).toLocaleDateString() : 'N/A'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <h3 className="font-bold text-sm md:text-[15px] text-gray-900 leading-snug line-clamp-3 mt-3 mb-4 hover:text-purple-600 transition-colors">
+                                        {s.title}
+                                    </h3>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    {section === 'closed' && <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">Closed</span>}
-                                    <div className="rounded bg-gray-50 px-2 py-1 text-xs font-bold text-gray-500">
-                                        Deadline: {s.deadline ? new Date(s.deadline).toLocaleDateString() : 'N/A'}
+                                <div className="pt-3 border-t border-gray-100/80 flex items-center justify-between text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleViewApplicants(s);
+                                        }}
+                                        className="flex items-center gap-1.5 font-medium text-gray-500 hover:text-purple-600 transition-colors cursor-pointer"
+                                    >
+                                        <Users size={14} className="text-gray-400" />
+                                        <span>View Applicants</span>
+                                    </button>
+                                    <div className="flex items-center gap-3">
+                                        {section === 'active' && (
+                                            <button
+                                                type="button"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    openEditScholarship(s);
+                                                }}
+                                                title="Edit Scholarship"
+                                                className="flex items-center gap-1 font-medium text-purple-600 hover:text-purple-700 transition-colors cursor-pointer"
+                                            >
+                                                <Edit size={13} />
+                                                <span>Edit</span>
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleExportApplicantsForScholarship(s);
+                                            }}
+                                            className="flex items-center gap-1.5 font-medium text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer"
+                                        >
+                                            <Download size={14} className="text-emerald-500" />
+                                            <span>Export</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                            <h3 className="font-bold text-lg text-gray-900 mb-4">{s.title}</h3>
-                        </div>
-                        <div className="pt-4 border-t border-gray-50 flex gap-2">
-                            <Button variant="ghost" size="sm" className="flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100" onClick={(event) => { event.stopPropagation(); handleViewApplicants(s); }}>View Applicants</Button>
-                            {section === 'active' && <Button variant="ghost" size="sm" className="bg-purple-50 text-purple-700 hover:bg-purple-100" leftIcon={<Edit size={14} />} onClick={(event) => { event.stopPropagation(); openEditScholarship(s); }} title="Edit Scholarship">Edit</Button>}
-                            <Button variant="ghost" size="sm" className="bg-green-50 text-green-700 hover:bg-green-100" onClick={(event) => { event.stopPropagation(); handleExportApplicantsForScholarship(s); }}>Export</Button>
-                        </div>
-                    </Card>
-                ))}
-                {visibleScholarships.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                        <p>{section === 'active' ? 'No active scholarships found. Click "Add Scholarship" to create one.' : 'No closed scholarships yet.'}</p>
+                        ))}
                     </div>
                 )}
-            </div>
             </section>
 
             {/* Modals */}

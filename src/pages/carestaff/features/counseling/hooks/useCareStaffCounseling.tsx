@@ -345,8 +345,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         + (counselingCounts[COUNSELING_STATUS.REFERRED] || 0)
         + (counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0)
         + (counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0)
-        + (counselingCounts[COUNSELING_STATUS.COMPLETED] || 0)
-        + (counselingCounts[COUNSELING_STATUS.REJECTED] || 0);
+        + (counselingCounts[COUNSELING_STATUS.COMPLETED] || 0);
 
     const visibleCounselingReqs = counselingReqs.filter(r =>
         counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingDept(r.status)

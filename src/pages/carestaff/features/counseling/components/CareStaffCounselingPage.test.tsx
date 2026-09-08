@@ -77,4 +77,29 @@ describe('CareStaffCounselingPage', () => {
         expect(screen.getByRole('button', { name: 'Profile' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'View Form' })).toBeInTheDocument();
     });
+
+    it('renders the status pills toolbar without rejected tab and displays the pagination footer', () => {
+        render(<CareStaffCounselingPage functions={{} as any} />);
+
+        // Status pills toolbar
+        expect(screen.getByRole('button', { name: /Forwarded 1/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Staff Scheduled 0/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Awaiting College 0/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /College Scheduled 0/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Completed 0/i })).toBeInTheDocument();
+
+        // No rejected tab
+        expect(screen.queryByRole('button', { name: /Rejected/i })).not.toBeInTheDocument();
+
+        // Student details and avatar
+        expect(screen.getByText('Alex Reyes')).toBeInTheDocument();
+        expect(screen.getByText('AR')).toBeInTheDocument();
+        expect(screen.getByText(/42010001/)).toBeInTheDocument();
+
+        // Pagination footer
+        expect(screen.getByText(/Showing/i)).toBeInTheDocument();
+        expect(screen.getByText('1–1')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+    });
 });

@@ -82,4 +82,35 @@ describe('CareStaffScholarshipPage', () => {
             expect(field).toHaveClass('resize-y');
         });
     });
+
+    it('renders the header banner with title, subtitle, refresh button, and add button', () => {
+        render(<CareStaffScholarshipPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByRole('heading', { level: 1, name: 'Scholarship Management' })).toBeInTheDocument();
+        expect(screen.getByText('Manage active scholarships and view applicants.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Refresh Data/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Add Scholarship/i })).toBeInTheDocument();
+    });
+
+    it('renders the empty state matching the design when there are no active scholarships', () => {
+        mockUseCareStaffScholarship.mockReturnValueOnce({
+            ...mockUseCareStaffScholarship(),
+            parsedScholarships: []
+        });
+
+        render(<CareStaffScholarshipPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByText('No active scholarships found.')).toBeInTheDocument();
+        expect(screen.getByText('Click "Add Scholarship" to create one.')).toBeInTheDocument();
+    });
+
+    it('renders card with actions for view applicants, edit, and export', () => {
+        render(<CareStaffScholarshipPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByText('Active Scholarship')).toBeInTheDocument();
+        expect(screen.getByText('Open')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /View Applicants/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^Edit$/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^Export$/i })).toBeInTheDocument();
+    });
 });

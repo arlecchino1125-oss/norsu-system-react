@@ -1,7 +1,9 @@
 import Modal from '../../../../../components/ui/Modal';
+import { m } from 'framer-motion';
 import {
-    CheckCircle, Send, Eye,
-    Filter, ClipboardList, GraduationCap, XCircle, Download, Paperclip, RefreshCw
+    CheckCircle, Send,
+    Filter, GraduationCap, XCircle, Download, Paperclip, RefreshCw,
+    Edit, ChevronLeft, ChevronRight, Users
 } from 'lucide-react';
 import StatusBadge from '../../../../../components/StatusBadge';
 import LoadingSkeleton from '../../../../../components/ui/LoadingSkeleton';
@@ -12,14 +14,79 @@ import {
     openStoredAsset,
     parseCareNotesPayload
 } from '../../../../../utils/storageAssets';
-import type { CareStaffDashboardFunctions } from '../../../types';
 import { SUPPORT_STATUS } from '../../../../../utils/workflow';
-import PaginationControls from '../../../../../components/PaginationControls';
 import { Button } from '../../../../../components/ui/Button';
 import { useCareStaffSupport } from '../hooks/useCareStaffSupport';
 import type { CareStaffSupportPageProps } from '../hooks/useCareStaffSupport';
 import { SUPPORT_REQUESTS_PAGE_SIZE } from '../supportData';
 import { SUPPORT_DOCUMENT_ACCEPT } from '../../../../../utils/inputSecurity';
+
+const staggerContainer = {
+    hidden: { opacity: 0 },
+    show: {
+        opacity: 1,
+        transition: { staggerChildren: 0.04 }
+    }
+};
+
+const itemReveal = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.2 } }
+};
+
+const getInitials = (name?: string | null) => {
+    if (!name) return 'ST';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'ST';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
+
+const TAB_ACTIVE_STYLES: Record<string, { pill: string; badge: string }> = {
+    [SUPPORT_STATUS.SUBMITTED]: {
+        pill: 'bg-purple-600 text-white border-purple-600 shadow-xs',
+        badge: 'bg-purple-800 text-white'
+    },
+    [SUPPORT_STATUS.FORWARDED_TO_DEPT]: {
+        pill: 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs',
+        badge: 'bg-blue-100 text-blue-800'
+    },
+    [SUPPORT_STATUS.VISIT_SCHEDULED]: {
+        pill: 'bg-teal-50 text-teal-700 border-teal-200 shadow-xs',
+        badge: 'bg-teal-100 text-teal-800'
+    },
+    'dept_updates': {
+        pill: 'bg-orange-50 text-orange-700 border-orange-200 shadow-xs',
+        badge: 'bg-orange-100 text-orange-800'
+    },
+    [SUPPORT_STATUS.COMPLETED]: {
+        pill: 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs',
+        badge: 'bg-emerald-100 text-emerald-800'
+    }
+};
+
+const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+        case SUPPORT_STATUS.SUBMITTED:
+            return 'bg-purple-50 text-purple-700 border-purple-200';
+        case SUPPORT_STATUS.FORWARDED_TO_DEPT:
+            return 'bg-blue-50 text-blue-700 border-blue-200';
+        case SUPPORT_STATUS.VISIT_SCHEDULED:
+            return 'bg-teal-50 text-teal-700 border-teal-200';
+        case SUPPORT_STATUS.RESOLVED_BY_DEPT:
+            return 'bg-teal-50 text-teal-700 border-teal-200';
+        case SUPPORT_STATUS.REFERRED_TO_CARE:
+            return 'bg-orange-50 text-orange-700 border-orange-200';
+        case SUPPORT_STATUS.APPROVED:
+            return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        case SUPPORT_STATUS.REJECTED:
+            return 'bg-rose-50 text-rose-700 border-rose-200';
+        case SUPPORT_STATUS.COMPLETED:
+            return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        default:
+            return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+};
 
 
 /** Full-screen review modal for one support request, with status-dependent staff actions. */
@@ -314,124 +381,206 @@ const CareStaffSupportPage = ({ functions, refreshSignal = 0 }: CareStaffSupport
         renderDetailedDescription
     } = useCareStaffSupport({ functions, refreshSignal });
 
+    const totalPages = Math.max(1, Math.ceil(supportTotal / SUPPORT_REQUESTS_PAGE_SIZE));
+    const startItem = supportTotal === 0 ? 0 : (currentPage - 1) * SUPPORT_REQUESTS_PAGE_SIZE + 1;
+    const endItem = Math.min(currentPage * SUPPORT_REQUESTS_PAGE_SIZE, supportTotal);
+
     return (
         <>
-            <div className="flex min-h-full flex-col">
-                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex h-full min-h-0 flex-col gap-4">
+                {/* Header Toolbar (Dark Gradient) */}
+                <div
+                    style={{ background: 'linear-gradient(135deg, #1e0f40 0%, #2d1b69 100%)' }}
+                    className="bg-gradient-to-r from-[#170529] via-[#2a0b4d] to-[#170529] rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 shrink-0"
+                >
                     <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <ClipboardList size={24} className="text-purple-600" />
-                            <h1 className="text-2xl font-bold text-gray-900">Additional Support Management</h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Additional Support Management</h1>
+                            <span className="rounded-full bg-white/10 border border-white/15 px-2.5 py-0.5 text-xs font-semibold text-purple-200">
+                                {supportTotal} Total
+                            </span>
                         </div>
-                        <p className="text-gray-500 text-sm">Manage and respond to student support requests across all categories</p>
+                        <p className="mt-1 text-xs md:text-sm font-medium text-purple-200/80">Manage and respond to student support requests across all categories.</p>
                     </div>
-                    <Button
-                        variant="secondary"
+
+                    <button
+                        type="button"
                         onClick={handleRefreshData}
                         disabled={isRefreshingData}
-                        isLoading={isRefreshingData}
-                        leftIcon={<RefreshCw size={16} />}
-                        className="shadow-sm hover:text-purple-600"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm disabled:opacity-50 self-start xl:self-auto cursor-pointer"
                     >
-                        {isRefreshingData ? 'Refreshing...' : 'Refresh Data'}
-                    </Button>
+                        <RefreshCw size={14} className={isRefreshingData ? 'animate-spin' : ''} />
+                        <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
+                    </button>
                 </div>
 
-                <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="max-w-full overflow-x-auto">
-                        <div className="inline-flex min-w-max items-center gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-sm">
-                            {supportTabs.map((tab) => {
-                                const isActive = supportTab === tab.id;
-                                return (
-                                    <button
-                                        type="button"
-                                        key={tab.id}
-                                        onClick={() => setSupportTab(tab.id)}
-                                        className={`rounded-full px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 ${isActive ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}
+                {/* White Toolbar */}
+                <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 px-5 md:px-6 py-3 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-3 shrink-0">
+                    {/* Status pills (horizontal row, left side) */}
+                    <div className="flex items-center gap-2 overflow-x-auto py-0.5 max-w-full">
+                        {supportTabs.map((tab) => {
+                            const isActive = supportTab === tab.id;
+                            const activeStyle = TAB_ACTIVE_STYLES[tab.id] || {
+                                pill: 'bg-purple-600 text-white border-purple-600 shadow-xs',
+                                badge: 'bg-purple-800 text-white'
+                            };
+                            return (
+                                <button
+                                    type="button"
+                                    key={tab.id}
+                                    onClick={() => {
+                                        setSupportTab(tab.id);
+                                        setCurrentPage(1);
+                                    }}
+                                    className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold border transition-all duration-150 shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+                                        isActive
+                                            ? activeStyle.pill
+                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <span>{tab.label}</span>
+                                    <span
+                                        className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold ${
+                                            isActive
+                                                ? activeStyle.badge
+                                                : 'bg-gray-100 text-gray-500'
+                                        }`}
                                     >
-                                        {tab.label}
-                                        <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{tab.count}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                        {tab.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    <label className="flex w-fit items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
-                        <Filter size={16} className="text-gray-400" />
+                    {/* Category filter dropdown far right */}
+                    <label className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 shadow-xs hover:border-gray-300 transition-colors self-start md:self-auto shrink-0">
+                        <Filter size={14} className="text-gray-400 shrink-0" />
                         <span className="sr-only">Support category</span>
-                        <select aria-label="Filter support requests by category" value={supportCategory} onChange={e => setSupportCategory(e.target.value)} className="cursor-pointer bg-transparent text-sm font-semibold text-gray-700 focus:outline-none">
-                            {['All', 'Working Student Support', 'Indigenous Persons Support', 'Orphan Support', 'Financial Hardship'].map(c => <option key={c} value={c}>{c}</option>)}
+                        <select
+                            aria-label="Filter support requests by category"
+                            value={supportCategory}
+                            onChange={(e) => {
+                                setSupportCategory(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="cursor-pointer bg-transparent text-xs font-medium text-gray-700 focus:outline-none pr-1"
+                        >
+                            {['All', 'Working Student Support', 'Indigenous Persons Support', 'Orphan Support', 'Financial Hardship'].map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
                         </select>
                     </label>
                 </div>
 
-                {supportLoading ? (
-                    <LoadingSkeleton type="table" count={5} />
-                ) : visibleSupportReqs.length > 0 ? (
-                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[800px] text-left text-sm">
-                                <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {/* Main Content Area (White Card) */}
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl md:rounded-3xl border border-slate-200/80 bg-white shadow-sm">
+                    {supportLoading ? (
+                        <div className="p-6">
+                            <LoadingSkeleton type="table" count={5} />
+                        </div>
+                    ) : visibleSupportReqs.length > 0 ? (
+                        <div className="min-h-0 flex-1 overflow-auto" style={{ scrollbarWidth: 'thin' }}>
+                            <m.table variants={staggerContainer} initial="hidden" animate="show" aria-label="Support requests" className="w-full text-left border-collapse">
+                                <thead className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50/95 text-[11px] font-bold uppercase tracking-widest text-slate-400 backdrop-blur-sm">
                                     <tr>
-                                        <th scope="col" className="px-4 py-3">Student</th>
-                                        <th scope="col" className="px-4 py-3">Support categories</th>
-                                        <th scope="col" className="whitespace-nowrap px-4 py-3">Date filed</th>
-                                        <th scope="col" className="px-4 py-3">Status</th>
-                                        <th scope="col" className="px-4 py-3 text-right">Action</th>
+                                        <th scope="col" className="px-6 py-3.5 w-[28%]">Student</th>
+                                        <th scope="col" className="px-6 py-3.5 w-[28%]">Support Categories</th>
+                                        <th scope="col" className="px-6 py-3.5 w-[18%]">Date Filed</th>
+                                        <th scope="col" className="px-6 py-3.5 w-[16%]">Status</th>
+                                        <th scope="col" className="px-6 py-3.5 w-[100px] text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {visibleSupportReqs.map(req => (
-                                        <tr key={req.id} className="transition-colors hover:bg-gray-50/80">
-                                            <td className="px-4 py-3">
+                                <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                                    {visibleSupportReqs.map((req) => (
+                                        <m.tr variants={itemReveal} key={req.id} className="transition-colors hover:bg-purple-50/20">
+                                            <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-purple-100 bg-purple-50">
-                                                        <GraduationCap size={17} className="text-purple-600" />
+                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-xs text-purple-600">
+                                                        {getInitials(req.student_name)}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-semibold text-gray-900">{toTitleCase(req.student_name, '—')}</p>
-                                                        <p className="text-xs text-gray-500">{req.student_id}</p>
+                                                        <p className="font-bold text-slate-900 leading-snug">{toTitleCase(req.student_name, '—')}</p>
+                                                        <p className="font-mono text-xs text-slate-400">{req.student_id}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex max-w-md flex-wrap gap-1">
+                                            <td className="px-6 py-4">
+                                                <div className="flex max-w-md flex-wrap gap-1.5">
                                                     {req.support_type ? req.support_type.split(', ').map((cat: string) => (
-                                                        <span key={cat} className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">{cat}</span>
-                                                    )) : <span className="text-xs text-gray-500">None specified</span>}
+                                                        <span
+                                                            key={cat}
+                                                            className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600"
+                                                        >
+                                                            {cat}
+                                                        </span>
+                                                    )) : (
+                                                        <span className="text-xs text-gray-400">None specified</span>
+                                                    )}
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-4 py-3 text-gray-600">{formatDate(req.created_at)}</td>
-                                            <td className="whitespace-nowrap px-4 py-3"><StatusBadge status={req.status} /></td>
-                                            <td className="whitespace-nowrap px-4 py-3 text-right">
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    onClick={() => openSupportModal(req)}
-                                                    leftIcon={req.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? <Eye size={14} /> : <ClipboardList size={14} />}
-                                                    className="min-h-9 hover:text-purple-600"
-                                                >
-                                                    {req.status === SUPPORT_STATUS.FORWARDED_TO_DEPT ? 'View' : 'Manage'}
-                                                </Button>
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
+                                                {formatDate(req.created_at)}
                                             </td>
-                                        </tr>
+                                            <td className="whitespace-nowrap px-6 py-4">
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadgeClass(req.status)}`}>
+                                                    {req.status}
+                                                </span>
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-4 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openSupportModal(req)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-purple-300 hover:text-purple-700 cursor-pointer"
+                                                >
+                                                    <Edit size={13} className="shrink-0" />
+                                                    <span>Manage</span>
+                                                </button>
+                                            </td>
+                                        </m.tr>
                                     ))}
                                 </tbody>
-                            </table>
+                            </m.table>
+                        </div>
+                    ) : (
+                        <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-12 text-center">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 mb-3">
+                                <Users size={28} />
+                            </div>
+                            <p className="text-base font-bold text-slate-800">No requests found</p>
+                            <p className="mt-1 text-xs text-slate-400">No records currently match this filter.</p>
+                        </div>
+                    )}
+
+                    {/* Pagination Footer */}
+                    <div className="mt-auto bg-gray-50/50 border-t border-gray-100 rounded-b-2xl md:rounded-b-3xl px-6 py-3 flex items-center justify-between text-xs text-gray-500 shrink-0">
+                        <div>
+                            Showing <span className="font-bold text-gray-900">{supportTotal === 0 ? 0 : `${startItem}–${endItem}`}</span> of <span className="font-bold text-gray-900">{supportTotal}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                disabled={supportLoading || isRefreshingData || currentPage <= 1}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
+                                aria-label="Previous page"
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            <span className="text-xs font-semibold text-gray-700 px-1">
+                                {currentPage} / {totalPages}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                                disabled={supportLoading || isRefreshingData || currentPage >= totalPages}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
+                                aria-label="Next page"
+                            >
+                                <ChevronRight size={14} />
+                            </button>
                         </div>
                     </div>
-                ) : (
-                    <p className="rounded-xl border border-dashed border-gray-200 bg-white py-10 text-center text-sm text-gray-500">No requests found in this stage.</p>
-                )}
-                <div className="mt-auto rounded-xl border border-gray-100 shadow-sm">
-                    <PaginationControls
-                        page={currentPage}
-                        pageSize={SUPPORT_REQUESTS_PAGE_SIZE}
-                        total={supportTotal}
-                        isLoading={supportLoading || isRefreshingData}
-                        onPageChange={setCurrentPage}
-                    />
                 </div>
             </div>
 
