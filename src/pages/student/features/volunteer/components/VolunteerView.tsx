@@ -7,6 +7,7 @@ const StudentVolunteerForm = lazy(() => import('./StudentVolunteerForm'));
 const VolunteerTimeLog = lazy(() => import('./VolunteerTimeLog'));
 const PeerLogbook = lazy(() => import('./PeerLogbook'));
 const CareActivitiesLogbook = lazy(() => import('./CareActivitiesLogbook'));
+const PeerEventsSection = lazy(() => import('./PeerEventsSection'));
 
 const VolunteerGuidelines = [
     {
@@ -150,6 +151,13 @@ export default function VolunteerView({
                         studentId={personalInfo.studentId}
                         peerName={[personalInfo.firstName, personalInfo.lastName].filter(Boolean).join(' ')}
                         programYearSection={[personalInfo.course, personalInfo.year, personalInfo.section].filter(Boolean).join(' / ')}
+                        showToast={showToast}
+                    />
+                </Suspense>
+
+                <Suspense fallback={null}>
+                    <PeerEventsSection
+                        personalInfo={personalInfo}
                         showToast={showToast}
                     />
                 </Suspense>

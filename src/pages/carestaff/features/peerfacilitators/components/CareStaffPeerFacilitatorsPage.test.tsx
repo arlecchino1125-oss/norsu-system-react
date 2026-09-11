@@ -125,4 +125,13 @@ describe('CareStaffPeerFacilitatorsPage layout', () => {
         const dialog = expectFullRegionDialog('Reynel Repaso');
         expect(within(dialog).getByText('Total for the day')).toBeInTheDocument();
     });
+
+    it('renders the Evaluations tab and switches to peer evaluations view', () => {
+        renderPage();
+        const evalTab = screen.getByRole('tab', { name: 'Evaluations' });
+        expect(evalTab).toBeInTheDocument();
+
+        fireEvent.click(evalTab);
+        expect(screen.getByText('Peer Facilitator Event Evaluations')).toBeInTheDocument();
+    });
 });

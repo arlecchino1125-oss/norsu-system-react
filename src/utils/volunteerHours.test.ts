@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatHours, sessionDate, sessionHours, splitAmPm, totalHours } from './volunteerHours';
+import { formatHours, getVolunteerAutoTimeoutAt, sessionDate, sessionHours, splitAmPm, totalHours } from './volunteerHours';
 
 describe('volunteerHours', () => {
     it('counts a closed session and ignores an open one', () => {
@@ -46,4 +46,17 @@ describe('volunteerHours', () => {
         const local = new Date(2026, 6, 22, 9, 0, 0);
         expect(sessionDate(local.toISOString())).toBe('2026-07-22');
     });
+
+    it('calculates auto time-out at 12:30 PM for morning shifts and 5:30 PM for afternoon shifts', () => {
+        const morningIn = new Date(2026, 6, 22, 8, 30, 0);
+        const morningTimeout = getVolunteerAutoTimeoutAt(morningIn.toISOString());
+        expect(morningTimeout.getHours()).toBe(12);
+        expect(morningTimeout.getMinutes()).toBe(30);
+
+        const afternoonIn = new Date(2026, 6, 22, 13, 15, 0);
+        const afternoonTimeout = getVolunteerAutoTimeoutAt(afternoonIn.toISOString());
+        expect(afternoonTimeout.getHours()).toBe(17);
+        expect(afternoonTimeout.getMinutes()).toBe(30);
+    });
 });
+

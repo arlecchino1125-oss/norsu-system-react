@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getEventWindows, isEventConcluded } from './eventWindows';
+import { EVENT_AUTO_TIMEOUT_MS, getEventAutoTimeoutAt, getEventWindows, isEventConcluded } from './eventWindows';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -79,3 +79,14 @@ describe('isEventConcluded', () => {
         })).toBe(true);
     });
 });
+
+describe('getEventAutoTimeoutAt', () => {
+    it('calculates auto time-out at exactly 30 minutes after event end time', () => {
+        const timeout = getEventAutoTimeoutAt(shortEvent);
+        expect(timeout).not.toBeNull();
+        const { end } = getEventWindows(shortEvent);
+        expect(timeout!.getTime() - end!.getTime()).toBe(30 * 60 * 1000);
+        expect(EVENT_AUTO_TIMEOUT_MS).toBe(30 * 60 * 1000);
+    });
+});
+

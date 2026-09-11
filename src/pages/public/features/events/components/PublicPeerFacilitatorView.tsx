@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { HeartHandshake, Download, Send, Clock, BookOpen, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { HeartHandshake, Download, Send, Clock, BookOpen, Calendar, ChevronLeft, ChevronRight, ClipboardCheck, MapPin, CheckCircle } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
 import PeerLogbookMonth from '../../../../../components/peerLogbook/PeerLogbookMonth';
 import CareActivitiesLogbookMonth from '../../../../../components/careActivitiesLogbook/CareActivitiesLogbookMonth';
@@ -16,7 +16,8 @@ import {
     monthStartOf,
     shouldPromptSubmit
 } from '../../../../../utils/peerLogbook';
-import { toTitleCase } from '../../../../../utils/formatters';
+import { formatDate, toTitleCase } from '../../../../../utils/formatters';
+import { supabase } from '../../../../../lib/supabase';
 import {
     getPublicPeerAttendance,
     submitPublicPeerTimeIn,
@@ -26,8 +27,13 @@ import {
     deletePublicPeerLogEntry,
     submitPublicPeerLogbook,
     searchPublicStudentsForPeer,
+    timeInPublicEvent,
+    timeOutPublicEvent,
+    getPublicPeerEvents,
+    type PublicPeerEvent,
     type PublicStudent
 } from '../publicEventsService';
+import PublicEvaluationModal from './PublicEvaluationModal';
 
 interface PublicPeerFacilitatorViewProps {
     identity: { student: PublicStudent };
@@ -49,8 +55,47 @@ export default function PublicPeerFacilitatorView({
     const queryClient = useQueryClient();
     const studentId = identity.student.student_id;
 
-    const [activeTab, setActiveTab] = useState<'hours' | 'peer_support' | 'care_activities'>('hours');
+    const [activeTab, setActiveTab] = useState<'hours' | 'peer_support' | 'care_activities' | 'events_evaluations'>('hours');
     const [monthKey, setMonthKey] = useState(() => monthKeyOf(new Date()));
+    const [evaluatingEvent, setEvaluatingEvent] = useState<{ id: number; title: string } | null>(null);
+    const [eventActionLoadingId, setEventActionLoadingId] = useState<number | null>(null);
+
+    // 0. Peer Facilitator Events Query
+    const {
+        data: peerEvents = [],
+        isLoading: isPeerEventsLoading,
+        refetch: refetchPeerEvents
+    } = useQuery({
+        queryKey: ['public-peer-events', studentId],
+        queryFn: () => getPublicPeerEvents(studentId),
+        enabled: Boolean(studentId)
+    });
+
+    const handlePeerEventTimeIn = async (eventId: number) => {
+        setEventActionLoadingId(eventId);
+        try {
+            const res = await timeInPublicEvent(eventId, studentId, true);
+            showToast(res.message || 'Timed in successfully!', 'success');
+            await refetchPeerEvents();
+        } catch (err: any) {
+            showToast(err.message || 'Failed to time in.', 'error');
+        } finally {
+            setEventActionLoadingId(null);
+        }
+    };
+
+    const handlePeerEventTimeOut = async (eventId: number) => {
+        setEventActionLoadingId(eventId);
+        try {
+            const res = await timeOutPublicEvent(eventId, studentId);
+            showToast(res.message || 'Timed out successfully!', 'success');
+            await refetchPeerEvents();
+        } catch (err: any) {
+            showToast(err.message || 'Failed to time out.', 'error');
+        } finally {
+            setEventActionLoadingId(null);
+        }
+    };
 
     // 1. Volunteer Hours Attendance Query
     const {
@@ -328,6 +373,18 @@ export default function PublicPeerFacilitatorView({
                     <Calendar size={15} />
                     <span>CARE Activities</span>
                 </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('events_evaluations')}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 transition-all ${
+                        activeTab === 'events_evaluations'
+                            ? 'bg-white text-emerald-700 shadow-sm font-black'
+                            : 'hover:text-slate-900'
+                    }`}
+                >
+                    <ClipboardCheck size={15} />
+                    <span>Events &amp; Evaluations</span>
+                </button>
             </div>
 
             {/* 3. Tab Content: Volunteer Hours */}
@@ -571,6 +628,152 @@ export default function PublicPeerFacilitatorView({
                         onDeleteEntry={handleDeleteCareEntry}
                     />
                 </section>
+            )}
+
+            {/* 6. Tab Content: Peer Events & Evaluations */}
+            {activeTab === 'events_evaluations' && (
+                <section className="space-y-4 animate-fade-in">
+                    <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Activities &amp; Evaluations</p>
+                                <h3 className="mt-1 text-lg font-black text-slate-950 sm:text-xl">Peer Facilitator Dedicated Events</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Record your attendance for peer-specific trainings or seminars, and complete the evaluation form.
+                                </p>
+                            </div>
+                        </div>
+
+                        {isPeerEventsLoading ? (
+                            <div className="py-12 text-center text-xs text-slate-400 font-medium">
+                                Loading peer facilitator events...
+                            </div>
+                        ) : peerEvents.length === 0 ? (
+                            <div className="py-12 text-center">
+                                <ClipboardCheck size={36} className="mx-auto text-slate-300 mb-2" />
+                                <h4 className="text-sm font-bold text-slate-700">No Peer Events Scheduled</h4>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    Any events organized specifically for Peer Facilitators will appear here.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {peerEvents.map((event: PublicPeerEvent) => {
+                                    const isTimedIn = Boolean(event.time_in && !event.time_out);
+                                    const isCompletedAttendance = Boolean(event.time_in && event.time_out);
+                                    const isActionLoading = eventActionLoadingId === event.id;
+
+                                    return (
+                                        <div
+                                            key={event.id}
+                                            className="rounded-2xl border border-slate-200/80 p-4 sm:p-5 transition hover:border-emerald-200 bg-slate-50/60 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                                        >
+                                            <div className="min-w-0 space-y-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h4 className="font-bold text-sm text-slate-900">{event.title}</h4>
+                                                    {isTimedIn && (
+                                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                                                            Timed In
+                                                        </span>
+                                                    )}
+                                                    {isCompletedAttendance && (
+                                                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                                            <CheckCircle size={10} className="text-emerald-600" />
+                                                            Attendance Completed
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {event.description && (
+                                                    <p className="text-xs text-slate-500 line-clamp-2">{event.description}</p>
+                                                )}
+
+                                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 pt-0.5">
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <Calendar size={12} className="text-slate-400" />
+                                                        {formatDate(event.event_date)}
+                                                    </span>
+                                                    {event.event_time && (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <Clock size={12} className="text-slate-400" />
+                                                            {event.event_time}
+                                                        </span>
+                                                    )}
+                                                    {event.location && (
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <MapPin size={12} className="text-slate-400" />
+                                                            {event.location}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                                {!event.time_in ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isActionLoading}
+                                                        onClick={() => handlePeerEventTimeIn(event.id)}
+                                                        className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
+                                                    >
+                                                        <Clock size={13} />
+                                                        <span>{isActionLoading ? 'Processing...' : 'Time In'}</span>
+                                                    </button>
+                                                ) : isTimedIn ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isActionLoading}
+                                                        onClick={() => handlePeerEventTimeOut(event.id)}
+                                                        className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
+                                                    >
+                                                        <Clock size={13} />
+                                                        <span>{isActionLoading ? 'Processing...' : 'Time Out'}</span>
+                                                    </button>
+                                                ) : null}
+
+                                                {event.form_id && event.form_is_active && (
+                                                    event.has_evaluated ? (
+                                                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-100 text-purple-700 text-xs font-bold">
+                                                            <CheckCircle size={13} className="text-purple-600" />
+                                                            Evaluation Submitted
+                                                        </span>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEvaluatingEvent({ id: event.id, title: event.title })}
+                                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+                                                        >
+                                                            <ClipboardCheck size={13} />
+                                                            <span>Evaluate Event</span>
+                                                        </button>
+                                                    )
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
+
+            {evaluatingEvent && (
+                <PublicEvaluationModal
+                    open={Boolean(evaluatingEvent)}
+                    eventId={evaluatingEvent.id}
+                    eventTitle={evaluatingEvent.title}
+                    studentId={studentId}
+                    onClose={() => setEvaluatingEvent(null)}
+                    onSubmitted={() => {
+                        showToast('Thank you! Your evaluation has been submitted.', 'success');
+                        setEvaluatingEvent(null);
+                        void refetchPeerEvents();
+                    }}
+                    showToast={(msg, type) => showToast(msg, type as 'success' | 'error' | undefined)}
+                />
             )}
         </div>
     );

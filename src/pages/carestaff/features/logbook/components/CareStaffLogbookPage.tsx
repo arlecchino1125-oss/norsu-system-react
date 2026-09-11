@@ -57,6 +57,7 @@ const CareStaffLogbookPage = ({ functions }: CareStaffLogbookPageProps) => {
     const { data: visitsResult = { rows: [], count: 0 }, isLoading: loading, refetch: fetchVisits } = useQuery({
         queryKey: ['care-staff-office-visits', currentPage],
         queryFn: async () => {
+            await (supabase.rpc as any)('auto_timeout_records');
             const from = (currentPage - 1) * OFFICE_VISITS_PAGE_SIZE;
             const to = from + OFFICE_VISITS_PAGE_SIZE - 1;
             const { data, count, error } = await supabase

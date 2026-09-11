@@ -80,6 +80,7 @@ export function useStudentEventActions({
     const [registeringEventId, setRegisteringEventId] = useState<string | null>(null);
     const [cancellingRegistrationEventId, setCancellingRegistrationEventId] = useState<string | null>(null);
     const [isSubmittingEventRating, setIsSubmittingEventRating] = useState(false);
+    const [audienceConfirmEvent, setAudienceConfirmEvent] = useState<any | null>(null);
 
     const fetchHistory = useCallback(async () => {
         if (!personalInfo.studentId) return;
@@ -220,10 +221,10 @@ export function useStudentEventActions({
         supabaseClient
     ]);
 
-    const handleTimeIn = useCallback(async (event: any) => {
+    const handleTimeIn = useCallback(async (event: any, confirmed = false) => {
         if (isTimingIn) return;
-        if (!isStudentEligibleForEvent(event, personalInfo)) {
-            showToast("This event is not available for your student group.", 'error');
+        if (!confirmed && !isStudentEligibleForEvent(event, personalInfo)) {
+            setAudienceConfirmEvent(event);
             return;
         }
         if (isRegistrationEvent(event) && !event.allow_walk_ins) {
@@ -511,6 +512,13 @@ export function useStudentEventActions({
         supabaseClient
     ]);
 
+    const handleConfirmTimeIn = useCallback(() => {
+        if (!audienceConfirmEvent) return;
+        const target = audienceConfirmEvent;
+        setAudienceConfirmEvent(null);
+        void handleTimeIn(target, true);
+    }, [audienceConfirmEvent, handleTimeIn]);
+
     return {
         attendanceMap,
         registrationMap,
@@ -525,6 +533,9 @@ export function useStudentEventActions({
         registeringEventId,
         cancellingRegistrationEventId,
         isSubmittingEventRating,
+        audienceConfirmEvent,
+        setAudienceConfirmEvent,
+        handleConfirmTimeIn,
         fetchHistory,
         fetchHistoryCached,
         handleRegisterEvent,

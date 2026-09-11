@@ -116,10 +116,11 @@ export const getPublicEventStatus = async (studentId: string): Promise<PublicEve
     return (data || []) as PublicEventStatus[];
 };
 
-export const timeInPublicEvent = async (eventId: number, studentId: string) => {
+export const timeInPublicEvent = async (eventId: number, studentId: string, confirmed: boolean = false) => {
     const { data, error } = await rpc('public_event_time_in', {
         p_event_id: eventId,
-        p_student_id: studentId
+        p_student_id: studentId,
+        p_confirmed: confirmed
     });
     if (error) throw error;
     return unwrap(data);
@@ -576,4 +577,33 @@ export const searchPublicStudentsForPeer = async (
     });
     if (error) throw error;
     return unwrap(data).students || [];
+};
+
+export interface PublicPeerEvent {
+    id: number;
+    title: string;
+    description: string | null;
+    event_date: string | null;
+    event_time: string | null;
+    end_time: string | null;
+    location: string | null;
+    audience_type: string;
+    time_in: string | null;
+    time_out: string | null;
+    form_id: number | null;
+    form_title: string | null;
+    form_is_active: boolean;
+    has_evaluated: boolean;
+}
+
+export const getPublicPeerEvents = async (studentId: string): Promise<PublicPeerEvent[]> => {
+    const { data, error } = await rpc('public_get_peer_events', {
+        p_student_id: studentId.trim()
+    });
+    if (error) throw error;
+    return (data || []) as PublicPeerEvent[];
+};
+
+export const autoTimeoutRecords = async (): Promise<void> => {
+    await rpc('auto_timeout_records');
 };

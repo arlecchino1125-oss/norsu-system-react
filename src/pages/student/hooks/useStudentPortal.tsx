@@ -413,7 +413,10 @@ export function useStudentPortal() {
         handleTimeIn,
         handleTimeOut,
         handleRateEvent,
-        submitRating
+        submitRating,
+        audienceConfirmEvent,
+        setAudienceConfirmEvent,
+        handleConfirmTimeIn
     } = useStudentEventActions({
         personalInfo,
         runDatasetRefresh,
@@ -809,6 +812,9 @@ export function useStudentPortal() {
         handleRegisterEvent,
         handleTimeIn,
         handleTimeOut,
+        audienceConfirmEvent,
+        setAudienceConfirmEvent,
+        handleConfirmTimeIn,
         isCompletingOfficeVisit,
         isStudentViewEnabled,
         isStudentViewVisible,

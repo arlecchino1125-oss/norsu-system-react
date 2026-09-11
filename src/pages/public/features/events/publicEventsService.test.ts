@@ -7,6 +7,7 @@ import {
     verifyPublicStudent,
     getPublicEvents,
     timeInPublicEvent,
+    getPublicPeerEvents,
     getPublicAssessmentForms,
     getPublicAssessmentFormQuestions,
     submitPublicAssessment,
@@ -37,7 +38,17 @@ describe('publicEventsService sends an id and never an email', () => {
     it('times in with the id alone', async () => {
         rpcMock.mockResolvedValue({ data: { success: true }, error: null });
         await timeInPublicEvent(7, '202600001');
-        expect(rpcMock).toHaveBeenCalledWith('public_event_time_in', { p_event_id: 7, p_student_id: '202600001' });
+        expect(rpcMock).toHaveBeenCalledWith('public_event_time_in', { p_event_id: 7, p_student_id: '202600001', p_confirmed: false });
+
+        await timeInPublicEvent(7, '202600001', true);
+        expect(rpcMock).toHaveBeenCalledWith('public_event_time_in', { p_event_id: 7, p_student_id: '202600001', p_confirmed: true });
+    });
+
+    it('fetches peer events via dedicated RPC', async () => {
+        rpcMock.mockResolvedValue({ data: [{ id: 38, title: 'sample meeting' }], error: null });
+        const events = await getPublicPeerEvents('202600001');
+        expect(rpcMock).toHaveBeenCalledWith('public_get_peer_events', { p_student_id: '202600001' });
+        expect(events).toEqual([{ id: 38, title: 'sample meeting' }]);
     });
 });
 describe('publicEventsService assessment + feedback sends an id and never an email', () => {

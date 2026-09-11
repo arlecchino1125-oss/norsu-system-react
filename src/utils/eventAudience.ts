@@ -1,6 +1,6 @@
 const GENERAL_ATTENDANCE_TYPES = ['Event', 'Seminar', 'Orientation', 'Meeting'] as const;
 export const EVENT_ACTIVITY_TYPES = [...GENERAL_ATTENDANCE_TYPES, 'Announcement'] as const;
-const EVENT_AUDIENCE_TYPES = ['all_students', 'filtered_students', 'graduating_students'] as const;
+const EVENT_AUDIENCE_TYPES = ['all_students', 'filtered_students', 'graduating_students', 'peer_facilitators'] as const;
 export const YEAR_LEVEL_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 export const SECTION_OPTIONS = ['A', 'B', 'C', 'D'];
 
@@ -23,6 +23,8 @@ type AudienceStudent = {
     year_level?: string | null;
     section?: string | null;
     status?: string | null;
+    is_peer?: boolean;
+    isFacilitator?: boolean;
 };
 
 const normalize = (value: unknown) => String(value ?? '').trim().toLowerCase();
@@ -87,6 +89,9 @@ const isGraduatingStudent = (student: AudienceStudent) => {
 export const isStudentEligibleForEvent = (event: AudienceEvent, student: AudienceStudent) => {
     const audienceType = getEventAudienceType(event);
     if (audienceType === 'all_students') return true;
+    if (audienceType === 'peer_facilitators') {
+        return Boolean(student?.is_peer || student?.isFacilitator);
+    }
 
     const departments = getAudienceValues(event, 'audience_departments');
     const courses = getAudienceValues(event, 'audience_courses');
@@ -129,6 +134,7 @@ export const isEventVisibleToDepartment = (event: AudienceEvent, department: unk
 export const getAudienceLabel = (event: AudienceEvent) => {
     const audienceType = getEventAudienceType(event);
     if (audienceType === 'all_students') return 'All students';
+    if (audienceType === 'peer_facilitators') return 'Peer Facilitators only';
 
     const parts: string[] = [];
     const departments = getAudienceValues(event, 'audience_departments');

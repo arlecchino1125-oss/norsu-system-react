@@ -13,6 +13,7 @@ import {
 } from '../publicEventsService';
 import { isEventConcluded } from '../../../../../utils/eventWindows';
 import { validateTextInput } from '../../../../../utils/inputSecurity';
+import { isStudentEligibleForEvent, getAudienceLabel } from '../../../../../utils/eventAudience';
 
 const CACHE_KEY = 'norsu_public_event_identity';
 const CACHE_DURATION = 20 * 60 * 1000;
@@ -146,15 +147,24 @@ export const usePublicEventActions = ({ identity, showToast, refreshStatus, refr
     const [showRatingModal, setShowRatingModal] = useState(false);
     const [ratingForm, setRatingForm] = useState(EMPTY_RATING_FORM);
     const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+    const [audienceConfirmEvent, setAudienceConfirmEvent] = useState<any | null>(null);
 
     // Both paths refresh the status on failure too. "Already timed in" means the
     // cached status is behind the database, and refetching is what corrects the
     // button instead of leaving it clickable and repeating the same error.
-    const handleTimeIn = useCallback(async (event: any) => {
+    const handleTimeIn = useCallback(async (event: any, confirmed = false) => {
         if (!identity || timingInEventId) return;
+        if (!confirmed && !isStudentEligibleForEvent(event, identity.student)) {
+            setAudienceConfirmEvent(event);
+            return;
+        }
         setTimingInEventId(event.id);
         try {
-            await timeInPublicEvent(Number(event.id), identity.student.student_id);
+            const res = await timeInPublicEvent(Number(event.id), identity.student.student_id, confirmed);
+            if (res && res.needs_confirmation && !confirmed) {
+                setAudienceConfirmEvent(event);
+                return;
+            }
             showToast('Time in successful.');
             await Promise.all([refreshStatus(), refreshEvents()]);
         } catch (err: any) {
@@ -164,6 +174,13 @@ export const usePublicEventActions = ({ identity, showToast, refreshStatus, refr
             setTimingInEventId(null);
         }
     }, [identity, refreshEvents, refreshStatus, showToast, timingInEventId]);
+
+    const handleConfirmTimeIn = useCallback(async () => {
+        if (!audienceConfirmEvent) return;
+        const target = audienceConfirmEvent;
+        setAudienceConfirmEvent(null);
+        await handleTimeIn(target, true);
+    }, [audienceConfirmEvent, handleTimeIn]);
 
     const handleTimeOut = useCallback(async (event: any) => {
         if (!identity || timingOutEventId) return;
@@ -236,6 +253,9 @@ export const usePublicEventActions = ({ identity, showToast, refreshStatus, refr
         ratingForm,
         setRatingForm,
         isSubmittingRating,
+        audienceConfirmEvent,
+        setAudienceConfirmEvent,
+        handleConfirmTimeIn,
         handleTimeIn,
         handleTimeOut,
         handleRateEvent,

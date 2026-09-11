@@ -108,6 +108,7 @@ export const getAudienceModeLabel = (event: SystemEvent) => {
     const audienceType = getEventAudienceType(event);
     if (audienceType === 'all_students') return 'All students';
     if (audienceType === 'graduating_students') return 'Graduating students';
+    if (audienceType === 'peer_facilitators') return 'Peer Facilitators';
     return 'Selected students';
 };
 
@@ -123,6 +124,7 @@ export const getAudienceBulletItems = (event: SystemEvent) => {
     const yearLevels = getAudienceValues(event, 'audience_year_levels');
     const sections = getAudienceValues(event, 'audience_sections');
 
+    if (audienceType === 'peer_facilitators') items.push('Peer Facilitators only');
     if (audienceType === 'graduating_students') items.push('Graduating students');
     if (departments.length > 0) items.push(`Departments: ${departments.join(', ')}`);
     if (courses.length > 0) items.push(`Courses: ${courses.join(', ')}`);

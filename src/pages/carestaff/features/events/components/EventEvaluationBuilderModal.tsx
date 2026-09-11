@@ -19,6 +19,7 @@ interface EventEvaluationBuilderModalProps {
     /** null builds a reusable template; a number builds that event's evaluation. */
     eventId: number | null;
     eventTitle?: string;
+    isPeerEvent?: boolean;
     existingForm?: EvaluationForm | null;
     showToast: (message: string, type?: string) => void;
     onSaved: () => void | Promise<void>;
@@ -60,6 +61,7 @@ export default function EventEvaluationBuilderModal({
     onClose,
     eventId,
     eventTitle,
+    isPeerEvent = false,
     existingForm,
     showToast,
     onSaved
@@ -90,7 +92,7 @@ export default function EventEvaluationBuilderModal({
                     setQuestions(loaded.length > 0 ? loaded : [createDraftQuestion()]);
                 } else {
                     if (!active) return;
-                    setTitle(isTemplate ? '' : `${eventTitle ?? 'Event'} Evaluation`);
+                    setTitle(isTemplate ? '' : isPeerEvent ? `${eventTitle ?? 'Peer Event'} - Peer Evaluation` : `${eventTitle ?? 'Event'} Evaluation`);
                     setDescription('');
                     setIsActive(true);
                     setQuestions([createDraftQuestion()]);
@@ -171,8 +173,8 @@ export default function EventEvaluationBuilderModal({
             open={open}
             onClose={onClose}
             size="xl"
-            title={isTemplate ? 'Evaluation Template' : 'Event Evaluation'}
-            subtitle={isTemplate ? 'Reusable across any event.' : eventTitle}
+            title={isTemplate ? 'Evaluation Template' : isPeerEvent ? 'Peer Facilitators Event Evaluation' : 'Event Evaluation'}
+            subtitle={isTemplate ? 'Reusable across any event.' : isPeerEvent ? `${eventTitle} · Dedicated for Peer Facilitators Only` : eventTitle}
             zIndex="z-[60]"
             footer={
                 <>
@@ -187,6 +189,16 @@ export default function EventEvaluationBuilderModal({
                 <p className="py-10 text-center text-sm text-gray-400">Loading…</p>
             ) : (
                 <div className="space-y-5">
+                    {isPeerEvent && (
+                        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3.5 py-2 text-xs text-emerald-900">
+                            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                                Peer Event
+                            </span>
+                            <span className="font-semibold">
+                                This evaluation form is linked specifically to this Peer Facilitators event and will appear in the Peer Facilitators portal.
+                            </span>
+                        </div>
+                    )}
                     <div className="grid gap-4 sm:grid-cols-2">
                         <label className="block">
                             <span className="mb-1 block text-xs font-bold text-gray-700">Title</span>

@@ -19,6 +19,7 @@ interface EventEvaluationResultsModalProps {
     formId: number;
     eventTitle: string;
     eventDate?: string | null;
+    isPeerEvent?: boolean;
     showToast: (message: string, type?: string) => void;
 }
 
@@ -41,6 +42,7 @@ export default function EventEvaluationResultsModal({
     formId,
     eventTitle,
     eventDate,
+    isPeerEvent = false,
     showToast
 }: EventEvaluationResultsModalProps) {
     const [form, setForm] = useState<EvaluationForm | null>(null);
@@ -166,7 +168,14 @@ export default function EventEvaluationResultsModal({
             anchorId="staff-content-region"
             title={selected ? (toTitleCase(selected.student_name) || selected.student_id) : (form?.title || 'Evaluation Results')}
             headerMeta={
-                <dl className="flex flex-wrap gap-x-5 gap-y-2 text-xs sm:justify-end sm:text-right">
+                <dl className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:justify-end sm:text-right">
+                    {isPeerEvent && (
+                        <div className="flex items-center">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10.5px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Peer Facilitators Only
+                            </span>
+                        </div>
+                    )}
                     <div>
                         <dt className="font-semibold text-slate-500">Event date</dt>
                         <dd className="font-bold text-slate-900">{formatDate(eventDate)}</dd>

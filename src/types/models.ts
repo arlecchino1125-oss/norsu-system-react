@@ -21,7 +21,7 @@ export interface SystemEvent {
     archived_at?: string | null;
     archived_by?: string | number | null;
     participation_mode?: 'general_attendance' | 'registration_required';
-    audience_type?: 'all_students' | 'filtered_students' | 'graduating_students';
+    audience_type?: 'all_students' | 'filtered_students' | 'graduating_students' | 'peer_facilitators';
     audience_departments?: string[];
     audience_courses?: string[];
     audience_year_levels?: string[];

@@ -75,3 +75,12 @@ export function isEventConcluded(event: any): boolean {
     // No parseable schedule (e.g. an announcement): fall back to a plain past-date check.
     return Boolean(event?.event_date) && event.event_date < new Date().toISOString().slice(0, 10);
 }
+
+export const EVENT_AUTO_TIMEOUT_MS = 30 * 60 * 1000;
+
+export function getEventAutoTimeoutAt(event: any): Date | null {
+    const { end } = getEventWindows(event);
+    if (!end) return null;
+    return new Date(end.getTime() + EVENT_AUTO_TIMEOUT_MS);
+}
+

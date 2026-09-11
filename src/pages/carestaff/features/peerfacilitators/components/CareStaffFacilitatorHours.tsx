@@ -85,6 +85,7 @@ export default function CareStaffFacilitatorHours({ refreshSignal = 0 }: CareSta
     const { data: sessions = [], isLoading } = useQuery({
         queryKey: ['care-staff-facilitator-hours', refreshSignal],
         queryFn: async () => {
+            await (supabase.rpc as any)('auto_timeout_records');
             const { data, error } = await supabase
                 .from('peer_facilitator_attendance')
                 .select(COLUMNS)

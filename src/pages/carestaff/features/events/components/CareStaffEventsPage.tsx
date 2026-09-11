@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, m } from 'framer-motion';
 import {
-    Plus, Calendar, Clock, MapPin, Users, UserX, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList, ChevronLeft, ChevronRight
+    Plus, Calendar, Clock, MapPin, Users, UserX, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList, ChevronLeft, ChevronRight, X
 } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
@@ -57,20 +57,45 @@ const getStudentName = (student: any) => [student.first_name, student.middle_nam
 
 const EventFormModal = ({
     newEvent, setNewEvent, editingEventId, setEditingEventId, createEvent, departmentOptions, courseOptions, getCurrentLocation, setShowEventModal, renderAudienceCheckboxGroup, applyScheduleField
-}: any) => (
-    <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4 sm:p-6">
-        <Card className="w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] animate-scale-in shadow-2xl">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-purple-50/30">
-                <h3 className="font-bold text-lg gradient-text">{editingEventId ? 'Edit Item' : 'Create New Item'}</h3>
-                <Button variant="ghost" size="sm" aria-label="Close event form" onClick={() => { setShowEventModal(false); setEditingEventId(null); }}><XCircle className="text-gray-400 hover:text-gray-600" /></Button>
-            </CardHeader>
-            <CardContent className="overflow-y-auto sm:p-8">
-                <form onSubmit={createEvent} className="space-y-5">
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                        <div><label htmlFor="event-category" className="block text-xs font-bold text-gray-500 mb-1">Category</label>
+}: any) => {
+    const isActivity = isAttendanceActivityType(newEvent.type);
+    const isRegistration = isRegistrationEvent(newEvent);
+    const hasFilteredAudience = newEvent.audience_type !== 'all_students' && newEvent.audience_type !== 'peer_facilitators';
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 lg:pl-64 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+            <div className="w-full max-w-2xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh] animate-scale-in">
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/70 shrink-0">
+                    <div>
+                        <h3 className="text-base font-bold text-slate-900">
+                            {editingEventId ? 'Edit Item' : 'Create New Item'}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            {isActivity ? 'Fill in event schedule, audience, and attendance settings.' : 'Configure details for this campus announcement.'}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        aria-label="Close event form"
+                        onClick={() => { setShowEventModal(false); setEditingEventId(null); }}
+                        className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Form Body - Scrollable */}
+                <form id="event-form" onSubmit={createEvent} className="overflow-y-auto px-5 sm:px-6 py-4 sm:py-5 custom-scrollbar flex-1 space-y-4">
+                    {/* Category & Title */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div>
+                            <label htmlFor="event-category" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                Category
+                            </label>
                             <select
                                 id="event-category"
-                                className="w-full border rounded-lg p-2 text-sm"
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all cursor-pointer"
                                 value={newEvent.type}
                                 onChange={e => {
                                     const nextType = e.target.value as SystemEvent['type'];
@@ -91,47 +116,123 @@ const EventFormModal = ({
                                 ))}
                             </select>
                         </div>
-                        <div className="lg:col-span-2"><label htmlFor="event-title" className="block text-xs font-bold text-gray-500 mb-1">Title</label><input id="event-title" required className="w-full border rounded-lg p-2 text-sm" value={newEvent.title} onChange={e => setNewEvent({ ...newEvent, title: e.target.value })} placeholder="e.g., Campus Fair 2026" /></div>
+                        <div className="sm:col-span-2">
+                            <label htmlFor="event-title" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                Title <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                id="event-title"
+                                required
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-slate-400 placeholder:font-normal"
+                                value={newEvent.title}
+                                onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                                placeholder="e.g., Campus Fair 2026"
+                            />
+                        </div>
                     </div>
-                    <div><label htmlFor="event-description" className="block text-xs font-bold text-gray-500 mb-1">Description</label><textarea id="event-description" required className="w-full resize-y rounded-xl border border-gray-200 bg-slate-50/60 p-4 text-sm leading-6 text-gray-700 outline-none transition focus:border-purple-300 focus:bg-white focus:ring-2 focus:ring-purple-100" rows={5} value={newEvent.description} onChange={e => setNewEvent({ ...newEvent, description: e.target.value })} placeholder="Details..." /></div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label htmlFor="event-date" className="block text-xs font-bold text-gray-500 mb-1">Date</label><input id="event-date" type="date" required className="w-full border rounded-lg p-2 text-sm" value={newEvent.event_date} onChange={e => applyScheduleField('event_date', e.target.value)} /></div>
-                        {isAttendanceActivityType(newEvent.type) && (
-                            <div><label htmlFor="event-start-time" className="block text-xs font-bold text-gray-500 mb-1">Start Time</label><input id="event-start-time" type="time" className="w-full border rounded-lg p-2 text-sm" value={newEvent.event_time} onChange={e => applyScheduleField('event_time', e.target.value)} /></div>
-                        )}
+                    {/* Description */}
+                    <div>
+                        <label htmlFor="event-description" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Description <span className="text-rose-500">*</span>
+                        </label>
+                        <textarea
+                            id="event-description"
+                            required
+                            rows={2}
+                            className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs leading-relaxed text-slate-700 outline-none transition focus:border-purple-500 focus:bg-white focus:ring-2 focus:ring-purple-500/10 placeholder:text-slate-400"
+                            value={newEvent.description}
+                            onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                            placeholder="Briefly describe the purpose, agenda, or highlights..."
+                        />
                     </div>
 
-                    {isAttendanceActivityType(newEvent.type) && (
-                        <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label htmlFor="event-end-time" className="block text-xs font-bold text-gray-500 mb-1">End Time</label><input id="event-end-time" type="time" className="w-full border rounded-lg p-2 text-sm" value={newEvent.end_time} onChange={e => applyScheduleField('end_time', e.target.value)} /></div>
-                                <div><label htmlFor="event-location" className="block text-xs font-bold text-gray-500 mb-1">Location</label><input id="event-location" className="w-full border rounded-lg p-2 text-sm" value={newEvent.location} onChange={e => setNewEvent({ ...newEvent, location: e.target.value })} placeholder="e.g., Main Gym" /></div>
+                    {/* Schedule & Location */}
+                    {isActivity ? (
+                        <div className="space-y-3">
+                            {/* Date, Start Time, End Time in ONE compact row */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label htmlFor="event-date" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                        Date <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        id="event-date"
+                                        type="date"
+                                        required
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
+                                        value={newEvent.event_date}
+                                        onChange={e => applyScheduleField('event_date', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="event-start-time" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                        Start Time
+                                    </label>
+                                    <input
+                                        id="event-start-time"
+                                        type="time"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
+                                        value={newEvent.event_time}
+                                        onChange={e => applyScheduleField('event_time', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="event-end-time" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                        End Time
+                                    </label>
+                                    <input
+                                        id="event-end-time"
+                                        type="time"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
+                                        value={newEvent.end_time}
+                                        onChange={e => applyScheduleField('end_time', e.target.value)}
+                                    />
+                                </div>
                             </div>
 
-                            <div>
-                                <label htmlFor="event-attendance-closes" className="block text-xs font-bold text-gray-500 mb-1">Attendance closes</label>
-                                <input
-                                    id="event-attendance-closes"
-                                    type="datetime-local"
-                                    className="w-full border rounded-lg p-2 text-sm"
-                                    value={newEvent.attendance_closes_at}
-                                    onChange={e => setNewEvent({ ...newEvent, attendance_closes_at: e.target.value })}
-                                    placeholder={suggestCloseDate(newEvent.event_date, newEvent.end_time)}
-                                />
-                                <p className="mt-1 text-[11px] text-gray-400">
-                                    Time in, time out, rating and the evaluation form all stay open until this date, then the card archives.
-                                    Leave blank for 3 days after the event ends{suggestCloseDate(newEvent.event_date, newEvent.end_time) ? ` (${suggestCloseDate(newEvent.event_date, newEvent.end_time).replace('T', ' ')})` : ''}.
-                                </p>
+                            {/* Location & Attendance Closes */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label htmlFor="event-location" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                        Location / Venue
+                                    </label>
+                                    <input
+                                        id="event-location"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-slate-400 placeholder:font-normal"
+                                        value={newEvent.location}
+                                        onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                                        placeholder="e.g., Main Gym, Audio-Visual Room"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="event-attendance-closes" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                        Attendance Closes (Archive)
+                                    </label>
+                                    <input
+                                        id="event-attendance-closes"
+                                        type="datetime-local"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
+                                        value={newEvent.attendance_closes_at}
+                                        onChange={e => setNewEvent({ ...newEvent, attendance_closes_at: e.target.value })}
+                                        placeholder={suggestCloseDate(newEvent.event_date, newEvent.end_time)}
+                                    />
+                                    <p className="mt-1 text-[10.5px] text-slate-400 truncate" title="Leave blank for 3 days after event">
+                                        Leave blank for 3 days after event ends{suggestCloseDate(newEvent.event_date, newEvent.end_time) ? ` (${suggestCloseDate(newEvent.event_date, newEvent.end_time).replace('T', ' ')})` : ''}.
+                                    </p>
+                                </div>
                             </div>
 
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
-                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                            {/* Mode, Audience & Required Attendance Card */}
+                            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 sm:p-4 space-y-3.5">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                                     <div>
-                                        <label htmlFor="event-mode" className="block text-xs font-bold text-gray-500 mb-1">Mode</label>
+                                        <label htmlFor="event-mode" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                            Mode
+                                        </label>
                                         <select
                                             id="event-mode"
-                                            className="w-full border rounded-lg p-2 text-sm bg-white"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all cursor-pointer"
                                             value={newEvent.participation_mode || 'general_attendance'}
                                             onChange={e => {
                                                 const nextMode = e.target.value as SystemEvent['participation_mode'];
@@ -148,10 +249,12 @@ const EventFormModal = ({
                                         </select>
                                     </div>
                                     <div>
-                                        <label htmlFor="event-audience" className="block text-xs font-bold text-gray-500 mb-1">Audience</label>
+                                        <label htmlFor="event-audience" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                            Audience
+                                        </label>
                                         <select
                                             id="event-audience"
-                                            className="w-full border rounded-lg p-2 text-sm bg-white"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all cursor-pointer"
                                             value={newEvent.audience_type || 'all_students'}
                                             onChange={e => setNewEvent({
                                                 ...newEvent,
@@ -161,28 +264,32 @@ const EventFormModal = ({
                                             <option value="all_students">All students</option>
                                             <option value="filtered_students">Selected students</option>
                                             <option value="graduating_students">Graduating students</option>
+                                            <option value="peer_facilitators">Peer Facilitators</option>
                                         </select>
                                     </div>
-                                    <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 text-xs font-bold text-gray-600">
+                                    <label className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 transition-colors cursor-pointer select-none h-[38px] shadow-2xs">
                                         <input
                                             type="checkbox"
                                             checked={Boolean(newEvent.attendance_required)}
                                             onChange={e => setNewEvent({ ...newEvent, attendance_required: e.target.checked })}
-                                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
                                         />
-                                        Required attendance
+                                        <span>Required attendance</span>
                                     </label>
                                 </div>
 
-                                {isRegistrationEvent(newEvent) && (
-                                    <div className="grid grid-cols-1 gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 lg:grid-cols-3">
+                                {/* Registration Details Subpanel */}
+                                {isRegistration && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 items-end animate-fade-in">
                                         <div>
-                                            <label htmlFor="event-capacity" className="block text-xs font-bold text-emerald-700 mb-1">Capacity</label>
+                                            <label htmlFor="event-capacity" className="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                                                Capacity
+                                            </label>
                                             <input
                                                 id="event-capacity"
                                                 type="number"
                                                 min="1"
-                                                className="w-full border rounded-lg p-2 text-sm bg-white"
+                                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all placeholder:text-slate-400 placeholder:font-normal"
                                                 value={newEvent.capacity ?? ''}
                                                 onChange={e => {
                                                     const nextValue = e.target.value;
@@ -192,29 +299,32 @@ const EventFormModal = ({
                                             />
                                         </div>
                                         <div>
-                                            <label htmlFor="event-registration-deadline" className="block text-xs font-bold text-emerald-700 mb-1">Registration Deadline</label>
+                                            <label htmlFor="event-registration-deadline" className="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                                                Registration Deadline
+                                            </label>
                                             <input
                                                 id="event-registration-deadline"
                                                 type="datetime-local"
-                                                className="w-full border rounded-lg p-2 text-sm bg-white"
+                                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all"
                                                 value={newEvent.registration_deadline || ''}
                                                 onChange={e => setNewEvent({ ...newEvent, registration_deadline: e.target.value })}
                                             />
                                         </div>
-                                        <label className="flex items-center gap-2 rounded-lg border border-emerald-100 bg-white p-3 text-xs font-bold text-gray-600">
+                                        <label className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-300 transition-colors cursor-pointer select-none h-[38px] shadow-2xs">
                                             <input
                                                 type="checkbox"
                                                 checked={Boolean(newEvent.allow_walk_ins)}
                                                 onChange={e => setNewEvent({ ...newEvent, allow_walk_ins: e.target.checked })}
-                                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                                             />
-                                            Allow walk-ins during event
+                                            <span>Allow walk-ins</span>
                                         </label>
                                     </div>
                                 )}
 
-                                {newEvent.audience_type !== 'all_students' && (
-                                    <div className="space-y-3">
+                                {/* Selected Cohort Filter Checkboxes */}
+                                {hasFilteredAudience && (
+                                    <div className="space-y-3 pt-2 border-t border-slate-200/70 animate-fade-in">
                                         {renderAudienceCheckboxGroup('Colleges', 'audience_departments', departmentOptions)}
                                         {renderAudienceCheckboxGroup('Courses', 'audience_courses', courseOptions)}
                                         {renderAudienceCheckboxGroup('Year Levels', 'audience_year_levels', YEAR_LEVEL_OPTIONS)}
@@ -223,58 +333,95 @@ const EventFormModal = ({
                                 )}
                             </div>
 
-                            <details className="rounded-xl border border-slate-200 bg-slate-50">
-                                <summary className="cursor-pointer select-none px-4 py-3 text-xs font-bold text-gray-500">Advanced</summary>
-                                <div className="space-y-3 border-t border-slate-200 p-4">
-                                    <p className="text-[11px] text-gray-400">
-                                        Proof-of-presence checks. Both apply only while the event is running &mdash; a student timing in after it ends is never asked for either.
+                            {/* Advanced Verification Accordion */}
+                            <details className="group rounded-2xl border border-slate-200/80 bg-slate-50/50 transition-all">
+                                <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-bold text-slate-600 flex items-center justify-between hover:bg-slate-100/60 rounded-2xl transition-colors">
+                                    <span className="flex items-center gap-1.5">
+                                        <span>Advanced</span>
+                                    </span>
+                                    <span className="text-[10.5px] font-medium text-slate-400 group-open:hidden">
+                                        Photo &amp; Location Checks &darr;
+                                    </span>
+                                </summary>
+                                <div className="space-y-3 border-t border-slate-200/80 p-4">
+                                    <p className="text-[11px] text-slate-400">
+                                        Proof-of-presence checks apply only while the event is running.
                                     </p>
-                                    <label htmlFor="event-require-photo" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 text-xs font-bold text-gray-600">
+                                    <label htmlFor="event-require-photo" className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:border-slate-300 transition-colors cursor-pointer shadow-2xs">
                                         <input
                                             id="event-require-photo"
                                             type="checkbox"
                                             checked={Boolean(newEvent.require_photo)}
                                             onChange={e => setNewEvent({ ...newEvent, require_photo: e.target.checked })}
-                                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
                                         />
-                                        Require photo on time in
+                                        <span>Require photo on time in</span>
                                     </label>
-                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label htmlFor="event-require-geolocation" className="flex items-center gap-2 text-xs font-bold text-blue-700">
+                                    <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 space-y-2.5">
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                            <label htmlFor="event-require-geolocation" className="flex items-center gap-2 text-xs font-bold text-blue-900 cursor-pointer">
                                                 <input
                                                     id="event-require-geolocation"
                                                     type="checkbox"
                                                     checked={Boolean(newEvent.require_geolocation)}
                                                     onChange={e => setNewEvent({ ...newEvent, require_geolocation: e.target.checked })}
-                                                    className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                                                    className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                                 />
-                                                Require geolocation (200m of venue)
+                                                <span>Require geolocation (within 200m of venue)</span>
                                             </label>
-                                            <div className="flex gap-3">
-                                                <button type="button" onClick={getCurrentLocation} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"><MapPin size={12} /> Get My Location</button>
-                                                <button type="button" onClick={() => setNewEvent({ ...newEvent, latitude: '9.306', longitude: '123.306' })} className="text-xs text-gray-500 hover:underline flex items-center gap-1"><MapPin size={12} /> Reset to Campus</button>
+                                            <div className="flex gap-2">
+                                                <button type="button" onClick={getCurrentLocation} className="text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1 cursor-pointer"><MapPin size={11} /> My Location</button>
+                                                <span className="text-slate-300">·</span>
+                                                <button type="button" onClick={() => setNewEvent({ ...newEvent, latitude: '9.306', longitude: '123.306' })} className="text-[11px] text-slate-500 hover:text-slate-700 hover:underline flex items-center gap-1 cursor-pointer"><MapPin size={11} /> Reset Campus</button>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <input type="number" step="any" aria-label="Latitude" placeholder="Lat" className="w-full border rounded-lg p-2 text-xs" value={newEvent.latitude} onChange={e => setNewEvent({ ...newEvent, latitude: e.target.value })} />
-                                            <input type="number" step="any" aria-label="Longitude" placeholder="Long" className="w-full border rounded-lg p-2 text-xs" value={newEvent.longitude} onChange={e => setNewEvent({ ...newEvent, longitude: e.target.value })} />
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <input type="number" step="any" aria-label="Latitude" placeholder="Latitude (e.g. 9.306)" className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400" value={newEvent.latitude} onChange={e => setNewEvent({ ...newEvent, latitude: e.target.value })} />
+                                            <input type="number" step="any" aria-label="Longitude" placeholder="Longitude (e.g. 123.306)" className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400" value={newEvent.longitude} onChange={e => setNewEvent({ ...newEvent, longitude: e.target.value })} />
                                         </div>
                                     </div>
                                 </div>
                             </details>
-                        </>
+                        </div>
+                    ) : (
+                        /* Simple Announcement Date */
+                        <div className="w-full sm:w-1/2">
+                            <label htmlFor="event-date" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                Date <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                id="event-date"
+                                type="date"
+                                required
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
+                                value={newEvent.event_date}
+                                onChange={e => applyScheduleField('event_date', e.target.value)}
+                            />
+                        </div>
                     )}
-
-                    <div className="pt-4 flex gap-3">
-                        <Button type="button" variant="secondary" className="flex-1" onClick={() => { setShowEventModal(false); setEditingEventId(null); }}>Cancel</Button>
-                        <Button type="submit" variant="primary" className="flex-1">{editingEventId ? 'Update' : 'Create'}</Button>
-                    </div>
                 </form>
-            </CardContent>
-        </Card>
-    </div>
-);
+
+                {/* Fixed / Sticky Footer */}
+                <div className="flex items-center justify-end gap-2.5 px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-slate-50/70 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => { setShowEventModal(false); setEditingEventId(null); }}
+                        className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-2xs cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        form="event-form"
+                        className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-xs hover:shadow-sm cursor-pointer"
+                    >
+                        {editingEventId ? 'Update' : 'Create'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const AttendeesModal = ({
     showToast, isLoading, attendees, expectedStudents, selectedAttendanceEvent, attendeeFilter, setAttendeeFilter, yearLevelFilter, setYearLevelFilter, attendeeCourseFilter, setAttendeeCourseFilter, attendeeSectionFilter, setAttendeeSectionFilter, setShowAttendeesModal, selectedEventTitle, setExpectedStudents, setSelectedAttendanceEvent, handleVoidAttendance
@@ -1066,7 +1213,9 @@ const ActivityCard = ({
                             aria-label={`Evaluation (${evaluations.get(item.id).responseCount})`}
                         >
                             <ClipboardList size={13} />
-                            <span>Evaluation ({evaluations.get(item.id).responseCount})</span>
+                            <span>
+                                {item.audience_type === 'peer_facilitators' ? 'Peer Evaluation' : 'Evaluation'} ({evaluations.get(item.id).responseCount})
+                            </span>
                         </button>
                     ) : !isArchived ? (
                         <button
@@ -1076,7 +1225,9 @@ const ActivityCard = ({
                             aria-label="Create Evaluation"
                         >
                             <Plus size={13} />
-                            <span>Create Evaluation</span>
+                            <span>
+                                {item.audience_type === 'peer_facilitators' ? 'Create Peer Evaluation' : 'Create Evaluation'}
+                            </span>
                         </button>
                     ) : null}
 
@@ -1186,7 +1337,13 @@ const ActivityCard = ({
             {/* Audience tag at bottom */}
             <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
                 <Users size={13} className="text-gray-400 shrink-0" />
-                <span>{getAudienceModeLabel(item)}</span>
+                {item.audience_type === 'peer_facilitators' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Peer Facilitators Only
+                    </span>
+                ) : (
+                    <span>{getAudienceModeLabel(item)}</span>
+                )}
             </div>
         </div>
     );
@@ -1335,7 +1492,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
     const [evaluations, setEvaluations] = useState<Map<number, { form: EvaluationForm; responseCount: number }>>(new Map());
     const [showTemplatesModal, setShowTemplatesModal] = useState(false);
     const [evaluationTarget, setEvaluationTarget] = useState<{ event: SystemEvent; form: EvaluationForm | null } | null>(null);
-    const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string; eventDate?: string | null } | null>(null);
+    const [resultsTarget, setResultsTarget] = useState<{ formId: number; title: string; eventDate?: string | null; isPeerEvent?: boolean } | null>(null);
     const [extendTarget, setExtendTarget] = useState<any>(null);
     const [extendDate, setExtendDate] = useState('');
     const [rescheduleTarget, setRescheduleTarget] = useState<SystemEvent | null>(null);
@@ -1376,7 +1533,14 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
 
     const handleViewEvaluationResults = (event: SystemEvent) => {
         const existing = evaluations.get(event.id as number);
-        if (existing) setResultsTarget({ formId: existing.form.id, title: event.title, eventDate: event.event_date });
+        if (existing) {
+            setResultsTarget({
+                formId: existing.form.id,
+                title: event.title,
+                eventDate: event.event_date,
+                isPeerEvent: event.audience_type === 'peer_facilitators'
+            });
+        }
     };
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -1645,6 +1809,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     onClose={() => setEvaluationTarget(null)}
                     eventId={evaluationTarget.event.id as number}
                     eventTitle={evaluationTarget.event.title}
+                    isPeerEvent={evaluationTarget.event.audience_type === 'peer_facilitators'}
                     existingForm={evaluationTarget.form}
                     showToast={showToast}
                     onSaved={refreshEvaluations}
@@ -1658,6 +1823,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     formId={resultsTarget.formId}
                     eventTitle={resultsTarget.title}
                     eventDate={resultsTarget.eventDate}
+                    isPeerEvent={resultsTarget.isPeerEvent}
                     showToast={showToast}
                 />
             )}

@@ -1,21 +1,23 @@
 import { useState } from 'react';
-import { ClipboardList, HeartHandshake, Clock } from 'lucide-react';
+import { ClipboardList, HeartHandshake, Clock, ClipboardCheck } from 'lucide-react';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import CareStaffVolunteerFormsTable from './CareStaffVolunteerFormsTable';
 import CareStaffActiveFacilitatorsTable from './CareStaffActiveFacilitatorsTable';
 import CareStaffFacilitatorHours from './CareStaffFacilitatorHours';
+import CareStaffPeerEvaluationsTab from './CareStaffPeerEvaluationsTab';
 
 interface CareStaffPeerFacilitatorsPageProps {
     functions: Pick<CareStaffDashboardFunctions, 'showToast'>;
     refreshSignal?: number;
 }
 
-type PeerTab = 'applications' | 'active' | 'hours';
+type PeerTab = 'applications' | 'active' | 'hours' | 'evaluations';
 
 const TABS: { key: PeerTab; label: string; icon: typeof ClipboardList }[] = [
     { key: 'applications', label: 'Applications', icon: ClipboardList },
     { key: 'active', label: 'Active Facilitators', icon: HeartHandshake },
-    { key: 'hours', label: 'Facilitator Hours', icon: Clock }
+    { key: 'hours', label: 'Facilitator Hours', icon: Clock },
+    { key: 'evaluations', label: 'Evaluations', icon: ClipboardCheck }
 ];
 
 const CareStaffPeerFacilitatorsPage = ({ functions, refreshSignal = 0 }: CareStaffPeerFacilitatorsPageProps) => {
@@ -63,8 +65,10 @@ const CareStaffPeerFacilitatorsPage = ({ functions, refreshSignal = 0 }: CareSta
                 />
             ) : activeTab === 'active' ? (
                 <CareStaffActiveFacilitatorsTable functions={functions} refreshSignal={refreshSignal} />
-            ) : (
+            ) : activeTab === 'hours' ? (
                 <CareStaffFacilitatorHours refreshSignal={refreshSignal} />
+            ) : (
+                <CareStaffPeerEvaluationsTab functions={functions} refreshSignal={refreshSignal} />
             )}
         </div>
     );

@@ -20,9 +20,10 @@ import PublicScholarshipsView from "./components/PublicScholarshipsView";
 import PublicPeerFacilitatorView from "./components/PublicPeerFacilitatorView";
 import PublicAnnouncementsSlideshow from "./components/PublicAnnouncementsSlideshow";
 import PublicPrivacyFooter from "./components/PublicPrivacyFooter";
+import AudienceConfirmModal from "../../../../components/events/AudienceConfirmModal";
 import type { PublicAssessmentForm, PublicAssessmentQuestion } from "./publicEventsService";
 import type { PublicEvent } from "./publicEventsService";
-import { isAttendanceActivityType } from "../../../../utils/eventAudience";
+import { getAudienceLabel, isAttendanceActivityType } from "../../../../utils/eventAudience";
 import { isScholarshipExpired } from "../../../../utils/scholarshipHelpers";
 
 const SERVICES = [
@@ -203,7 +204,7 @@ export default function PublicEventsPage() {
     const [sheetError, setSheetError] = useState("");
 
     const { eventsList, statusMap, isLoading, isError, refreshStatus, refreshEvents } = usePublicEventsData(identity);
-    const { timingInEventId, timingOutEventId, showRatingModal, setShowRatingModal, ratingForm, setRatingForm, isSubmittingRating, handleTimeIn, handleTimeOut, handleRateEvent, submitRating } = usePublicEventActions({ identity, showToast, refreshStatus, refreshEvents });
+    const { timingInEventId, timingOutEventId, showRatingModal, setShowRatingModal, ratingForm, setRatingForm, isSubmittingRating, handleTimeIn, handleTimeOut, handleRateEvent, submitRating, audienceConfirmEvent, setAudienceConfirmEvent, handleConfirmTimeIn } = usePublicEventActions({ identity, showToast, refreshStatus, refreshEvents });
     const { formsList: assessmentFormsList, isLoading: assessmentLoading, isError: assessmentError, refreshForms: refreshAssessmentForms } = usePublicAssessmentData(identity, { enabled: activeServiceId === "assessment" });
     const assessmentActions = usePublicAssessmentActions(identity, showToast, refreshAssessmentForms);
     const { scholarshipsList = [], isLoading: scholarshipsLoading, isError: scholarshipsError } = usePublicScholarshipsData();
@@ -287,6 +288,16 @@ export default function PublicEventsPage() {
                 {identity && showCounselingRequestModal && <PublicCounselingRequestModal isOpen={showCounselingRequestModal} studentId={identity.student.student_id} onClose={() => setShowCounselingRequestModal(false)} showToast={showToast} />}
                 {identity && showRatingModal && <PublicRatingModal ratingForm={ratingForm} setRatingForm={setRatingForm} submitRating={submitRating} isSubmitting={isSubmittingRating} onClose={() => setShowRatingModal(false)} />}
                 {identity && activeAssessmentForm && <PublicAssessmentFormModal form={activeAssessmentForm} isOpen={Boolean(activeAssessmentForm)} studentId={identity.student.student_id} onClose={() => { setActiveAssessmentForm(null); setAssessmentQuestions(null); }} onSubmit={(responses) => assessmentActions.handleSubmit(activeAssessmentForm.id, responses)} showToast={showToast} questions={assessmentQuestions ?? []} />}
+                {audienceConfirmEvent && (
+                    <AudienceConfirmModal
+                        open={Boolean(audienceConfirmEvent)}
+                        onClose={() => setAudienceConfirmEvent(null)}
+                        onConfirm={handleConfirmTimeIn}
+                        eventTitle={audienceConfirmEvent.title}
+                        targetAudienceLabel={getAudienceLabel(audienceConfirmEvent)}
+                        isConfirming={timingInEventId === audienceConfirmEvent.id}
+                    />
+                )}
                 {showSheet && <IdBottomSheet serviceName={activeService.title} onConfirm={handleIdConfirm} onDismiss={closeSheet} isLoading={sheetLoading} error={sheetError} />}
                 {toast && <Toast toast={toast} />}
             </>

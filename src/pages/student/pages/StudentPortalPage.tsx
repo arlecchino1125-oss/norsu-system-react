@@ -8,6 +8,8 @@ import { StudentHero } from '../components/StudentHero';
 import { YEAR_LEVEL_OPTIONS } from '../features/profile/profileFormUtils';
 import { StudentPortalShell } from '../layout/StudentPortalShell';
 import FeatureAvailabilityView from '../../../components/permissions/FeatureAvailabilityView';
+import AudienceConfirmModal from '../../../components/events/AudienceConfirmModal';
+import { getAudienceLabel } from '../../../utils/eventAudience';
 import { useAuth } from '../../../lib/useAuth';
 import { useStudentPortal, ProfileCompletionModal, StudentDashboardView, StudentEventsView } from '../hooks/useStudentPortal';
 
@@ -212,6 +214,9 @@ function StudentPortalContent() {
         handleRegisterEvent,
         handleTimeIn,
         handleTimeOut,
+        audienceConfirmEvent,
+        setAudienceConfirmEvent,
+        handleConfirmTimeIn,
         isCompletingOfficeVisit,
         isStudentViewEnabled,
         isStudentViewVisible,
@@ -474,6 +479,17 @@ function StudentPortalContent() {
 
                     {/* ASSESSMENT - COUNSELING - SUPPORT - SCHOLARSHIP - FEEDBACK - PROFILE */}
                     {renderRemainingViews(remainingViewProps)}
+
+                    {audienceConfirmEvent && (
+                        <AudienceConfirmModal
+                            open={Boolean(audienceConfirmEvent)}
+                            onClose={() => setAudienceConfirmEvent(null)}
+                            onConfirm={handleConfirmTimeIn}
+                            eventTitle={audienceConfirmEvent.title}
+                            targetAudienceLabel={getAudienceLabel(audienceConfirmEvent)}
+                            isConfirming={isTimingIn}
+                        />
+                    )}
                 </>
             )}
         </StudentPortalShell>

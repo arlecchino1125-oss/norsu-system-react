@@ -35,3 +35,16 @@ export const sessionDate = (timestamp: string): string => {
     const d = new Date(timestamp);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+/** Calculates auto time-out for a volunteer session: 12:30 PM for morning, 5:30 PM for afternoon. */
+export const getVolunteerAutoTimeoutAt = (timeIn: string): Date => {
+    const d = new Date(timeIn);
+    const timeout = new Date(d);
+    if (d.getHours() < 12) {
+        timeout.setHours(12, 30, 0, 0);
+    } else {
+        timeout.setHours(17, 30, 0, 0);
+    }
+    return timeout;
+};
+

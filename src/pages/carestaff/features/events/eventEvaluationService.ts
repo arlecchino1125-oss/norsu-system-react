@@ -199,7 +199,7 @@ export const getEvaluationResults = async (formId: number) => {
         supabase.from('event_evaluation_questions').select(QUESTION_COLUMNS).eq('form_id', formId).order('order_index'),
         supabase
             .from('event_evaluation_responses')
-            .select('id, student_id, student_name, department, course, year_level, submitted_at, event_evaluation_answers(response_id, question_id, answer_value, answer_text)')
+            .select('id, student_id, student_name, department, course, year_level, submitted_at, event_evaluation_answers(response_id, question_id, answer_value, answer_text), students(first_name, middle_name, last_name, suffix, department, course, year_level)')
             .eq('form_id', formId)
             .order('submitted_at', { ascending: false })
             .limit(10000)
@@ -213,7 +213,18 @@ export const getEvaluationResults = async (formId: number) => {
     const rawResponses = (responsesResult.data ?? []) as any[];
 
     // Flatten: strip embedded answers out of each response into a flat array
-    const responses: EvaluationResponse[] = rawResponses.map(({ event_evaluation_answers: _, ...rest }) => rest);
+    const responses: EvaluationResponse[] = rawResponses.map(({ event_evaluation_answers: _, students: s, ...rest }) => {
+        const studentFallbackName = s
+            ? [s.first_name, s.middle_name, s.last_name, s.suffix].filter(Boolean).join(' ')
+            : null;
+        return {
+            ...rest,
+            student_name: rest.student_name || studentFallbackName || 'Student',
+            department: rest.department || s?.department || null,
+            course: rest.course || s?.course || null,
+            year_level: rest.year_level || s?.year_level || null
+        };
+    });
     const answers = rawResponses.flatMap((r) =>
         ((r.event_evaluation_answers ?? []) as any[]).map((a: any) => ({ ...a, response_id: r.id }))
     ) as Array<EvaluationAnswer & { response_id: number }>;

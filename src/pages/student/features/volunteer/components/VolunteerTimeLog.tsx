@@ -18,6 +18,7 @@ export default function VolunteerTimeLog({ studentId, showToast, timeInEnabled =
     const { data: sessions = [], isLoading, isError, refetch } = useQuery({
         queryKey: ['student-facilitator-hours', studentId],
         queryFn: async () => {
+            await (supabase.rpc as any)('auto_timeout_records');
             const { data, error } = await supabase
                 .from('peer_facilitator_attendance')
                 .select(COLUMNS)
@@ -39,6 +40,7 @@ export default function VolunteerTimeLog({ studentId, showToast, timeInEnabled =
         if (error) {
             showToast?.(error.code === '23505'
                 ? 'You are already timed in. Time out first.'
+                : error.code === 'P0001' ? error.message
                 : 'Unable to time in. Please try again.', 'error');
             await fetchSessions();
             return;
@@ -54,7 +56,7 @@ export default function VolunteerTimeLog({ studentId, showToast, timeInEnabled =
             .update({ time_out: new Date().toISOString() })
             .eq('id', openSession.id);
         if (error) {
-            showToast?.('Unable to time out. Please try again.', 'error');
+            showToast?.(error.code === 'P0001' ? error.message : 'Unable to time out. Please try again.', 'error');
             return;
         }
         showToast?.('Timed out. Thank you for volunteering.');
