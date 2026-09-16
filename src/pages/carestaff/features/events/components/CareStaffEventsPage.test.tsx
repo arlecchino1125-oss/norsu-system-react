@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CareStaffEventsPage from './CareStaffEventsPage';
 import { getEvaluationsForEvents } from '../eventEvaluationService';
 import { useCareStaffEvents, createEmptyEvent } from '../hooks/useCareStaffEvents';
+import { exportToExcel } from '../../../../../utils/dashboardUtils';
+
+vi.mock('../../../../../utils/dashboardUtils', () => ({
+    exportToExcel: vi.fn()
+}));
 
 vi.mock('../eventEvaluationService', async () => {
     const actual = await vi.importActual<typeof import('../eventEvaluationService')>('../eventEvaluationService');
@@ -178,6 +183,10 @@ describe('CareStaffEventsPage modals', () => {
 });
 
 describe('CareStaffEventsPage reschedule & void UI', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('opens the reschedule modal pre-filled and confirms through the handler', () => {
         const handleRescheduleEvent = vi.fn().mockResolvedValue(undefined);
         vi.mocked(useCareStaffEvents).mockReturnValue({
@@ -253,6 +262,166 @@ describe('CareStaffEventsPage reschedule & void UI', () => {
         render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
 
         expect(screen.queryByRole('button', { name: 'Void All Attendance' })).not.toBeInTheDocument();
+    });
+
+    it('shows female and male count pills, gender pills, and exports gender identifiers in attendees modal', () => {
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            showAttendeesModal: true,
+            attendees: [
+                {
+                    id: 1,
+                    student_id: '420135326',
+                    student_name: 'Alice Smith',
+                    department: 'CAS',
+                    course: 'BSCS',
+                    year_level: '2nd Year',
+                    section: 'A',
+                    sex: 'Female',
+                    gender_identity: 'CIS Gender',
+                    time_in: '2026-07-26T09:00:00Z',
+                    time_out: '2026-07-26T11:00:00Z'
+                },
+                {
+                    id: 2,
+                    student_id: '420135327',
+                    student_name: 'Bob Jones',
+                    department: 'CAS',
+                    course: 'BSCS',
+                    year_level: '2nd Year',
+                    section: 'A',
+                    sex: 'Male',
+                    gender_identity: 'Transgender',
+                    time_in: '2026-07-26T09:05:00Z',
+                    time_out: null
+                }
+            ],
+            selectedAttendanceEvent: { id: 3, title: 'Sample event', type: 'Event', attendance_required: true },
+            selectedEventTitle: 'Sample event'
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        expect(screen.getByText('1 Female')).toBeInTheDocument();
+        expect(screen.getByText('1 Male')).toBeInTheDocument();
+        expect(screen.getByRole('columnheader', { name: 'Student Name' })).toBeInTheDocument();
+        expect(screen.getByRole('columnheader', { name: 'Gender' })).toBeInTheDocument();
+        expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+        expect(screen.getByText('Bob Jones')).toBeInTheDocument();
+        expect(screen.getByText('Female')).toBeInTheDocument();
+        expect(screen.getByText('Male')).toBeInTheDocument();
+
+        const exportBtn = screen.getByRole('button', { name: /Export/i });
+        act(() => {
+            fireEvent.click(exportBtn);
+        });
+
+        expect(exportToExcel).toHaveBeenCalled();
+        const [headers, rows] = vi.mocked(exportToExcel).mock.calls[0];
+        expect(headers).toContain('Student ID');
+        expect(headers).toContain('Sex Assigned at Birth');
+        expect(headers).toContain('Gender Identity');
+        expect(rows[0]).toContain('Female');
+        expect(rows[0]).toContain('CIS Gender');
+        expect(rows[1]).toContain('Male');
+        expect(rows[1]).toContain('Transgender');
+    });
+
+    it('toggles demographics panel and filters attendees by gender in attendees modal', () => {
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            showAttendeesModal: true,
+            attendees: [
+                {
+                    id: 1,
+                    student_id: '420135326',
+                    student_name: 'Alice Smith',
+                    department: 'CAS',
+                    course: 'BSCS',
+                    year_level: '2nd Year',
+                    section: 'A',
+                    sex: 'Female',
+                    gender_identity: 'CIS Gender',
+                    time_in: '2026-07-26T09:00:00Z',
+                    time_out: '2026-07-26T11:00:00Z'
+                },
+                {
+                    id: 2,
+                    student_id: '420135327',
+                    student_name: 'Bob Jones',
+                    department: 'CAS',
+                    course: 'BSCS',
+                    year_level: '2nd Year',
+                    section: 'A',
+                    sex: 'Male',
+                    gender_identity: 'Transgender',
+                    time_in: '2026-07-26T09:05:00Z',
+                    time_out: null
+                }
+            ],
+            selectedAttendanceEvent: { id: 3, title: 'Sample event', type: 'Event', attendance_required: true },
+            selectedEventTitle: 'Sample event'
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        // Toggle demographics
+        const demoToggle = screen.getByRole('button', { name: /Demographics/i });
+        expect(screen.queryByText('Sex Assigned at Birth')).not.toBeInTheDocument();
+
+        act(() => {
+            fireEvent.click(demoToggle);
+        });
+        expect(screen.getByText('Sex Assigned at Birth')).toBeInTheDocument();
+
+        // Gender filter select
+        const genderSelect = screen.getByDisplayValue('All Genders');
+        expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+        expect(screen.getByText('Bob Jones')).toBeInTheDocument();
+
+        act(() => {
+            fireEvent.change(genderSelect, { target: { value: 'Female' } });
+        });
+
+        expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+        expect(screen.queryByText('Bob Jones')).not.toBeInTheDocument();
+    });
+
+    it('exports Sex Assigned at Birth and Gender Identity in absent modal', () => {
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState,
+            showAbsentModal: true,
+            attendees: [],
+            expectedStudents: [
+                {
+                    student_id: '420135328',
+                    first_name: 'Charlie',
+                    last_name: 'Brown',
+                    department: 'CAS',
+                    course: 'BSCS',
+                    year_level: '1st Year',
+                    sex: 'Male',
+                    gender_identity: 'CIS Gender'
+                }
+            ],
+            selectedAttendanceEvent: { id: 3, title: 'Sample event', type: 'Event', attendance_required: true },
+            selectedEventTitle: 'Sample event'
+        } as any);
+
+        render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
+
+        const exportBtn = screen.getByRole('button', { name: /Export Excel/i });
+        act(() => {
+            fireEvent.click(exportBtn);
+        });
+
+        expect(exportToExcel).toHaveBeenCalled();
+        const [headers, rows] = vi.mocked(exportToExcel).mock.calls[0];
+        expect(headers).toContain('Student ID');
+        expect(headers).toContain('Sex Assigned at Birth');
+        expect(headers).toContain('Gender Identity');
+        expect(rows[0]).toContain('Male');
+        expect(rows[0]).toContain('CIS Gender');
     });
 });
 

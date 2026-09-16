@@ -507,12 +507,12 @@ export function useCareStaffEvents({ functions }: any) {
             const { data, error } = await supabase.from('event_attendance').select(EVENT_ATTENDANCE_COLUMNS).eq('event_id', item.id).order('time_in', { ascending: false });
             if (error) throw error;
 
-            // Enrich with year_level, section, course, department from students table
+            // Enrich with year_level, section, course, department, sex, gender_identity from students table
             let enriched = data || [];
             if (enriched.length > 0) {
                 const studentIds = [...new Set(enriched.flatMap((a: any) => a.student_id ? [a.student_id] : []))];
                 if (studentIds.length > 0) {
-                    const { data: studs } = await supabase.from('students').select('student_id, year_level, section, course, department').in('student_id', studentIds);
+                    const { data: studs } = await supabase.from('students').select('student_id, year_level, section, course, department, sex, gender_identity').in('student_id', studentIds);
                     const stuMap: any = {};
                     (studs || []).forEach((s: any) => { stuMap[s.student_id] = s; });
                     enriched = enriched.map((a: any) => ({
@@ -520,7 +520,9 @@ export function useCareStaffEvents({ functions }: any) {
                         year_level: stuMap[a.student_id]?.year_level || '',
                         section: stuMap[a.student_id]?.section || '',
                         course: a.course || stuMap[a.student_id]?.course || '',
-                        department: stuMap[a.student_id]?.department || ''
+                        department: stuMap[a.student_id]?.department || '',
+                        sex: stuMap[a.student_id]?.sex || '',
+                        gender_identity: stuMap[a.student_id]?.gender_identity || ''
                     }));
                 }
             }
@@ -534,7 +536,7 @@ export function useCareStaffEvents({ functions }: any) {
                 for (let from = 0; ; from += pageSize) {
                     let expectedQuery: any = supabase
                         .from('students')
-                        .select('student_id, first_name, middle_name, last_name, suffix, email, department, course, year_level, section, status')
+                        .select('student_id, first_name, middle_name, last_name, suffix, email, department, course, year_level, section, status, sex, gender_identity')
                         .eq('is_archived', false)
                         .eq('status', 'Active');
                     expectedQuery = applyEventAudienceQuery(expectedQuery, item);

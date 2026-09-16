@@ -127,12 +127,12 @@ export const computeGenderDemographics = (submissions: any[] = []): GenderDemogr
 
     for (const sub of submissions) {
         const student = sub?.students || {};
-        const rawSex = String(student.sex || '').trim().toLowerCase();
+        const rawSex = String(student.sex || sub?.sex || '').trim().toLowerCase();
         if (rawSex === 'female' || rawSex === 'f') female += 1;
         else if (rawSex === 'male' || rawSex === 'm') male += 1;
         else sexOther += 1;
 
-        const rawGender = String(student.gender_identity || '').trim().toLowerCase();
+        const rawGender = String(student.gender_identity || sub?.gender_identity || '').trim().toLowerCase();
         if (rawGender.includes('cis')) cisgender += 1;
         else if (rawGender.includes('trans')) transgender += 1;
         else if (rawGender.includes('non-binary') || rawGender.includes('nonbinary')) nonBinary += 1;

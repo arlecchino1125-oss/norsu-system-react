@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, m } from 'framer-motion';
 import {
-    Plus, Calendar, Clock, MapPin, Users, UserX, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList, ChevronLeft, ChevronRight, X
+    Plus, Calendar, Clock, MapPin, Users, UserX, Star, XCircle, Download, CheckCircle, Archive, RefreshCw, ClipboardList, ChevronLeft, ChevronRight, ChevronDown, X
 } from 'lucide-react';
 import { usePermissions } from '../../../../../hooks/usePermissions';
 import { managedArchiveService } from '../../../../../services/managedArchiveService';
 import { supabase } from '../../../../../lib/supabase';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
 import { formatDate, toTitleCase } from '../../../../../utils/formatters';
+import { computeGenderDemographics } from '../../analytics/utils/needsAssessmentExport';
 import { Button } from '../../../../../components/ui/Button';
+import PaginationControls from '../../../../../components/PaginationControls';
 import Modal from '../../../../../components/ui/Modal';
 import { Card, CardContent, CardHeader } from '../../../../../components/ui/Card';
 import { AttendanceProofButton } from '../../../../../components/AttendanceProofButton';
@@ -427,26 +429,40 @@ const AttendeesModal = ({
     showToast, isLoading, attendees, expectedStudents, selectedAttendanceEvent, attendeeFilter, setAttendeeFilter, yearLevelFilter, setYearLevelFilter, attendeeCourseFilter, setAttendeeCourseFilter, attendeeSectionFilter, setAttendeeSectionFilter, setShowAttendeesModal, selectedEventTitle, setExpectedStudents, setSelectedAttendanceEvent, handleVoidAttendance
 }: any) => {
     const [attendeeSearch, setAttendeeSearch] = useState('');
+    const [attendeeGenderFilter, setAttendeeGenderFilter] = useState('All');
+    const [showAttendeeDemographics, setShowAttendeeDemographics] = useState(false);
     const [page, setPage] = useState(1);
     const [confirmVoid, setConfirmVoid] = useState(false);
     const depts = [...new Set(attendees.flatMap((a: any) => a.department ? [a.department] : []))].sort() as string[];
     const yearLevels = [...new Set(attendees.flatMap((a: any) => a.year_level ? [a.year_level] : []))].sort() as string[];
     const courses = [...new Set(attendees.flatMap((a: any) => a.course ? [a.course] : []))].sort() as string[];
     const sections = [...new Set(attendees.flatMap((a: any) => a.section ? [a.section] : []))].sort() as string[];
+    const demographics = useMemo(() => computeGenderDemographics(attendees), [attendees]);
     let filtered = attendeeFilter === 'All' ? attendees : attendees.filter(a => a.department === attendeeFilter);
     if (attendeeCourseFilter !== 'All') filtered = filtered.filter(a => a.course === attendeeCourseFilter);
     if (yearLevelFilter !== 'All') filtered = filtered.filter(a => a.year_level === yearLevelFilter);
     if (attendeeSectionFilter !== 'All') filtered = filtered.filter(a => a.section === attendeeSectionFilter);
+    if (attendeeGenderFilter !== 'All') {
+        const target = attendeeGenderFilter.toLowerCase();
+        filtered = filtered.filter((a: any) => {
+            const rowSex = String(a.sex || '').trim().toLowerCase();
+            const rowGender = String(a.gender_identity || '').trim().toLowerCase();
+            if (target === 'female') return rowSex === 'female' || rowSex === 'f';
+            if (target === 'male') return rowSex === 'male' || rowSex === 'm';
+            if (target === 'other') return rowSex !== 'female' && rowSex !== 'f' && rowSex !== 'male' && rowSex !== 'm';
+            return rowGender.includes(target) || rowSex.includes(target);
+        });
+    }
     const attendeeQuery = attendeeSearch.trim().toLowerCase();
-    if (attendeeQuery) filtered = filtered.filter(a => String(a.student_name || '').toLowerCase().includes(attendeeQuery));
+    if (attendeeQuery) filtered = filtered.filter(a => `${a.student_name || ''} ${a.student_id || ''}`.toLowerCase().includes(attendeeQuery));
     const completedCount = attendees.filter(a => a.time_out).length;
     const attendeeByStudentId = new Map<string, any>(attendees.map((att: any) => [String(att.student_id || ''), att]));
     const absentStudents = expectedStudents.filter((student: any) => !attendeeByStudentId.has(String(student.student_id || '')));
     const attendanceRate = expectedStudents.length > 0
         ? Math.round((attendees.length / expectedStudents.length) * 100)
         : null;
-    const resetFilters = () => { setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setAttendeeSearch(''); setPage(1); };
-    const hasActiveFilters = attendeeFilter !== 'All' || yearLevelFilter !== 'All' || attendeeCourseFilter !== 'All' || attendeeSectionFilter !== 'All' || Boolean(attendeeQuery);
+    const resetFilters = () => { setAttendeeFilter('All'); setYearLevelFilter('All'); setAttendeeCourseFilter('All'); setAttendeeSectionFilter('All'); setAttendeeGenderFilter('All'); setAttendeeSearch(''); setPage(1); };
+    const hasActiveFilters = attendeeFilter !== 'All' || yearLevelFilter !== 'All' || attendeeCourseFilter !== 'All' || attendeeSectionFilter !== 'All' || attendeeGenderFilter !== 'All' || Boolean(attendeeQuery);
     const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
     const safePage = Math.min(page, totalPages);
     const pageItems = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
@@ -472,14 +488,17 @@ const AttendeesModal = ({
                         )}
                         <Button variant="secondary" size="sm" onClick={() => {
                             if (filtered.length === 0 && expectedStudents.length === 0) return;
-                            const headers = ['Student Name', 'College', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
+                            const headers = ['Student ID', 'Student Name', 'Sex Assigned at Birth', 'Gender Identity', 'College', 'Course', 'Year Level', 'Section', 'Time In', 'Time Out', 'Status'];
                             // When filters are active export only what's visible; otherwise use the
                             // full expected-students roster (includes absent rows).
                             const rows = !hasActiveFilters && expectedStudents.length > 0
                                 ? expectedStudents.map((student: any) => {
                                     const attendance = attendeeByStudentId.get(String(student.student_id || ''));
                                     return [
+                                        student.student_id || attendance?.student_id || '',
                                         attendance?.student_name || getStudentName(student),
+                                        student.sex || attendance?.sex || '',
+                                        student.gender_identity || attendance?.gender_identity || '',
                                         student.department || attendance?.department || '',
                                         student.course || attendance?.course || '',
                                         student.year_level || attendance?.year_level || '',
@@ -489,7 +508,19 @@ const AttendeesModal = ({
                                         attendance ? (attendance.time_out ? 'Completed' : 'Still In') : (selectedAttendanceEvent?.attendance_required ? 'Absent' : 'Not attended')
                                     ];
                                 })
-                                : filtered.map(a => [a.student_name, a.department || '', a.course || '', a.year_level || '', a.section || '', new Date(a.time_in).toLocaleString(), a.time_out ? new Date(a.time_out).toLocaleString() : '-', a.time_out ? 'Completed' : 'Still In']);
+                                : filtered.map(a => [
+                                    a.student_id || '',
+                                    a.student_name || '',
+                                    a.sex || '',
+                                    a.gender_identity || '',
+                                    a.department || '',
+                                    a.course || '',
+                                    a.year_level || '',
+                                    a.section || '',
+                                    a.time_in ? new Date(a.time_in).toLocaleString() : '-',
+                                    a.time_out ? new Date(a.time_out).toLocaleString() : '-',
+                                    a.time_out ? 'Completed' : 'Still In'
+                                ]);
                             exportToExcel(headers, rows, `${selectedEventTitle || 'event'}_attendees`);
                         }} disabled={filtered.length === 0 && expectedStudents.length === 0} leftIcon={<Download size={14} />}>
                             Export {hasActiveFilters ? `${filtered.length} filtered` : 'Excel'}
@@ -511,12 +542,12 @@ const AttendeesModal = ({
                             </div>
                         </div>
                         <div aria-hidden="true" className="flex-1">
-                            <div className="grid grid-cols-7 gap-4 bg-green-50 px-4 py-3">
-                                {Array.from({ length: 7 }, (_, index) => <div key={index} className="h-3 rounded bg-green-100" />)}
+                            <div className="grid grid-cols-5 gap-4 bg-slate-50 px-6 py-3.5 border-b border-slate-200">
+                                {Array.from({ length: 5 }, (_, index) => <div key={index} className="h-3 rounded bg-slate-200" />)}
                             </div>
                             {Array.from({ length: 8 }, (_, row) => (
-                                <div key={row} className="grid grid-cols-7 gap-4 border-b border-gray-100 px-4 py-3">
-                                    {Array.from({ length: 7 }, (_, column) => <div key={column} className="h-3 rounded bg-slate-100" />)}
+                                <div key={row} className="grid grid-cols-5 gap-4 border-b border-gray-100 px-6 py-4">
+                                    {Array.from({ length: 5 }, (_, column) => <div key={column} className="h-4 rounded bg-slate-100" />)}
                                 </div>
                             ))}
                         </div>
@@ -527,43 +558,177 @@ const AttendeesModal = ({
                         <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-4 sm:px-6">
                             <div className="flex flex-wrap items-center gap-2 text-xs">
                                 <span className="rounded-full bg-blue-100 px-2.5 py-1 font-bold text-blue-700">{attendees.length} Total</span>
+                                <span className="rounded-full bg-rose-100 px-2.5 py-1 font-bold text-rose-700">{demographics.sexCounts.female} Female</span>
+                                <span className="rounded-full bg-sky-100 px-2.5 py-1 font-bold text-sky-700">{demographics.sexCounts.male} Male</span>
                                 <span className="rounded-full bg-green-100 px-2.5 py-1 font-bold text-green-700">{completedCount} Completed</span>
                                 <span className="rounded-full bg-yellow-100 px-2.5 py-1 font-bold text-yellow-700">{attendees.length - completedCount} Still In</span>
                                 {expectedStudents.length > 0 && <span className="rounded-full bg-slate-100 px-2.5 py-1 font-bold text-slate-700">{expectedStudents.length} Expected</span>}
                                 {expectedStudents.length > 0 && <span className="rounded-full bg-red-100 px-2.5 py-1 font-bold text-red-700">{absentStudents.length} {selectedAttendanceEvent?.attendance_required ? 'Absent' : 'Not attended'}</span>}
                                 {attendanceRate !== null && <span className="rounded-full bg-indigo-100 px-2.5 py-1 font-bold text-indigo-700">{attendanceRate}% Attendance</span>}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAttendeeDemographics((prev) => !prev)}
+                                    className="ml-auto inline-flex items-center gap-1 font-bold text-purple-600 hover:text-purple-700"
+                                >
+                                    <Users size={12} />
+                                    <span>Demographics</span>
+                                    <ChevronDown size={12} className={`transition-transform duration-200 ${showAttendeeDemographics ? 'rotate-180' : ''}`} />
+                                </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+
+                            {showAttendeeDemographics && (
+                                <div className="grid grid-cols-1 gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-2">
+                                    {/* Sex Assigned at Birth */}
+                                    <div className="space-y-1.5">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sex Assigned at Birth</p>
+                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                            <div className="flex items-center justify-between rounded-xl border border-rose-100/80 bg-rose-50/60 p-2.5">
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-slate-600">Female</p>
+                                                    <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-rose-700">
+                                                        {demographics.sexCounts.female.toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <span className="rounded-md border border-rose-100 bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-rose-600/80">
+                                                    {demographics.total > 0 ? ((demographics.sexCounts.female / demographics.total) * 100).toFixed(1) : 0}%
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between rounded-xl border border-sky-100/80 bg-sky-50/60 p-2.5">
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-slate-600">Male</p>
+                                                    <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-sky-700">
+                                                        {demographics.sexCounts.male.toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <span className="rounded-md border border-sky-100 bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-sky-600/80">
+                                                    {demographics.total > 0 ? ((demographics.sexCounts.male / demographics.total) * 100).toFixed(1) : 0}%
+                                                </span>
+                                            </div>
+                                            {demographics.sexCounts.other > 0 && (
+                                                <div className="col-span-2 flex items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50 p-2.5 sm:col-span-1">
+                                                    <div>
+                                                        <p className="text-[11px] font-semibold text-slate-600">Other / Unset</p>
+                                                        <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-slate-700">
+                                                            {demographics.sexCounts.other.toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                    <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                                                        {demographics.total > 0 ? ((demographics.sexCounts.other / demographics.total) * 100).toFixed(1) : 0}%
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Gender Identity */}
+                                    <div className="space-y-1.5">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gender Identity</p>
+                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                            <div className="flex items-center justify-between rounded-xl border border-purple-100/80 bg-purple-50/60 p-2.5">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-[11px] font-semibold text-slate-600" title="CIS Gender">CIS Gender</p>
+                                                    <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-purple-700">
+                                                        {demographics.genderCounts.cisgender.toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <span className="ml-1 shrink-0 rounded-md border border-purple-100 bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-purple-600/80">
+                                                    {demographics.total > 0 ? ((demographics.genderCounts.cisgender / demographics.total) * 100).toFixed(1) : 0}%
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between rounded-xl border border-indigo-100/80 bg-indigo-50/60 p-2.5">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-[11px] font-semibold text-slate-600" title="Transgender">Transgender</p>
+                                                    <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-indigo-700">
+                                                        {demographics.genderCounts.transgender.toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <span className="ml-1 shrink-0 rounded-md border border-indigo-100 bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-indigo-600/80">
+                                                    {demographics.total > 0 ? ((demographics.genderCounts.transgender / demographics.total) * 100).toFixed(1) : 0}%
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between rounded-xl border border-amber-100/80 bg-amber-50/60 p-2.5">
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-[11px] font-semibold text-slate-600" title="Non-binary gender">Non-binary</p>
+                                                    <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-amber-700">
+                                                        {demographics.genderCounts.nonBinary.toLocaleString()}
+                                                    </p>
+                                                </div>
+                                                <span className="ml-1 shrink-0 rounded-md border border-amber-100 bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-600/80">
+                                                    {demographics.total > 0 ? ((demographics.genderCounts.nonBinary / demographics.total) * 100).toFixed(1) : 0}%
+                                                </span>
+                                            </div>
+                                            {demographics.genderCounts.preferNotToSay > 0 && (
+                                                <div className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50 p-2.5">
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-[11px] font-semibold text-slate-600" title="Prefer not to say">Prefer not to say</p>
+                                                        <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-slate-700">
+                                                            {demographics.genderCounts.preferNotToSay.toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                    <span className="ml-1 shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                                                        {demographics.total > 0 ? ((demographics.genderCounts.preferNotToSay / demographics.total) * 100).toFixed(1) : 0}%
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {demographics.genderCounts.other > 0 && (
+                                                <div className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50 p-2.5">
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-[11px] font-semibold text-slate-600" title="Other">Other</p>
+                                                        <p className="mt-0.5 text-sm font-black tabular-nums leading-tight text-slate-700">
+                                                            {demographics.genderCounts.other.toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                    <span className="ml-1 shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                                                        {demographics.total > 0 ? ((demographics.genderCounts.other / demographics.total) * 100).toFixed(1) : 0}%
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                                 <input
                                     value={attendeeSearch}
                                     onChange={(e) => { setAttendeeSearch(e.target.value); setPage(1); }}
-                                    placeholder="Search name…"
+                                    placeholder="Search name or ID…"
                                     className="col-span-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-200 sm:col-span-1"
                                 />
                                 {depts.length > 0 && (
-                                    <select value={attendeeFilter} onChange={(e) => { setAttendeeFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                    <select aria-label="Filter by college" value={attendeeFilter} onChange={(e) => { setAttendeeFilter(e.target.value); setPage(1); }} className={selectClass}>
                                         <option value="All">All Colleges ({attendees.length})</option>
                                         {depts.map((dept) => <option key={dept} value={dept}>{dept} ({attendees.filter(a => a.department === dept).length})</option>)}
                                     </select>
                                 )}
                                 {yearLevels.length > 0 && (
-                                    <select value={yearLevelFilter} onChange={(e) => { setYearLevelFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                    <select aria-label="Filter by year level" value={yearLevelFilter} onChange={(e) => { setYearLevelFilter(e.target.value); setPage(1); }} className={selectClass}>
                                         <option value="All">All Years</option>
                                         {yearLevels.map((yl) => <option key={yl} value={yl}>{yl} ({attendees.filter(a => a.year_level === yl).length})</option>)}
                                     </select>
                                 )}
                                 {courses.length > 0 && (
-                                    <select value={attendeeCourseFilter} onChange={(e) => { setAttendeeCourseFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                    <select aria-label="Filter by course" value={attendeeCourseFilter} onChange={(e) => { setAttendeeCourseFilter(e.target.value); setPage(1); }} className={selectClass}>
                                         <option value="All">All Courses</option>
                                         {courses.map((c) => <option key={c} value={c}>{c} ({attendees.filter(a => a.course === c).length})</option>)}
                                     </select>
                                 )}
                                 {sections.length > 0 && (
-                                    <select value={attendeeSectionFilter} onChange={(e) => { setAttendeeSectionFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                    <select aria-label="Filter by section" value={attendeeSectionFilter} onChange={(e) => { setAttendeeSectionFilter(e.target.value); setPage(1); }} className={selectClass}>
                                         <option value="All">All Sections</option>
                                         {sections.map((s) => <option key={s} value={s}>Sec {s} ({attendees.filter(a => a.section === s).length})</option>)}
                                     </select>
                                 )}
+                                <select aria-label="Filter by gender" value={attendeeGenderFilter} onChange={(e) => { setAttendeeGenderFilter(e.target.value); setPage(1); }} className={selectClass}>
+                                    <option value="All">All Genders</option>
+                                    <option value="Female">Female ({demographics.sexCounts.female})</option>
+                                    <option value="Male">Male ({demographics.sexCounts.male})</option>
+                                    {demographics.genderCounts.cisgender > 0 && <option value="CIS Gender">CIS Gender ({demographics.genderCounts.cisgender})</option>}
+                                    {demographics.genderCounts.transgender > 0 && <option value="Transgender">Transgender ({demographics.genderCounts.transgender})</option>}
+                                    {demographics.genderCounts.nonBinary > 0 && <option value="Non-binary">Non-binary ({demographics.genderCounts.nonBinary})</option>}
+                                    {demographics.genderCounts.preferNotToSay > 0 && <option value="Prefer not to say">Prefer not to say ({demographics.genderCounts.preferNotToSay})</option>}
+                                    {demographics.genderCounts.other > 0 && <option value="Other">Other ({demographics.genderCounts.other})</option>}
+                                </select>
                             </div>
                             {hasActiveFilters && (
                                 <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -582,35 +747,119 @@ const AttendeesModal = ({
                                 </div>
                             </div>
                         )}
-                        <div className="p-0 overflow-y-auto flex-1">
-                            {filtered.length === 0 ? <p className="text-center py-8 text-gray-500">{hasActiveFilters ? 'No attendees match the filters.' : 'No attendees yet.'}</p> : (
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-green-50 text-green-700 sticky top-0"><tr><th className="px-4 py-2">Student</th><th className="px-4 py-2">Course</th><th className="px-4 py-2">Year / Sec</th><th className="px-4 py-2">Time In</th><th className="px-4 py-2">Time Out</th><th className="px-4 py-2">Location</th><th className="px-4 py-2">Proof</th></tr></thead>
-                                    <tbody className="divide-y divide-green-50">
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex-1 flex flex-col min-h-0">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                                <table className="w-full text-left text-xs border-collapse">
+                                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                                        <tr>
+                                            <th scope="col" className="px-6 py-3.5 font-bold text-[11px] text-slate-500 uppercase tracking-wider">
+                                                Student Name
+                                            </th>
+                                            <th scope="col" className="px-6 py-3.5 font-bold text-[11px] text-slate-500 uppercase tracking-wider">
+                                                Gender
+                                            </th>
+                                            <th scope="col" className="px-6 py-3.5 font-bold text-[11px] text-slate-500 uppercase tracking-wider">
+                                                Course &amp; Year
+                                            </th>
+                                            <th scope="col" className="px-6 py-3.5 font-bold text-[11px] text-slate-500 uppercase tracking-wider">
+                                                Attendance
+                                            </th>
+                                            <th scope="col" className="px-6 py-3.5 text-right font-bold text-[11px] text-slate-500 uppercase tracking-wider">
+                                                Verification
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
                                         {pageItems.map((att) => (
-                                            <tr key={att.id} className="bg-green-50/20 hover:bg-green-50/60">
-                                                <td className="px-4 py-2"><p className="font-bold text-gray-900">{toTitleCase(att.student_name, '—')}</p><p className="text-[10px] text-gray-500">{att.department}</p></td>
-                                                <td className="px-4 py-2 text-gray-600 font-medium">{att.course || '-'}</td>
-                                                <td className="px-4 py-2 text-gray-600 font-medium">{att.year_level || '-'}{att.section ? ` — ${att.section}` : ''}</td>
-                                                <td className="px-4 py-2 text-gray-600">{new Date(att.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                                                <td className="px-4 py-2">{att.time_out ? <span className="text-green-600 font-medium">{new Date(att.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : <span className="text-yellow-600 font-bold">Still In</span>}</td>
-                                                <td className="px-4 py-2">
-                                                    {att.latitude ? <a href={`https://maps.google.com/?q=${att.latitude},${att.longitude}`} target="_blank" className="text-blue-600 hover:underline flex items-center gap-1"><MapPin size={12} />Map</a> : '-'}
+                                            <tr key={att.id} className="group transition-colors hover:bg-purple-50/40">
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
+                                                        {toTitleCase(att.student_name, '—')}
+                                                    </div>
+                                                    <div className="font-mono text-[11px] text-slate-400 mt-0.5 font-medium">
+                                                        {att.student_id ? `${att.student_id} · ` : ''}{att.department || 'Dept Unknown'}
+                                                    </div>
                                                 </td>
-                                                <td className="px-4 py-2">
-                                                    <AttendanceProofButton
-                                                        storedReference={att.proof_url}
-                                                        attendanceId={Number(att.id)}
-                                                        onError={(message) => showToast?.(message, 'error')}
-                                                    />
+                                                <td className="whitespace-nowrap px-6 py-4">
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                                            att.sex?.toLowerCase() === 'female'
+                                                                ? 'bg-rose-50 text-rose-700 border-rose-100/60'
+                                                                : att.sex?.toLowerCase() === 'male'
+                                                                ? 'bg-sky-50 text-sky-700 border-sky-100/60'
+                                                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                                                        }`}>
+                                                            {att.sex || 'Sex —'}
+                                                        </span>
+                                                        {att.gender_identity && (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-[10px] font-semibold text-purple-700 border border-purple-100/60">
+                                                                {att.gender_identity}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="max-w-[20rem] px-6 py-4">
+                                                    <div className="font-medium text-slate-800 truncate" title={att.course || undefined}>
+                                                        {att.course || 'Unknown Course'}
+                                                    </div>
+                                                    <div className="text-[10.5px] font-bold text-purple-700 mt-0.5 uppercase tracking-wider">
+                                                        {att.year_level || 'YEAR NOT SET'}{att.section ? ` — SEC ${att.section}` : ''}
+                                                    </div>
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4">
+                                                    <div className="font-semibold text-slate-800">
+                                                        {new Date(att.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        <span className="text-[11px] text-slate-400 font-normal ml-1.5">
+                                                            {new Date(att.time_in).toLocaleDateString()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[11px] mt-0.5">
+                                                        {att.time_out ? (
+                                                            <span className="font-medium text-emerald-700">
+                                                                Out: {new Date(att.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200/60">
+                                                                Still In
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                    <div className="flex items-center justify-end gap-3">
+                                                        {att.latitude ? (
+                                                            <a href={`https://maps.google.com/?q=${att.latitude},${att.longitude}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                                                <MapPin size={12} /> Map
+                                                            </a>
+                                                        ) : null}
+                                                        <AttendanceProofButton
+                                                            storedReference={att.proof_url}
+                                                            attendanceId={Number(att.id)}
+                                                            onError={(message) => showToast?.(message, 'error')}
+                                                        />
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
+                                        {filtered.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-16 text-center text-slate-400 font-medium">
+                                                    {hasActiveFilters ? 'No attendees match the filters.' : 'No attendees yet.'}
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
+                            </div>
+                            {filtered.length > 0 && (
+                                <PaginationControls
+                                    page={safePage}
+                                    pageSize={ITEMS_PER_PAGE}
+                                    total={filtered.length}
+                                    onPageChange={setPage}
+                                />
                             )}
                         </div>
-                        <ListPager page={safePage} totalPages={totalPages} totalItems={filtered.length} onPageChange={setPage} />
                     </>
                 )}
             </div>
@@ -657,8 +906,8 @@ const AbsentModal = ({
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                         <Button variant="secondary" size="sm" onClick={() => {
-                            const headers = ['Student Name', 'Student ID', 'College', 'Course', 'Year Level'];
-                            const rows = filtered.map((s: any) => [getStudentName(s), s.student_id || '', s.department || '', s.course || '', s.year_level || '']);
+                            const headers = ['Student ID', 'Student Name', 'Sex Assigned at Birth', 'Gender Identity', 'College', 'Course', 'Year Level'];
+                            const rows = filtered.map((s: any) => [s.student_id || '', getStudentName(s), s.sex || '', s.gender_identity || '', s.department || '', s.course || '', s.year_level || '']);
                             exportToExcel(headers, rows, `${selectedEventTitle || 'event'}_absent`);
                         }} disabled={filtered.length === 0} leftIcon={<Download size={14} />}>
                             Export Excel
@@ -747,7 +996,14 @@ const AbsentModal = ({
                                 </table>
                             )}
                         </div>
-                        <ListPager page={safePage} totalPages={totalPages} totalItems={filtered.length} onPageChange={setPage} />
+                        {filtered.length > 0 && (
+                            <PaginationControls
+                                page={safePage}
+                                pageSize={ITEMS_PER_PAGE}
+                                total={filtered.length}
+                                onPageChange={setPage}
+                            />
+                        )}
                     </>
                 )}
             </div>

@@ -50,6 +50,8 @@ export interface EvaluationResponse {
     department: string | null;
     course: string | null;
     year_level: string | null;
+    sex?: string | null;
+    gender_identity?: string | null;
     submitted_at: string;
 }
 
@@ -199,7 +201,7 @@ export const getEvaluationResults = async (formId: number) => {
         supabase.from('event_evaluation_questions').select(QUESTION_COLUMNS).eq('form_id', formId).order('order_index'),
         supabase
             .from('event_evaluation_responses')
-            .select('id, student_id, student_name, department, course, year_level, submitted_at, event_evaluation_answers(response_id, question_id, answer_value, answer_text), students(first_name, middle_name, last_name, suffix, department, course, year_level)')
+            .select('id, student_id, student_name, department, course, year_level, submitted_at, event_evaluation_answers(response_id, question_id, answer_value, answer_text), students(first_name, middle_name, last_name, suffix, department, course, year_level, sex, gender_identity)')
             .eq('form_id', formId)
             .order('submitted_at', { ascending: false })
             .limit(10000)
@@ -222,7 +224,9 @@ export const getEvaluationResults = async (formId: number) => {
             student_name: rest.student_name || studentFallbackName || 'Student',
             department: rest.department || s?.department || null,
             course: rest.course || s?.course || null,
-            year_level: rest.year_level || s?.year_level || null
+            year_level: rest.year_level || s?.year_level || null,
+            sex: s?.sex || null,
+            gender_identity: s?.gender_identity || null
         };
     });
     const answers = rawResponses.flatMap((r) =>
