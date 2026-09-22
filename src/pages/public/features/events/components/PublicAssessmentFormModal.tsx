@@ -15,6 +15,11 @@ interface PublicAssessmentFormModalProps {
 const isTextQuestion = (q: PublicAssessmentQuestion) =>
     q?.question_type === 'text' || q?.question_type === 'open_ended';
 
+// Same single intake rule as the app and public_submit_assessment; rows saved
+// before the flag existed fall back to "everything but free text is required".
+const isRequiredQuestion = (q: PublicAssessmentQuestion) =>
+    q?.is_required ?? !isTextQuestion(q);
+
 const CloseIcon = () => (
     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 6 6 18" />
@@ -67,14 +72,16 @@ export default function PublicAssessmentFormModal({
     if (!isOpen || !form || typeof document === 'undefined') return null;
 
     const totalCount = questions.length;
-    const answeredCount = questions.filter((q) =>
+    const isAnsweredQuestion = (q: PublicAssessmentQuestion) =>
         isTextQuestion(q)
             ? responses[q.id] !== undefined && String(responses[q.id]).trim() !== ''
-            : responses[q.id] !== undefined
-    ).length;
+            : responses[q.id] !== undefined;
+    const requiredQuestions = questions.filter(isRequiredQuestion);
+    const requiredCount = requiredQuestions.length;
+    const answeredRequiredCount = requiredQuestions.filter(isAnsweredQuestion).length;
 
-    const progressPercent = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
-    const canSubmit = totalCount > 0 && answeredCount === totalCount;
+    const progressPercent = requiredCount > 0 ? Math.round((answeredRequiredCount / requiredCount) * 100) : 100;
+    const canSubmit = totalCount > 0 && answeredRequiredCount === requiredCount;
 
     const handleAnswerChange = (qid: number, value: string | number) => {
         setResponses((prev) => {
@@ -143,7 +150,7 @@ export default function PublicAssessmentFormModal({
                                 />
                             </div>
                             <span className="shrink-0 font-mono text-[10px] font-bold text-slate-300">
-                                {answeredCount}/{totalCount} <span className="text-slate-400">({progressPercent}%)</span>
+                                {answeredRequiredCount}/{requiredCount} <span className="text-slate-400">({progressPercent}%)</span>
                             </span>
                         </div>
                     )}
@@ -229,6 +236,9 @@ export default function PublicAssessmentFormModal({
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-[13.5px] sm:text-sm font-bold leading-snug text-slate-800">
                                                     {q.question_text}
+                                                    {!isRequiredQuestion(q) && (
+                                                        <span className="ml-2 align-middle text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Optional</span>
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>
@@ -237,6 +247,7 @@ export default function PublicAssessmentFormModal({
                                             <div className="mt-3">
                                                 <textarea
                                                     rows={3}
+                                                    maxLength={1500}
                                                     value={responses[q.id] ?? ''}
                                                     onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                                                     className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
@@ -280,10 +291,10 @@ export default function PublicAssessmentFormModal({
                         <div className="min-w-0">
                             <span className="text-[11px] font-bold text-slate-500">
                                 {canSubmit ? (
-                                    <span className="text-emerald-600">✓ All {totalCount} completed</span>
+                                    <span className="text-emerald-600">✓ Ready to submit</span>
                                 ) : (
                                     <span>
-                                        {totalCount - answeredCount} question{totalCount - answeredCount === 1 ? '' : 's'} remaining
+                                        {requiredCount - answeredRequiredCount} required question{requiredCount - answeredRequiredCount === 1 ? '' : 's'} remaining
                                     </span>
                                 )}
                             </span>

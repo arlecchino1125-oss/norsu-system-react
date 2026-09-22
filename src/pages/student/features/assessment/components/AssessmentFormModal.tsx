@@ -26,6 +26,11 @@ const CheckIcon = () => (
 
 const isTextQuestion = (question: any) => question?.question_type === 'text' || question?.question_type === 'open_ended';
 
+// is_required is the single intake rule now; rows saved before the flag existed
+// fall back to "everything but free text is required", which is what this modal
+// enforced then.
+const isRequiredQuestion = (question: any) => question?.is_required ?? !isTextQuestion(question);
+
 export default function AssessmentFormModal({
     form,
     isOpen,
@@ -51,7 +56,7 @@ export default function AssessmentFormModal({
 
             const { data, error } = await supabase
                 .from('needs_assessment_questions')
-                .select('id, form_id, question_text, question_type, scale_min, scale_max, order_index')
+                .select('id, form_id, question_text, question_type, scale_min, scale_max, order_index, is_required')
                 .eq('form_id', form.id)
                 .order('order_index');
 
@@ -126,7 +131,7 @@ export default function AssessmentFormModal({
             onClose();
             setResponses({});
         } catch (error: any) {
-            if (error?.code === '23505' || String('').toLowerCase().includes('duplicate')) {
+            if (error?.code === '23505' || String(error?.message ?? '').toLowerCase().includes('duplicate')) {
                 await onSubmitted(form.id, false);
                 onClose();
                 showToast('You have already completed this assessment.', 'error');
@@ -143,9 +148,12 @@ export default function AssessmentFormModal({
         return null;
     }
 
-    const scaleQuestions = formQuestions.filter((q) => !isTextQuestion(q));
-    const completionCount = scaleQuestions.filter((q) => responses[q.id] !== undefined).length;
-    const expectedCount = scaleQuestions.length;
+    const isAnsweredQuestion = (question: any) => isTextQuestion(question)
+        ? String(responses[question.id] ?? '').trim() !== ''
+        : responses[question.id] !== undefined;
+    const requiredQuestions = formQuestions.filter(isRequiredQuestion);
+    const completionCount = requiredQuestions.filter(isAnsweredQuestion).length;
+    const expectedCount = requiredQuestions.length;
     const progressPercent = expectedCount > 0
         ? Math.round((completionCount / expectedCount) * 100)
         : 100;
@@ -228,7 +236,12 @@ export default function AssessmentFormModal({
                                                 {index + 1}
                                             </span>
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-bold leading-6 text-slate-800">{question.question_text}</p>
+                                                <p className="text-sm font-bold leading-6 text-slate-800">
+                                                    {question.question_text}
+                                                    {!isRequiredQuestion(question) && (
+                                                        <span className="ml-2 align-middle text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">Optional</span>
+                                                    )}
+                                                </p>
                                             </div>
                                         </div>
 
@@ -237,6 +250,7 @@ export default function AssessmentFormModal({
                                                 <textarea
                                                     className="min-h-[96px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100"
                                                     rows={3}
+                                                    maxLength={1500}
                                                     placeholder="Type your answer here..."
                                                     value={questionAnswer || ''}
                                                     onChange={(event) => handleInventoryChange(question.id, event.target.value)}

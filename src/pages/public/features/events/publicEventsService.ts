@@ -83,6 +83,7 @@ export interface PublicAssessmentQuestion {
     question_type: 'scale' | 'text' | 'open_ended' | string | null;
     scale_min: number | null;
     scale_max: number | null;
+    is_required: boolean;
 }
 
 const rpc = (fn: string, args?: Record<string, unknown>) => (supabase.rpc as any)(fn, args);

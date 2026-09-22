@@ -1444,6 +1444,7 @@ export type Database = {
           created_at: string | null
           form_id: number | null
           id: number
+          is_required: boolean
           order_index: number | null
           question_text: string
           question_type: string | null
@@ -1454,6 +1455,7 @@ export type Database = {
           created_at?: string | null
           form_id?: number | null
           id?: number
+          is_required?: boolean
           order_index?: number | null
           question_text: string
           question_type?: string | null
@@ -1464,6 +1466,7 @@ export type Database = {
           created_at?: string | null
           form_id?: number | null
           id?: number
+          is_required?: boolean
           order_index?: number | null
           question_text?: string
           question_type?: string | null

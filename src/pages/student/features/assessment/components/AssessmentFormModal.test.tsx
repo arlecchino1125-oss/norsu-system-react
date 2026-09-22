@@ -18,6 +18,8 @@ const QUESTIONS = [
     { id: 2, form_id: 9, question_text: 'Others, please specify:', question_type: 'text', order_index: 1 }
 ];
 
+let currentQuestions: any[] = QUESTIONS;
+
 const renderModal = () => render(
     <AssessmentFormModal
         form={FORM}
@@ -32,12 +34,13 @@ const renderModal = () => render(
 describe('AssessmentFormModal', () => {
     beforeEach(() => {
         answerInserts.length = 0;
+        currentQuestions = QUESTIONS;
         mockFrom.mockImplementation((table: string) => {
             if (table === 'needs_assessment_questions') {
                 const query: any = {};
                 query.select = () => query;
                 query.eq = () => query;
-                query.order = () => Promise.resolve({ data: QUESTIONS, error: null });
+                query.order = () => Promise.resolve({ data: currentQuestions, error: null });
                 return query;
             }
             if (table === 'needs_assessment_submissions') {
@@ -92,5 +95,33 @@ describe('AssessmentFormModal', () => {
 
         const instructions = await screen.findByText(FORM.description);
         expect(instructions.closest('.student-mobile-modal-scroll-panel')).not.toBeNull();
+    });
+
+    it('blocks submit until every required question is answered, optional ones aside', async () => {
+        currentQuestions = [
+            { id: 1, form_id: 9, question_text: 'I feel supported.', question_type: 'scale', order_index: 0, is_required: false },
+            { id: 2, form_id: 9, question_text: 'Others, please specify:', question_type: 'text', order_index: 1, is_required: true }
+        ];
+        renderModal();
+
+        const submit = await screen.findByRole('button', { name: /Submit Assessment/ });
+        expect(submit).toBeDisabled();
+
+        // The optional scale answer alone must not unlock submit while the
+        // required text answer is still empty.
+        fireEvent.click(screen.getByRole('button', { name: '4' }));
+        expect(submit).toBeDisabled();
+
+        fireEvent.change(screen.getByPlaceholderText('Type your answer here...'), {
+            target: { value: 'Financial assistance' }
+        });
+        expect(submit).toBeEnabled();
+    });
+
+    it('labels optional questions and caps text answers at the server limit', async () => {
+        renderModal();
+
+        expect(await screen.findByText('Optional')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Type your answer here...')).toHaveAttribute('maxlength', '1500');
     });
 });
