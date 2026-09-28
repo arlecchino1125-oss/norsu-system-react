@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { render, renderHook, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import CounselingView from './counseling/components/CounselingView';
 import { useStudentCounselingData } from './counseling/hooks/useStudentCounselingData';
 import { useStudentSupportData } from './support/hooks/useStudentSupportData';
 
@@ -43,5 +44,36 @@ describe('student request data hooks', () => {
         }), { wrapper: createWrapper() });
 
         await waitFor(() => expect(result.current.supportRequests).toEqual([{ id: 'support-1' }]));
+    });
+
+    it('renders referral records and status in CounselingView even when rawCounselingRequests is passed as empty array', async () => {
+        serviceMocks.getStudentCounselingRequestsPage.mockResolvedValue({
+            rows: [{
+                id: 'counsel-referral-1',
+                request_type: 'Dean Referral',
+                status: 'Referred',
+                reason_for_referral: 'Needs academic guidance',
+                referred_by: 'Dean Smith',
+                created_at: '2026-03-20T10:00:00Z'
+            }],
+        });
+
+        const Wrapper = createWrapper();
+        render(
+            <Wrapper>
+                <CounselingView
+                    personalInfo={{ studentId: 'student-1' }}
+                    formatFullDate={(d: Date) => d.toISOString()}
+                    showToast={vi.fn()}
+                    counselingRequests={[]}
+                    Icons={{ Counseling: () => null, Clock: () => null, CheckCircle: () => null }}
+                />
+            </Wrapper>
+        );
+
+        expect(await screen.findAllByText('Counseling Session')).toBeDefined();
+        expect(await screen.findByText('Dean Referral')).toBeDefined();
+        expect(await screen.findByText('Referred for Counseling')).toBeDefined();
+        expect(await screen.findByText('Needs academic guidance')).toBeDefined();
     });
 });

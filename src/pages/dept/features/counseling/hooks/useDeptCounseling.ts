@@ -11,7 +11,7 @@ export function useDeptCounseling({
     showToastMessage,
     updateGlobalRows
 }: any) {
-    const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.SUBMITTED);
+    const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.APPROVED);
     const [selectedCounselingReq, setSelectedCounselingReq] = useState<any>(null);
     const [showCounselingViewModal, setShowCounselingViewModal] = useState<boolean>(false);
     const [deptFormModalView, setDeptFormModalView] = useState<string>('referral');
@@ -160,14 +160,14 @@ export function useDeptCounseling({
                 String(row.id) === String(selectedCounselingReq.id)
                     ? {
                         ...row,
-                        status: COUNSELING_STATUS.REJECTED,
+                        status: COUNSELING_STATUS.RETURNED_TO_CARE,
                         resolution_notes: rejectNotes || null
                     }
                     : row
             )));
             counselingState.refresh();
-            showToastMessage('Request rejected.', 'success');
-            queueProcessEmailNotification(result?.emailPayload, 'Request rejected.');
+            showToastMessage('Request returned to CARE Staff.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Request returned to CARE Staff.');
             setShowRejectModal(false);
             setShowCounselingViewModal(false);
             setRejectNotes('');

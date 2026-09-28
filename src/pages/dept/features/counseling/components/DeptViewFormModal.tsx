@@ -4,6 +4,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import Modal from '../../../../../components/ui/Modal';
 import { ResolvedProfileImage } from '../../../../../components/ResolvedProfileImage';
 import { COUNSELING_STATUS, getCounselingScheduledDate, isCounselingAwaitingDept, isWithCareStaffCounseling } from '../../../../../utils/workflow';
+import { getCounselingStatusLabel, getCounselingStatusTone } from '../../../../../utils/counselingStatusMeta';
 import { toTitleCase } from '../../../../../utils/formatters';
 
 export function DeptViewFormModal(props: any) {
@@ -147,7 +148,7 @@ export function DeptViewFormModal(props: any) {
                                                 <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(viewFormRecord.created_at).toLocaleString()}</p>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : isWithCareStaffCounseling(viewFormRecord.status) ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{viewFormRecord.status === COUNSELING_STATUS.REFERRED ? 'Forwarded' : viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : viewFormRecord.status}</span>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(viewFormRecord.status)}`}>{getCounselingStatusLabel(viewFormRecord.status, 'staff')}</span>
                                                 <button type="button" onClick={() => { setViewFormRecord(null); setViewFormMode('student'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                             </div>
                                         </div>
@@ -204,7 +205,7 @@ export function DeptViewFormModal(props: any) {
                                                 <p className="text-[10px] text-gray-400 mt-1">Submitted: {new Date(viewFormRecord.created_at).toLocaleString()}</p>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewFormRecord.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : viewFormRecord.status === COUNSELING_STATUS.REFERRED ? 'bg-purple-100 text-purple-700' : viewFormRecord.status === COUNSELING_STATUS.SCHEDULED ? 'bg-blue-100 text-blue-700' : viewFormRecord.status === COUNSELING_STATUS.REJECTED ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{isCounselingAwaitingDept(viewFormRecord.status) ? 'Pending Review' : viewFormRecord.status === COUNSELING_STATUS.REFERRED ? 'Forwarded' : viewFormRecord.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : viewFormRecord.status}</span>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getCounselingStatusTone(viewFormRecord.status)}`}>{getCounselingStatusLabel(viewFormRecord.status, 'staff')}</span>
                                                 <button type="button" onClick={() => { setViewFormRecord(null); setViewFormMode('student'); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                                             </div>
                                         </div>

@@ -13,8 +13,8 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const COUNSELING_QUEUE_STATUSES = ['Submitted', 'Pending'];
-const COUNSELING_COMPLETABLE_STATUSES = ['Scheduled'];
+const COUNSELING_QUEUE_STATUSES = ['Approved'];
+const COUNSELING_COMPLETABLE_STATUSES = ['Scheduled', 'Rescheduled'];
 const SUPPORT_QUEUE_STATUSES = ['Forwarded to Dept'];
 const SUPPORT_VISIT_STATUSES = ['Visit Scheduled'];
 
@@ -339,7 +339,7 @@ const rejectCounseling = async (
     const { error } = await adminClient
         .from('counseling_requests')
         .update({
-            status: 'Rejected',
+            status: 'Returned_To_Care',
             resolution_notes: nextNotes || null
         })
         .eq('id', counselingRequest.id);
@@ -349,32 +349,32 @@ const rejectCounseling = async (
     await notifyStudent(
         adminClient,
         counselingRequest.student_id,
-        `Your counseling request has been reviewed and was not approved by ${department}.${nextNotes ? ` Reason: ${nextNotes}` : ''}`
+        `Your counseling request has been returned to CARE Staff by ${department} for alternative handling.${nextNotes ? ` Reason: ${nextNotes}` : ''}`
     );
 
     const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
-        status: 'Rejected',
+        status: 'Returned_To_Care',
         requestType: counselingRequest.request_type || 'Counseling',
         actor: department,
         notes: nextNotes || null
     });
 
     await writeStaffAuditLog(adminClient, actor, {
-        action: 'Rejected department counseling request',
+        action: 'Returned department counseling request to CARE',
         entityTable: 'counseling_requests',
         entityId: counselingRequest.id,
         details: {
-            summary: `${actor.displayName} rejected a counseling request for ${counselingRequest.student_name || 'a student'}.`,
+            summary: `${actor.displayName} returned a counseling request for ${counselingRequest.student_name || 'a student'} to CARE.`,
             student_name: counselingRequest.student_name,
             request_type: counselingRequest.request_type,
-            status: 'Rejected'
+            status: 'Returned_To_Care'
         }
     });
 
     return {
         success: true,
         requestId: counselingRequest.id,
-        status: 'Rejected',
+        status: 'Returned_To_Care',
         emailPayload
     };
 };

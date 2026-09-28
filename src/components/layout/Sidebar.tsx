@@ -178,7 +178,7 @@ export default function Sidebar({
         style={{
           boxShadow: styles.pillShadow,
         }}
-        className={`absolute -right-[1.05rem] top-1/2 -translate-y-1/2 z-30 flex h-12 w-[1.8rem] items-center justify-center rounded-lg bg-gradient-to-b ${styles.pill} border text-white transition-all hover:-translate-y-[calc(50%+2px)] hover:shadow-none active:translate-y-[calc(-50%+3px)] active:shadow-none`}
+        className={`absolute -right-[1.05rem] top-1/2 -translate-y-1/2 z-30 hidden lg:flex h-12 w-[1.8rem] items-center justify-center rounded-lg bg-gradient-to-b ${styles.pill} border text-white transition-all hover:-translate-y-[calc(50%+2px)] hover:shadow-none active:translate-y-[calc(-50%+3px)] active:shadow-none`}
       >
         {isCollapsed ? <ChevronRight size={17} strokeWidth={2.5} /> : <ChevronLeft size={17} strokeWidth={2.5} />}
       </button>

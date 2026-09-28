@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -464,6 +489,191 @@ export type Database = {
           },
         ]
       }
+      counseling_evaluation_answers: {
+        Row: {
+          answer_text: string | null
+          answer_value: number | null
+          id: number
+          question_id: number
+          response_id: number
+        }
+        Insert: {
+          answer_text?: string | null
+          answer_value?: number | null
+          id?: number
+          question_id: number
+          response_id: number
+        }
+        Update: {
+          answer_text?: string | null
+          answer_value?: number | null
+          id?: number
+          question_id?: number
+          response_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "counseling_evaluation_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "counseling_evaluation_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "counseling_evaluation_answers_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "counseling_evaluation_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      counseling_evaluation_forms: {
+        Row: {
+          counseling_request_id: number | null
+          created_at: string
+          description: string | null
+          id: number
+          is_active: boolean
+          is_global: boolean
+          title: string
+        }
+        Insert: {
+          counseling_request_id?: number | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          is_active?: boolean
+          is_global?: boolean
+          title: string
+        }
+        Update: {
+          counseling_request_id?: number | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          is_active?: boolean
+          is_global?: boolean
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "counseling_evaluation_forms_counseling_request_id_fkey"
+            columns: ["counseling_request_id"]
+            isOneToOne: false
+            referencedRelation: "counseling_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      counseling_evaluation_questions: {
+        Row: {
+          choices: string[]
+          form_id: number
+          id: number
+          is_required: boolean
+          order_index: number
+          question_text: string
+          question_type: string
+          scale_max: number | null
+          scale_max_label: string | null
+          scale_min: number | null
+          scale_min_label: string | null
+        }
+        Insert: {
+          choices?: string[]
+          form_id: number
+          id?: number
+          is_required?: boolean
+          order_index?: number
+          question_text: string
+          question_type: string
+          scale_max?: number | null
+          scale_max_label?: string | null
+          scale_min?: number | null
+          scale_min_label?: string | null
+        }
+        Update: {
+          choices?: string[]
+          form_id?: number
+          id?: number
+          is_required?: boolean
+          order_index?: number
+          question_text?: string
+          question_type?: string
+          scale_max?: number | null
+          scale_max_label?: string | null
+          scale_min?: number | null
+          scale_min_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "counseling_evaluation_questions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "counseling_evaluation_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      counseling_evaluation_responses: {
+        Row: {
+          counseling_request_id: number | null
+          course: string | null
+          department: string | null
+          form_id: number
+          id: number
+          student_id: string
+          student_name: string | null
+          submitted_at: string
+          year_level: string | null
+        }
+        Insert: {
+          counseling_request_id?: number | null
+          course?: string | null
+          department?: string | null
+          form_id: number
+          id?: number
+          student_id: string
+          student_name?: string | null
+          submitted_at?: string
+          year_level?: string | null
+        }
+        Update: {
+          counseling_request_id?: number | null
+          course?: string | null
+          department?: string | null
+          form_id?: number
+          id?: number
+          student_id?: string
+          student_name?: string | null
+          submitted_at?: string
+          year_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "counseling_evaluation_responses_counseling_request_id_fkey"
+            columns: ["counseling_request_id"]
+            isOneToOne: false
+            referencedRelation: "counseling_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "counseling_evaluation_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "counseling_evaluation_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "counseling_evaluation_responses_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       counseling_requests: {
         Row: {
           actions_made: string | null
@@ -476,6 +686,7 @@ export type Database = {
           department: string | null
           description: string | null
           feedback: string | null
+          follow_up_of: number | null
           id: number
           personal_actions_taken: string | null
           rating: number | null
@@ -502,6 +713,7 @@ export type Database = {
           department?: string | null
           description?: string | null
           feedback?: string | null
+          follow_up_of?: number | null
           id?: number
           personal_actions_taken?: string | null
           rating?: number | null
@@ -528,6 +740,7 @@ export type Database = {
           department?: string | null
           description?: string | null
           feedback?: string | null
+          follow_up_of?: number | null
           id?: number
           personal_actions_taken?: string | null
           rating?: number | null
@@ -550,6 +763,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["name"]
+          },
+          {
+            foreignKeyName: "counseling_requests_follow_up_of_fkey"
+            columns: ["follow_up_of"]
+            isOneToOne: false
+            referencedRelation: "counseling_requests"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "counseling_requests_student_id_fkey"
@@ -2871,6 +3091,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      auto_timeout_records: { Args: never; Returns: undefined }
       cancel_student_event_registration: {
         Args: { p_event_id: number }
         Returns: {
@@ -3213,6 +3434,18 @@ export type Database = {
           responses: number
         }[]
       }
+      public_counseling_evaluate: {
+        Args: { p_answers: Json; p_request_id: number; p_student_id: string }
+        Returns: Json
+      }
+      public_delete_peer_log_entry: {
+        Args: {
+          p_entry_id: string
+          p_logbook_type: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
       public_event_evaluate: {
         Args: {
           p_answers: Json
@@ -3234,7 +3467,11 @@ export type Database = {
         Returns: Json
       }
       public_event_time_in: {
-        Args: { p_event_id: number; p_student_id: string }
+        Args: {
+          p_confirmed?: boolean
+          p_event_id: number
+          p_student_id: string
+        }
         Returns: Json
       }
       public_event_time_out: {
@@ -3278,8 +3515,52 @@ export type Database = {
           type: string
         }[]
       }
+      public_get_active_office_visit: {
+        Args: { p_student_id: string; p_visitor_name: string }
+        Returns: Json
+      }
+      public_get_assessment_form_questions: {
+        Args: { p_form_id: number }
+        Returns: {
+          id: number
+          is_required: boolean
+          order_index: number
+          question_text: string
+          question_type: string
+          scale_max: number
+          scale_min: number
+        }[]
+      }
+      public_get_assessment_forms: {
+        Args: { p_student_id?: string }
+        Returns: {
+          created_at: string
+          description: string
+          id: number
+          is_completed: boolean
+          title: string
+        }[]
+      }
+      public_get_counseling_evaluation_form: {
+        Args: { p_request_id?: number }
+        Returns: Json
+      }
+      public_get_counseling_evaluations: {
+        Args: { p_student_id: string }
+        Returns: Json
+      }
       public_get_evaluation_form: {
         Args: { p_event_id: number }
+        Returns: Json
+      }
+      public_get_office_visit_reasons: { Args: never; Returns: Json }
+      public_get_peer_attendance: {
+        Args: { p_student_id: string }
+        Returns: Json
+      }
+      public_get_peer_events: { Args: { p_student_id: string }; Returns: Json }
+      public_get_peer_logbook: {
+        Args: { p_logbook_type: string; p_month: string; p_student_id: string }
         Returns: Json
       }
       public_get_student_event_status: {
@@ -3293,6 +3574,26 @@ export type Database = {
           time_out: string
         }[]
       }
+      public_office_visit_time_in: {
+        Args: {
+          p_first_name: string
+          p_is_visitor: boolean
+          p_last_name: string
+          p_reason: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
+      public_office_visit_time_out: {
+        Args: {
+          p_student_id: string
+          p_visit_id: number
+          p_visitor_name: string
+        }
+        Returns: Json
+      }
+      public_peer_time_in: { Args: { p_student_id: string }; Returns: Json }
+      public_peer_time_out: { Args: { p_student_id: string }; Returns: Json }
       public_resolve_student: {
         Args: { p_student_id: string }
         Returns: {
@@ -3447,6 +3748,59 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      public_save_peer_log_entry: {
+        Args: {
+          p_draft: Json
+          p_entry_id: string
+          p_logbook_type: string
+          p_month: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
+      public_search_students_for_peer: {
+        Args: { p_student_id: string; p_term?: string }
+        Returns: Json
+      }
+      public_submit_assessment: {
+        Args: { p_answers: Json; p_form_id: number; p_student_id: string }
+        Returns: Json
+      }
+      public_submit_counseling_request: {
+        Args: {
+          p_contact_number?: string
+          p_date_duration_of_concern?: string
+          p_personal_actions_taken?: string
+          p_reason_for_referral: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
+      public_submit_general_feedback: {
+        Args: { p_data: Json; p_student_id?: string }
+        Returns: Json
+      }
+      public_submit_peer_logbook: {
+        Args: { p_logbook_type: string; p_month: string; p_student_id: string }
+        Returns: Json
+      }
+      public_submit_scholarship_application: {
+        Args: { p_scholarship_id: number; p_student_id: string }
+        Returns: Json
+      }
+      public_submit_support_request: {
+        Args: {
+          p_categories: string[]
+          p_documents_url?: string
+          p_other_category?: string
+          p_q1?: string
+          p_q2?: string
+          p_q3?: string
+          p_q4?: string
+          p_student_id: string
+        }
+        Returns: Json
       }
       public_throttle_take: {
         Args: {
@@ -3762,8 +4116,13 @@ export type Database = {
         Returns: number
       }
       seed_student_role_permissions: { Args: never; Returns: number }
+      student_has_completed_counseling: { Args: never; Returns: boolean }
       student_in_current_staff_department: {
         Args: { p_student_id: number }
+        Returns: boolean
+      }
+      student_may_evaluate_counseling: {
+        Args: { p_request_id: number }
         Returns: boolean
       }
       student_may_evaluate_form: {
@@ -3796,12 +4155,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3825,11 +4184,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3850,11 +4209,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3875,11 +4234,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3892,11 +4251,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3906,8 +4265,10 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
 } as const
-

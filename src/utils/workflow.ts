@@ -1,10 +1,16 @@
 export const COUNSELING_STATUS = {
     PENDING: 'Pending',
     SUBMITTED: 'Submitted',
+    APPROVED: 'Approved',
+    RETURNED_TO_CARE: 'Returned_To_Care',
     REFERRED: 'Referred',
     STAFF_SCHEDULED: 'Staff_Scheduled',
     SCHEDULED: 'Scheduled',
+    RESCHEDULED: 'Rescheduled',
     COMPLETED: 'Completed',
+    COUNSELED: 'Counseled',
+    MONITORING: 'Monitoring',
+    SUBJECT_FOR_2ND_COUNSELING: 'Subject_For_2nd_Counseling',
     REJECTED: 'Rejected'
 } as const;
 
@@ -20,32 +26,58 @@ export const SUPPORT_STATUS = {
     APPROVED: 'Approved'
 } as const;
 
-export const COUNSELING_AWAITING_DEPT_STATUSES = [
+export const COUNSELING_AWAITING_CARE_STATUSES = [
     COUNSELING_STATUS.SUBMITTED,
     COUNSELING_STATUS.PENDING
 ] as const;
 
+// Semantics changed in v2: previously [Submitted, Pending]; now [Approved] as CARE approves first before department review
+export const COUNSELING_AWAITING_DEPT_STATUSES = [
+    COUNSELING_STATUS.APPROVED
+] as const;
+
+export const COUNSELING_RETURNED_STATUSES = [
+    COUNSELING_STATUS.RETURNED_TO_CARE
+] as const;
+
 export const COUNSELING_WITH_CARE_STAFF_STATUSES = [
     COUNSELING_STATUS.REFERRED,
-    COUNSELING_STATUS.STAFF_SCHEDULED
-] as const;
-
-export const CARE_STAFF_ACTIVE_COUNSELING_STATUSES = [
-    ...COUNSELING_AWAITING_DEPT_STATUSES,
-    COUNSELING_STATUS.REFERRED,
     COUNSELING_STATUS.STAFF_SCHEDULED,
-    COUNSELING_STATUS.SCHEDULED
+    COUNSELING_STATUS.RETURNED_TO_CARE
 ] as const;
 
-export const CARE_STAFF_COUNSELING_ACTIVITY_STATUSES = [
-    ...CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
+export const COUNSELING_OUTCOME_STATUSES = [
+    COUNSELING_STATUS.COUNSELED,
+    COUNSELING_STATUS.MONITORING,
+    COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING
+] as const;
+
+export const COUNSELING_SESSION_DONE_STATUSES = [
     COUNSELING_STATUS.COMPLETED,
-    COUNSELING_STATUS.REJECTED
+    ...COUNSELING_OUTCOME_STATUSES
 ] as const;
 
 export const COUNSELING_CALENDAR_STATUSES = [
     COUNSELING_STATUS.SCHEDULED,
-    COUNSELING_STATUS.STAFF_SCHEDULED
+    COUNSELING_STATUS.STAFF_SCHEDULED,
+    COUNSELING_STATUS.RESCHEDULED
+] as const;
+
+export const CARE_STAFF_ACTIVE_COUNSELING_STATUSES = [
+    ...COUNSELING_AWAITING_CARE_STATUSES,
+    ...COUNSELING_AWAITING_DEPT_STATUSES,
+    ...COUNSELING_RETURNED_STATUSES,
+    COUNSELING_STATUS.REFERRED,
+    COUNSELING_STATUS.STAFF_SCHEDULED,
+    COUNSELING_STATUS.SCHEDULED,
+    COUNSELING_STATUS.RESCHEDULED
+] as const;
+
+export const CARE_STAFF_COUNSELING_ACTIVITY_STATUSES = [
+    ...CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
+    ...COUNSELING_OUTCOME_STATUSES,
+    COUNSELING_STATUS.COMPLETED,
+    COUNSELING_STATUS.REJECTED
 ] as const;
 
 const CARE_STAFF_SUPPORT_QUEUE_STATUSES = [
@@ -86,14 +118,38 @@ export const DEPT_SUPPORT_VISIBLE_STATUSES = [
 const matchesStatus = (statuses: readonly string[], status?: string | null) =>
     Boolean(status) && statuses.includes(status);
 
+export const isCounselingAwaitingCare = (status?: string | null) =>
+    matchesStatus(COUNSELING_AWAITING_CARE_STATUSES, status);
+
 export const isCounselingAwaitingDept = (status?: string | null) =>
     matchesStatus(COUNSELING_AWAITING_DEPT_STATUSES, status);
 
-export const isWithCareStaffCounseling = (status?: string | null) =>
-    matchesStatus(COUNSELING_WITH_CARE_STAFF_STATUSES, status);
+export const isCounselingReturnedToCare = (status?: string | null) =>
+    matchesStatus(COUNSELING_RETURNED_STATUSES, status);
+
+export const isCareStaffCounselingApprovable = (status?: string | null) =>
+    matchesStatus(COUNSELING_AWAITING_CARE_STATUSES, status);
+
+export const isCareStaffCounselingRejectable = (status?: string | null) =>
+    matchesStatus([...COUNSELING_AWAITING_CARE_STATUSES, ...COUNSELING_RETURNED_STATUSES], status);
 
 export const isCareStaffCounselingSchedulable = (status?: string | null) =>
-    status === COUNSELING_STATUS.REFERRED || status === COUNSELING_STATUS.PENDING;
+    status === COUNSELING_STATUS.REFERRED || status === COUNSELING_STATUS.RETURNED_TO_CARE;
+
+export const isCounselingSessionDone = (status?: string | null) =>
+    matchesStatus(COUNSELING_SESSION_DONE_STATUSES, status);
+
+export const isCounselingOutcomeStatus = (status?: string | null) =>
+    matchesStatus(COUNSELING_OUTCOME_STATUSES, status);
+
+export const isCounselingReschedulable = (status?: string | null) =>
+    status === COUNSELING_STATUS.COMPLETED || status === COUNSELING_STATUS.RESCHEDULED;
+
+export const isCounselingFollowUpEligible = (status?: string | null) =>
+    matchesStatus(COUNSELING_SESSION_DONE_STATUSES, status);
+
+export const isWithCareStaffCounseling = (status?: string | null) =>
+    matchesStatus(COUNSELING_WITH_CARE_STAFF_STATUSES, status);
 
 export const isCounselingCalendarVisible = (status?: string | null) =>
     matchesStatus(COUNSELING_CALENDAR_STATUSES, status);

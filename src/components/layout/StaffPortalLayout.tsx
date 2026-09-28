@@ -109,7 +109,7 @@ export default function StaffPortalLayout({
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50/30 font-sans text-gray-800">
+    <div className="flex h-[100dvh] overflow-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50/30 font-sans text-gray-800">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <button
@@ -143,8 +143,8 @@ export default function StaffPortalLayout({
       {/* Main Content */}
       <main id="staff-content-region" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header aria-label={`${headerTitle} page header`} className="relative z-10 flex h-[4.25rem] shrink-0 items-center justify-between px-6 lg:px-8 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all saturate-[1.05]">
-          <div className="flex min-w-0 items-center gap-4">
+        <header aria-label={`${headerTitle} page header`} className="relative z-10 flex h-14 sm:h-[4.25rem] shrink-0 items-center justify-between px-3 sm:px-6 lg:px-8 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all saturate-[1.05]">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             {/* Mobile hamburger */}
             <button
               type="button"
@@ -157,21 +157,21 @@ export default function StaffPortalLayout({
               </svg>
             </button>
 
-            <div className="min-w-0 flex items-center gap-2.5">
-              {/* CARE logo beside portal label */}
+            <div className="min-w-0 flex items-center gap-2 sm:gap-2.5">
+              {/* CARE logo beside portal label — hidden on narrow screens */}
               <img
                 src="/carecenter.png"
                 alt="CARE Center"
-                className="h-10 w-10 rounded-full object-cover bg-white shadow-md ring-2 ring-purple-200/40 shrink-0"
+                className="hidden sm:block h-10 w-10 rounded-full object-cover bg-white shadow-md ring-2 ring-purple-200/40 shrink-0"
               />
-              <span className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-purple-50 px-3.5 py-1.5 text-sm font-extrabold uppercase tracking-[0.14em] text-purple-600">
+              <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-purple-100 bg-purple-50 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-xs sm:text-sm font-extrabold uppercase tracking-[0.14em] text-purple-600">
                 <span className="inline-block h-2 w-2 rounded-full bg-purple-400" />
-                {portalLabel}
+                <span className="truncate max-w-[8rem] sm:max-w-none">{portalLabel}</span>
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             {headerActions}
 
             {onRefresh && (
@@ -180,10 +180,10 @@ export default function StaffPortalLayout({
                 onClick={onRefresh}
                 disabled={isRefreshing}
                 title={refreshLabel}
-                className="hidden md:inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-[13px] font-bold text-slate-600 transition-all hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 hover:shadow-sm disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-2.5 sm:px-4 sm:py-2.5 text-[13px] font-bold text-slate-600 transition-all hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 hover:shadow-sm disabled:opacity-50"
               >
                 <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
-                <span>{isRefreshing ? 'Syncing...' : refreshLabel}</span>
+                <span className="hidden md:inline">{isRefreshing ? 'Syncing...' : refreshLabel}</span>
               </button>
             )}
 
@@ -196,7 +196,7 @@ export default function StaffPortalLayout({
             />
 
             {/* Profile Dropdown */}
-            <div ref={profileRef} className="hidden md:block relative pl-3 ml-1 border-l border-slate-200/60">
+            <div ref={profileRef} className="relative pl-2 sm:pl-3 ml-0.5 sm:ml-1 border-l border-slate-200/60">
               <button
                 type="button"
                 onClick={() => setProfileOpen(v => !v)}
@@ -253,7 +253,7 @@ export default function StaffPortalLayout({
         </header>
 
         {/* Content */}
-        <div className="page-transition flex-1 overflow-y-auto p-6 md:p-8 flex flex-col">
+        <div className="page-transition flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 flex flex-col">
           {children}
         </div>
       </main>

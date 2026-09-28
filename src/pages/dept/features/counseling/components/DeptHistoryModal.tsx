@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { XCircle } from 'lucide-react';
 import { getCounselingRequestsPage } from '../../../../../services/deptService';
 import { COUNSELING_STATUS, isWithCareStaffCounseling } from '../../../../../utils/workflow';
+import { getCounselingStatusLabel, getCounselingStatusTone } from '../../../../../utils/counselingStatusMeta';
 import { toTitleCase } from '../../../../../utils/formatters';
 
 const HISTORY_PAGE_SIZE = 200;
@@ -104,7 +105,7 @@ export function DeptHistoryModal({ showHistoryModal, setShowHistoryModal, select
                                                 <span className="text-xs text-gray-500 dark:text-gray-400">{getSafeDateLabel(record.created_at)}</span>
                                             </div>
                                             <p className="text-sm text-gray-600 mb-2 dark:text-gray-300">{record.reason_for_referral || record.description}</p>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${record.status === COUNSELING_STATUS.COMPLETED ? 'bg-green-100 text-green-700' : record.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'bg-indigo-100 text-indigo-700' : isWithCareStaffCounseling(record.status) ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>{record.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'With CARE Staff' : record.status}</span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${getCounselingStatusTone(record.status)}`}>{getCounselingStatusLabel(record.status, 'staff')}</span>
                                             {/* Per-record action buttons */}
                                             <div className="flex flex-wrap gap-2 mt-3">
                                                 <button type="button" onClick={() => { setViewFormRecord(record); setViewFormMode('student'); }} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors border border-indigo-200">View Student Form</button>

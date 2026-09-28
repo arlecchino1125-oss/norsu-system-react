@@ -14,7 +14,7 @@ import {
     CARE_STAFF_COUNSELING_ACTIVITY_STATUSES,
     COUNSELING_STATUS,
     SUPPORT_STATUS,
-    isCounselingAwaitingDept
+    isCounselingAwaitingCare
 } from '../../../../../utils/workflow';
 import { toTitleCase } from '../../../../../utils/formatters';
 
@@ -144,12 +144,18 @@ const fetchCareStaffDashboardData = async () => {
             icon: <Users size={16} />,
             title:
                 c.status === COUNSELING_STATUS.COMPLETED ? 'Counseling completed'
-                    : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
-                        : c.status === COUNSELING_STATUS.SCHEDULED ? 'College counseling scheduled'
-                            : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
-                                : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
-                                    : isCounselingAwaitingDept(c.status) ? 'Counseling request submitted'
-                                        : 'Counseling updated',
+                    : c.status === COUNSELING_STATUS.COUNSELED ? 'Counseling outcome: Counseled'
+                        : c.status === COUNSELING_STATUS.MONITORING ? 'Counseling outcome: Monitoring'
+                            : c.status === COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING ? 'Subject for 2nd counseling'
+                                : c.status === COUNSELING_STATUS.RESCHEDULED ? 'Counseling rescheduled'
+                                    : c.status === COUNSELING_STATUS.STAFF_SCHEDULED ? 'CARE counseling scheduled'
+                                        : c.status === COUNSELING_STATUS.SCHEDULED ? 'College counseling scheduled'
+                                            : c.status === COUNSELING_STATUS.REFERRED ? 'Counseling forwarded to CARE Staff'
+                                                : c.status === COUNSELING_STATUS.RETURNED_TO_CARE ? 'Counseling returned to CARE'
+                                                    : c.status === COUNSELING_STATUS.APPROVED ? 'Counseling approved for college review'
+                                                        : c.status === COUNSELING_STATUS.REJECTED ? 'Counseling request rejected'
+                                                            : isCounselingAwaitingCare(c.status) ? 'Counseling request submitted'
+                                                                : 'Counseling updated',
             detail: c.student_name,
             date: new Date(c.created_at)
         })),

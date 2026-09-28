@@ -4,6 +4,9 @@ import { createPortal } from 'react-dom';
 import { ArrowRight, Bell, Building2, CalendarDays, Lightbulb, Megaphone, X } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import { useStudentEventsData } from '../../events/hooks/useStudentEventsData';
+import { useStudentCounselingData } from '../../counseling/hooks/useStudentCounselingData';
+import { CARE_STAFF_ACTIVE_COUNSELING_STATUSES, COUNSELING_STATUS } from '../../../../../utils/workflow';
+import { getCounselingStatusLabel } from '../../../../../utils/counselingStatusMeta';
 import { isAttendanceActivityType } from '../../../../../utils/eventAudience';
 import { getTextInputLimitProps, validateTextInput } from '../../../../../utils/inputSecurity';
 
@@ -273,6 +276,14 @@ const StudentDashboardView = ({
         personalInfo
     });
 
+    const { counselingRequests } = useStudentCounselingData({
+        studentId: personalInfo?.studentId || '',
+    });
+
+    const activeCounselingReferral = (counselingRequests || []).find(
+        (req: any) => req.status === COUNSELING_STATUS.REFERRED || (req.request_type === 'Dean Referral' && CARE_STAFF_ACTIVE_COUNSELING_STATUSES.includes(req.status))
+    );
+
     const announcements = eventsList.filter((event: any) => event.type === 'Announcement').slice(0, 3);
     const nextActivity = (eventsList || []).find((item: any) => isAttendanceActivityType(item.type));
     const notificationItems = Array.isArray(notifications) ? notifications : [];
@@ -301,6 +312,34 @@ const StudentDashboardView = ({
                                 className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 sm:w-auto"
                             >
                                 Complete Profile
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {activeCounselingReferral && (
+                    <div className="student-action-banner rounded-2xl border border-purple-200 bg-white p-4 shadow-sm animate-fade-in-up sm:p-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="max-w-3xl">
+                                <div className="flex items-center gap-2">
+                                    <span className="inline-flex h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-purple-700">Counseling Notice</p>
+                                </div>
+                                <h3 className="mt-1 text-lg font-black text-slate-900 sm:text-xl">
+                                    You have an active counseling session on record.
+                                </h3>
+                                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                                    {activeCounselingReferral.referred_by ? `Referred by ${activeCounselingReferral.referred_by}${activeCounselingReferral.department ? ` (${activeCounselingReferral.department})` : ''}. ` : ''}
+                                    Current status: <span className="font-bold text-purple-700">{getCounselingStatusLabel(activeCounselingReferral.status, 'student')}</span>. CARE guidance staff will coordinate your schedule.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setActiveView?.('counseling')}
+                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-purple-700 sm:w-auto"
+                            >
+                                View Counseling Status
+                                <ArrowRight className="h-4 w-4" />
                             </button>
                         </div>
                     </div>

@@ -164,7 +164,7 @@ const getDepartmentCounselingPayload = async (departmentName: unknown): Promise<
 
     const { data, error } = await supabase
         .from('counseling_requests')
-        .select('student_name, student_id, request_type, status, scheduled_date, created_at')
+        .select('student_name, student_id, request_type, status, scheduled_date, follow_up_of, created_at')
         .eq('department', normalizedDepartment)
         .order('created_at', { ascending: false });
 
@@ -173,13 +173,14 @@ const getDepartmentCounselingPayload = async (departmentName: unknown): Promise<
     return {
         title: 'College Counseling Requests',
         fileBase: 'department_counseling_requests',
-        headers: ['Student', 'Student ID', 'Request Type', 'Status', 'Scheduled Date', 'Created At'],
+        headers: ['Student', 'Student ID', 'Request Type', 'Status', 'Scheduled Date', 'Follow-up Of ID', 'Created At'],
         rows: (data || []).map((row: any) => [
             toTitleCase(String(row?.student_name || '').trim()),
             String(row?.student_id || '').trim(),
             String(row?.request_type || '').trim(),
             String(row?.status || '').trim(),
             normalizeDateText(row?.scheduled_date),
+            row?.follow_up_of ? String(row.follow_up_of) : '',
             normalizeDateText(row?.created_at)
         ])
     };
@@ -267,7 +268,7 @@ const getCareNatPayload = async (): Promise<ExportPayload> => {
 const getCareCounselingPayload = async (): Promise<ExportPayload> => {
     const { data, error } = await supabase
         .from('counseling_requests')
-        .select('student_name, student_id, department, request_type, status, scheduled_date, created_at')
+        .select('student_name, student_id, department, request_type, status, scheduled_date, follow_up_of, created_at')
         .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -275,7 +276,7 @@ const getCareCounselingPayload = async (): Promise<ExportPayload> => {
     return {
         title: 'CARE Counseling Requests',
         fileBase: 'care_counseling_requests',
-        headers: ['Student', 'Student ID', 'College', 'Request Type', 'Status', 'Scheduled Date', 'Created At'],
+        headers: ['Student', 'Student ID', 'College', 'Request Type', 'Status', 'Scheduled Date', 'Follow-up Of ID', 'Created At'],
         rows: (data || []).map((row: any) => [
             toTitleCase(String(row?.student_name || '').trim()),
             String(row?.student_id || '').trim(),
@@ -283,6 +284,7 @@ const getCareCounselingPayload = async (): Promise<ExportPayload> => {
             String(row?.request_type || '').trim(),
             String(row?.status || '').trim(),
             normalizeDateText(row?.scheduled_date),
+            row?.follow_up_of ? String(row.follow_up_of) : '',
             normalizeDateText(row?.created_at)
         ])
     };
@@ -627,8 +629,8 @@ const StaffExportCenterPage = ({
             {
                 id: 'care-counseling',
                 title: 'Counseling Requests',
-                description: 'Export counseling request records across colleges.',
-                note: 'Includes college and schedule details.',
+                description: 'Export counseling request records across colleges including approval gates, outcomes, and follow-up links.',
+                note: 'Includes college, schedule, outcome, and follow-up details.',
                 getPayload: getCareCounselingPayload
             },
             {

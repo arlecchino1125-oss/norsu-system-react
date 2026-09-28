@@ -739,7 +739,7 @@ export function useStudentPortal() {
             setShowCounselingForm,
             openCounselingForm: openCounselingFormWithProfileGate,
             onCounselingSubmitted: handleCounselingSubmitted,
-            counselingRequests,
+            counselingRequests: counselingRequests.length > 0 ? counselingRequests : undefined,
             openRequestModal,
             selectedRequest,
             setSelectedRequest,

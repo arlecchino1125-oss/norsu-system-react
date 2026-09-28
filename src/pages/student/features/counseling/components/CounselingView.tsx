@@ -5,30 +5,17 @@ import {
     CARE_STAFF_ACTIVE_COUNSELING_STATUSES,
     COUNSELING_STATUS,
     getCounselingScheduledDate,
-    isCounselingAwaitingDept
+    isCounselingSessionDone
 } from '../../../../../utils/workflow';
+import {
+    getCounselingStatusLabel,
+    getCounselingStatusTone
+} from '../../../../../utils/counselingStatusMeta';
 import { getEvaluatedCounselingRequestIds } from '../studentCounselingEvaluationService';
 import CounselingEvaluationModal from './CounselingEvaluationModal';
 import { toTitleCase } from '../../../../../utils/formatters';
 
 const CounselingFormModal = lazy(() => import('./CounselingFormModal'));
-
-const getCounselingStatusTone = (status: string) => {
-    if (isCounselingAwaitingDept(status)) return 'border-slate-200 bg-slate-50 text-slate-600';
-    if (status === COUNSELING_STATUS.REJECTED) return 'border-rose-100 bg-rose-50 text-rose-700';
-    if (status === COUNSELING_STATUS.REFERRED) return 'border-violet-100 bg-violet-50 text-violet-700';
-    if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'border-indigo-100 bg-indigo-50 text-indigo-700';
-    if (status === COUNSELING_STATUS.SCHEDULED) return 'border-blue-100 bg-blue-50 text-blue-700';
-    if (status === COUNSELING_STATUS.COMPLETED) return 'border-emerald-100 bg-emerald-50 text-emerald-700';
-    return 'border-slate-200 bg-slate-50 text-slate-600';
-};
-
-const getCounselingStatusLabel = (status: string, forwardedLabel = 'Forwarded') => {
-    if (isCounselingAwaitingDept(status)) return 'Pending Review';
-    if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'With CARE Staff';
-    if (status === COUNSELING_STATUS.REFERRED) return forwardedLabel;
-    return status;
-};
 
 const getRequestPreview = (request: any) =>
     request.reason_for_referral || request.description || request.personal_actions_taken || 'No summary provided.';
@@ -117,8 +104,8 @@ const RequestsDrawer = ({ requests, evaluatedIds, formatFullDate, onSelect, onEv
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-300">Counseling</p>
-                        <h3 className="mt-1 text-lg font-black">Your Requests</h3>
-                        <p className="mt-1 text-xs font-semibold text-slate-400">{requests.length} total request{requests.length !== 1 ? 's' : ''}</p>
+                        <h3 className="mt-1 text-lg font-black">Your Counseling Sessions</h3>
+                        <p className="mt-1 text-xs font-semibold text-slate-400">{requests.length} total session{requests.length !== 1 ? 's' : ''}</p>
                     </div>
                     <button
                         type="button"
@@ -133,13 +120,13 @@ const RequestsDrawer = ({ requests, evaluatedIds, formatFullDate, onSelect, onEv
             <div className="flex-1 overflow-y-auto p-4">
                 {requests.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                        <p className="text-sm font-black text-slate-800">No requests found</p>
-                        <p className="mt-2 text-xs leading-5 text-slate-500">Once you submit a request, updates from CARE staff will appear here.</p>
+                        <p className="text-sm font-black text-slate-800">No counseling sessions found</p>
+                        <p className="mt-2 text-xs leading-5 text-slate-500">Updates from CARE staff will appear here once a session or referral is recorded.</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {requests.map((req: any) => {
-                            const isCompleted = req.status === COUNSELING_STATUS.COMPLETED;
+                            const isCompleted = isCounselingSessionDone(req.status);
                             const isEvaluated = evaluatedIds.has(req.id);
                             return (
                                 <div
@@ -153,12 +140,17 @@ const RequestsDrawer = ({ requests, evaluatedIds, formatFullDate, onSelect, onEv
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="truncate text-sm font-black text-slate-950">{req.request_type || 'Self-Referral'}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="truncate text-sm font-black text-slate-950">Counseling Session</p>
+                                                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                                                        {req.request_type || 'Self-Referral'}
+                                                    </span>
+                                                </div>
                                                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{getRequestPreview(req)}</p>
                                                 <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{formatFullDate(new Date(req.created_at))}</p>
                                             </div>
                                             <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${getCounselingStatusTone(req.status)}`}>
-                                                {getCounselingStatusLabel(req.status)}
+                                                {getCounselingStatusLabel(req.status, 'student')}
                                             </span>
                                         </div>
                                     </button>
@@ -193,7 +185,7 @@ const RequestsDrawer = ({ requests, evaluatedIds, formatFullDate, onSelect, onEv
 
 /** Full modal showing details for a single selected request. */
 const RequestDetailsModal = ({ request, isEvaluated, formatFullDate, Icons, onClose, onEvaluate, onOpenCsm }: any) => {
-    const isCompleted = request.status === COUNSELING_STATUS.COMPLETED;
+    const isCompleted = isCounselingSessionDone(request.status);
     const scheduledDate = getCounselingScheduledDate(request);
 
     return (
@@ -201,8 +193,13 @@ const RequestDetailsModal = ({ request, isEvaluated, formatFullDate, Icons, onCl
             <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl student-mobile-modal-panel" onClick={(event) => event.stopPropagation()}>
                 <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Counseling Request</p>
-                        <h3 className="mt-0.5 text-lg font-black text-slate-950">{request.request_type || 'Self-Referral'}</h3>
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Counseling Session</p>
+                        <div className="mt-0.5 flex items-center gap-2">
+                            <h3 className="text-lg font-black text-slate-950">Counseling Session</h3>
+                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                                {request.request_type || 'Self-Referral'}
+                            </span>
+                        </div>
                     </div>
                     <button
                         type="button"
@@ -218,13 +215,13 @@ const RequestDetailsModal = ({ request, isEvaluated, formatFullDate, Icons, onCl
                     <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-4">
                         <span className="text-xs font-bold text-slate-500">Current Status</span>
                         <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase ${getCounselingStatusTone(request.status)}`}>
-                            {getCounselingStatusLabel(request.status)}
+                            {getCounselingStatusLabel(request.status, 'student')}
                         </span>
                     </div>
 
                     <div className="space-y-3 rounded-2xl border border-slate-100 p-4 text-xs">
                         <div>
-                            <p className="font-bold text-slate-400">Date Submitted</p>
+                            <p className="font-bold text-slate-400">Date Logged</p>
                             <p className="mt-0.5 font-bold text-slate-800">{formatFullDate(new Date(request.created_at))}</p>
                         </div>
                         {scheduledDate && (
@@ -237,6 +234,12 @@ const RequestDetailsModal = ({ request, isEvaluated, formatFullDate, Icons, onCl
                             <div>
                                 <p className="font-bold text-slate-400">Assigned Counselor</p>
                                 <p className="mt-0.5 font-bold text-slate-800">{toTitleCase(request.counselor_name, '')}</p>
+                            </div>
+                        )}
+                        {request.referred_by && (
+                            <div>
+                                <p className="font-bold text-slate-400">Referred By</p>
+                                <p className="mt-0.5 font-bold text-slate-800">{request.referred_by}{request.department ? ` (${request.department})` : ''}</p>
                             </div>
                         )}
                         {request.reason_for_referral && (
@@ -317,7 +320,9 @@ export default function CounselingView({
         studentId: personalInfo?.studentId || '',
     });
 
-    const counselingRequests = rawCounselingRequests ?? defaultCounseling.counselingRequests;
+    const counselingRequests = (rawCounselingRequests && rawCounselingRequests.length > 0)
+        ? rawCounselingRequests
+        : defaultCounseling.counselingRequests;
     const refreshCounselingRequests = rawRefreshCounselingRequests ?? defaultCounseling.refreshCounselingRequests;
 
     const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
@@ -365,7 +370,7 @@ export default function CounselingView({
     }, [refreshCounselingRequests]);
 
     const activeRequests = counselingRequests.filter((request: any) => CARE_STAFF_ACTIVE_COUNSELING_STATUSES.includes(request.status));
-    const completedRequests = counselingRequests.filter((request: any) => request.status === COUNSELING_STATUS.COMPLETED);
+    const completedRequests = counselingRequests.filter((request: any) => isCounselingSessionDone(request.status));
     const latestRequest = counselingRequests[0];
 
     return (
@@ -376,7 +381,7 @@ export default function CounselingView({
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-500">Student Services</p>
                         <h2 className="mt-1 text-xl font-black leading-tight text-slate-950 sm:text-2xl">Counseling Services</h2>
-                        <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">Request private counseling support and follow your submitted requests in one place.</p>
+                        <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">Access private counseling support and track your counseling sessions in one place.</p>
                     </div>
                     <div className="flex items-center gap-2 sm:shrink-0">
                         <button
@@ -420,8 +425,8 @@ export default function CounselingView({
             <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Request Flow</p>
-                        <h3 className="mt-1 text-base font-black text-slate-950">Latest request</h3>
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Counseling Activity</p>
+                        <h3 className="mt-1 text-base font-black text-slate-950">Latest session</h3>
                     </div>
                     <button
                         type="button"
@@ -440,16 +445,21 @@ export default function CounselingView({
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                    <p className="truncate text-sm font-black text-slate-950">{latestRequest.request_type || 'Self-Referral'}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="truncate text-sm font-black text-slate-950">Counseling Session</p>
+                                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                                            {latestRequest.request_type || 'Self-Referral'}
+                                        </span>
+                                    </div>
                                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{getRequestPreview(latestRequest)}</p>
                                     <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{formatFullDate(new Date(latestRequest.created_at))}</p>
                                 </div>
                                 <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${getCounselingStatusTone(latestRequest.status)}`}>
-                                    {getCounselingStatusLabel(latestRequest.status)}
+                                    {getCounselingStatusLabel(latestRequest.status, 'student')}
                                 </span>
                             </div>
                         </button>
-                        {latestRequest.status === COUNSELING_STATUS.COMPLETED && (
+                        {isCounselingSessionDone(latestRequest.status) && (
                             <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between">
                                 {evaluatedRequestIds.has(latestRequest.id) ? (
                                     <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
@@ -470,8 +480,8 @@ export default function CounselingView({
                     </div>
                 ) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center">
-                        <p className="text-sm font-bold text-slate-700">No counseling requests yet.</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">Your submitted requests will appear here after you send the form.</p>
+                        <p className="text-sm font-bold text-slate-700">No counseling sessions yet.</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">Your counseling sessions and referrals will appear here.</p>
                     </div>
                 )}
             </section>

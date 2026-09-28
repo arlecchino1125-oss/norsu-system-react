@@ -18,8 +18,15 @@ import {
     COUNSELING_STATUS,
     getCounselingScheduledDate,
     isCareStaffCounselingSchedulable,
-    isCounselingAwaitingDept
+    isCounselingAwaitingCare,
+    isCounselingAwaitingDept,
+    isCounselingCalendarVisible,
+    isCounselingReturnedToCare
 } from '../../../../../utils/workflow';
+import {
+    getCounselingStatusLabel,
+    getCounselingStatusTone
+} from '../../../../../utils/counselingStatusMeta';
 import PaginationControls from '../../../../../components/PaginationControls';
 import {
     applyCounselingTabFilter as applyTabFilter,
@@ -34,23 +41,6 @@ export interface CareStaffCounselingPageProps {
 
 const sortCounselingByCreatedAt = (rows: any[]) =>
     rows.toSorted((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
-const getCounselingStatusTone = (status: string) => {
-    if (isCounselingAwaitingDept(status)) return 'bg-gray-100 text-gray-600';
-    if (status === COUNSELING_STATUS.REJECTED) return 'bg-red-100 text-red-700';
-    if (status === COUNSELING_STATUS.REFERRED) return 'bg-purple-100 text-purple-700';
-    if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'bg-indigo-100 text-indigo-700';
-    if (status === COUNSELING_STATUS.SCHEDULED) return 'bg-blue-100 text-blue-700';
-    if (status === COUNSELING_STATUS.COMPLETED) return 'bg-green-100 text-green-700';
-    return 'bg-gray-100 text-gray-600';
-};
-
-const getCounselingStatusLabel = (status: string) => {
-    if (isCounselingAwaitingDept(status)) return 'Pending Review';
-    if (status === COUNSELING_STATUS.STAFF_SCHEDULED) return 'With CARE Staff';
-    if (status === COUNSELING_STATUS.REFERRED) return 'Forwarded';
-    return status;
-};
 
 const invokeManagedCareServicesFunction = async (body: any) => {
     return invokeEdgeFunction('manage-care-services', {
@@ -71,7 +61,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
     const [counselingCounts, setCounselingCounts] = useState<Record<string, number>>({});
     const [currentPage, setCurrentPage] = useState(1);
     const [refreshTick, setRefreshTick] = useState(0);
-    const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.REFERRED);
+    const [counselingTab, setCounselingTab] = useState<string>(COUNSELING_STATUS.SUBMITTED);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
 
     // Modals & form state
@@ -164,6 +154,91 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
     }, [refreshSignal, handleRefreshData]);
 
     // Handlers
+    const handleApproveRequest = async (req: any, notes?: string) => {
+        try {
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'approve-counseling',
+                requestId: req.id,
+                notes
+            });
+            await refetchCounseling();
+            showToastMessage('Counseling request approved and forwarded to college.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Approval notification');
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+            throw err;
+        }
+    };
+
+    const handleRejectRequest = async (req: any, notes?: string) => {
+        try {
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'reject-counseling',
+                requestId: req.id,
+                notes
+            });
+            await refetchCounseling();
+            showToastMessage('Counseling request rejected.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Rejection notification');
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+            throw err;
+        }
+    };
+
+    const handleSetOutcome = async (req: any, outcomeStatus: string, notes?: string) => {
+        try {
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'set-counseling-outcome',
+                requestId: req.id,
+                outcomeStatus,
+                notes
+            });
+            await refetchCounseling();
+            showToastMessage(`Outcome set to ${getCounselingStatusLabel(outcomeStatus)}.`, 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Outcome update');
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+            throw err;
+        }
+    };
+
+    const handleRescheduleSession = async (req: any, date: string, time: string, notes?: string) => {
+        try {
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'reschedule-counseling',
+                requestId: req.id,
+                date,
+                time,
+                notes
+            });
+            await refetchCounseling();
+            showToastMessage('Session rescheduled successfully.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Session rescheduled');
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+            throw err;
+        }
+    };
+
+    const handleScheduleFollowUp = async (req: any, date?: string, time?: string, notes?: string) => {
+        try {
+            const result = await invokeManagedCareServicesFunction({
+                mode: 'schedule-follow-up-counseling',
+                parentRequestId: req.id,
+                date,
+                time,
+                notes
+            });
+            await refetchCounseling();
+            showToastMessage('Follow-up counseling session created.', 'success');
+            queueProcessEmailNotification(result?.emailPayload, 'Follow-up session created');
+        } catch (err: any) {
+            showToastMessage(err.message, 'error');
+            throw err;
+        }
+    };
+
     const handleScheduleSubmit = async (e: any) => {
         e.preventDefault();
         if (!selectedApp || isSchedulingSession) return;
@@ -178,7 +253,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
                 notes: scheduleData.notes
             });
 
-            void refetchCounseling();
+            await refetchCounseling();
             showToastMessage('Session Scheduled Successfully', 'success');
             queueProcessEmailNotification(result?.emailPayload, 'Session scheduled successfully.');
             setShowScheduleModal(false);
@@ -202,7 +277,7 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
                 privateNotes: completionForm.privateNotes
             });
 
-            void refetchCounseling();
+            await refetchCounseling();
             showToastMessage('Session marked as complete.', 'success');
             queueProcessEmailNotification(result?.emailPayload, 'Session marked as complete.');
             setShowCompleteModal(false);
@@ -341,16 +416,24 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         showToastMessage('Referral form downloaded', 'success');
     };
 
-    const totalRequestCount = (counselingCounts.awaitingDept || 0)
+    const totalRequestCount = (counselingCounts.awaitingCare || 0)
+        + (counselingCounts.awaitingDept || 0)
+        + (counselingCounts[COUNSELING_STATUS.RETURNED_TO_CARE] || 0)
         + (counselingCounts[COUNSELING_STATUS.REFERRED] || 0)
         + (counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0)
         + (counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0)
-        + (counselingCounts[COUNSELING_STATUS.COMPLETED] || 0);
+        + (counselingCounts[COUNSELING_STATUS.RESCHEDULED] || 0)
+        + (counselingCounts[COUNSELING_STATUS.COMPLETED] || 0)
+        + (counselingCounts[COUNSELING_STATUS.COUNSELED] || 0)
+        + (counselingCounts[COUNSELING_STATUS.MONITORING] || 0)
+        + (counselingCounts[COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING] || 0);
 
     const visibleCounselingReqs = counselingReqs.filter(r =>
-        counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingDept(r.status)
-            : counselingTab === 'Calendar' ? true
-                : r.status === counselingTab
+        counselingTab === COUNSELING_STATUS.SUBMITTED ? isCounselingAwaitingCare(r.status)
+            : counselingTab === COUNSELING_STATUS.APPROVED ? isCounselingAwaitingDept(r.status)
+                : counselingTab === COUNSELING_STATUS.RETURNED_TO_CARE ? isCounselingReturnedToCare(r.status)
+                    : counselingTab === 'Calendar' ? true
+                        : r.status === counselingTab
     );
 
     return {
@@ -399,6 +482,11 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         queueProcessEmailNotification,
         applyCounselingTabFilter,
         handleRefreshData,
+        handleApproveRequest,
+        handleRejectRequest,
+        handleSetOutcome,
+        handleRescheduleSession,
+        handleScheduleFollowUp,
         handleScheduleSubmit,
         handleCompleteSession,
         handleDownloadReferralForm,

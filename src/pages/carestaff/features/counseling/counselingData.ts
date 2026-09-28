@@ -1,7 +1,10 @@
 import { supabase } from '../../../../lib/supabase';
 import {
+    COUNSELING_AWAITING_CARE_STATUSES,
     COUNSELING_AWAITING_DEPT_STATUSES,
     COUNSELING_CALENDAR_STATUSES,
+    COUNSELING_OUTCOME_STATUSES,
+    COUNSELING_RETURNED_STATUSES,
     COUNSELING_STATUS
 } from '../../../../utils/workflow';
 
@@ -30,7 +33,8 @@ const COUNSELING_REQUEST_COLUMNS = [
     'relationship_with_student',
     'actions_made',
     'date_duration_of_observations',
-    'referrer_signature'
+    'referrer_signature',
+    'follow_up_of'
 ].join(', ');
 
 export type CounselingCounts = Record<string, number>;
@@ -41,8 +45,14 @@ const sortByCreatedAt = (rows: any[]) =>
 // Single source of truth for how a tab maps to a status filter — shared by the
 // list query and the count fallback so the two can never drift apart.
 export const applyCounselingTabFilter = (query: any, tab: string) => {
-    if (tab === COUNSELING_STATUS.SUBMITTED) {
+    if (tab === COUNSELING_STATUS.SUBMITTED || tab === 'NeedsReview') {
+        return query.in('status', [...COUNSELING_AWAITING_CARE_STATUSES]);
+    }
+    if (tab === COUNSELING_STATUS.APPROVED || tab === 'CollegeReview') {
         return query.in('status', [...COUNSELING_AWAITING_DEPT_STATUSES]);
+    }
+    if (tab === COUNSELING_STATUS.RETURNED_TO_CARE) {
+        return query.in('status', [...COUNSELING_RETURNED_STATUSES]);
     }
     if (tab === 'Calendar') {
         return query.in('status', [...COUNSELING_CALENDAR_STATUSES]);
@@ -69,14 +79,21 @@ const bucketStatusCounts = (rows: { status: string; count: number | string }[]):
     const sum = (statuses: readonly string[]) => statuses.reduce((n, s) => n + (by.get(s) || 0), 0);
     const staffScheduled = by.get(COUNSELING_STATUS.STAFF_SCHEDULED) || 0;
     const deptScheduled = by.get(COUNSELING_STATUS.SCHEDULED) || 0;
+    const rescheduled = by.get(COUNSELING_STATUS.RESCHEDULED) || 0;
     return {
+        awaitingCare: sum(COUNSELING_AWAITING_CARE_STATUSES),
         awaitingDept: sum(COUNSELING_AWAITING_DEPT_STATUSES),
+        [COUNSELING_STATUS.RETURNED_TO_CARE]: by.get(COUNSELING_STATUS.RETURNED_TO_CARE) || 0,
         [COUNSELING_STATUS.REFERRED]: by.get(COUNSELING_STATUS.REFERRED) || 0,
         [COUNSELING_STATUS.STAFF_SCHEDULED]: staffScheduled,
         [COUNSELING_STATUS.SCHEDULED]: deptScheduled,
         [COUNSELING_STATUS.COMPLETED]: by.get(COUNSELING_STATUS.COMPLETED) || 0,
+        [COUNSELING_STATUS.COUNSELED]: by.get(COUNSELING_STATUS.COUNSELED) || 0,
+        [COUNSELING_STATUS.MONITORING]: by.get(COUNSELING_STATUS.MONITORING) || 0,
+        [COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING]: by.get(COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING) || 0,
+        [COUNSELING_STATUS.RESCHEDULED]: rescheduled,
         [COUNSELING_STATUS.REJECTED]: by.get(COUNSELING_STATUS.REJECTED) || 0,
-        Calendar: staffScheduled + deptScheduled
+        Calendar: staffScheduled + deptScheduled + rescheduled
     };
 };
 
@@ -88,33 +105,57 @@ const countForTab = async (tab: string) => {
     return count || 0;
 };
 
-// ponytail: 6 head-count round-trips, used only when the grouped-count RPC isn't
-// deployed yet. Drop this once the migration is applied in every environment.
+// ponytail: head-count round-trips used only when the grouped-count RPC isn't
+// deployed yet.
 async function fetchCounselingCountsFallback(): Promise<CounselingCounts> {
-    const [awaitingDept, referred, staffScheduled, deptScheduled, completed, rejected] = await Promise.all([
+    const [
+        awaitingCare,
+        awaitingDept,
+        returnedToCare,
+        referred,
+        staffScheduled,
+        deptScheduled,
+        completed,
+        counseled,
+        monitoring,
+        subjectFor2nd,
+        rescheduled,
+        rejected
+    ] = await Promise.all([
         countForTab(COUNSELING_STATUS.SUBMITTED),
+        countForTab(COUNSELING_STATUS.APPROVED),
+        countForTab(COUNSELING_STATUS.RETURNED_TO_CARE),
         countForTab(COUNSELING_STATUS.REFERRED),
         countForTab(COUNSELING_STATUS.STAFF_SCHEDULED),
         countForTab(COUNSELING_STATUS.SCHEDULED),
         countForTab(COUNSELING_STATUS.COMPLETED),
+        countForTab(COUNSELING_STATUS.COUNSELED),
+        countForTab(COUNSELING_STATUS.MONITORING),
+        countForTab(COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING),
+        countForTab(COUNSELING_STATUS.RESCHEDULED),
         countForTab(COUNSELING_STATUS.REJECTED)
     ]);
     return {
+        awaitingCare,
         awaitingDept,
+        [COUNSELING_STATUS.RETURNED_TO_CARE]: returnedToCare,
         [COUNSELING_STATUS.REFERRED]: referred,
         [COUNSELING_STATUS.STAFF_SCHEDULED]: staffScheduled,
         [COUNSELING_STATUS.SCHEDULED]: deptScheduled,
         [COUNSELING_STATUS.COMPLETED]: completed,
+        [COUNSELING_STATUS.COUNSELED]: counseled,
+        [COUNSELING_STATUS.MONITORING]: monitoring,
+        [COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING]: subjectFor2nd,
+        [COUNSELING_STATUS.RESCHEDULED]: rescheduled,
         [COUNSELING_STATUS.REJECTED]: rejected,
-        Calendar: staffScheduled + deptScheduled
+        Calendar: staffScheduled + deptScheduled + rescheduled
     };
 }
 
 // Tab/stat counts for the whole page in ONE request. Independent of the selected
 // tab, so switching tabs never refetches these. Prefers the grouped-count RPC
 // (SECURITY INVOKER → RLS still scopes the counts); falls back to the per-status
-// counts if the function isn't deployed, so a missing/denied RPC degrades to the
-// previous behaviour instead of breaking the badges.
+// counts if the function isn't deployed.
 export async function fetchCounselingCounts(): Promise<CounselingCounts> {
     const { data, error } = await supabase.rpc('get_counseling_status_counts');
     if (!error && Array.isArray(data)) {

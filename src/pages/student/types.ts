@@ -33,7 +33,7 @@ export type StudentRemainingViewProps = {
         setShowCounselingForm: Setter<boolean>;
         openCounselingForm: () => void;
         onCounselingSubmitted: () => unknown;
-        counselingRequests: any[];
+        counselingRequests?: any[];
         openRequestModal: (request: any) => void;
         selectedRequest: any;
         setSelectedRequest: AnySetter;

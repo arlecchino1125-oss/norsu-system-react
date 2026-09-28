@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search } from 'lucide-react';
 import {
     COUNSELING_STATUS,
+    isCounselingSessionDone,
     isWithCareStaffCounseling
 } from '../../../../../utils/workflow';
 import { toTitleCase } from '../../../../../utils/formatters';
@@ -74,7 +75,7 @@ const DeptCounseledPage = ({
             const status = String(request?.status || '').trim();
             const studentName = String(request?.student_name || '').toLowerCase();
             return (
-                (status === COUNSELING_STATUS.COMPLETED || isWithCareStaffCounseling(status))
+                (isCounselingSessionDone(status) || (isWithCareStaffCounseling(status) && status !== COUNSELING_STATUS.RETURNED_TO_CARE))
                 && studentName.includes(String(counseledSearch || '').toLowerCase())
                 && (!counseledDate || String(request?.created_at || '').startsWith(counseledDate))
                 && matchesCascadeFilters(getStudentForRequest(request))

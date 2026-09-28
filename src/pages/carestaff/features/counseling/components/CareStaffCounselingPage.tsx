@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m } from 'framer-motion';
 import {
     Calendar,
     CheckCircle,
+    CheckCircle2,
     ChevronLeft,
     ChevronRight,
     ClipboardList,
     Clock,
     Eye,
     FileText,
+    MoreHorizontal,
+    MoreVertical,
     RefreshCw,
     Send,
     User,
@@ -19,13 +22,29 @@ import {
 import {
     COUNSELING_STATUS,
     getCounselingScheduledDate,
-    isCareStaffCounselingSchedulable
+    isCareStaffCounselingApprovable,
+    isCareStaffCounselingRejectable,
+    isCareStaffCounselingSchedulable,
+    isCounselingAwaitingCare,
+    isCounselingAwaitingDept,
+    isCounselingCalendarVisible,
+    isCounselingReturnedToCare,
+    isCounselingSessionDone,
+    isCounselingReschedulable
 } from '../../../../../utils/workflow';
+import {
+    getCounselingStatusLabel,
+    getCounselingStatusTone
+} from '../../../../../utils/counselingStatusMeta';
 import { toTitleCase } from '../../../../../utils/formatters';
 import { Button } from '../../../../../components/ui/Button';
 import CalendarView from '../../../../../components/CalendarView';
 import CounselingEvaluationsList from './CounselingEvaluationsList';
 import CounselingEvaluationFormModal from './CounselingEvaluationFormModal';
+import CounselingScheduleModal from './CounselingScheduleModal';
+import CounselingCompleteModal from './CounselingCompleteModal';
+import CounselingOutcomeMenu from './CounselingOutcomeMenu';
+import { usePermissions } from '../../../../../hooks/usePermissions';
 import {
     getCounselingEvaluations,
     getGlobalEvaluationForm,
@@ -49,25 +68,49 @@ const getInitials = (name?: string | null) => {
 };
 
 const COUNSELING_TAB_ACTIVE_STYLES: Record<string, { pill: string; badge: string }> = {
+    [COUNSELING_STATUS.SUBMITTED]: {
+        pill: 'bg-amber-50 text-amber-700 border-amber-200 shadow-xs',
+        badge: 'bg-amber-100 text-amber-800'
+    },
+    [COUNSELING_STATUS.APPROVED]: {
+        pill: 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs',
+        badge: 'bg-blue-100 text-blue-800'
+    },
+    [COUNSELING_STATUS.RETURNED_TO_CARE]: {
+        pill: 'bg-orange-50 text-orange-700 border-orange-200 shadow-xs',
+        badge: 'bg-orange-100 text-orange-800'
+    },
     [COUNSELING_STATUS.REFERRED]: {
         pill: 'bg-purple-600 text-white border-purple-600 shadow-xs',
         badge: 'bg-purple-800 text-white'
     },
     [COUNSELING_STATUS.STAFF_SCHEDULED]: {
-        pill: 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs',
-        badge: 'bg-blue-100 text-blue-800'
-    },
-    [COUNSELING_STATUS.SUBMITTED]: {
-        pill: 'bg-orange-50 text-orange-700 border-orange-200 shadow-xs',
-        badge: 'bg-orange-100 text-orange-800'
+        pill: 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-xs',
+        badge: 'bg-indigo-100 text-indigo-800'
     },
     [COUNSELING_STATUS.SCHEDULED]: {
-        pill: 'bg-teal-50 text-teal-700 border-teal-200 shadow-xs',
-        badge: 'bg-teal-100 text-teal-800'
+        pill: 'bg-sky-50 text-sky-700 border-sky-200 shadow-xs',
+        badge: 'bg-sky-100 text-sky-800'
     },
     [COUNSELING_STATUS.COMPLETED]: {
         pill: 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs',
         badge: 'bg-emerald-100 text-emerald-800'
+    },
+    [COUNSELING_STATUS.COUNSELED]: {
+        pill: 'bg-teal-50 text-teal-700 border-teal-200 shadow-xs',
+        badge: 'bg-teal-100 text-teal-800'
+    },
+    [COUNSELING_STATUS.MONITORING]: {
+        pill: 'bg-violet-50 text-violet-700 border-violet-200 shadow-xs',
+        badge: 'bg-violet-100 text-violet-800'
+    },
+    [COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING]: {
+        pill: 'bg-rose-50 text-rose-700 border-rose-200 shadow-xs',
+        badge: 'bg-rose-100 text-rose-800'
+    },
+    [COUNSELING_STATUS.RESCHEDULED]: {
+        pill: 'bg-cyan-50 text-cyan-700 border-cyan-200 shadow-xs',
+        badge: 'bg-cyan-100 text-cyan-800'
     }
 };
 
@@ -107,9 +150,7 @@ const CounselingDetailModal = ({
     onClose,
     onSchedule,
     onComplete,
-    onDownloadReferral,
-    getCounselingStatusTone,
-    getCounselingStatusLabel
+    onDownloadReferral
 }: any) => (
     <m.div
         initial={{ opacity: 0 }}
@@ -231,7 +272,7 @@ const CounselingDetailModal = ({
                 {isCareStaffCounselingSchedulable(request.status) && (
                     <Button variant="primary" size="md" onClick={() => onSchedule(request)} className="flex-1 rounded-[1.5rem] shadow-md shadow-purple-500/20">Schedule Session</Button>
                 )}
-                {(request.status === COUNSELING_STATUS.SCHEDULED || request.status === COUNSELING_STATUS.STAFF_SCHEDULED) && (
+                {(request.status === COUNSELING_STATUS.SCHEDULED || request.status === COUNSELING_STATUS.STAFF_SCHEDULED || request.status === COUNSELING_STATUS.RESCHEDULED) && (
                     <Button variant="primary" size="md" onClick={() => onComplete(request)} className="flex-1 rounded-[1.5rem] bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20">Mark as Complete</Button>
                 )}
                 <Button variant="secondary" size="md" onClick={onClose} className="flex-1 rounded-[1.5rem] bg-white border-slate-200 hover:bg-slate-100">Close Form</Button>
@@ -244,8 +285,6 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
     const {
         handleViewProfile,
         showToastMessage,
-        getCounselingStatusTone,
-        getCounselingStatusLabel,
         counselingReqs,
         counselingTotal,
         counselingCounts,
@@ -274,12 +313,25 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
         setCompletionForm,
         isCompletingSession,
         handleRefreshData,
+        handleApproveRequest,
+        handleRejectRequest,
+        handleSetOutcome,
+        handleRescheduleSession,
+        handleScheduleFollowUp,
         handleScheduleSubmit,
         handleCompleteSession,
         handleDownloadReferralForm,
         totalRequestCount,
         visibleCounselingReqs
     } = useCareStaffCounseling({ functions, refreshSignal });
+
+    const permissionsHook = usePermissions();
+    const canManageOutcome = typeof permissionsHook.canPerformAction === 'function'
+        ? permissionsHook.canPerformAction('manage_counseling_outcome')
+        : Boolean(permissionsHook.getPermissionAccessState?.('action', 'manage_counseling_outcome')?.isAllowed);
+    const canManageCounseling = typeof permissionsHook.canAccessFeature === 'function'
+        ? permissionsHook.canAccessFeature('counseling')
+        : Boolean(permissionsHook.getPermissionAccessState?.('feature', 'counseling')?.isAllowed);
 
     // Evaluations State
     const [evaluations, setEvaluations] = useState<CounselingEvaluationResponse[]>([]);
@@ -288,6 +340,80 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
     const [evaluationsLoading, setEvaluationsLoading] = useState(false);
     const [evaluationsError, setEvaluationsError] = useState(false);
     const [showEvaluationBuilder, setShowEvaluationBuilder] = useState(false);
+
+    // Schedule modal mode (new session vs reschedule vs follow-up)
+    const [scheduleModalMode, setScheduleModalMode] = useState<'schedule' | 'reschedule' | 'follow_up'>('schedule');
+
+    // Reject dialog state
+    const [rejectModalReq, setRejectModalReq] = useState<any>(null);
+    const [rejectReason, setRejectReason] = useState('');
+    const [isRejecting, setIsRejecting] = useState(false);
+
+    // Context / Outcome Menu state
+    const [outcomeMenuTarget, setOutcomeMenuTarget] = useState<any>(null);
+    const [outcomeMenuPosition, setOutcomeMenuPosition] = useState<{ x: number; y: number } | null>(null);
+    const longPressTimerRef = useRef<any>(null);
+
+    const openOutcomeMenu = (req: any, pos: { x: number; y: number }) => {
+        setOutcomeMenuTarget(req);
+        setOutcomeMenuPosition(pos);
+    };
+
+    const startLongPress = (req: any, e: React.TouchEvent) => {
+        if (!isCounselingSessionDone(req.status) && !isCounselingReschedulable(req.status)) return;
+        const touch = e.touches[0];
+        longPressTimerRef.current = setTimeout(() => {
+            openOutcomeMenu(req, { x: touch.clientX, y: touch.clientY });
+        }, 500);
+    };
+
+    const cancelLongPress = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    };
+
+    const handleConfirmReject = async () => {
+        if (!rejectModalReq) return;
+        setIsRejecting(true);
+        try {
+            await handleRejectRequest(rejectModalReq, rejectReason);
+            setRejectModalReq(null);
+            setRejectReason('');
+        } catch {
+            // Handled in hook
+        } finally {
+            setIsRejecting(false);
+        }
+    };
+
+    const handleCustomScheduleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedApp) return;
+
+        if (scheduleModalMode === 'reschedule') {
+            try {
+                await handleRescheduleSession(selectedApp, scheduleData.date, scheduleData.time, scheduleData.notes);
+                setShowScheduleModal(false);
+                setSelectedApp(null);
+                setScheduleData({ date: '', time: '', notes: '' });
+            } catch {
+                // Handled in hook
+            }
+        } else if (scheduleModalMode === 'follow_up') {
+            try {
+                await handleScheduleFollowUp(selectedApp, scheduleData.date, scheduleData.time, scheduleData.notes);
+                setShowScheduleModal(false);
+                setSelectedApp(null);
+                setScheduleData({ date: '', time: '', notes: '' });
+            } catch {
+                // Handled in hook
+            }
+        } else {
+            await handleScheduleSubmit(e);
+        }
+    };
 
     const loadEvaluations = useCallback(async () => {
         setEvaluationsLoading(true);
@@ -315,6 +441,21 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
 
     const counselingTabs = [
         {
+            id: COUNSELING_STATUS.SUBMITTED,
+            label: 'Needs Review',
+            count: counselingCounts.awaitingCare || 0
+        },
+        {
+            id: COUNSELING_STATUS.APPROVED,
+            label: 'College Review',
+            count: counselingCounts.awaitingDept || 0
+        },
+        {
+            id: COUNSELING_STATUS.RETURNED_TO_CARE,
+            label: 'Returned to CARE',
+            count: counselingCounts[COUNSELING_STATUS.RETURNED_TO_CARE] || 0
+        },
+        {
             id: COUNSELING_STATUS.REFERRED,
             label: 'Forwarded',
             count: counselingCounts[COUNSELING_STATUS.REFERRED] || 0
@@ -325,11 +466,6 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
             count: counselingCounts[COUNSELING_STATUS.STAFF_SCHEDULED] || 0
         },
         {
-            id: COUNSELING_STATUS.SUBMITTED,
-            label: 'Awaiting College',
-            count: counselingCounts.awaitingDept || 0
-        },
-        {
             id: COUNSELING_STATUS.SCHEDULED,
             label: 'College Scheduled',
             count: counselingCounts[COUNSELING_STATUS.SCHEDULED] || 0
@@ -338,6 +474,26 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
             id: COUNSELING_STATUS.COMPLETED,
             label: 'Completed',
             count: counselingCounts[COUNSELING_STATUS.COMPLETED] || 0
+        },
+        {
+            id: COUNSELING_STATUS.COUNSELED,
+            label: 'Counseled',
+            count: counselingCounts[COUNSELING_STATUS.COUNSELED] || 0
+        },
+        {
+            id: COUNSELING_STATUS.MONITORING,
+            label: 'Monitoring',
+            count: counselingCounts[COUNSELING_STATUS.MONITORING] || 0
+        },
+        {
+            id: COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING,
+            label: 'Subject for 2nd',
+            count: counselingCounts[COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING] || 0
+        },
+        {
+            id: COUNSELING_STATUS.RESCHEDULED,
+            label: 'Rescheduled',
+            count: counselingCounts[COUNSELING_STATUS.RESCHEDULED] || 0
         }
     ];
 
@@ -348,42 +504,48 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
     return (
         <>
             <div className="flex h-full min-h-0 flex-col gap-4">
-                {/* Header Toolbar (Dark Gradient) */}
-                <div className="bg-gradient-to-r from-[#170529] via-[#2a0b4d] to-[#170529] rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 shrink-0">
+                {/* Purple Header Banner */}
+                <div className="bg-[#6D28D9] rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
                     <div>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Counseling Management</h1>
-                            <span className="rounded-full bg-white/10 border border-white/15 px-2.5 py-0.5 text-xs font-semibold text-purple-200">
-                                {totalRequestCount} Total
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-[#DDD6FE]">
+                                Guidance & Counseling
+                            </span>
+                            <span className="text-white/40">•</span>
+                            <span className="text-[11px] font-medium text-white/70">
+                                Total: {totalRequestCount}
                             </span>
                         </div>
-                        <p className="mt-1 text-xs md:text-sm font-medium text-purple-200/80">Review applications, orchestrate referrals, and schedule guidance sessions securely.</p>
+                        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+                            Counseling Services
+                        </h1>
                     </div>
 
-                    {/* View Switcher & Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        {/* View Toggles */}
-                        <div className="inline-flex items-center rounded-xl border border-white/15 bg-white/5 p-1 backdrop-blur-sm">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Right Header Navigation Pills */}
+                        <div className="flex items-center rounded-xl bg-black/20 p-1 backdrop-blur-sm border border-white/10">
                             <button
                                 type="button"
                                 onClick={() => {
-                                    if (counselingTab === 'Calendar' || counselingTab === 'Evaluations') {
-                                        setCounselingTab(COUNSELING_STATUS.REFERRED);
-                                    }
+                                    setCounselingTab(COUNSELING_STATUS.SUBMITTED);
+                                    setCurrentPage(1);
                                 }}
-                                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors cursor-pointer ${
                                     counselingTab !== 'Calendar' && counselingTab !== 'Evaluations'
                                         ? 'bg-[#8B5CF6] text-white shadow-sm font-bold'
                                         : 'text-white/80 hover:text-white hover:bg-white/10 font-semibold'
                                 }`}
                             >
-                                <FileText size={14} />
-                                Queue
+                                <Users size={14} />
+                                Requests
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setCounselingTab('Calendar')}
-                                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
+                                onClick={() => {
+                                    setCounselingTab('Calendar');
+                                    setCurrentPage(1);
+                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors cursor-pointer ${
                                     counselingTab === 'Calendar'
                                         ? 'bg-[#8B5CF6] text-white shadow-sm font-bold'
                                         : 'text-white/80 hover:text-white hover:bg-white/10 font-semibold'
@@ -391,11 +553,19 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                             >
                                 <Calendar size={14} />
                                 Calendar
+                                {counselingCounts.Calendar > 0 && (
+                                    <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                                        {counselingCounts.Calendar}
+                                    </span>
+                                )}
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setCounselingTab('Evaluations')}
-                                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
+                                onClick={() => {
+                                    setCounselingTab('Evaluations');
+                                    setCurrentPage(1);
+                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors cursor-pointer ${
                                     counselingTab === 'Evaluations'
                                         ? 'bg-[#8B5CF6] text-white shadow-sm font-bold'
                                         : 'text-white/80 hover:text-white hover:bg-white/10 font-semibold'
@@ -435,7 +605,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                 {counselingTab !== 'Calendar' && counselingTab !== 'Evaluations' && (
                     <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 px-5 md:px-6 py-3 shadow-xs flex items-center justify-between gap-3 shrink-0">
                         {/* Status pills (horizontal row, left side) */}
-                        <div className="flex items-center gap-2 overflow-x-auto py-0.5 max-w-full">
+                        <div className="flex items-center gap-2 overflow-x-auto py-0.5 max-w-full custom-scrollbar">
                             {counselingTabs.map((tab) => {
                                 const isActive = counselingTab === tab.id;
                                 const activeStyle = COUNSELING_TAB_ACTIVE_STYLES[tab.id] || {
@@ -505,77 +675,232 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                                 </div>
                             ) : (
                                 <div className="min-h-0 flex-1 overflow-auto" style={{ scrollbarWidth: 'thin' }}>
-                                    <m.table variants={staggerContainer} initial="hidden" animate="show" aria-label="Counseling requests" className="w-full text-left border-collapse">
+                                    <m.table
+                                        variants={staggerContainer}
+                                        initial="hidden"
+                                        animate="show"
+                                        aria-label="Counseling requests"
+                                        className="w-full text-left border-collapse"
+                                    >
                                         <thead className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50/95 text-[11px] font-bold uppercase tracking-widest text-slate-400 backdrop-blur-sm">
                                             <tr>
-                                                <th scope="col" className="px-6 py-3.5 w-[28%]">Student</th>
+                                                <th scope="col" className="px-6 py-3.5 w-[26%]">Student</th>
                                                 <th scope="col" className="px-6 py-3.5 w-[22%]">Referral Info</th>
                                                 <th scope="col" className="px-6 py-3.5 w-[14%]">Date Filed</th>
                                                 <th scope="col" className="px-6 py-3.5 w-[14%]">Scheduled Date</th>
                                                 <th scope="col" className="px-6 py-3.5 w-[12%]">Status</th>
-                                                <th scope="col" className="px-6 py-3.5 text-right w-[10%] min-w-[140px]">Actions</th>
+                                                <th scope="col" className="px-6 py-3.5 text-right w-[12%] min-w-[160px]">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                                            {visibleCounselingReqs.map((req) => (
-                                                <m.tr variants={itemReveal} key={req.id} className="transition-colors hover:bg-purple-50/30">
-                                                    <td className="px-6 py-4 min-w-0">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-xs text-purple-600">
-                                                                {getInitials(req.student_name)}
+                                            {visibleCounselingReqs.map((req) => {
+                                                const isDone = isCounselingSessionDone(req.status);
+                                                const hasRowMenu = isDone || isCounselingReschedulable(req.status);
+                                                return (
+                                                    <m.tr
+                                                        variants={itemReveal}
+                                                        key={req.id}
+                                                        onContextMenu={(e) => {
+                                                            if (hasRowMenu) {
+                                                                e.preventDefault();
+                                                                openOutcomeMenu(req, { x: e.clientX, y: e.clientY });
+                                                            }
+                                                        }}
+                                                        onTouchStart={(e) => {
+                                                            if (hasRowMenu) startLongPress(req, e);
+                                                        }}
+                                                        onTouchEnd={cancelLongPress}
+                                                        onTouchMove={cancelLongPress}
+                                                        className={`transition-colors ${
+                                                            hasRowMenu ? 'cursor-context-menu hover:bg-slate-50/80' : 'hover:bg-purple-50/30'
+                                                        }`}
+                                                    >
+                                                        <td className="px-6 py-4 min-w-0">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-xs text-purple-600">
+                                                                    {getInitials(req.student_name)}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-bold text-slate-900 leading-snug">
+                                                                        {toTitleCase(req.student_name, '—')}
+                                                                    </p>
+                                                                    <p className="text-xs text-slate-400 truncate">
+                                                                        {req.course_year || '—'} · ID: {req.student_id}
+                                                                        {req.follow_up_of && (
+                                                                            <span className="ml-1.5 text-[10px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded-full">
+                                                                                Follow-up
+                                                                            </span>
+                                                                        )}
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                            <div className="min-w-0">
-                                                                <p className="font-bold text-slate-900 leading-snug">{toTitleCase(req.student_name, '—')}</p>
-                                                                <p className="text-xs text-slate-400 truncate">{req.course_year || '—'} · ID: {req.student_id}</p>
+                                                        </td>
+                                                        <td className="px-6 py-4 min-w-0">
+                                                            <div className="font-bold text-purple-700 truncate">
+                                                                {req.referred_by || 'Student Self-Referral'}
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 min-w-0">
-                                                        <div className="font-bold text-purple-700 truncate">{req.referred_by || 'Student Self-Referral'}</div>
-                                                        <div className="text-xs text-slate-400 truncate max-w-xs">{req.reason_for_referral || req.description || '—'}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-slate-500 whitespace-nowrap text-sm">{formatDate(req.created_at)}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                        {getCounselingScheduledDate(req) ? (
-                                                            <span className="inline-flex items-center gap-1 font-bold text-indigo-700">
-                                                                <Calendar size={13} /> {new Date(getCounselingScheduledDate(req) as string).toLocaleDateString()}
+                                                            <div className="text-xs text-slate-400 truncate max-w-xs">
+                                                                {req.reason_for_referral || req.description || '—'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-slate-500 whitespace-nowrap text-sm">
+                                                            {formatDate(req.created_at)}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                            {getCounselingScheduledDate(req) ? (
+                                                                <span className="inline-flex items-center gap-1 font-bold text-indigo-700">
+                                                                    <Calendar size={13} /> {new Date(getCounselingScheduledDate(req) as string).toLocaleDateString()}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-400 italic">Not scheduled</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${getCounselingStatusTone(req.status)}`}>
+                                                                {getCounselingStatusLabel(req.status)}
                                                             </span>
-                                                        ) : (
-                                                            <span className="text-slate-400 italic">Not scheduled</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${getCounselingStatusTone(req.status)}`}>
-                                                            {getCounselingStatusLabel(req.status)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                        <div className="flex items-center justify-end gap-1.5">
-                                                            <Button variant="ghost" size="sm" onClick={() => handleViewProfile(req.student_id)} leftIcon={<User size={13} />} className="rounded-xl border border-slate-200 text-xs font-semibold px-2.5 py-1 text-slate-600 hover:bg-slate-50 hover:text-purple-600">
-                                                                Profile
-                                                            </Button>
-                                                            <Button variant="secondary" size="sm" onClick={() => { setViewFormReq(req); setShowCounselingFormModal(true); setFormModalView('referral'); }} leftIcon={<Eye size={13} />} className="rounded-xl border border-slate-200 bg-white text-xs font-semibold px-2.5 py-1 text-slate-700 hover:bg-slate-50">
-                                                                View Form
-                                                            </Button>
-                                                            {isCareStaffCounselingSchedulable(req.status) && (
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                            <div className="flex items-center justify-end gap-1.5">
                                                                 <Button
-                                                                    variant="primary"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleViewProfile(req.student_id)}
+                                                                    leftIcon={<User size={13} />}
+                                                                    className="rounded-xl border border-slate-200 text-xs font-semibold px-2.5 py-1 text-slate-600 hover:bg-slate-50 hover:text-purple-600"
+                                                                >
+                                                                    Profile
+                                                                </Button>
+                                                                <Button
+                                                                    variant="secondary"
                                                                     size="sm"
                                                                     onClick={() => {
-                                                                        setSelectedApp(req);
-                                                                        setScheduleData({ date: '', time: '', location: 'CARE Center Office', notes: '' });
-                                                                        setShowScheduleModal(true);
+                                                                        setViewFormReq(req);
+                                                                        setShowCounselingFormModal(true);
+                                                                        setFormModalView('referral');
                                                                     }}
-                                                                    leftIcon={<Calendar size={13} />}
-                                                                    className="rounded-xl bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-purple-700"
+                                                                    leftIcon={<Eye size={13} />}
+                                                                    className="rounded-xl border border-slate-200 bg-white text-xs font-semibold px-2.5 py-1 text-slate-700 hover:bg-slate-50"
                                                                 >
-                                                                    Schedule
+                                                                    View Form
                                                                 </Button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </m.tr>
-                                            ))}
+
+                                                                {/* Approval actions for Needs Review */}
+                                                                {isCareStaffCounselingApprovable(req.status) && (
+                                                                    <>
+                                                                        <Button
+                                                                            variant="primary"
+                                                                            size="sm"
+                                                                            onClick={() => handleApproveRequest(req)}
+                                                                            className="rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                                                                        >
+                                                                            Approve
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                setRejectModalReq(req);
+                                                                                setRejectReason('');
+                                                                            }}
+                                                                            className="rounded-xl border border-red-200 text-red-600 hover:bg-red-50 px-2.5 py-1 text-xs font-bold"
+                                                                        >
+                                                                            Reject
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+
+                                                                {/* Actions for Returned to CARE */}
+                                                                {isCounselingReturnedToCare(req.status) && (
+                                                                    <>
+                                                                        <Button
+                                                                            variant="primary"
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                setSelectedApp(req);
+                                                                                setScheduleModalMode('schedule');
+                                                                                setScheduleData({ date: '', time: '', notes: '' });
+                                                                                setShowScheduleModal(true);
+                                                                            }}
+                                                                            leftIcon={<Calendar size={13} />}
+                                                                            className="rounded-xl bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-purple-700"
+                                                                        >
+                                                                            Schedule
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                setRejectModalReq(req);
+                                                                                setRejectReason('');
+                                                                            }}
+                                                                            className="rounded-xl border border-red-200 text-red-600 hover:bg-red-50 px-2.5 py-1 text-xs font-bold"
+                                                                        >
+                                                                            Reject
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+
+                                                                {/* Scheduling for Forwarded */}
+                                                                {req.status === COUNSELING_STATUS.REFERRED && (
+                                                                    <Button
+                                                                        variant="primary"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setSelectedApp(req);
+                                                                            setScheduleModalMode('schedule');
+                                                                            setScheduleData({ date: '', time: '', notes: '' });
+                                                                            setShowScheduleModal(true);
+                                                                        }}
+                                                                        leftIcon={<Calendar size={13} />}
+                                                                        className="rounded-xl bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-purple-700"
+                                                                    >
+                                                                        Schedule
+                                                                    </Button>
+                                                                )}
+
+                                                                {/* Completion actions for scheduled / rescheduled */}
+                                                                {(req.status === COUNSELING_STATUS.STAFF_SCHEDULED ||
+                                                                    req.status === COUNSELING_STATUS.SCHEDULED ||
+                                                                    req.status === COUNSELING_STATUS.RESCHEDULED) && (
+                                                                    <Button
+                                                                        variant="primary"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setSelectedApp(req);
+                                                                            setCompletionForm({ id: req.id, student_id: req.student_id, publicNotes: '', privateNotes: '' });
+                                                                            setShowCompleteModal(true);
+                                                                        }}
+                                                                        leftIcon={<CheckCircle2 size={13} />}
+                                                                        className="rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                                                                    >
+                                                                        Complete
+                                                                    </Button>
+                                                                )}
+
+                                                                {/* Outcome / Actions Menu trigger */}
+                                                                {hasRowMenu && (
+                                                                    <button
+                                                                        type="button"
+                                                                        aria-label="Counseling action menu"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                                            openOutcomeMenu(req, {
+                                                                                x: Math.max(12, rect.right - 280),
+                                                                                y: rect.bottom + 4
+                                                                            });
+                                                                        }}
+                                                                        className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                                                                    >
+                                                                        <MoreVertical size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </m.tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </m.table>
                                 </div>
@@ -615,7 +940,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                 </div>
             </div>
 
-            {/* Modals */}
+            {/* Evaluation Builder Modal */}
             {showEvaluationBuilder && (
                 <CounselingEvaluationFormModal
                     open={showEvaluationBuilder}
@@ -625,6 +950,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                 />
             )}
 
+            {/* Read-only Form Modal */}
             {showCounselingFormModal && viewFormReq && (
                 <CounselingDetailModal
                     request={viewFormReq}
@@ -634,19 +960,142 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                     onSchedule={(req: any) => {
                         setShowCounselingFormModal(false);
                         setSelectedApp(req);
-                        setScheduleData({ date: '', time: '', location: 'CARE Center Office', notes: '' });
+                        setScheduleModalMode('schedule');
+                        setScheduleData({ date: '', time: '', notes: '' });
                         setShowScheduleModal(true);
                     }}
                     onComplete={(req: any) => {
                         setShowCounselingFormModal(false);
+                        setSelectedApp(req);
                         setCompletionForm({ id: req.id, student_id: req.student_id, publicNotes: '', privateNotes: '' });
                         setShowCompleteModal(true);
                     }}
                     onDownloadReferral={handleDownloadReferralForm}
-                    getCounselingStatusTone={getCounselingStatusTone}
-                    getCounselingStatusLabel={getCounselingStatusLabel}
                 />
             )}
+
+            {/* Schedule Modal (fixes pre-existing bug: now rendered!) */}
+            <CounselingScheduleModal
+                open={showScheduleModal}
+                onClose={() => {
+                    setShowScheduleModal(false);
+                    setSelectedApp(null);
+                }}
+                onSubmit={handleCustomScheduleSubmit}
+                request={selectedApp}
+                scheduleData={scheduleData}
+                setScheduleData={setScheduleData}
+                isSubmitting={isSchedulingSession}
+                title={
+                    scheduleModalMode === 'reschedule'
+                        ? 'Reschedule Counseling Session'
+                        : scheduleModalMode === 'follow_up'
+                        ? 'Schedule Follow-up Counseling'
+                        : 'Schedule Counseling Session'
+                }
+            />
+
+            {/* Completion Modal (fixes pre-existing bug: now rendered!) */}
+            <CounselingCompleteModal
+                open={showCompleteModal}
+                onClose={() => {
+                    setShowCompleteModal(false);
+                    setSelectedApp(null);
+                    setCompletionForm({ id: null, student_id: null, publicNotes: '', privateNotes: '' });
+                }}
+                onSubmit={handleCompleteSession}
+                request={completionForm?.id ? visibleCounselingReqs.find((r) => r.id === completionForm.id) || selectedApp : selectedApp}
+                completionForm={completionForm}
+                setCompletionForm={setCompletionForm}
+                isSubmitting={isCompletingSession}
+            />
+
+            {/* Rejection Modal for CARE Staff */}
+            {rejectModalReq && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 className="font-bold text-lg text-slate-900">Reject Counseling Request</h3>
+                            <button
+                                type="button"
+                                aria-label="Close reject dialog"
+                                onClick={() => setRejectModalReq(null)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <XCircle size={22} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                                <p className="text-sm font-bold text-red-950">
+                                    {toTitleCase(rejectModalReq.student_name, 'Student')}
+                                </p>
+                                <p className="text-xs text-red-700 mt-1 line-clamp-2">
+                                    {rejectModalReq.reason_for_referral || rejectModalReq.description || 'No description provided.'}
+                                </p>
+                            </div>
+                            <div>
+                                <label htmlFor="care-reject-reason" className="block text-xs font-bold text-gray-700 mb-1">
+                                    Reason for Rejection (Optional)
+                                </label>
+                                <textarea
+                                    id="care-reject-reason"
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    rows={3}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none"
+                                    placeholder="State reason why request is rejected..."
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setRejectModalReq(null)}
+                                    className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isRejecting}
+                                    onClick={handleConfirmReject}
+                                    className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition shadow-md shadow-red-200 disabled:opacity-60"
+                                >
+                                    {isRejecting ? 'Rejecting...' : 'Confirm Rejection'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Outcome & Re-counseling Menu */}
+            <CounselingOutcomeMenu
+                request={outcomeMenuTarget}
+                open={Boolean(outcomeMenuTarget && outcomeMenuPosition)}
+                position={outcomeMenuPosition}
+                onClose={() => {
+                    setOutcomeMenuTarget(null);
+                    setOutcomeMenuPosition(null);
+                }}
+                onSelectOutcome={async (req, outcome, notes) => {
+                    await handleSetOutcome(req, outcome, notes);
+                }}
+                onReschedule={(req) => {
+                    setSelectedApp(req);
+                    setScheduleModalMode('reschedule');
+                    setScheduleData({ date: '', time: '', notes: '' });
+                    setShowScheduleModal(true);
+                }}
+                onScheduleFollowUp={(req) => {
+                    setSelectedApp(req);
+                    setScheduleModalMode('follow_up');
+                    setScheduleData({ date: '', time: '', notes: '' });
+                    setShowScheduleModal(true);
+                }}
+                canManageOutcome={canManageOutcome}
+                canManageCounseling={canManageCounseling}
+            />
         </>
     );
 };

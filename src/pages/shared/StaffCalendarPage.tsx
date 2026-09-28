@@ -3,7 +3,7 @@ import { Calendar, CalendarDays, Clock, Filter, MapPin, MessageSquare, RefreshCw
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { getDepartmentInterviewQueue } from '../../services/deptService';
-import { COUNSELING_STATUS, getCounselingScheduledDate } from '../../utils/workflow';
+import { COUNSELING_CALENDAR_STATUSES, COUNSELING_STATUS, getCounselingScheduledDate } from '../../utils/workflow';
 import { toTitleCase } from '../../utils/formatters';
 
 type StaffCalendarScope = 'department' | 'care';
@@ -116,7 +116,7 @@ const StaffCalendarPage = ({
             let query = supabase
                 .from('counseling_requests')
                 .select('id, student_name, department, request_type, status, scheduled_date, created_at')
-                .in('status', [COUNSELING_STATUS.SCHEDULED, COUNSELING_STATUS.STAFF_SCHEDULED])
+                .in('status', [...COUNSELING_CALENDAR_STATUSES])
                 .order('scheduled_date', { ascending: true });
 
             if (isDeptScope) {

@@ -6,6 +6,19 @@ import { requirePermission } from './permissionCheck.ts';
 import { sanitizePlainText } from './plainText.ts';
 import { enforceRateLimit } from './rateLimit.ts';
 import { writeStaffAuditLog } from './staffAuditLog.ts';
+import {
+    CARE_APPROVABLE_COUNSELING_STATUSES,
+    CARE_COMPLETABLE_COUNSELING_STATUSES,
+    CARE_FOLLOW_UP_ELIGIBLE_STATUSES,
+    CARE_OUTCOME_ELIGIBLE_STATUSES,
+    CARE_REJECTABLE_COUNSELING_STATUSES,
+    CARE_RESCHEDULABLE_STATUSES,
+    CARE_SCHEDULABLE_COUNSELING_STATUSES,
+    assertCareStatusAllowed,
+    assertNoExistingFollowUp,
+    buildFollowUpInsertPayload,
+    validateOutcomeStatus
+} from './counselingTransitions.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -13,8 +26,6 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const CARE_SCHEDULABLE_COUNSELING_STATUSES = ['Referred', 'Pending'];
-const CARE_COMPLETABLE_COUNSELING_STATUSES = ['Scheduled', 'Staff_Scheduled'];
 const CARE_FORWARDABLE_SUPPORT_STATUSES = ['Submitted'];
 const CARE_COMPLETABLE_SUPPORT_STATUSES = ['Approved', 'Rejected', 'Resolved by Dept', 'Referred to CARE'];
 
@@ -116,7 +127,7 @@ const assertCareStaffRequest = async (adminClient: any, request: Request) => {
     };
 };
 
-const assertAllowedStatus = (row: any, allowedStatuses: string[], actionLabel: string) => {
+const assertAllowedStatus = (row: any, allowedStatuses: readonly string[], actionLabel: string) => {
     const currentStatus = String(row?.status || '').trim();
     if (!allowedStatuses.includes(currentStatus)) {
         throw withStatus(
@@ -129,7 +140,7 @@ const assertAllowedStatus = (row: any, allowedStatuses: string[], actionLabel: s
 const getCounselingRequestById = async (adminClient: any, requestId: string) => {
     const { data, error } = await adminClient
         .from('counseling_requests')
-        .select('id, student_id, student_name, request_type, status')
+        .select('id, student_id, student_name, department, course_year, contact_number, description, reason_for_referral, request_type, status, scheduled_date')
         .eq('id', requestId)
         .maybeSingle();
 
@@ -208,11 +219,371 @@ const buildSupportEmailPayload = async (
     };
 };
 
-const sanitizeShortText = (value: unknown, maxLength = 120) =>
-    sanitizePlainText(value, { maxLength });
-
 const sanitizeLongText = (value: unknown, maxLength = 1200) =>
     sanitizePlainText(value, { maxLength, multiline: true });
+
+const approveCounseling = async (
+    adminClient: any,
+    request: Request,
+    requestId: unknown,
+    notes: unknown
+) => {
+    const actor = await assertCareStaffRequest(adminClient, request);
+    const nextRequestId = String(requestId || '').trim();
+    const nextNotes = sanitizeLongText(notes, 1000);
+
+    if (!nextRequestId) throw new Error('Counseling request ID is required.');
+
+    const counselingRequest = await getCounselingRequestById(adminClient, nextRequestId);
+    assertCareStatusAllowed(counselingRequest.status, CARE_APPROVABLE_COUNSELING_STATUSES, 'CARE counseling approval');
+
+    const updateData: Record<string, unknown> = {
+        status: 'Approved'
+    };
+    if (nextNotes) {
+        updateData.resolution_notes = nextNotes;
+    }
+
+    const { error } = await adminClient
+        .from('counseling_requests')
+        .update(updateData)
+        .eq('id', counselingRequest.id);
+
+    if (error) throw error;
+
+    await notifyStudent(
+        adminClient,
+        counselingRequest.student_id,
+        'Your counseling request has been approved by CARE Staff and forwarded to your college for scheduling.'
+    );
+
+    const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
+        status: 'Approved',
+        requestType: counselingRequest.request_type,
+        actor: 'CARE Staff',
+        notes: nextNotes || null
+    });
+
+    await writeStaffAuditLog(adminClient, actor, {
+        action: 'Approved counseling request',
+        entityTable: 'counseling_requests',
+        entityId: counselingRequest.id,
+        details: {
+            summary: `${actor.displayName} approved a counseling request for ${counselingRequest.student_name || 'a student'}.`,
+            student_name: counselingRequest.student_name,
+            request_type: counselingRequest.request_type,
+            status: 'Approved'
+        }
+    });
+
+    return {
+        success: true,
+        requestId: counselingRequest.id,
+        status: 'Approved',
+        emailPayload
+    };
+};
+
+const rejectCounseling = async (
+    adminClient: any,
+    request: Request,
+    requestId: unknown,
+    notes: unknown
+) => {
+    const actor = await assertCareStaffRequest(adminClient, request);
+    const nextRequestId = String(requestId || '').trim();
+    const nextNotes = sanitizeLongText(notes, 1000);
+
+    if (!nextRequestId) throw new Error('Counseling request ID is required.');
+
+    const counselingRequest = await getCounselingRequestById(adminClient, nextRequestId);
+    assertCareStatusAllowed(counselingRequest.status, CARE_REJECTABLE_COUNSELING_STATUSES, 'CARE counseling rejection');
+
+    const { error } = await adminClient
+        .from('counseling_requests')
+        .update({
+            status: 'Rejected',
+            resolution_notes: nextNotes || null
+        })
+        .eq('id', counselingRequest.id);
+
+    if (error) throw error;
+
+    await notifyStudent(
+        adminClient,
+        counselingRequest.student_id,
+        `Your counseling request was not approved by CARE Staff.${nextNotes ? ` Reason: ${nextNotes}` : ''}`
+    );
+
+    const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
+        status: 'Rejected',
+        requestType: counselingRequest.request_type,
+        actor: 'CARE Staff',
+        notes: nextNotes || null
+    });
+
+    await writeStaffAuditLog(adminClient, actor, {
+        action: 'Rejected counseling request',
+        entityTable: 'counseling_requests',
+        entityId: counselingRequest.id,
+        details: {
+            summary: `${actor.displayName} rejected a counseling request for ${counselingRequest.student_name || 'a student'}.`,
+            student_name: counselingRequest.student_name,
+            request_type: counselingRequest.request_type,
+            status: 'Rejected'
+        }
+    });
+
+    return {
+        success: true,
+        requestId: counselingRequest.id,
+        status: 'Rejected',
+        emailPayload
+    };
+};
+
+const setCounselingOutcome = async (
+    adminClient: any,
+    request: Request,
+    requestId: unknown,
+    outcomeStatus: unknown,
+    notes: unknown
+) => {
+    const actor = await assertCareStaffRequest(adminClient, request);
+    await requirePermission(getServiceRoleKey(), actor.role, 'action', 'manage_counseling_outcome');
+
+    const nextRequestId = String(requestId || '').trim();
+    const validatedOutcome = validateOutcomeStatus(outcomeStatus);
+    const nextNotes = sanitizeLongText(notes, 1500);
+
+    if (!nextRequestId) throw new Error('Counseling request ID is required.');
+
+    const counselingRequest = await getCounselingRequestById(adminClient, nextRequestId);
+    assertCareStatusAllowed(counselingRequest.status, CARE_OUTCOME_ELIGIBLE_STATUSES, 'setting counseling outcome');
+
+    const updateData: Record<string, unknown> = {
+        status: validatedOutcome
+    };
+    if (nextNotes) {
+        const existingNotes = typeof counselingRequest.confidential_notes === 'string' && counselingRequest.confidential_notes.trim().length > 0
+            ? `${counselingRequest.confidential_notes.trim()}\n\n`
+            : '';
+        updateData.confidential_notes = `${existingNotes}[Outcome: ${validatedOutcome}] ${nextNotes}`.trim();
+    }
+
+    const { error } = await adminClient
+        .from('counseling_requests')
+        .update(updateData)
+        .eq('id', counselingRequest.id);
+
+    if (error) throw error;
+
+    const outcomeLabels: Record<string, string> = {
+        Counseled: 'Counseled',
+        Monitoring: 'Monitoring',
+        Subject_For_2nd_Counseling: 'For Follow-up Session'
+    };
+
+    await notifyStudent(
+        adminClient,
+        counselingRequest.student_id,
+        `Your counseling session status has been updated to: ${outcomeLabels[validatedOutcome] || validatedOutcome}.`
+    );
+
+    const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
+        status: validatedOutcome,
+        requestType: counselingRequest.request_type,
+        actor: 'CARE Staff'
+    });
+
+    await writeStaffAuditLog(adminClient, actor, {
+        action: 'Set counseling outcome',
+        entityTable: 'counseling_requests',
+        entityId: counselingRequest.id,
+        details: {
+            summary: `${actor.displayName} set outcome status to ${validatedOutcome} for ${counselingRequest.student_name || 'a student'}.`,
+            student_name: counselingRequest.student_name,
+            request_type: counselingRequest.request_type,
+            outcome: validatedOutcome,
+            status: validatedOutcome
+        }
+    });
+
+    return {
+        success: true,
+        requestId: counselingRequest.id,
+        status: validatedOutcome,
+        emailPayload
+    };
+};
+
+const rescheduleCounseling = async (
+    adminClient: any,
+    request: Request,
+    requestId: unknown,
+    date: unknown,
+    time: unknown,
+    notes: unknown
+) => {
+    const actor = await assertCareStaffRequest(adminClient, request);
+    const nextRequestId = String(requestId || '').trim();
+    const nextDate = String(date || '').trim();
+    const nextTime = String(time || '').trim();
+    const nextNotes = sanitizeLongText(notes, 1000);
+
+    if (!nextRequestId) throw new Error('Counseling request ID is required.');
+    if (!nextDate || !nextTime) throw new Error('Session date and time are required.');
+
+    const counselingRequest = await getCounselingRequestById(adminClient, nextRequestId);
+    assertCareStatusAllowed(counselingRequest.status, CARE_RESCHEDULABLE_STATUSES, 'rescheduling counseling session');
+
+    const scheduledDate = `${nextDate} ${nextTime}`;
+    const updateData: Record<string, unknown> = {
+        status: 'Rescheduled',
+        scheduled_date: scheduledDate
+    };
+    if (nextNotes) {
+        updateData.resolution_notes = nextNotes;
+    }
+
+    const { error } = await adminClient
+        .from('counseling_requests')
+        .update(updateData)
+        .eq('id', counselingRequest.id);
+
+    if (error) throw error;
+
+    await notifyStudent(
+        adminClient,
+        counselingRequest.student_id,
+        `Your counseling session has been rescheduled for ${nextDate} at ${nextTime} by CARE Staff.`
+    );
+
+    const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
+        status: 'Rescheduled',
+        requestType: counselingRequest.request_type,
+        scheduleDate: scheduledDate,
+        actor: 'CARE Staff',
+        notes: nextNotes || null
+    });
+
+    await writeStaffAuditLog(adminClient, actor, {
+        action: 'Rescheduled counseling session',
+        entityTable: 'counseling_requests',
+        entityId: counselingRequest.id,
+        details: {
+            summary: `${actor.displayName} rescheduled a counseling session for ${counselingRequest.student_name || 'a student'}.`,
+            student_name: counselingRequest.student_name,
+            request_type: counselingRequest.request_type,
+            status: 'Rescheduled',
+            scheduled_date: scheduledDate
+        }
+    });
+
+    return {
+        success: true,
+        requestId: counselingRequest.id,
+        status: 'Rescheduled',
+        scheduledDate,
+        emailPayload
+    };
+};
+
+const scheduleFollowUpCounseling = async (
+    adminClient: any,
+    request: Request,
+    parentRequestId: unknown,
+    date: unknown,
+    time: unknown,
+    notes: unknown
+) => {
+    const actor = await assertCareStaffRequest(adminClient, request);
+    const nextParentId = String(parentRequestId || '').trim();
+    const nextDate = String(date || '').trim() || null;
+    const nextTime = String(time || '').trim() || null;
+    const nextNotes = sanitizeLongText(notes, 1000);
+
+    if (!nextParentId) throw new Error('Parent counseling request ID is required.');
+
+    const parent = await getCounselingRequestById(adminClient, nextParentId);
+    assertCareStatusAllowed(parent.status, CARE_FOLLOW_UP_ELIGIBLE_STATUSES, 'scheduling follow-up counseling');
+
+    // Guard: Check for existing non-rejected follow-up child
+    const { data: existingChildren, error: childrenError } = await adminClient
+        .from('counseling_requests')
+        .select('id, status')
+        .eq('follow_up_of', parent.id);
+
+    if (childrenError) throw childrenError;
+    assertNoExistingFollowUp(existingChildren);
+
+    const newRowPayload = buildFollowUpInsertPayload(parent, {
+        date: nextDate,
+        time: nextTime,
+        notes: nextNotes,
+        actorName: actor.displayName
+    });
+
+    // Insert new follow-up request
+    const { data: newRow, error: insertError } = await adminClient
+        .from('counseling_requests')
+        .insert([newRowPayload])
+        .select('id, student_id, student_name, request_type, status, scheduled_date')
+        .single();
+
+    if (insertError) throw insertError;
+
+    // Transition parent to 'Subject_For_2nd_Counseling' if not already
+    if (parent.status !== 'Subject_For_2nd_Counseling') {
+        const { error: parentUpdateError } = await adminClient
+            .from('counseling_requests')
+            .update({ status: 'Subject_For_2nd_Counseling' })
+            .eq('id', parent.id);
+
+        if (parentUpdateError) throw parentUpdateError;
+    }
+
+    const scheduledMessage = newRow.scheduled_date
+        ? ` A follow-up session is scheduled for ${newRow.scheduled_date}.`
+        : '';
+    await notifyStudent(
+        adminClient,
+        parent.student_id,
+        `A follow-up counseling session has been created by CARE Staff.${scheduledMessage}`
+    );
+
+    const emailPayload = await buildCounselingEmailPayload(adminClient, parent.student_id, parent.student_name, {
+        status: newRow.status === 'Staff_Scheduled' ? 'Scheduled with CARE Staff' : 'Follow-up Referred',
+        requestType: 'Follow-up Counseling',
+        scheduleDate: newRow.scheduled_date,
+        actor: 'CARE Staff',
+        notes: nextNotes || null
+    });
+
+    await writeStaffAuditLog(adminClient, actor, {
+        action: 'Created follow-up counseling session',
+        entityTable: 'counseling_requests',
+        entityId: newRow.id,
+        details: {
+            summary: `${actor.displayName} created follow-up counseling #${newRow.id} from parent #${parent.id} for ${parent.student_name || 'a student'}.`,
+            parent_id: parent.id,
+            follow_up_id: newRow.id,
+            student_name: parent.student_name,
+            request_type: 'Follow-up Counseling',
+            status: newRow.status,
+            scheduled_date: newRow.scheduled_date
+        }
+    });
+
+    return {
+        success: true,
+        parentRequestId: parent.id,
+        newRequestId: newRow.id,
+        status: newRow.status,
+        scheduledDate: newRow.scheduled_date,
+        emailPayload
+    };
+};
 
 const scheduleCounseling = async (
     adminClient: any,
@@ -235,7 +606,7 @@ const scheduleCounseling = async (
     assertAllowedStatus(counselingRequest, CARE_SCHEDULABLE_COUNSELING_STATUSES, 'CARE counseling scheduling');
 
     const scheduledDate = `${nextDate} ${nextTime}`;
-    const nextStatus = counselingRequest.status === 'Referred'
+    const nextStatus = (counselingRequest.status === 'Referred' || counselingRequest.status === 'Returned_To_Care')
         ? 'Staff_Scheduled'
         : 'Scheduled';
 
@@ -492,6 +863,26 @@ serve(async (request) => {
 
         if (mode === 'ping') {
             return json({ success: true });
+        }
+
+        if (mode === 'approve-counseling') {
+            return json(await approveCounseling(adminClient, request, body.requestId, body.notes));
+        }
+
+        if (mode === 'reject-counseling') {
+            return json(await rejectCounseling(adminClient, request, body.requestId, body.notes));
+        }
+
+        if (mode === 'set-counseling-outcome') {
+            return json(await setCounselingOutcome(adminClient, request, body.requestId, body.outcomeStatus, body.notes));
+        }
+
+        if (mode === 'reschedule-counseling') {
+            return json(await rescheduleCounseling(adminClient, request, body.requestId, body.date, body.time, body.notes));
+        }
+
+        if (mode === 'schedule-follow-up-counseling') {
+            return json(await scheduleFollowUpCounseling(adminClient, request, body.parentRequestId || body.requestId, body.date, body.time, body.notes));
         }
 
         if (mode === 'schedule-counseling') {

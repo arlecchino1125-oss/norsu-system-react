@@ -87,7 +87,8 @@ const ACTION_PERMISSIONS = [
     'apply_scholarship',
     'manage_event_attendance',
     'complete_office_visit',
-    'submit_feedback'
+    'submit_feedback',
+    'manage_counseling_outcome'
 ] as const;
 
 const FEATURE_PERMISSIONS = {
@@ -190,7 +191,8 @@ const DEFAULT_ROLE_PERMISSION_SEEDS: Record<Role, Record<PermissionType, string[
         action: [
             'export_data',
             'archive_records',
-            'restore_records'
+            'restore_records',
+            'manage_counseling_outcome'
         ]
     },
     'Department Head': {
@@ -346,7 +348,8 @@ export const PERMISSION_DESCRIPTIONS: Record<PermissionType, Record<string, stri
         apply_scholarship: 'Apply to scholarship opportunities.',
         manage_event_attendance: 'Time in, time out, and rate student events.',
         complete_office_visit: 'Complete office-visit time in or time out actions.',
-        submit_feedback: 'Submit student feedback and general evaluations.'
+        submit_feedback: 'Submit student feedback and general evaluations.',
+        manage_counseling_outcome: 'Set counseling outcome statuses (Counseled, Monitoring, Subject for 2nd Counseling) on completed sessions.'
     }
 };
 
