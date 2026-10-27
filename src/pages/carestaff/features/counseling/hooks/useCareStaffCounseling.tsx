@@ -170,22 +170,6 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         }
     };
 
-    const handleRejectRequest = async (req: any, notes?: string) => {
-        try {
-            const result = await invokeManagedCareServicesFunction({
-                mode: 'reject-counseling',
-                requestId: req.id,
-                notes
-            });
-            await refetchCounseling();
-            showToastMessage('Counseling request rejected.', 'success');
-            queueProcessEmailNotification(result?.emailPayload, 'Rejection notification');
-        } catch (err: any) {
-            showToastMessage(err.message, 'error');
-            throw err;
-        }
-    };
-
     const handleSetOutcome = async (req: any, outcomeStatus: string, notes?: string) => {
         try {
             const result = await invokeManagedCareServicesFunction({
@@ -483,7 +467,6 @@ export function useCareStaffCounseling({ functions, refreshSignal = 0 }: any) {
         applyCounselingTabFilter,
         handleRefreshData,
         handleApproveRequest,
-        handleRejectRequest,
         handleSetOutcome,
         handleRescheduleSession,
         handleScheduleFollowUp,

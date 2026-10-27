@@ -1,5 +1,6 @@
-export const COUNSELING_QUEUE_STATUSES = ['Approved'] as const;
-export const COUNSELING_COMPLETABLE_STATUSES = ['Scheduled', 'Rescheduled'] as const;
+export const COUNSELING_QUEUE_STATUSES = ['Approved', 'Scheduled'] as const;
+// 'Rescheduled' is only ever written by CARE, so it is CARE-owned; the college must not complete/forward it.
+export const COUNSELING_COMPLETABLE_STATUSES = ['Scheduled'] as const;
 
 export const withStatus = (message: string, status: number) => {
     const error = new Error(message) as Error & { status?: number };
@@ -19,11 +20,4 @@ export function assertDeptStatusAllowed(
             409
         );
     }
-}
-
-export function buildDeptRejectUpdate(notes?: string | null) {
-    return {
-        status: 'Returned_To_Care' as const,
-        resolution_notes: notes?.trim() || null
-    };
 }

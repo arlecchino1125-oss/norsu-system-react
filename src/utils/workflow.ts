@@ -43,7 +43,9 @@ export const COUNSELING_RETURNED_STATUSES = [
 export const COUNSELING_WITH_CARE_STAFF_STATUSES = [
     COUNSELING_STATUS.REFERRED,
     COUNSELING_STATUS.STAFF_SCHEDULED,
-    COUNSELING_STATUS.RETURNED_TO_CARE
+    COUNSELING_STATUS.RETURNED_TO_CARE,
+    // Only CARE ever writes Rescheduled (legacy rows; new reschedules go to Staff_Scheduled).
+    COUNSELING_STATUS.RESCHEDULED
 ] as const;
 
 export const COUNSELING_OUTCOME_STATUSES = [
@@ -130,9 +132,6 @@ export const isCounselingReturnedToCare = (status?: string | null) =>
 export const isCareStaffCounselingApprovable = (status?: string | null) =>
     matchesStatus(COUNSELING_AWAITING_CARE_STATUSES, status);
 
-export const isCareStaffCounselingRejectable = (status?: string | null) =>
-    matchesStatus([...COUNSELING_AWAITING_CARE_STATUSES, ...COUNSELING_RETURNED_STATUSES], status);
-
 export const isCareStaffCounselingSchedulable = (status?: string | null) =>
     status === COUNSELING_STATUS.REFERRED || status === COUNSELING_STATUS.RETURNED_TO_CARE;
 
@@ -143,7 +142,10 @@ export const isCounselingOutcomeStatus = (status?: string | null) =>
     matchesStatus(COUNSELING_OUTCOME_STATUSES, status);
 
 export const isCounselingReschedulable = (status?: string | null) =>
-    status === COUNSELING_STATUS.COMPLETED || status === COUNSELING_STATUS.RESCHEDULED;
+    status === COUNSELING_STATUS.STAFF_SCHEDULED ||
+    status === COUNSELING_STATUS.SCHEDULED ||
+    status === COUNSELING_STATUS.RESCHEDULED ||
+    status === COUNSELING_STATUS.COMPLETED;
 
 export const isCounselingFollowUpEligible = (status?: string | null) =>
     matchesStatus(COUNSELING_SESSION_DONE_STATUSES, status);

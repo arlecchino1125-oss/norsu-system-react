@@ -1,10 +1,14 @@
 export const CARE_SCHEDULABLE_COUNSELING_STATUSES = ['Referred', 'Returned_To_Care'] as const;
 export const CARE_COMPLETABLE_COUNSELING_STATUSES = ['Scheduled', 'Staff_Scheduled', 'Rescheduled'] as const;
 export const CARE_APPROVABLE_COUNSELING_STATUSES = ['Submitted', 'Pending'] as const;
-export const CARE_REJECTABLE_COUNSELING_STATUSES = ['Submitted', 'Pending', 'Returned_To_Care'] as const;
 export const CARE_OUTCOME_ELIGIBLE_STATUSES = ['Completed'] as const;
 export const CARE_ALLOWED_OUTCOMES = ['Counseled', 'Monitoring', 'Subject_For_2nd_Counseling'] as const;
-export const CARE_RESCHEDULABLE_STATUSES = ['Completed', 'Rescheduled'] as const;
+export const CARE_RESCHEDULABLE_STATUSES = [
+    'Staff_Scheduled',
+    'Scheduled',
+    'Rescheduled',
+    'Completed'
+] as const;
 export const CARE_FOLLOW_UP_ELIGIBLE_STATUSES = [
     'Completed',
     'Counseled',

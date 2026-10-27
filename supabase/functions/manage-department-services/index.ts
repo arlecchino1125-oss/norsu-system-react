@@ -6,6 +6,7 @@ import { requirePermission } from './permissionCheck.ts';
 import { sanitizeOptionalPlainText, sanitizePlainText } from './plainText.ts';
 import { enforceRateLimit } from './rateLimit.ts';
 import { writeStaffAuditLog } from './staffAuditLog.ts';
+import { COUNSELING_COMPLETABLE_STATUSES, COUNSELING_QUEUE_STATUSES } from './counselingTransitions.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -13,8 +14,6 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 
-const COUNSELING_QUEUE_STATUSES = ['Approved'];
-const COUNSELING_COMPLETABLE_STATUSES = ['Scheduled', 'Rescheduled'];
 const SUPPORT_QUEUE_STATUSES = ['Forwarded to Dept'];
 const SUPPORT_VISIT_STATUSES = ['Visit Scheduled'];
 
@@ -124,7 +123,7 @@ const assertDepartmentHeadRequest = async (adminClient: any, request: Request) =
     };
 };
 
-const assertAllowedStatus = (row: any, allowedStatuses: string[], actionLabel: string) => {
+const assertAllowedStatus = (row: any, allowedStatuses: readonly string[], actionLabel: string) => {
     const currentStatus = String(row?.status || '').trim();
     if (!allowedStatuses.includes(currentStatus)) {
         throw withStatus(
@@ -271,6 +270,7 @@ const scheduleCounseling = async (
     assertDepartmentScopedRow(counselingRequest, department, 'counseling request');
     assertAllowedStatus(counselingRequest, COUNSELING_QUEUE_STATUSES, 'department counseling scheduling');
 
+    const isReschedule = counselingRequest.status === 'Scheduled';
     const scheduledDate = `${nextDate} ${nextTime}`;
     const { error } = await adminClient
         .from('counseling_requests')
@@ -283,14 +283,14 @@ const scheduleCounseling = async (
 
     if (error) throw error;
 
-    await notifyStudent(
-        adminClient,
-        counselingRequest.student_id,
-        `Your counseling request has been approved and scheduled for ${nextDate} at ${nextTime} by ${department}.`
-    );
+    const notifMessage = isReschedule
+        ? `Your counseling session with ${department} has been rescheduled for ${nextDate} at ${nextTime}.`
+        : `Your counseling request has been approved and scheduled for ${nextDate} at ${nextTime} by ${department}.`;
+
+    await notifyStudent(adminClient, counselingRequest.student_id, notifMessage);
 
     const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
-        status: 'Scheduled',
+        status: isReschedule ? 'Rescheduled' : 'Scheduled',
         requestType: counselingRequest.request_type || 'Counseling',
         scheduleDate: scheduledDate,
         actor: department,
@@ -298,11 +298,11 @@ const scheduleCounseling = async (
     });
 
     await writeStaffAuditLog(adminClient, actor, {
-        action: 'Scheduled department counseling',
+        action: isReschedule ? 'Rescheduled department counseling' : 'Scheduled department counseling',
         entityTable: 'counseling_requests',
         entityId: counselingRequest.id,
         details: {
-            summary: `${actor.displayName} scheduled a department counseling session for ${counselingRequest.student_name || 'a student'}.`,
+            summary: `${actor.displayName} ${isReschedule ? 'rescheduled' : 'scheduled'} a department counseling session for ${counselingRequest.student_name || 'a student'}.`,
             student_name: counselingRequest.student_name,
             request_type: counselingRequest.request_type,
             status: 'Scheduled',
@@ -319,7 +319,7 @@ const scheduleCounseling = async (
     };
 };
 
-const rejectCounseling = async (
+const completeCounseling = async (
     adminClient: any,
     request: Request,
     requestId: unknown,
@@ -328,67 +328,10 @@ const rejectCounseling = async (
     const actor = await assertDepartmentHeadRequest(adminClient, request);
     const { department } = actor;
     const nextRequestId = String(requestId || '').trim();
-    const nextNotes = sanitizeLongText(notes, 1000);
+    const nextNotes = sanitizeLongText(notes, 1500);
 
     if (!nextRequestId) throw new Error('Counseling request ID is required.');
-
-    const counselingRequest = await getCounselingRequestById(adminClient, nextRequestId);
-    assertDepartmentScopedRow(counselingRequest, department, 'counseling request');
-    assertAllowedStatus(counselingRequest, COUNSELING_QUEUE_STATUSES, 'department counseling rejection');
-
-    const { error } = await adminClient
-        .from('counseling_requests')
-        .update({
-            status: 'Returned_To_Care',
-            resolution_notes: nextNotes || null
-        })
-        .eq('id', counselingRequest.id);
-
-    if (error) throw error;
-
-    await notifyStudent(
-        adminClient,
-        counselingRequest.student_id,
-        `Your counseling request has been returned to CARE Staff by ${department} for alternative handling.${nextNotes ? ` Reason: ${nextNotes}` : ''}`
-    );
-
-    const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
-        status: 'Returned_To_Care',
-        requestType: counselingRequest.request_type || 'Counseling',
-        actor: department,
-        notes: nextNotes || null
-    });
-
-    await writeStaffAuditLog(adminClient, actor, {
-        action: 'Returned department counseling request to CARE',
-        entityTable: 'counseling_requests',
-        entityId: counselingRequest.id,
-        details: {
-            summary: `${actor.displayName} returned a counseling request for ${counselingRequest.student_name || 'a student'} to CARE.`,
-            student_name: counselingRequest.student_name,
-            request_type: counselingRequest.request_type,
-            status: 'Returned_To_Care'
-        }
-    });
-
-    return {
-        success: true,
-        requestId: counselingRequest.id,
-        status: 'Returned_To_Care',
-        emailPayload
-    };
-};
-
-const completeCounseling = async (
-    adminClient: any,
-    request: Request,
-    requestId: unknown
-) => {
-    const actor = await assertDepartmentHeadRequest(adminClient, request);
-    const { department } = actor;
-    const nextRequestId = String(requestId || '').trim();
-
-    if (!nextRequestId) throw new Error('Counseling request ID is required.');
+    if (!nextNotes) throw new Error('Resolution notes are required.');
 
     const counselingRequest = await getCounselingRequestById(adminClient, nextRequestId);
     assertDepartmentScopedRow(counselingRequest, department, 'counseling request');
@@ -396,7 +339,10 @@ const completeCounseling = async (
 
     const { error } = await adminClient
         .from('counseling_requests')
-        .update({ status: 'Completed' })
+        .update({
+            status: 'Completed',
+            resolution_notes: nextNotes
+        })
         .eq('id', counselingRequest.id);
 
     if (error) throw error;
@@ -410,7 +356,8 @@ const completeCounseling = async (
     const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
         status: 'Completed',
         requestType: counselingRequest.request_type || 'Counseling',
-        actor: department
+        actor: department,
+        notes: nextNotes
     });
 
     await writeStaffAuditLog(adminClient, actor, {
@@ -421,7 +368,8 @@ const completeCounseling = async (
             summary: `${actor.displayName} completed a department counseling session for ${counselingRequest.student_name || 'a student'}.`,
             student_name: counselingRequest.student_name,
             request_type: counselingRequest.request_type,
-            status: 'Completed'
+            status: 'Completed',
+            resolution_notes: nextNotes
         }
     });
 
@@ -901,12 +849,8 @@ serve(async (request) => {
             return json(await scheduleCounseling(adminClient, request, body.requestId, body.date, body.time, body.notes));
         }
 
-        if (mode === 'reject-counseling') {
-            return json(await rejectCounseling(adminClient, request, body.requestId, body.notes));
-        }
-
         if (mode === 'complete-counseling') {
-            return json(await completeCounseling(adminClient, request, body.requestId));
+            return json(await completeCounseling(adminClient, request, body.requestId, body.notes || body.resolutionNotes));
         }
 
         if (mode === 'forward-counseling-to-care') {

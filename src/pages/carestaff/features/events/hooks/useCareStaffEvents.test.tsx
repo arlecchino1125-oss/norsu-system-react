@@ -1,8 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useCareStaffEvents, suggestCloseDate, suggestExtendDate, shiftAttendanceCloseDate } from './useCareStaffEvents';
+import { useCareStaffEvents, suggestCloseDate, suggestExtendDate, shiftAttendanceCloseDate, getEventScheduleProblem } from './useCareStaffEvents';
 import { supabase } from '../../../../../lib/supabase';
+import { attachEvaluationTemplate } from '../eventEvaluationService';
+
+vi.mock('../eventEvaluationService', () => ({ attachEvaluationTemplate: vi.fn() }));
 
 vi.mock('../../../../../hooks/usePermissions', () => ({
     usePermissions: () => ({ canPerformAction: () => false })
@@ -21,7 +24,9 @@ vi.mock('../../../../../lib/supabase', () => ({
     supabase: { from: vi.fn() }
 }));
 
+const validSchedule = { type: 'Event' as const, event_date: '2026-08-10', event_time: '09:00', end_time: '12:00' };
 const event = {
+    ...validSchedule,
     id: 3,
     title: 'Sample event',
     type: 'Event',
@@ -34,6 +39,158 @@ const deferred = <T,>() => {
     const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise; });
     return { promise, resolve };
 };
+
+const invalidSchedules = [
+    { patch: { event_date: '' }, field: 'event_date' },
+    { patch: { event_date: 'invalid' }, field: 'event_date' },
+    { patch: { event_date: '2026-02-30' }, field: 'event_date' },
+    { patch: { event_time: '' }, field: 'event_time' },
+    { patch: { event_time: '25:00' }, field: 'event_time' },
+    { patch: { end_time: 'invalid' }, field: 'end_time' },
+    { patch: { end_time: '09:00' }, field: 'end_time' },
+    { patch: { end_time: '08:00' }, field: 'end_time' },
+    { patch: { attendance_closes_at: 'invalid' }, field: 'attendance_closes_at' },
+    { patch: { attendance_closes_at: '2026-08-10T12:00' }, field: 'attendance_closes_at' },
+    { patch: { attendance_closes_at: '2026-08-10T11:00' }, field: 'attendance_closes_at' }
+] as const;
+
+describe('getEventScheduleProblem', () => {
+    it.each(invalidSchedules)('rejects invalid $field values', ({ patch, field }) => {
+        expect(getEventScheduleProblem({ ...validSchedule, ...patch })).toMatchObject({ field });
+    });
+
+    it.each(['Event', 'Seminar', 'Orientation', 'Meeting'] as const)('accepts a valid %s schedule', type => {
+        expect(getEventScheduleProblem({ ...validSchedule, type, attendance_closes_at: '2026-08-10T12:01' })).toBeNull();
+    });
+
+    it('uses the existing three-hour end when no end time is supplied, including after midnight', () => {
+        const schedule = { ...validSchedule, event_time: '23:00', end_time: '' };
+        expect(getEventScheduleProblem(schedule)).toBeNull();
+        expect(getEventScheduleProblem({ ...schedule, attendance_closes_at: '2026-08-11T02:00' })).toMatchObject({ field: 'attendance_closes_at' });
+        expect(getEventScheduleProblem({ ...schedule, attendance_closes_at: '2026-08-11T02:01' })).toBeNull();
+    });
+
+    it('keeps the default deadline and accepts a valid leap day', () => {
+        expect(getEventScheduleProblem({ ...validSchedule, event_date: '2028-02-29', attendance_closes_at: '' })).toBeNull();
+    });
+
+    it('leaves announcement schedule validation to the existing date field', () => {
+        expect(getEventScheduleProblem({ type: 'Announcement', event_date: '', event_time: '', attendance_closes_at: 'invalid' })).toBeNull();
+    });
+});
+
+describe('useCareStaffEvents schedule validation', () => {
+    beforeEach(() => vi.mocked(supabase.from).mockReset());
+
+    it.each(invalidSchedules)('does not write events for an invalid $field', async ({ patch }) => {
+        const showToast = vi.fn();
+        const { result } = renderHook(() => useCareStaffEvents({ functions: { showToast } }));
+        act(() => result.current.setNewEvent({ ...event, ...patch }));
+
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }); });
+
+        expect(supabase.from).not.toHaveBeenCalled();
+        expect(showToast).toHaveBeenCalledWith(getEventScheduleProblem({ ...validSchedule, ...patch })?.message, 'error');
+        expect(result.current.isSavingEvent).toBe(false);
+    });
+
+    it('validates the shifted deadline when editing a schedule with an untouched close date', async () => {
+        const eq = vi.fn().mockResolvedValue({ error: null });
+        const update = vi.fn().mockReturnValue({ eq });
+        vi.mocked(supabase.from).mockReturnValue({ update } as any);
+        const showToast = vi.fn();
+        const { result } = renderHook(() => useCareStaffEvents({ functions: { showToast } }));
+        act(() => result.current.handleEditEvent({ ...event, attendance_closes_at: new Date('2026-08-10T13:00').toISOString() }));
+        act(() => result.current.setNewEvent(prev => ({ ...prev, event_date: '2026-08-17' })));
+
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }); });
+
+        expect(update).toHaveBeenCalledWith(expect.objectContaining({
+            event_date: '2026-08-17',
+            attendance_closes_at: new Date('2026-08-17T13:00').toISOString()
+        }));
+        expect(showToast).toHaveBeenCalledWith('Changes saved.');
+    });
+});
+
+describe('useCareStaffEvents event template attachment', () => {
+    const template = { id: 8, event_id: null, title: 'Saved evaluation', description: 'Saved questions', is_active: true };
+    let insert: ReturnType<typeof vi.fn>;
+    let update: ReturnType<typeof vi.fn>;
+    let eq: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+        vi.mocked(supabase.from).mockReset();
+        vi.mocked(attachEvaluationTemplate).mockReset().mockResolvedValue(undefined);
+        insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: { id: 42 }, error: null }) }) });
+        eq = vi.fn().mockResolvedValue({ error: null });
+        update = vi.fn().mockReturnValue({ eq });
+        vi.mocked(supabase.from).mockReturnValue({ insert, update } as any);
+    });
+
+    it.each(['Event', 'Seminar', 'Orientation', 'Meeting'] as const)('attaches the selected saved template when creating a %s', async type => {
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+        act(() => {
+            result.current.startNewEvent();
+            result.current.setNewEvent({ ...result.current.newEvent, ...validSchedule, title: 'Campus activity', type });
+        });
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }, template); });
+
+        expect(insert).toHaveBeenCalledOnce();
+        expect(attachEvaluationTemplate).toHaveBeenCalledWith(42, template);
+        expect(result.current.showEventModal).toBe(false);
+        expect(result.current.isSavingEvent).toBe(false);
+    });
+
+    it('retries a failed attachment on the same event instead of creating a duplicate', async () => {
+        vi.mocked(attachEvaluationTemplate).mockRejectedValueOnce(new Error('Save failed'));
+        const showToast = vi.fn();
+        const { result } = renderHook(() => useCareStaffEvents({ functions: { showToast } }));
+        act(() => {
+            result.current.startNewEvent();
+            result.current.setNewEvent({ ...result.current.newEvent, ...validSchedule });
+        });
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }, template); });
+        expect(result.current.showEventModal).toBe(true);
+        expect(showToast).toHaveBeenCalledWith(expect.stringContaining('Submit again to retry'), 'error');
+
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }, template); });
+        expect(insert).toHaveBeenCalledOnce();
+        expect(eq).toHaveBeenCalledWith('id', 42);
+        expect(attachEvaluationTemplate).toHaveBeenCalledTimes(2);
+        expect(result.current.showEventModal).toBe(false);
+    });
+
+    it('does not change the evaluation when editing an existing event', async () => {
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+        act(() => result.current.handleEditEvent(event));
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }, template); });
+        expect(insert).not.toHaveBeenCalled();
+        expect(eq).toHaveBeenCalledWith('id', 3);
+        expect(attachEvaluationTemplate).not.toHaveBeenCalled();
+    });
+
+    it.each(['Announcement', 'Event'] as const)('can create a %s without saved templates', async type => {
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+        act(() => result.current.setNewEvent({ ...result.current.newEvent, ...validSchedule, type }));
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }); });
+        expect(insert).toHaveBeenCalledOnce();
+        expect(attachEvaluationTemplate).not.toHaveBeenCalled();
+    });
+
+    it('keeps the event from being saved twice while its template is being attached', async () => {
+        const attachment = deferred<void>();
+        vi.mocked(attachEvaluationTemplate).mockReturnValue(attachment.promise);
+        const { result } = renderHook(() => useCareStaffEvents({ functions: {} }));
+        act(() => result.current.setNewEvent({ ...result.current.newEvent, ...validSchedule }));
+        let saving!: Promise<void>;
+        await act(async () => { saving = result.current.createEvent({ preventDefault: vi.fn() }, template); });
+        expect(result.current.isSavingEvent).toBe(true);
+        await act(async () => { await result.current.createEvent({ preventDefault: vi.fn() }, template); });
+        expect(insert).toHaveBeenCalledOnce();
+        await act(async () => { attachment.resolve(); await saving; });
+    });
+});
 
 describe('useCareStaffEvents attendance modal loading', () => {
     beforeEach(() => {

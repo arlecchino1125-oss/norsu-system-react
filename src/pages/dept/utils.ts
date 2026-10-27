@@ -121,7 +121,7 @@ export const buildDepartmentAlertItems = ({
 // the filteredData.requests fallback only covers the loaded page while stats load
 export const buildDeptChartData = (filteredData: any, counselingCounts?: { awaiting: number; scheduled: number; withCare: number; completed: number; rejected: number } | null) => {
     const awaitingReview = counselingCounts?.awaiting ?? filteredData.requests.filter((r: any) => isCounselingAwaitingDept(r.status)).length;
-    const deptScheduled = counselingCounts?.scheduled ?? filteredData.requests.filter((r: any) => r.status === COUNSELING_STATUS.SCHEDULED || r.status === COUNSELING_STATUS.RESCHEDULED).length;
+    const deptScheduled = counselingCounts?.scheduled ?? filteredData.requests.filter((r: any) => r.status === COUNSELING_STATUS.SCHEDULED).length;
     const withCareStaff = counselingCounts?.withCare ?? filteredData.requests.filter((r: any) => isWithCareStaffCounseling(r.status)).length;
     const completed = counselingCounts?.completed ?? filteredData.requests.filter((r: any) => isCounselingSessionDone(r.status)).length;
     const rejected = counselingCounts?.rejected ?? filteredData.requests.filter((r: any) => r.status === COUNSELING_STATUS.REJECTED).length;

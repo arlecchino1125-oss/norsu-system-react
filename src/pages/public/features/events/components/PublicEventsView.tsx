@@ -406,6 +406,7 @@ export default function PublicEventsView({
                                         role="button"
                                         tabIndex={0}
                                         onKeyDown={(keyEvent: any) => {
+                                            if (keyEvent.target !== keyEvent.currentTarget) return;
                                             if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
                                                 keyEvent.preventDefault();
                                                 setSelectedEvent(item);
@@ -505,23 +506,11 @@ export default function PublicEventsView({
                                                                     : (state.end ? `Time Out after ${formatTimeLabel(item.end_time || '')}` : 'Time Out unavailable')}
                                                     </button>
                                                 </div>
-
-                                                {state.canRate && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onRate(item)}
-                                                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-[11px] font-black text-amber-700 shadow-sm transition-all hover:bg-amber-100 sm:text-xs"
-                                                    >
-                                                        <Icons.Star filled={true} />
-                                                        Rate
-                                                    </button>
-                                                )}
-
                                                 {state.canEvaluate && (
                                                     <button
                                                         type="button"
                                                         onClick={() => onEvaluate(item)}
-                                                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-[11px] font-black text-purple-700 shadow-sm transition-all hover:bg-purple-100 sm:text-xs"
+                                                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-2.5 text-[11px] font-black text-purple-700 shadow-sm transition-all hover:bg-purple-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 sm:text-xs"
                                                     >
                                                         Evaluation Form
                                                     </button>
@@ -529,8 +518,20 @@ export default function PublicEventsView({
                                             </div>
                                         )}
 
-                                        <div className="mt-auto flex justify-end pt-3">
+                                        <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-3">
                                             <span className="text-[10px] font-black uppercase tracking-[0.12em] text-blue-600">View details</span>
+                                            {state.canRate && (
+                                                <div className="flex flex-wrap items-center justify-end gap-1" onClick={(clickEvent: any) => clickEvent.stopPropagation()}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onRate(item)}
+                                                        className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-700 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:text-xs"
+                                                    >
+                                                        <span aria-hidden="true" className="[&>svg]:h-3.5 [&>svg]:w-3.5"><Icons.Star filled={true} /></span>
+                                                        Rate
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );

@@ -33,8 +33,10 @@ import type { CareStaffDashboardFunctions } from '../../../types';
 import EventEvaluationBuilderModal from './EventEvaluationBuilderModal';
 import EventEvaluationResultsModal from './EventEvaluationResultsModal';
 import EventEvaluationTemplatesModal from './EventEvaluationTemplatesModal';
-import { getEvaluationsForEvents, type EvaluationForm } from '../eventEvaluationService';
-import { useCareStaffEvents, createEmptyEvent, suggestCloseDate, suggestExtendDate, nowCloseDate, getEventTypeBadgeClass, getArchivedEventTypeBadgeClass, isVisibleForStaffFilter, getAudienceModeLabel, getAudienceBulletItems, isRegistrationEvent, formatRegistrationDeadline, getRegistrationStatusClass } from '../hooks/useCareStaffEvents';
+import EventEvaluationPreviewModal from './EventEvaluationPreviewModal';
+import { getEvaluationsForEvents, listTemplates, type EvaluationForm } from '../eventEvaluationService';
+import { getEventWindows } from '../../../../../utils/eventWindows';
+import { useCareStaffEvents, getEventScheduleProblem, suggestExtendDate, nowCloseDate, getEventTypeBadgeClass, getArchivedEventTypeBadgeClass, isVisibleForStaffFilter, getAudienceModeLabel, getAudienceBulletItems, isRegistrationEvent, formatRegistrationDeadline, getRegistrationStatusClass } from '../hooks/useCareStaffEvents';
 import type { CareStaffEventsPageProps } from '../hooks/useCareStaffEvents';
 
 const REGISTRANT_STATUS_OPTIONS = ['All', 'Registered', 'Attended', 'Absent', 'Cancelled'];
@@ -58,370 +60,462 @@ const getStudentName = (student: any) => [student.first_name, student.middle_nam
     .join(' ');
 
 const EventFormModal = ({
-    newEvent, setNewEvent, editingEventId, setEditingEventId, createEvent, departmentOptions, courseOptions, getCurrentLocation, setShowEventModal, renderAudienceCheckboxGroup, applyScheduleField
+    newEvent, setNewEvent, editingEventId, setEditingEventId, createEvent, isSavingEvent, departmentOptions, courseOptions, getCurrentLocation, setShowEventModal, renderAudienceCheckboxGroup, applyScheduleField
 }: any) => {
     const isActivity = isAttendanceActivityType(newEvent.type);
     const isRegistration = isRegistrationEvent(newEvent);
     const hasFilteredAudience = newEvent.audience_type !== 'all_students' && newEvent.audience_type !== 'peer_facilitators';
+    const [templates, setTemplates] = useState<EvaluationForm[] | null>(null);
+    const [templateId, setTemplateId] = useState('');
+    const [templateError, setTemplateError] = useState(false);
+    const [previewTemplate, setPreviewTemplate] = useState<EvaluationForm | null>(null);
+    const [showScheduleErrors, setShowScheduleErrors] = useState(false);
+    const selectedTemplate = templates?.find(template => String(template.id) === templateId) ?? templates?.[0];
+    const scheduleProblem = showScheduleErrors ? getEventScheduleProblem(newEvent) : null;
+    const defaultDeadline = getEventWindows({ ...newEvent, attendance_closes_at: null }).closesAt;
+    const deadlineLabel = defaultDeadline?.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const formTitle = `${editingEventId ? 'Edit' : 'Create'} ${isActivity ? 'Event' : 'Announcement'}`;
+
+    useEffect(() => {
+        if (editingEventId || !isActivity) return;
+        let active = true;
+        void listTemplates().then(available => {
+            if (active) {
+                setTemplates(available);
+                setTemplateError(false);
+            }
+        }).catch(() => {
+            if (active) setTemplateError(true);
+        });
+        return () => { active = false; };
+    }, [editingEventId, isActivity]);
+
+    const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm font-medium text-slate-700 shadow-2xs transition-all placeholder:font-normal placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10';
+    const regInputClass = 'w-full rounded-xl border border-emerald-200 bg-white px-3 py-2.5 text-base sm:text-sm font-medium text-slate-700 shadow-2xs transition-all placeholder:font-normal placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10';
+    const labelClass = 'mb-1.5 block text-sm font-semibold text-slate-700';
+    const helpClass = 'mt-1.5 text-xs leading-5 text-slate-600';
+    const sectionTitleClass = 'text-xs font-bold uppercase tracking-wider text-slate-600';
+    const checkboxRowClass = 'flex min-h-[44px] cursor-pointer select-none items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm font-medium text-slate-700 shadow-2xs transition-colors hover:border-slate-300';
+    const closeModal = () => { setShowEventModal(false); setEditingEventId(null); };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 lg:pl-64 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-            <div className="w-full max-w-2xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh] animate-scale-in">
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/70 shrink-0">
-                    <div>
-                        <h3 className="text-base font-bold text-slate-900">
-                            {editingEventId ? 'Edit Item' : 'Create New Item'}
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            {isActivity ? 'Fill in event schedule, audience, and attendance settings.' : 'Configure details for this campus announcement.'}
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        aria-label="Close event form"
-                        onClick={() => { setShowEventModal(false); setEditingEventId(null); }}
-                        className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-
-                {/* Form Body - Scrollable */}
-                <form id="event-form" onSubmit={createEvent} className="overflow-y-auto px-5 sm:px-6 py-4 sm:py-5 custom-scrollbar flex-1 space-y-4">
-                    {/* Category & Title */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div>
-                            <label htmlFor="event-category" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                Category
-                            </label>
-                            <select
-                                id="event-category"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all cursor-pointer"
-                                value={newEvent.type}
-                                onChange={e => {
-                                    const nextType = e.target.value as SystemEvent['type'];
-                                    const nextIsActivity = isAttendanceActivityType(nextType);
-                                    setNewEvent({
-                                        ...newEvent,
-                                        type: nextType,
-                                        participation_mode: nextIsActivity ? (newEvent.participation_mode || 'general_attendance') : 'general_attendance',
-                                        audience_type: nextIsActivity ? (newEvent.audience_type || 'all_students') : 'all_students',
-                                        attendance_required: nextIsActivity ? Boolean(newEvent.attendance_required) : false,
-                                        capacity: nextIsActivity ? (newEvent.capacity || null) : null,
-                                        registration_deadline: nextIsActivity ? (newEvent.registration_deadline || '') : ''
-                                    });
-                                }}
-                            >
-                                {EVENT_ACTIVITY_TYPES.map((type) => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="sm:col-span-2">
-                            <label htmlFor="event-title" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                Title <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                id="event-title"
-                                required
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-slate-400 placeholder:font-normal"
-                                value={newEvent.title}
-                                onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
-                                placeholder="e.g., Campus Fair 2026"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                        <label htmlFor="event-description" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                            Description <span className="text-rose-500">*</span>
-                        </label>
-                        <textarea
-                            id="event-description"
-                            required
-                            rows={2}
-                            className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs leading-relaxed text-slate-700 outline-none transition focus:border-purple-500 focus:bg-white focus:ring-2 focus:ring-purple-500/10 placeholder:text-slate-400"
-                            value={newEvent.description}
-                            onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
-                            placeholder="Briefly describe the purpose, agenda, or highlights..."
-                        />
-                    </div>
-
-                    {/* Schedule & Location */}
-                    {isActivity ? (
-                        <div className="space-y-3">
-                            {/* Date, Start Time, End Time in ONE compact row */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div>
-                                    <label htmlFor="event-date" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                        Date <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        id="event-date"
-                                        type="date"
-                                        required
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
-                                        value={newEvent.event_date}
-                                        onChange={e => applyScheduleField('event_date', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="event-start-time" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                        Start Time
-                                    </label>
-                                    <input
-                                        id="event-start-time"
-                                        type="time"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
-                                        value={newEvent.event_time}
-                                        onChange={e => applyScheduleField('event_time', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="event-end-time" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                        End Time
-                                    </label>
-                                    <input
-                                        id="event-end-time"
-                                        type="time"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
-                                        value={newEvent.end_time}
-                                        onChange={e => applyScheduleField('end_time', e.target.value)}
-                                    />
-                                </div>
+        <>
+        {createPortal(
+            // Anchored to #staff-content-region like the other staff modals: fills the page area
+            // below the header and right of the sidebar, so it never slides under either.
+            <div className="absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex items-center justify-center bg-slate-900/50 p-3 backdrop-blur-xs animate-fade-in sm:p-6">
+                <div role="dialog" aria-modal="true" aria-labelledby="event-form-title" inert={Boolean(previewTemplate)} aria-hidden={previewTemplate ? true : undefined} className={`flex max-h-full w-full ${isActivity ? 'max-w-5xl' : 'max-w-xl'} flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl animate-scale-in`}>
+                    {/* Header */}
+                    <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-6 py-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                                <Calendar size={20} />
+                            </span>
+                            <div className="min-w-0">
+                                <h3 id="event-form-title" className="text-lg font-bold text-slate-900">{formTitle}</h3>
+                                <p className="text-sm text-slate-600">
+                                    {isActivity ? 'Fill in event schedule, audience, and attendance settings.' : 'Configure details for this campus announcement.'}
+                                </p>
                             </div>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label="Close event form"
+                            disabled={isSavingEvent}
+                            onClick={closeModal}
+                            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
 
-                            {/* Location & Attendance Closes */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label htmlFor="event-location" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                        Location / Venue
-                                    </label>
-                                    <input
-                                        id="event-location"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-slate-400 placeholder:font-normal"
-                                        value={newEvent.location}
-                                        onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
-                                        placeholder="e.g., Main Gym, Audio-Visual Room"
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="event-attendance-closes" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                        Attendance Closes (Archive)
-                                    </label>
-                                    <input
-                                        id="event-attendance-closes"
-                                        type="datetime-local"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
-                                        value={newEvent.attendance_closes_at}
-                                        onChange={e => setNewEvent({ ...newEvent, attendance_closes_at: e.target.value })}
-                                        placeholder={suggestCloseDate(newEvent.event_date, newEvent.end_time)}
-                                    />
-                                    <p className="mt-1 text-[10.5px] text-slate-400 truncate" title="Leave blank for 3 days after event">
-                                        Leave blank for 3 days after event ends{suggestCloseDate(newEvent.event_date, newEvent.end_time) ? ` (${suggestCloseDate(newEvent.event_date, newEvent.end_time).replace('T', ' ')})` : ''}.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Mode, Audience & Required Attendance Card */}
-                            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 sm:p-4 space-y-3.5">
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                    {/* Body - scrollable; two columns on desktop for events */}
+                    <form id="event-form" onSubmit={e => {
+                        if (isSavingEvent || (isActivity && !editingEventId && (templates === null || templateError))) {
+                            e.preventDefault();
+                            return;
+                        }
+                        const problem = getEventScheduleProblem(newEvent);
+                        setShowScheduleErrors(true);
+                        if (problem) {
+                            e.preventDefault();
+                            const fieldIds = { event_date: 'event-date', event_time: 'event-start-time', end_time: 'event-end-time', attendance_closes_at: 'event-attendance-closes' };
+                            document.getElementById(fieldIds[problem.field])?.focus();
+                            return;
+                        }
+                        void createEvent(e, isActivity && !editingEventId ? selectedTemplate : undefined);
+                    }} className="custom-scrollbar flex-1 overflow-y-auto">
+                        <div className={isActivity ? 'grid lg:grid-cols-2 lg:divide-x lg:divide-slate-100' : ''}>
+                            {/* Left column: details */}
+                            <section aria-labelledby="event-details-heading" className="space-y-4 p-6">
+                                <h4 id="event-details-heading" className={sectionTitleClass}>Details</h4>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                     <div>
-                                        <label htmlFor="event-mode" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                            Mode
-                                        </label>
+                                        <label htmlFor="event-category" className={labelClass}>Category</label>
                                         <select
-                                            id="event-mode"
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all cursor-pointer"
-                                            value={newEvent.participation_mode || 'general_attendance'}
+                                            id="event-category"
+                                            className={`${inputClass} cursor-pointer`}
+                                            value={newEvent.type}
                                             onChange={e => {
-                                                const nextMode = e.target.value as SystemEvent['participation_mode'];
+                                                const nextType = e.target.value as SystemEvent['type'];
+                                                const nextIsActivity = isAttendanceActivityType(nextType);
                                                 setNewEvent({
                                                     ...newEvent,
-                                                    participation_mode: nextMode,
-                                                    attendance_required: nextMode === 'registration_required' ? true : Boolean(newEvent.attendance_required),
-                                                    allow_walk_ins: nextMode === 'registration_required' ? Boolean(newEvent.allow_walk_ins) : true
+                                                    type: nextType,
+                                                    participation_mode: nextIsActivity ? (newEvent.participation_mode || 'general_attendance') : 'general_attendance',
+                                                    audience_type: nextIsActivity ? (newEvent.audience_type || 'all_students') : 'all_students',
+                                                    attendance_required: nextIsActivity ? Boolean(newEvent.attendance_required) : false,
+                                                    capacity: nextIsActivity ? (newEvent.capacity || null) : null,
+                                                    registration_deadline: nextIsActivity ? (newEvent.registration_deadline || '') : ''
                                                 });
                                             }}
                                         >
-                                            <option value="general_attendance">General attendance</option>
-                                            <option value="registration_required">Student registration</option>
+                                            {EVENT_ACTIVITY_TYPES.map((type) => (
+                                                <option key={type} value={type}>{type}</option>
+                                            ))}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label htmlFor="event-audience" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                            Audience
+                                    <div className="sm:col-span-2">
+                                        <label htmlFor="event-title" className={labelClass}>
+                                            Title <span className="text-rose-500">*</span>
                                         </label>
-                                        <select
-                                            id="event-audience"
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all cursor-pointer"
-                                            value={newEvent.audience_type || 'all_students'}
-                                            onChange={e => setNewEvent({
-                                                ...newEvent,
-                                                audience_type: e.target.value as SystemEvent['audience_type']
-                                            })}
-                                        >
-                                            <option value="all_students">All students</option>
-                                            <option value="filtered_students">Selected students</option>
-                                            <option value="graduating_students">Graduating students</option>
-                                            <option value="peer_facilitators">Peer Facilitators</option>
-                                        </select>
-                                    </div>
-                                    <label className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300 transition-colors cursor-pointer select-none h-[38px] shadow-2xs">
                                         <input
-                                            type="checkbox"
-                                            checked={Boolean(newEvent.attendance_required)}
-                                            onChange={e => setNewEvent({ ...newEvent, attendance_required: e.target.checked })}
-                                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                            id="event-title"
+                                            required
+                                            className={inputClass}
+                                            value={newEvent.title}
+                                            onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                                            placeholder="e.g., Campus Fair 2026"
                                         />
-                                        <span>Required attendance</span>
-                                    </label>
+                                    </div>
                                 </div>
 
-                                {/* Registration Details Subpanel */}
-                                {isRegistration && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 items-end animate-fade-in">
-                                        <div>
-                                            <label htmlFor="event-capacity" className="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1">
-                                                Capacity
-                                            </label>
-                                            <input
-                                                id="event-capacity"
-                                                type="number"
-                                                min="1"
-                                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all placeholder:text-slate-400 placeholder:font-normal"
-                                                value={newEvent.capacity ?? ''}
-                                                onChange={e => {
-                                                    const nextValue = e.target.value;
-                                                    setNewEvent({ ...newEvent, capacity: nextValue ? Number(nextValue) : null });
-                                                }}
-                                                placeholder="Unlimited"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="event-registration-deadline" className="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1">
-                                                Registration Deadline
-                                            </label>
-                                            <input
-                                                id="event-registration-deadline"
-                                                type="datetime-local"
-                                                className="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all"
-                                                value={newEvent.registration_deadline || ''}
-                                                onChange={e => setNewEvent({ ...newEvent, registration_deadline: e.target.value })}
-                                            />
-                                        </div>
-                                        <label className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-300 transition-colors cursor-pointer select-none h-[38px] shadow-2xs">
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(newEvent.allow_walk_ins)}
-                                                onChange={e => setNewEvent({ ...newEvent, allow_walk_ins: e.target.checked })}
-                                                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                            />
-                                            <span>Allow walk-ins</span>
-                                        </label>
-                                    </div>
-                                )}
-
-                                {/* Selected Cohort Filter Checkboxes */}
-                                {hasFilteredAudience && (
-                                    <div className="space-y-3 pt-2 border-t border-slate-200/70 animate-fade-in">
-                                        {renderAudienceCheckboxGroup('Colleges', 'audience_departments', departmentOptions)}
-                                        {renderAudienceCheckboxGroup('Courses', 'audience_courses', courseOptions)}
-                                        {renderAudienceCheckboxGroup('Year Levels', 'audience_year_levels', YEAR_LEVEL_OPTIONS)}
-                                        {renderAudienceCheckboxGroup('Sections', 'audience_sections', SECTION_OPTIONS, value => `Section ${value}`)}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Advanced Verification Accordion */}
-                            <details className="group rounded-2xl border border-slate-200/80 bg-slate-50/50 transition-all">
-                                <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-bold text-slate-600 flex items-center justify-between hover:bg-slate-100/60 rounded-2xl transition-colors">
-                                    <span className="flex items-center gap-1.5">
-                                        <span>Advanced</span>
-                                    </span>
-                                    <span className="text-[10.5px] font-medium text-slate-400 group-open:hidden">
-                                        Photo &amp; Location Checks &darr;
-                                    </span>
-                                </summary>
-                                <div className="space-y-3 border-t border-slate-200/80 p-4">
-                                    <p className="text-[11px] text-slate-400">
-                                        Proof-of-presence checks apply only while the event is running.
-                                    </p>
-                                    <label htmlFor="event-require-photo" className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:border-slate-300 transition-colors cursor-pointer shadow-2xs">
-                                        <input
-                                            id="event-require-photo"
-                                            type="checkbox"
-                                            checked={Boolean(newEvent.require_photo)}
-                                            onChange={e => setNewEvent({ ...newEvent, require_photo: e.target.checked })}
-                                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
-                                        />
-                                        <span>Require photo on time in</span>
+                                <div>
+                                    <label htmlFor="event-description" className={labelClass}>
+                                        Description <span className="text-rose-500">*</span>
                                     </label>
-                                    <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 space-y-2.5">
-                                        <div className="flex flex-wrap justify-between items-center gap-2">
-                                            <label htmlFor="event-require-geolocation" className="flex items-center gap-2 text-xs font-bold text-blue-900 cursor-pointer">
-                                                <input
-                                                    id="event-require-geolocation"
-                                                    type="checkbox"
-                                                    checked={Boolean(newEvent.require_geolocation)}
-                                                    onChange={e => setNewEvent({ ...newEvent, require_geolocation: e.target.checked })}
-                                                    className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                                />
-                                                <span>Require geolocation (within 200m of venue)</span>
+                                    <textarea
+                                        id="event-description"
+                                        required
+                                        rows={4}
+                                        className={`${inputClass} resize-y leading-relaxed`}
+                                        value={newEvent.description}
+                                        onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                                        placeholder="Briefly describe the purpose, agenda, or highlights..."
+                                    />
+                                </div>
+
+                                {isActivity ? (
+                                    <>
+                                        <div>
+                                            <label htmlFor="event-location" className={labelClass}>Location / venue</label>
+                                            <input
+                                                id="event-location"
+                                                className={inputClass}
+                                                value={newEvent.location}
+                                                onChange={e => setNewEvent({ ...newEvent, location: e.target.value })}
+                                                placeholder="e.g., Main Gym, Audio-Visual Room"
+                                            />
+                                        </div>
+
+                                        {!editingEventId && (
+                                            <div>
+                                                <div className="mb-1.5 flex items-center justify-between gap-3">
+                                                    <label htmlFor="event-evaluation-template" className="text-sm font-semibold text-slate-700">Evaluation form</label>
+                                                    {selectedTemplate && !templateError && (
+                                                        <button type="button" onClick={() => setPreviewTemplate(selectedTemplate)} className="-my-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-purple-700 hover:bg-purple-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">Preview form</button>
+                                                    )}
+                                                </div>
+                                                {templateError ? (
+                                                    <p role="alert" className="text-sm text-rose-700">Could not load saved templates. Close and reopen this form to retry.</p>
+                                                ) : templates === null ? (
+                                                    <p role="status" className="text-sm text-slate-600">Loading saved templates…</p>
+                                                ) : templates.length === 0 ? (
+                                                    <p className="text-sm text-slate-600">No saved evaluation templates. Add one in Evaluation Templates to include it with new events.</p>
+                                                ) : (
+                                                    <select id="event-evaluation-template" value={String(selectedTemplate?.id ?? '')} onChange={e => setTemplateId(e.target.value)} disabled={isSavingEvent} className={`${inputClass} cursor-pointer`}>
+                                                        {templates.map(template => <option key={template.id} value={template.id}>{template.title}</option>)}
+                                                    </select>
+                                                )}
+                                                <p className={helpClass}>
+                                                    {templates?.length ? 'This saved form is included when you create the event. ' : ''}Students can evaluate after the event ends, until the attendance &amp; evaluation deadline.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Advanced Verification Accordion */}
+                                        <details className="group rounded-xl border border-slate-200/80 bg-slate-50/60">
+                                            <summary className="flex cursor-pointer select-none items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100/60">
+                                                <span>Advanced</span>
+                                                <span className="flex items-center gap-1 text-xs font-medium text-slate-600">
+                                                    Photo &amp; location checks
+                                                    <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+                                                </span>
+                                            </summary>
+                                            <div className="space-y-3 border-t border-slate-200/80 p-4">
+                                                <p className="text-sm leading-5 text-slate-600">
+                                                    Proof-of-presence checks apply only while the event is running.
+                                                </p>
+                                                <label htmlFor="event-require-photo" className={checkboxRowClass}>
+                                                    <input
+                                                        id="event-require-photo"
+                                                        type="checkbox"
+                                                        checked={Boolean(newEvent.require_photo)}
+                                                        onChange={e => setNewEvent({ ...newEvent, require_photo: e.target.checked })}
+                                                        className="h-4 w-4 cursor-pointer rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                                                    />
+                                                    <span>Require photo on time in</span>
+                                                </label>
+                                                <div className="space-y-2.5 rounded-xl border border-blue-100 bg-blue-50/70 p-3.5">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <label htmlFor="event-require-geolocation" className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-blue-900">
+                                                            <input
+                                                                id="event-require-geolocation"
+                                                                type="checkbox"
+                                                                checked={Boolean(newEvent.require_geolocation)}
+                                                                onChange={e => setNewEvent({ ...newEvent, require_geolocation: e.target.checked })}
+                                                                className="h-4 w-4 cursor-pointer rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                            <span>Require geolocation (within 200m of venue)</span>
+                                                        </label>
+                                                        {newEvent.require_geolocation && <div className="flex flex-wrap gap-2">
+                                                            <button type="button" onClick={getCurrentLocation} className="flex cursor-pointer items-center gap-1 py-2 text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline"><MapPin size={14} /> My location</button>
+                                                            <span className="text-slate-300">·</span>
+                                                            <button type="button" onClick={() => setNewEvent({ ...newEvent, latitude: '9.306', longitude: '123.306' })} className="flex cursor-pointer items-center gap-1 py-2 text-sm text-slate-600 hover:text-slate-800 hover:underline"><MapPin size={14} /> Reset campus</button>
+                                                        </div>}
+                                                    </div>
+                                                    {newEvent.require_geolocation && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                        <input type="number" step="any" aria-label="Latitude" placeholder="Latitude (e.g. 9.306)" className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 font-mono text-base text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 sm:text-sm" value={newEvent.latitude} onChange={e => setNewEvent({ ...newEvent, latitude: e.target.value })} />
+                                                        <input type="number" step="any" aria-label="Longitude" placeholder="Longitude (e.g. 123.306)" className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 font-mono text-base text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400 sm:text-sm" value={newEvent.longitude} onChange={e => setNewEvent({ ...newEvent, longitude: e.target.value })} />
+                                                    </div>}
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </>
+                                ) : (
+                                    /* Simple Announcement Date */
+                                    <div className="sm:w-1/2">
+                                        <label htmlFor="event-date" className={labelClass}>
+                                            Date <span className="text-rose-500">*</span>
+                                        </label>
+                                        <input
+                                            id="event-date"
+                                            type="date"
+                                            required
+                                            className={inputClass}
+                                            value={newEvent.event_date}
+                                            onChange={e => applyScheduleField('event_date', e.target.value)}
+                                        />
+                                    </div>
+                                )}
+                            </section>
+
+                            {/* Right column: schedule & attendance */}
+                            {isActivity && (
+                                <div className="space-y-6 border-t border-slate-100 bg-slate-50/60 p-6 lg:border-t-0">
+                                    <section aria-labelledby="event-schedule-heading" className="space-y-4">
+                                        <h4 id="event-schedule-heading" className={sectionTitleClass}>Schedule</h4>
+                                        <div>
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                                <div>
+                                                    <label htmlFor="event-date" className={labelClass}>
+                                                        Date <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        id="event-date"
+                                                        type="date"
+                                                        required
+                                                        aria-invalid={scheduleProblem?.field === 'event_date' || undefined}
+                                                        aria-describedby={scheduleProblem?.field === 'event_date' ? 'event-schedule-error' : undefined}
+                                                        className={inputClass}
+                                                        value={newEvent.event_date}
+                                                        onChange={e => applyScheduleField('event_date', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label htmlFor="event-start-time" className={labelClass}>
+                                                        Start time <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        id="event-start-time"
+                                                        type="time"
+                                                        required
+                                                        aria-invalid={scheduleProblem?.field === 'event_time' || undefined}
+                                                        aria-describedby={scheduleProblem?.field === 'event_time' ? 'event-schedule-error' : undefined}
+                                                        className={inputClass}
+                                                        value={newEvent.event_time}
+                                                        onChange={e => applyScheduleField('event_time', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label htmlFor="event-end-time" className={labelClass}>End time</label>
+                                                    <input
+                                                        id="event-end-time"
+                                                        type="time"
+                                                        aria-invalid={scheduleProblem?.field === 'end_time' || undefined}
+                                                        aria-describedby={scheduleProblem?.field === 'end_time' ? 'event-schedule-error' : 'event-end-help'}
+                                                        className={inputClass}
+                                                        value={newEvent.end_time}
+                                                        onChange={e => applyScheduleField('end_time', e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <p id="event-end-help" className={helpClass}>Leave end time blank for 3 hours after the start.</p>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="event-attendance-closes" className={labelClass}>
+                                                Attendance &amp; evaluation deadline
                                             </label>
-                                            <div className="flex gap-2">
-                                                <button type="button" onClick={getCurrentLocation} className="text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1 cursor-pointer"><MapPin size={11} /> My Location</button>
-                                                <span className="text-slate-300">·</span>
-                                                <button type="button" onClick={() => setNewEvent({ ...newEvent, latitude: '9.306', longitude: '123.306' })} className="text-[11px] text-slate-500 hover:text-slate-700 hover:underline flex items-center gap-1 cursor-pointer"><MapPin size={11} /> Reset Campus</button>
+                                            <input
+                                                id="event-attendance-closes"
+                                                type="datetime-local"
+                                                aria-invalid={scheduleProblem?.field === 'attendance_closes_at' || undefined}
+                                                aria-describedby={scheduleProblem?.field === 'attendance_closes_at' ? 'event-schedule-error' : 'event-deadline-help'}
+                                                className={inputClass}
+                                                value={newEvent.attendance_closes_at}
+                                                onChange={e => setNewEvent({ ...newEvent, attendance_closes_at: e.target.value })}
+                                            />
+                                            <p id="event-deadline-help" className={helpClass}>
+                                                {newEvent.attendance_closes_at ? 'Attendance and evaluation close, and the event archives, at this deadline.' : deadlineLabel ? `Default: ${deadlineLabel} (3 days after the event ends). Attendance and evaluation close, and the event archives, then.` : 'Leave blank for 3 days after the event ends. Set a date and start time to see the default deadline.'}
+                                            </p>
+                                        </div>
+                                        {scheduleProblem && <p id="event-schedule-error" role="alert" className="text-sm text-rose-700">{scheduleProblem.message}</p>}
+                                    </section>
+
+                                    <section aria-labelledby="event-attendance-heading" className="space-y-4 border-t border-slate-200/70 pt-6">
+                                        <h4 id="event-attendance-heading" className={sectionTitleClass}>Attendance &amp; audience</h4>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            <div>
+                                                <label htmlFor="event-mode" className={labelClass}>Mode</label>
+                                                <select
+                                                    id="event-mode"
+                                                    className={`${inputClass} cursor-pointer`}
+                                                    value={newEvent.participation_mode || 'general_attendance'}
+                                                    onChange={e => {
+                                                        const nextMode = e.target.value as SystemEvent['participation_mode'];
+                                                        setNewEvent({
+                                                            ...newEvent,
+                                                            participation_mode: nextMode,
+                                                            attendance_required: nextMode === 'registration_required' ? true : Boolean(newEvent.attendance_required),
+                                                            allow_walk_ins: nextMode === 'registration_required' ? Boolean(newEvent.allow_walk_ins) : true
+                                                        });
+                                                    }}
+                                                >
+                                                    <option value="general_attendance">General attendance</option>
+                                                    <option value="registration_required">Student registration</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label htmlFor="event-audience" className={labelClass}>Audience</label>
+                                                <select
+                                                    id="event-audience"
+                                                    className={`${inputClass} cursor-pointer`}
+                                                    value={newEvent.audience_type || 'all_students'}
+                                                    onChange={e => setNewEvent({
+                                                        ...newEvent,
+                                                        audience_type: e.target.value as SystemEvent['audience_type']
+                                                    })}
+                                                >
+                                                    <option value="all_students">All students</option>
+                                                    <option value="filtered_students">Selected students</option>
+                                                    <option value="graduating_students">Graduating students</option>
+                                                    <option value="peer_facilitators">Peer Facilitators</option>
+                                                </select>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <input type="number" step="any" aria-label="Latitude" placeholder="Latitude (e.g. 9.306)" className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400" value={newEvent.latitude} onChange={e => setNewEvent({ ...newEvent, latitude: e.target.value })} />
-                                            <input type="number" step="any" aria-label="Longitude" placeholder="Longitude (e.g. 123.306)" className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-400" value={newEvent.longitude} onChange={e => setNewEvent({ ...newEvent, longitude: e.target.value })} />
-                                        </div>
-                                    </div>
-                                </div>
-                            </details>
-                        </div>
-                    ) : (
-                        /* Simple Announcement Date */
-                        <div className="w-full sm:w-1/2">
-                            <label htmlFor="event-date" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                Date <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                id="event-date"
-                                type="date"
-                                required
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all"
-                                value={newEvent.event_date}
-                                onChange={e => applyScheduleField('event_date', e.target.value)}
-                            />
-                        </div>
-                    )}
-                </form>
+                                        <label className={checkboxRowClass}>
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(newEvent.attendance_required)}
+                                                onChange={e => setNewEvent({ ...newEvent, attendance_required: e.target.checked })}
+                                                className="h-4 w-4 cursor-pointer rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                                            />
+                                            <span>Required attendance</span>
+                                        </label>
 
-                {/* Fixed / Sticky Footer */}
-                <div className="flex items-center justify-end gap-2.5 px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-slate-50/70 shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => { setShowEventModal(false); setEditingEventId(null); }}
-                        className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-2xs cursor-pointer"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        form="event-form"
-                        className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-xs hover:shadow-sm cursor-pointer"
-                    >
-                        {editingEventId ? 'Update' : 'Create'}
-                    </button>
+                                        {/* Registration Details Subpanel */}
+                                        {isRegistration && (
+                                            <div className="grid grid-cols-1 gap-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3.5 animate-fade-in sm:grid-cols-2">
+                                                <div>
+                                                    <label htmlFor="event-capacity" className="mb-1.5 block text-sm font-semibold text-emerald-800">Capacity</label>
+                                                    <input
+                                                        id="event-capacity"
+                                                        type="number"
+                                                        min="1"
+                                                        className={regInputClass}
+                                                        value={newEvent.capacity ?? ''}
+                                                        onChange={e => {
+                                                            const nextValue = e.target.value;
+                                                            setNewEvent({ ...newEvent, capacity: nextValue ? Number(nextValue) : null });
+                                                        }}
+                                                        placeholder="Unlimited"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label htmlFor="event-registration-deadline" className="mb-1.5 block text-sm font-semibold text-emerald-800">Registration deadline</label>
+                                                    <input
+                                                        id="event-registration-deadline"
+                                                        type="datetime-local"
+                                                        className={regInputClass}
+                                                        value={newEvent.registration_deadline || ''}
+                                                        onChange={e => setNewEvent({ ...newEvent, registration_deadline: e.target.value })}
+                                                    />
+                                                </div>
+                                                <label className={`${checkboxRowClass} border-emerald-200 hover:border-emerald-300 sm:col-span-2`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(newEvent.allow_walk_ins)}
+                                                        onChange={e => setNewEvent({ ...newEvent, allow_walk_ins: e.target.checked })}
+                                                        className="h-4 w-4 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                                    />
+                                                    <span>Allow walk-ins</span>
+                                                </label>
+                                            </div>
+                                        )}
+
+                                        {/* Selected Cohort Filter Checkboxes */}
+                                        {hasFilteredAudience && (
+                                            <div className="space-y-3 animate-fade-in">
+                                                {renderAudienceCheckboxGroup('Colleges', 'audience_departments', departmentOptions)}
+                                                {renderAudienceCheckboxGroup('Courses', 'audience_courses', courseOptions)}
+                                                {renderAudienceCheckboxGroup('Year levels', 'audience_year_levels', YEAR_LEVEL_OPTIONS)}
+                                                {renderAudienceCheckboxGroup('Sections', 'audience_sections', SECTION_OPTIONS, value => `Section ${value}`)}
+                                            </div>
+                                        )}
+                                    </section>
+                                </div>
+                            )}
+                        </div>
+                    </form>
+
+                    {/* Footer */}
+                    <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-3.5">
+                        <p className="hidden text-xs text-slate-600 sm:block"><span className="text-rose-500">*</span> Required field</p>
+                        <div className="ml-auto flex items-center gap-2.5">
+                            <button
+                                type="button"
+                                disabled={isSavingEvent}
+                                onClick={closeModal}
+                                className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-base font-medium text-slate-600 shadow-2xs transition-colors hover:bg-slate-50 hover:text-slate-800 sm:text-sm"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                form="event-form"
+                                disabled={isSavingEvent || (isActivity && !editingEventId && (templates === null || templateError))}
+                                className="cursor-pointer rounded-xl bg-purple-600 px-5 py-2 text-sm font-semibold text-white shadow-xs transition-all hover:bg-purple-700 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {isSavingEvent ? 'Saving…' : editingEventId ? 'Save changes' : isActivity ? 'Create Event' : 'Create Announcement'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
+            </div>,
+            document.getElementById('staff-content-region') || document.body
+        )}
+        {previewTemplate && <EventEvaluationPreviewModal template={previewTemplate} onClose={() => setPreviewTemplate(null)} />}
+        </>
     );
 };
 
@@ -1730,6 +1824,8 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
         registrantStatusFilter,
         setRegistrantStatusFilter,
         createEvent,
+        isSavingEvent,
+        startNewEvent,
         handleEditEvent,
         handleExtendAttendance,
         handleRescheduleEvent,
@@ -1857,11 +1953,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                         {/* + Create New */}
                         <button
                             type="button"
-                            onClick={() => {
-                                setEditingEventId(null);
-                                setNewEvent(createEmptyEvent());
-                                setShowEventModal(true);
-                            }}
+                            onClick={startNewEvent}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white text-xs font-bold transition-all duration-200 hover:shadow-md cursor-pointer"
                         >
                             <Plus size={14} className="stroke-[2.5]" />
@@ -1974,6 +2066,7 @@ const CareStaffEventsPage = ({ functions }: CareStaffEventsPageProps) => {
                     setNewEvent={setNewEvent}
                     editingEventId={editingEventId}
                     createEvent={createEvent}
+                    isSavingEvent={isSavingEvent}
                     departmentOptions={departmentOptions}
                     courseOptions={courseOptions}
                     getCurrentLocation={getCurrentLocation}

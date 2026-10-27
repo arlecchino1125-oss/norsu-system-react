@@ -5,7 +5,6 @@ import {
     CARE_COMPLETABLE_COUNSELING_STATUSES,
     CARE_FOLLOW_UP_ELIGIBLE_STATUSES,
     CARE_OUTCOME_ELIGIBLE_STATUSES,
-    CARE_REJECTABLE_COUNSELING_STATUSES,
     CARE_RESCHEDULABLE_STATUSES,
     CARE_SCHEDULABLE_COUNSELING_STATUSES,
     assertCareStatusAllowed,
@@ -15,14 +14,13 @@ import {
 } from './counselingTransitions';
 
 describe('CARE counselingTransitions logic', () => {
-    it('defines the correct status matrices for approval, rejection, scheduling, completion', () => {
+    it('defines the correct status matrices for approval, scheduling, completion', () => {
         expect(CARE_APPROVABLE_COUNSELING_STATUSES).toEqual(['Submitted', 'Pending']);
-        expect(CARE_REJECTABLE_COUNSELING_STATUSES).toEqual(['Submitted', 'Pending', 'Returned_To_Care']);
         expect(CARE_SCHEDULABLE_COUNSELING_STATUSES).toEqual(['Referred', 'Returned_To_Care']);
         expect(CARE_COMPLETABLE_COUNSELING_STATUSES).toEqual(['Scheduled', 'Staff_Scheduled', 'Rescheduled']);
         expect(CARE_OUTCOME_ELIGIBLE_STATUSES).toEqual(['Completed']);
         expect(CARE_ALLOWED_OUTCOMES).toEqual(['Counseled', 'Monitoring', 'Subject_For_2nd_Counseling']);
-        expect(CARE_RESCHEDULABLE_STATUSES).toEqual(['Completed', 'Rescheduled']);
+        expect(CARE_RESCHEDULABLE_STATUSES).toEqual(['Staff_Scheduled', 'Scheduled', 'Rescheduled', 'Completed']);
         expect(CARE_FOLLOW_UP_ELIGIBLE_STATUSES).toEqual([
             'Completed',
             'Counseled',
@@ -36,6 +34,8 @@ describe('CARE counselingTransitions logic', () => {
         expect(() => assertCareStatusAllowed('Approved', CARE_APPROVABLE_COUNSELING_STATUSES, 'approval')).toThrow(
             'This record can no longer be used for approval'
         );
+        expect(() => assertCareStatusAllowed('Staff_Scheduled', CARE_RESCHEDULABLE_STATUSES, 'rescheduling')).not.toThrow();
+        expect(() => assertCareStatusAllowed('Scheduled', CARE_RESCHEDULABLE_STATUSES, 'rescheduling')).not.toThrow();
         expect(() => assertCareStatusAllowed('Rescheduled', CARE_RESCHEDULABLE_STATUSES, 'rescheduling')).not.toThrow();
         expect(() => assertCareStatusAllowed('Completed', CARE_RESCHEDULABLE_STATUSES, 'rescheduling')).not.toThrow();
         expect(() => assertCareStatusAllowed('Counseled', CARE_RESCHEDULABLE_STATUSES, 'rescheduling')).toThrow(

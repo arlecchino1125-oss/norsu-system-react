@@ -16,7 +16,6 @@ import {
     SUPPORT_STATUS,
     getCounselingScheduledDate,
     isCareStaffCounselingApprovable,
-    isCareStaffCounselingRejectable,
     isCareStaffCounselingSchedulable,
     isCareStaffSupportDeptUpdate,
     isCareStaffSupportQueue,
@@ -54,6 +53,8 @@ describe('workflow status helpers', () => {
         expect(isWithCareStaffCounseling(COUNSELING_STATUS.REFERRED)).toBe(true);
         expect(isWithCareStaffCounseling(COUNSELING_STATUS.STAFF_SCHEDULED)).toBe(true);
         expect(isWithCareStaffCounseling(COUNSELING_STATUS.RETURNED_TO_CARE)).toBe(true);
+        expect(isWithCareStaffCounseling(COUNSELING_STATUS.RESCHEDULED)).toBe(true);
+        expect(isWithCareStaffCounseling(COUNSELING_STATUS.SCHEDULED)).toBe(false);
         expect(isCounselingReturnedToCare(COUNSELING_STATUS.RETURNED_TO_CARE)).toBe(true);
         expect(isCareStaffCounselingSchedulable(COUNSELING_STATUS.REFERRED)).toBe(true);
         expect(isCareStaffCounselingSchedulable(COUNSELING_STATUS.RETURNED_TO_CARE)).toBe(true);
@@ -80,15 +81,10 @@ describe('workflow status helpers', () => {
         expect(DEPT_SUPPORT_VISIBLE_STATUSES).toContain(SUPPORT_STATUS.COMPLETED);
     });
 
-    it('correctly evaluates approval, rejection, outcome, and session completion transitions', () => {
+    it('correctly evaluates approval, outcome, and session completion transitions', () => {
         expect(isCareStaffCounselingApprovable(COUNSELING_STATUS.SUBMITTED)).toBe(true);
         expect(isCareStaffCounselingApprovable(COUNSELING_STATUS.PENDING)).toBe(true);
         expect(isCareStaffCounselingApprovable(COUNSELING_STATUS.APPROVED)).toBe(false);
-
-        expect(isCareStaffCounselingRejectable(COUNSELING_STATUS.SUBMITTED)).toBe(true);
-        expect(isCareStaffCounselingRejectable(COUNSELING_STATUS.PENDING)).toBe(true);
-        expect(isCareStaffCounselingRejectable(COUNSELING_STATUS.RETURNED_TO_CARE)).toBe(true);
-        expect(isCareStaffCounselingRejectable(COUNSELING_STATUS.COMPLETED)).toBe(false);
 
         expect(isCounselingOutcomeStatus(COUNSELING_STATUS.COUNSELED)).toBe(true);
         expect(isCounselingOutcomeStatus(COUNSELING_STATUS.MONITORING)).toBe(true);
@@ -101,6 +97,8 @@ describe('workflow status helpers', () => {
         expect(isCounselingSessionDone(COUNSELING_STATUS.SUBJECT_FOR_2ND_COUNSELING)).toBe(true);
         expect(isCounselingSessionDone(COUNSELING_STATUS.SCHEDULED)).toBe(false);
 
+        expect(isCounselingReschedulable(COUNSELING_STATUS.STAFF_SCHEDULED)).toBe(true);
+        expect(isCounselingReschedulable(COUNSELING_STATUS.SCHEDULED)).toBe(true);
         expect(isCounselingReschedulable(COUNSELING_STATUS.COMPLETED)).toBe(true);
         expect(isCounselingReschedulable(COUNSELING_STATUS.RESCHEDULED)).toBe(true);
         expect(isCounselingReschedulable(COUNSELING_STATUS.COUNSELED)).toBe(false);

@@ -283,7 +283,7 @@ export function useDeptData(session: any, isAuthenticated: boolean) {
             const total = (result: any) => Number(result?.total || 0);
             const [awaiting, scheduled, withCare, completed, rejected, supportForwarded, populationTotal, ...yearResults] = await Promise.all([
                 getCounselingRequestsPage({ department, status: [...COUNSELING_AWAITING_DEPT_STATUSES] }, one),
-                getCounselingRequestsPage({ department, status: [COUNSELING_STATUS.SCHEDULED, COUNSELING_STATUS.RESCHEDULED] }, one),
+                getCounselingRequestsPage({ department, status: [COUNSELING_STATUS.SCHEDULED] }, one),
                 getCounselingRequestsPage({ department, status: [...COUNSELING_WITH_CARE_STAFF_STATUSES] }, one),
                 getCounselingRequestsPage({ department, status: [...COUNSELING_SESSION_DONE_STATUSES] }, one),
                 getCounselingRequestsPage({ department, status: COUNSELING_STATUS.REJECTED }, one),

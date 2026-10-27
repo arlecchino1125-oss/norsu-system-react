@@ -11,7 +11,6 @@ import {
     CARE_COMPLETABLE_COUNSELING_STATUSES,
     CARE_FOLLOW_UP_ELIGIBLE_STATUSES,
     CARE_OUTCOME_ELIGIBLE_STATUSES,
-    CARE_REJECTABLE_COUNSELING_STATUSES,
     CARE_RESCHEDULABLE_STATUSES,
     CARE_SCHEDULABLE_COUNSELING_STATUSES,
     assertCareStatusAllowed,
@@ -284,64 +283,6 @@ const approveCounseling = async (
     };
 };
 
-const rejectCounseling = async (
-    adminClient: any,
-    request: Request,
-    requestId: unknown,
-    notes: unknown
-) => {
-    const actor = await assertCareStaffRequest(adminClient, request);
-    const nextRequestId = String(requestId || '').trim();
-    const nextNotes = sanitizeLongText(notes, 1000);
-
-    if (!nextRequestId) throw new Error('Counseling request ID is required.');
-
-    const counselingRequest = await getCounselingRequestById(adminClient, nextRequestId);
-    assertCareStatusAllowed(counselingRequest.status, CARE_REJECTABLE_COUNSELING_STATUSES, 'CARE counseling rejection');
-
-    const { error } = await adminClient
-        .from('counseling_requests')
-        .update({
-            status: 'Rejected',
-            resolution_notes: nextNotes || null
-        })
-        .eq('id', counselingRequest.id);
-
-    if (error) throw error;
-
-    await notifyStudent(
-        adminClient,
-        counselingRequest.student_id,
-        `Your counseling request was not approved by CARE Staff.${nextNotes ? ` Reason: ${nextNotes}` : ''}`
-    );
-
-    const emailPayload = await buildCounselingEmailPayload(adminClient, counselingRequest.student_id, counselingRequest.student_name, {
-        status: 'Rejected',
-        requestType: counselingRequest.request_type,
-        actor: 'CARE Staff',
-        notes: nextNotes || null
-    });
-
-    await writeStaffAuditLog(adminClient, actor, {
-        action: 'Rejected counseling request',
-        entityTable: 'counseling_requests',
-        entityId: counselingRequest.id,
-        details: {
-            summary: `${actor.displayName} rejected a counseling request for ${counselingRequest.student_name || 'a student'}.`,
-            student_name: counselingRequest.student_name,
-            request_type: counselingRequest.request_type,
-            status: 'Rejected'
-        }
-    });
-
-    return {
-        success: true,
-        requestId: counselingRequest.id,
-        status: 'Rejected',
-        emailPayload
-    };
-};
-
 const setCounselingOutcome = async (
     adminClient: any,
     request: Request,
@@ -438,8 +379,10 @@ const rescheduleCounseling = async (
     assertCareStatusAllowed(counselingRequest.status, CARE_RESCHEDULABLE_STATUSES, 'rescheduling counseling session');
 
     const scheduledDate = `${nextDate} ${nextTime}`;
+    // CARE is the one rescheduling, so CARE runs the next session. 'Rescheduled' carried no
+    // owner, which let the college complete/forward CARE's sessions.
     const updateData: Record<string, unknown> = {
-        status: 'Rescheduled',
+        status: 'Staff_Scheduled',
         scheduled_date: scheduledDate
     };
     if (nextNotes) {
@@ -475,7 +418,7 @@ const rescheduleCounseling = async (
             summary: `${actor.displayName} rescheduled a counseling session for ${counselingRequest.student_name || 'a student'}.`,
             student_name: counselingRequest.student_name,
             request_type: counselingRequest.request_type,
-            status: 'Rescheduled',
+            status: 'Staff_Scheduled',
             scheduled_date: scheduledDate
         }
     });
@@ -483,7 +426,7 @@ const rescheduleCounseling = async (
     return {
         success: true,
         requestId: counselingRequest.id,
-        status: 'Rescheduled',
+        status: 'Staff_Scheduled',
         scheduledDate,
         emailPayload
     };
@@ -867,10 +810,6 @@ serve(async (request) => {
 
         if (mode === 'approve-counseling') {
             return json(await approveCounseling(adminClient, request, body.requestId, body.notes));
-        }
-
-        if (mode === 'reject-counseling') {
-            return json(await rejectCounseling(adminClient, request, body.requestId, body.notes));
         }
 
         if (mode === 'set-counseling-outcome') {

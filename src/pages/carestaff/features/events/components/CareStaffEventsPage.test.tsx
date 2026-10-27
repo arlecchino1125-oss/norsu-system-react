@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CareStaffEventsPage from './CareStaffEventsPage';
-import { getEvaluationsForEvents } from '../eventEvaluationService';
+import { getEvaluationsForEvents, getQuestions, listTemplates } from '../eventEvaluationService';
 import { useCareStaffEvents, createEmptyEvent } from '../hooks/useCareStaffEvents';
 import { exportToExcel } from '../../../../../utils/dashboardUtils';
 
@@ -12,7 +13,7 @@ vi.mock('../../../../../utils/dashboardUtils', () => ({
 
 vi.mock('../eventEvaluationService', async () => {
     const actual = await vi.importActual<typeof import('../eventEvaluationService')>('../eventEvaluationService');
-    return { ...actual, getEvaluationsForEvents: vi.fn() };
+    return { ...actual, getEvaluationsForEvents: vi.fn(), getQuestions: vi.fn(), listTemplates: vi.fn() };
 });
 
 vi.mock('../hooks/useCareStaffEvents', async () => {
@@ -80,6 +81,130 @@ const baseHookState = {
     handleVoidAttendance: vi.fn(),
     applyScheduleField: vi.fn()
 };
+
+beforeEach(() => {
+    vi.mocked(listTemplates).mockReset().mockResolvedValue([]);
+    vi.mocked(getQuestions).mockReset().mockResolvedValue([]);
+});
+
+describe('CareStaffEventsPage creation templates', () => {
+    beforeEach(() => { vi.mocked(getEvaluationsForEvents).mockImplementation(() => new Promise(() => {})); });
+    const scheduledEvent = { ...createEmptyEvent(), event_date: '2026-10-11', event_time: '09:00', end_time: '11:00' };
+    const templates = [
+        { id: 8, event_id: null, title: 'Recent saved evaluation', description: 'Saved questions', is_active: true },
+        { id: 4, event_id: null, title: 'Older saved evaluation', description: null, is_active: true }
+    ];
+
+    const renderCreation = (overrides: Record<string, unknown> = {}) => {
+        const createEvent = vi.fn();
+        vi.mocked(useCareStaffEvents).mockReturnValue({
+            ...baseHookState, showEventModal: true, editingEventId: null, newEvent: scheduledEvent,
+            setNewEvent: vi.fn(), setShowEventModal: vi.fn(), setEditingEventId: vi.fn(), createEvent,
+            departmentOptions: [], courseOptions: [], getCurrentLocation: vi.fn(), renderAudienceCheckboxGroup: () => null,
+            ...overrides
+        } as any);
+        const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+        render(<QueryClientProvider client={queryClient}><CareStaffEventsPage functions={{ showToast: vi.fn() }} /></QueryClientProvider>);
+        return createEvent;
+    };
+
+    it('includes the latest saved template by default and allows another saved template', async () => {
+        vi.mocked(listTemplates).mockResolvedValue(templates);
+        const createEvent = renderCreation();
+        const select = await screen.findByLabelText('Evaluation form');
+        expect(select).toHaveValue('8');
+        fireEvent.submit(document.getElementById('event-form')!);
+        expect(createEvent).toHaveBeenLastCalledWith(expect.anything(), templates[0]);
+        fireEvent.change(select, { target: { value: '4' } });
+        fireEvent.submit(document.getElementById('event-form')!);
+        expect(createEvent).toHaveBeenLastCalledWith(expect.anything(), templates[1]);
+    });
+
+    it('prevents saving while templates load or fail to load', async () => {
+        vi.mocked(listTemplates).mockRejectedValue(new Error('Unavailable'));
+        const createEvent = renderCreation();
+        expect(screen.getByRole('button', { name: 'Create Event' })).toBeDisabled();
+        fireEvent.submit(document.getElementById('event-form')!);
+        expect(createEvent).not.toHaveBeenCalled();
+        expect(await screen.findByRole('alert')).toHaveTextContent('Could not load saved templates');
+        expect(screen.getByRole('button', { name: 'Create Event' })).toBeDisabled();
+    });
+
+    it('shows the missing-template state without inventing a form', async () => {
+        const createEvent = renderCreation();
+        expect(await screen.findByText(/No saved evaluation templates/)).toBeInTheDocument();
+        fireEvent.submit(document.getElementById('event-form')!);
+        expect(createEvent).toHaveBeenCalledWith(expect.anything(), undefined);
+    });
+
+    it.each(['announcement', 'edit'])('does not attach a template in an %s form', kind => {
+        renderCreation(kind === 'edit' ? { editingEventId: 3 } : { newEvent: { ...createEmptyEvent(), type: 'Announcement' } });
+        expect(screen.queryByText('Evaluation form')).not.toBeInTheDocument();
+        expect(listTemplates).not.toHaveBeenCalled();
+    });
+
+    it('previews the chosen saved form before Advanced without submitting or losing event details', async () => {
+        vi.mocked(listTemplates).mockResolvedValue(templates);
+        vi.mocked(getQuestions).mockResolvedValue([{
+            clientId: 'saved-question', question_text: 'Was this event useful?', question_type: 'scale',
+            scale_min: 1, scale_max: 5, scale_min_label: 'Poor', scale_max_label: 'Excellent', choices: [], is_required: true
+        }]);
+        const createEvent = renderCreation({ newEvent: { ...scheduledEvent, title: 'Career day', description: 'Meet employers' } });
+        const select = await screen.findByLabelText('Evaluation form');
+        expect(select.compareDocumentPosition(screen.getByText('Advanced')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        fireEvent.change(select, { target: { value: '4' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Preview form' }));
+        const preview = screen.getByRole('dialog', { name: 'Evaluation form preview' });
+        expect(await within(preview).findByText('1. Was this event useful?')).toBeInTheDocument();
+        expect(getQuestions).toHaveBeenCalledWith(4);
+        expect(createEvent).not.toHaveBeenCalled();
+        fireEvent.click(within(preview).getAllByRole('button', { name: 'Close' }).at(-1)!);
+        expect(screen.getByLabelText('Title *')).toHaveValue('Career day');
+        expect(screen.getByLabelText('Description *')).toHaveValue('Meet employers');
+        expect(select).toHaveValue('4');
+    });
+
+    it('shows the default deadline using the three-hour end fallback', async () => {
+        renderCreation({ newEvent: { ...scheduledEvent, end_time: '' } });
+        await screen.findByText(/No saved evaluation templates/);
+        const expectedDeadline = new Date('2026-10-14T12:00:00').toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        expect(screen.getByText(/^Default:/)).toHaveTextContent(expectedDeadline);
+        expect(screen.getByLabelText('Attendance & evaluation deadline')).toHaveValue('');
+        expect(screen.getByLabelText(/Start time/)).toBeRequired();
+        expect(screen.getByText(/Students can evaluate after the event ends/)).toBeInTheDocument();
+    });
+
+    it.each([
+        [{ event_time: '' }, 'Pick a valid start time.', /Start time/],
+        [{ end_time: '08:00' }, 'End time must be later than start time.', /End time/],
+        [{ attendance_closes_at: '2026-10-11T11:00' }, 'Attendance and evaluation deadline must be after the event ends.', /Attendance & evaluation deadline/]
+    ])('blocks an invalid schedule and focuses the affected field', async (fields, message, label) => {
+        const createEvent = renderCreation({ newEvent: { ...scheduledEvent, ...fields } });
+        await screen.findByText(/No saved evaluation templates/);
+        fireEvent.submit(document.getElementById('event-form')!);
+        expect(createEvent).not.toHaveBeenCalled();
+        expect(screen.getByRole('alert')).toHaveTextContent(message);
+        expect(screen.getByLabelText(label)).toHaveAttribute('aria-invalid', 'true');
+        expect(screen.getByLabelText(label)).toHaveFocus();
+    });
+
+    it.each([false, true])('only shows location tools when geolocation is enabled (%s)', async enabled => {
+        renderCreation({ newEvent: { ...scheduledEvent, require_geolocation: enabled } });
+        await screen.findByText(/No saved evaluation templates/);
+        fireEvent.click(screen.getByText('Advanced'));
+        if (enabled) {
+            expect(screen.getByLabelText('Latitude')).toBeInTheDocument();
+            expect(screen.getByLabelText('Longitude')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'My location' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Reset campus' })).toBeInTheDocument();
+        } else {
+            expect(screen.queryByLabelText('Latitude')).not.toBeInTheDocument();
+            expect(screen.queryByLabelText('Longitude')).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'My location' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Reset campus' })).not.toBeInTheDocument();
+        }
+    });
+});
 
 describe('CareStaffEventsPage modals', () => {
     beforeEach(() => {
@@ -152,7 +277,7 @@ describe('CareStaffEventsPage modals', () => {
         expect(screen.getByRole('status', { name: loadingLabel })).toBeInTheDocument();
     });
 
-    it('offers an attendance closing date and tucks the proof toggles under Advanced', () => {
+    it('offers an attendance and evaluation deadline and tucks the proof toggles under Advanced', async () => {
         vi.mocked(useCareStaffEvents).mockReturnValue({
             ...baseHookState,
             showEventModal: true,
@@ -170,7 +295,8 @@ describe('CareStaffEventsPage modals', () => {
 
         render(<CareStaffEventsPage functions={{ showToast: vi.fn() }} />);
 
-        expect(screen.getByLabelText(/attendance closes/i)).toBeInTheDocument();
+        await screen.findByText(/No saved evaluation templates/);
+        expect(screen.getByLabelText(/Attendance & evaluation deadline/)).toBeInTheDocument();
 
         // <details> keeps its children mounted while closed, so the toggles are
         // findable — what this asserts is that they start collapsed, not absent.

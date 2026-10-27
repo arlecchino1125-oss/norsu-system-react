@@ -17,11 +17,8 @@ export function useDeptCounseling({
     const [deptFormModalView, setDeptFormModalView] = useState<string>('referral');
     const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
     const [scheduleData, setScheduleData] = useState<any>({ date: '', time: '', notes: '' });
-    const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
-    const [rejectNotes, setRejectNotes] = useState<string>('');
     const [forwardingToStaff, setForwardingToStaff] = useState<boolean>(false);
     const [isSubmittingCounselingSchedule, setIsSubmittingCounselingSchedule] = useState(false);
-    const [isSubmittingCounselingReject, setIsSubmittingCounselingReject] = useState(false);
     const [pendingCounselingCompletionId, setPendingCounselingCompletionId] = useState<string | null>(null);
     const [isSubmittingReferral, setIsSubmittingReferral] = useState(false);
     const [referralSearchQuery, setReferralSearchQuery] = useState<string>('');
@@ -110,12 +107,37 @@ export function useDeptCounseling({
             // the God Hook used `setCounselingRequests` from `useDeptData`
         }
     }, [counselingState]);
+    const [showCompleteModal, setShowCompleteModal] = useState<boolean>(false);
+    const [completeNotes, setCompleteNotes] = useState<string>('');
+    const [isSubmittingCounselingComplete, setIsSubmittingCounselingComplete] = useState(false);
+
+    const openCompleteModal = useCallback((req: any) => {
+        setSelectedCounselingReq(req);
+        setCompleteNotes('');
+        setShowCompleteModal(true);
+        setShowCounselingViewModal(false);
+    }, []);
+
+    const openRescheduleModal = useCallback((req: any) => {
+        setSelectedCounselingReq(req);
+        const scheduled = req?.scheduled_date || req?.schedule_date || '';
+        let d = '', t = '';
+        if (scheduled) {
+            const parts = String(scheduled).split(' ');
+            d = parts[0] || '';
+            t = parts[1] || '';
+        }
+        setScheduleData({ date: d, time: t, notes: req?.resolution_notes || '' });
+        setShowScheduleModal(true);
+        setShowCounselingViewModal(false);
+    }, []);
 
     const handleApproveAndSchedule = async (e: any) => {
         e.preventDefault();
         if (!selectedCounselingReq || isSubmittingCounselingSchedule) return;
         setIsSubmittingCounselingSchedule(true);
         try {
+            const isReschedule = selectedCounselingReq.status === COUNSELING_STATUS.SCHEDULED;
             const scheduledDate = `${scheduleData.date} ${scheduleData.time}`;
             const result = await invokeManagedDepartmentServicesFunction({
                 mode: 'schedule-counseling',
@@ -135,8 +157,9 @@ export function useDeptCounseling({
                     : row
             )));
             counselingState.refresh();
-            showToastMessage('Request approved and session scheduled.', 'success');
-            queueProcessEmailNotification(result?.emailPayload, 'Request approved and session scheduled.');
+            const successMsg = isReschedule ? 'Session rescheduled successfully.' : 'Request approved and session scheduled.';
+            showToastMessage(successMsg, 'success');
+            queueProcessEmailNotification(result?.emailPayload, successMsg);
             setShowScheduleModal(false);
             setShowCounselingViewModal(false);
             setScheduleData({ date: '', time: '', notes: '' });
@@ -147,59 +170,36 @@ export function useDeptCounseling({
         }
     };
 
-    const handleRejectRequest = async () => {
-        if (!selectedCounselingReq || isSubmittingCounselingReject) return;
-        setIsSubmittingCounselingReject(true);
-        try {
-            const result = await invokeManagedDepartmentServicesFunction({
-                mode: 'reject-counseling',
-                requestId: selectedCounselingReq.id,
-                notes: rejectNotes
-            });
-            updateGlobalRows((rows: any[]) => rows.map((row: any) => (
-                String(row.id) === String(selectedCounselingReq.id)
-                    ? {
-                        ...row,
-                        status: COUNSELING_STATUS.RETURNED_TO_CARE,
-                        resolution_notes: rejectNotes || null
-                    }
-                    : row
-            )));
-            counselingState.refresh();
-            showToastMessage('Request returned to CARE Staff.', 'success');
-            queueProcessEmailNotification(result?.emailPayload, 'Request returned to CARE Staff.');
-            setShowRejectModal(false);
-            setShowCounselingViewModal(false);
-            setRejectNotes('');
-        } catch (err: any) {
-            showToastMessage(err.message, 'error');
-        } finally {
-            setIsSubmittingCounselingReject(false);
+    const handleCompleteRequest = async (e?: any) => {
+        if (e?.preventDefault) e.preventDefault();
+        const nextRequestId = String(selectedCounselingReq?.id || '').trim();
+        if (!nextRequestId || isSubmittingCounselingComplete) return;
+        if (!completeNotes.trim()) {
+            showToastMessage('Resolution notes are required to complete counseling.', 'error');
+            return;
         }
-    };
-
-    const handleCompleteRequest = async (req: any) => {
-        const nextRequestId = String(req?.id || '').trim();
-        if (!nextRequestId || pendingCounselingCompletionId === nextRequestId) return;
-        setPendingCounselingCompletionId(nextRequestId);
+        setIsSubmittingCounselingComplete(true);
         try {
             const result = await invokeManagedDepartmentServicesFunction({
                 mode: 'complete-counseling',
-                requestId: nextRequestId
+                requestId: nextRequestId,
+                notes: completeNotes.trim()
             });
             updateGlobalRows((rows: any[]) => rows.map((row: any) => (
                 String(row.id) === nextRequestId
-                    ? { ...row, status: COUNSELING_STATUS.COMPLETED }
+                    ? { ...row, status: COUNSELING_STATUS.COMPLETED, resolution_notes: completeNotes.trim() }
                     : row
             )));
             counselingState.refresh();
             showToastMessage('Request marked as completed.', 'success');
             queueProcessEmailNotification(result?.emailPayload, 'Request marked as completed.');
+            setShowCompleteModal(false);
             setShowCounselingViewModal(false);
+            setCompleteNotes('');
         } catch (err: any) {
             showToastMessage(err.message, 'error');
         } finally {
-            setPendingCounselingCompletionId(null);
+            setIsSubmittingCounselingComplete(false);
         }
     };
 
@@ -310,11 +310,8 @@ export function useDeptCounseling({
         deptFormModalView, setDeptFormModalView,
         showScheduleModal, setShowScheduleModal,
         scheduleData, setScheduleData,
-        showRejectModal, setShowRejectModal,
-        rejectNotes, setRejectNotes,
         forwardingToStaff, setForwardingToStaff,
         isSubmittingCounselingSchedule,
-        isSubmittingCounselingReject,
         pendingCounselingCompletionId,
         isSubmittingReferral,
         referralSearchQuery, setReferralSearchQuery,
@@ -324,11 +321,15 @@ export function useDeptCounseling({
         selectReferralStudent,
         showReferralModal, setShowReferralModal,
         referralForm, setReferralForm,
-        sigCanvasRef,
+        showCompleteModal, setShowCompleteModal,
+        completeNotes, setCompleteNotes,
+        isSubmittingCounselingComplete,
+        openCompleteModal,
+        openRescheduleModal,
         handleApproveAndSchedule,
-        handleRejectRequest,
         handleCompleteRequest,
         handleStartForward,
-        handleReferralSubmit
+        handleReferralSubmit,
+        sigCanvasRef
     };
 }

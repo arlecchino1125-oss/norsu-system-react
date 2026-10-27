@@ -77,7 +77,6 @@ describe('CareStaffCounselingPage', () => {
             isCompletingSession: false,
             handleRefreshData: vi.fn(),
             handleApproveRequest: vi.fn(),
-            handleRejectRequest: vi.fn(),
             handleSetOutcome: vi.fn(),
             handleRescheduleSession: vi.fn(),
             handleScheduleFollowUp: vi.fn(),

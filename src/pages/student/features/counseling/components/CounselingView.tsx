@@ -254,6 +254,12 @@ const RequestDetailsModal = ({ request, isEvaluated, formatFullDate, Icons, onCl
                                 <p className="mt-0.5 text-slate-700 leading-relaxed">{request.description}</p>
                             </div>
                         )}
+                        {request.resolution_notes && (
+                            <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
+                                <p className="font-bold text-emerald-800">Counselor Guidance / Advice</p>
+                                <p className="mt-1 text-emerald-900 leading-relaxed whitespace-pre-wrap">{request.resolution_notes}</p>
+                            </div>
+                        )}
                     </div>
 
                     {isCompleted && (

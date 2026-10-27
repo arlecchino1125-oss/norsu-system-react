@@ -166,7 +166,7 @@ export default function StaffPortalLayout({
               />
               <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-purple-100 bg-purple-50 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-xs sm:text-sm font-extrabold uppercase tracking-[0.14em] text-purple-600">
                 <span className="inline-block h-2 w-2 rounded-full bg-purple-400" />
-                <span className="truncate max-w-[8rem] sm:max-w-none">{portalLabel}</span>
+                <span className="truncate max-w-[8rem] sm:max-w-none text-sm">{portalLabel}</span>
               </span>
             </div>
           </div>

@@ -188,6 +188,36 @@ export const saveEvaluation = async (
     return formId;
 };
 
+export const attachEvaluationTemplate = async (eventId: number, template: EvaluationForm): Promise<void> => {
+    const { data: existing, error: lookupError } = await supabase
+        .from('event_evaluation_forms')
+        .select('id, is_active')
+        .eq('event_id', eventId)
+        .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existing?.is_active) return;
+
+    const questions = await getQuestions(template.id);
+    if (questions.length === 0) throw new Error('The selected form template has no questions. Choose another template.');
+
+    // Keep an incomplete copy unavailable to students and reuse it after a failed save.
+    const formId = await saveEvaluation(
+        {
+            id: existing?.id,
+            event_id: eventId,
+            title: template.title,
+            description: template.description ?? '',
+            is_active: false
+        },
+        questions.map((question) => ({ ...question, id: undefined }))
+    );
+    const { error: activationError } = await supabase
+        .from('event_evaluation_forms')
+        .update({ is_active: true })
+        .eq('id', formId);
+    if (activationError) throw activationError;
+};
+
 export const deleteEvaluation = async (formId: number) => {
     const { error } = await supabase.from('event_evaluation_forms').delete().eq('id', formId);
     if (error) throw error;

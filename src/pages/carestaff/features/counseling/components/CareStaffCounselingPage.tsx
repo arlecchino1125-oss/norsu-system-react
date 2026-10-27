@@ -23,7 +23,6 @@ import {
     COUNSELING_STATUS,
     getCounselingScheduledDate,
     isCareStaffCounselingApprovable,
-    isCareStaffCounselingRejectable,
     isCareStaffCounselingSchedulable,
     isCounselingAwaitingCare,
     isCounselingAwaitingDept,
@@ -149,6 +148,7 @@ const CounselingDetailModal = ({
     setFormModalView,
     onClose,
     onSchedule,
+    onReschedule,
     onComplete,
     onDownloadReferral
 }: any) => (
@@ -272,6 +272,9 @@ const CounselingDetailModal = ({
                 {isCareStaffCounselingSchedulable(request.status) && (
                     <Button variant="primary" size="md" onClick={() => onSchedule(request)} className="flex-1 rounded-[1.5rem] shadow-md shadow-purple-500/20">Schedule Session</Button>
                 )}
+                {isCounselingReschedulable(request.status) && (
+                    <Button variant="secondary" size="md" onClick={() => onReschedule(request)} className="flex-1 rounded-[1.5rem] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200">Reschedule Session</Button>
+                )}
                 {(request.status === COUNSELING_STATUS.SCHEDULED || request.status === COUNSELING_STATUS.STAFF_SCHEDULED || request.status === COUNSELING_STATUS.RESCHEDULED) && (
                     <Button variant="primary" size="md" onClick={() => onComplete(request)} className="flex-1 rounded-[1.5rem] bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-500/20">Mark as Complete</Button>
                 )}
@@ -314,7 +317,6 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
         isCompletingSession,
         handleRefreshData,
         handleApproveRequest,
-        handleRejectRequest,
         handleSetOutcome,
         handleRescheduleSession,
         handleScheduleFollowUp,
@@ -344,11 +346,6 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
     // Schedule modal mode (new session vs reschedule vs follow-up)
     const [scheduleModalMode, setScheduleModalMode] = useState<'schedule' | 'reschedule' | 'follow_up'>('schedule');
 
-    // Reject dialog state
-    const [rejectModalReq, setRejectModalReq] = useState<any>(null);
-    const [rejectReason, setRejectReason] = useState('');
-    const [isRejecting, setIsRejecting] = useState(false);
-
     // Context / Outcome Menu state
     const [outcomeMenuTarget, setOutcomeMenuTarget] = useState<any>(null);
     const [outcomeMenuPosition, setOutcomeMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -371,20 +368,6 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
         if (longPressTimerRef.current) {
             clearTimeout(longPressTimerRef.current);
             longPressTimerRef.current = null;
-        }
-    };
-
-    const handleConfirmReject = async () => {
-        if (!rejectModalReq) return;
-        setIsRejecting(true);
-        try {
-            await handleRejectRequest(rejectModalReq, rejectReason);
-            setRejectModalReq(null);
-            setRejectReason('');
-        } catch {
-            // Handled in hook
-        } finally {
-            setIsRejecting(false);
         }
     };
 
@@ -787,58 +770,32 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
 
                                                                 {/* Approval actions for Needs Review */}
                                                                 {isCareStaffCounselingApprovable(req.status) && (
-                                                                    <>
-                                                                        <Button
-                                                                            variant="primary"
-                                                                            size="sm"
-                                                                            onClick={() => handleApproveRequest(req)}
-                                                                            className="rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
-                                                                        >
-                                                                            Approve
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => {
-                                                                                setRejectModalReq(req);
-                                                                                setRejectReason('');
-                                                                            }}
-                                                                            className="rounded-xl border border-red-200 text-red-600 hover:bg-red-50 px-2.5 py-1 text-xs font-bold"
-                                                                        >
-                                                                            Reject
-                                                                        </Button>
-                                                                    </>
+                                                                    <Button
+                                                                        variant="primary"
+                                                                        size="sm"
+                                                                        onClick={() => handleApproveRequest(req)}
+                                                                        className="rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                                                                    >
+                                                                        Approve
+                                                                    </Button>
                                                                 )}
 
                                                                 {/* Actions for Returned to CARE */}
                                                                 {isCounselingReturnedToCare(req.status) && (
-                                                                    <>
-                                                                        <Button
-                                                                            variant="primary"
-                                                                            size="sm"
-                                                                            onClick={() => {
-                                                                                setSelectedApp(req);
-                                                                                setScheduleModalMode('schedule');
-                                                                                setScheduleData({ date: '', time: '', notes: '' });
-                                                                                setShowScheduleModal(true);
-                                                                            }}
-                                                                            leftIcon={<Calendar size={13} />}
-                                                                            className="rounded-xl bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-purple-700"
-                                                                        >
-                                                                            Schedule
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={() => {
-                                                                                setRejectModalReq(req);
-                                                                                setRejectReason('');
-                                                                            }}
-                                                                            className="rounded-xl border border-red-200 text-red-600 hover:bg-red-50 px-2.5 py-1 text-xs font-bold"
-                                                                        >
-                                                                            Reject
-                                                                        </Button>
-                                                                    </>
+                                                                    <Button
+                                                                        variant="primary"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setSelectedApp(req);
+                                                                            setScheduleModalMode('schedule');
+                                                                            setScheduleData({ date: '', time: '', notes: '' });
+                                                                            setShowScheduleModal(true);
+                                                                        }}
+                                                                        leftIcon={<Calendar size={13} />}
+                                                                        className="rounded-xl bg-purple-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-purple-700"
+                                                                    >
+                                                                        Schedule
+                                                                    </Button>
                                                                 )}
 
                                                                 {/* Scheduling for Forwarded */}
@@ -970,6 +927,20 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                         setCompletionForm({ id: req.id, student_id: req.student_id, publicNotes: '', privateNotes: '' });
                         setShowCompleteModal(true);
                     }}
+                    onReschedule={(req: any) => {
+                        setShowCounselingFormModal(false);
+                        setSelectedApp(req);
+                        setScheduleModalMode('reschedule');
+                        const scheduled = getCounselingScheduledDate(req);
+                        let d = '', t = '';
+                        if (scheduled) {
+                            const parts = String(scheduled).split(' ');
+                            d = parts[0] || '';
+                            t = parts[1] || '';
+                        }
+                        setScheduleData({ date: d, time: t, notes: req.resolution_notes || '' });
+                        setShowScheduleModal(true);
+                    }}
                     onDownloadReferral={handleDownloadReferralForm}
                 />
             )}
@@ -1010,64 +981,7 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                 isSubmitting={isCompletingSession}
             />
 
-            {/* Rejection Modal for CARE Staff */}
-            {rejectModalReq && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-slate-50/50">
-                            <h3 className="font-bold text-lg text-slate-900">Reject Counseling Request</h3>
-                            <button
-                                type="button"
-                                aria-label="Close reject dialog"
-                                onClick={() => setRejectModalReq(null)}
-                                className="text-gray-400 hover:text-gray-600"
-                            >
-                                <XCircle size={22} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-                                <p className="text-sm font-bold text-red-950">
-                                    {toTitleCase(rejectModalReq.student_name, 'Student')}
-                                </p>
-                                <p className="text-xs text-red-700 mt-1 line-clamp-2">
-                                    {rejectModalReq.reason_for_referral || rejectModalReq.description || 'No description provided.'}
-                                </p>
-                            </div>
-                            <div>
-                                <label htmlFor="care-reject-reason" className="block text-xs font-bold text-gray-700 mb-1">
-                                    Reason for Rejection (Optional)
-                                </label>
-                                <textarea
-                                    id="care-reject-reason"
-                                    value={rejectReason}
-                                    onChange={(e) => setRejectReason(e.target.value)}
-                                    rows={3}
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none"
-                                    placeholder="State reason why request is rejected..."
-                                />
-                            </div>
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setRejectModalReq(null)}
-                                    className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={isRejecting}
-                                    onClick={handleConfirmReject}
-                                    className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition shadow-md shadow-red-200 disabled:opacity-60"
-                                >
-                                    {isRejecting ? 'Rejecting...' : 'Confirm Rejection'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             {/* Outcome & Re-counseling Menu */}
             <CounselingOutcomeMenu
@@ -1084,7 +998,14 @@ const CareStaffCounselingPage = ({ functions, refreshSignal = 0 }: CareStaffCoun
                 onReschedule={(req) => {
                     setSelectedApp(req);
                     setScheduleModalMode('reschedule');
-                    setScheduleData({ date: '', time: '', notes: '' });
+                    const scheduled = getCounselingScheduledDate(req);
+                    let d = '', t = '';
+                    if (scheduled) {
+                        const parts = String(scheduled).split(' ');
+                        d = parts[0] || '';
+                        t = parts[1] || '';
+                    }
+                    setScheduleData({ date: d, time: t, notes: req.resolution_notes || '' });
                     setShowScheduleModal(true);
                 }}
                 onScheduleFollowUp={(req) => {

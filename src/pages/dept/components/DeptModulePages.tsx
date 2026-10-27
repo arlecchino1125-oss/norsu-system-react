@@ -47,10 +47,12 @@ export function DeptModulePages({
         counselingTab, setCounselingTab, selectedCounselingReq, setSelectedCounselingReq,
         showCounselingViewModal, setShowCounselingViewModal,
         showScheduleModal, setShowScheduleModal, scheduleData, setScheduleData,
-        showRejectModal, setShowRejectModal, rejectNotes, setRejectNotes,
+        showCompleteModal, setShowCompleteModal, completeNotes, setCompleteNotes,
+        isSubmittingCounselingComplete,
+        openCompleteModal, openRescheduleModal,
         setForwardingToStaff, setReferralForm, setShowReferralModal,
-        handleApproveAndSchedule, handleRejectRequest, handleCompleteRequest, handleStartForward,
-        isSubmittingCounselingSchedule, isSubmittingCounselingReject, pendingCounselingCompletionId
+        handleApproveAndSchedule, handleCompleteRequest, handleStartForward,
+        isSubmittingCounselingSchedule, pendingCounselingCompletionId
     } = counseling;
     const {
         interviewQueueDate, setInterviewQueueDate, interviewQueueRows,
@@ -106,22 +108,23 @@ export function DeptModulePages({
                     modalState={{
                         showCounselingViewModal,
                         showScheduleModal,
-                        showRejectModal
+                        showCompleteModal
                     }}
                     setShowCounselingViewModal={setShowCounselingViewModal}
                     setShowScheduleModal={setShowScheduleModal}
-                    setShowRejectModal={setShowRejectModal}
+                    setShowCompleteModal={setShowCompleteModal}
                     scheduleData={scheduleData}
                     setScheduleData={setScheduleData}
-                    rejectNotes={rejectNotes}
-                    setRejectNotes={setRejectNotes}
+                    completeNotes={completeNotes}
+                    setCompleteNotes={setCompleteNotes}
+                    openCompleteModal={openCompleteModal}
+                    openRescheduleModal={openRescheduleModal}
                     handleApproveAndSchedule={handleApproveAndSchedule}
-                    handleRejectRequest={handleRejectRequest}
                     handleCompleteRequest={handleCompleteRequest}
                     handleStartForward={handleStartForward}
                     submissionState={{
                         isSubmittingCounselingSchedule,
-                        isSubmittingCounselingReject
+                        isSubmittingCounselingComplete
                     }}
                     pendingCounselingCompletionId={pendingCounselingCompletionId}
                 />

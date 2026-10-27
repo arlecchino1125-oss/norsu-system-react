@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Plus, Calendar, Clock, MapPin, Users, Star, XCircle, Download, CheckCircle, Archive, RefreshCw
 } from 'lucide-react';
@@ -22,8 +22,9 @@ import {
     getEventAudienceType,
     isAttendanceActivityType
 } from '../../../../../utils/eventAudience';
-import { DEFAULT_CLOSE_MS, parseEventDate, parseEventTime } from '../../../../../utils/eventWindows';
+import { DEFAULT_CLOSE_MS, getEventWindows, parseEventDate, parseEventTime } from '../../../../../utils/eventWindows';
 import type { CareStaffDashboardFunctions } from '../../../types';
+import { attachEvaluationTemplate, type EvaluationForm } from '../eventEvaluationService';
 
 
 export interface CareStaffEventsPageProps {
@@ -165,6 +166,41 @@ const toCloseTimestamp = (value: string) => {
     return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : null;
 };
 
+export const getEventScheduleProblem = (event: Partial<SystemEvent>): {
+    field: 'event_date' | 'event_time' | 'end_time' | 'attendance_closes_at';
+    message: string;
+} | null => {
+    if (!isAttendanceActivityType(event.type)) return null;
+
+    const date = parseEventDate(event.event_date);
+    const dateParts = String(event.event_date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!date || !dateParts || date.getFullYear() !== Number(dateParts[1])
+        || date.getMonth() + 1 !== Number(dateParts[2]) || date.getDate() !== Number(dateParts[3])) {
+        return { field: 'event_date', message: 'Pick a valid event date.' };
+    }
+    if (!parseEventTime(event.event_time)) {
+        return { field: 'event_time', message: 'Pick a valid start time.' };
+    }
+    if (event.end_time && !parseEventTime(event.end_time)) {
+        return { field: 'end_time', message: 'Pick a valid end time.' };
+    }
+
+    const { start, end } = getEventWindows(event);
+    if (event.end_time && start && end && end <= start) {
+        return { field: 'end_time', message: 'End time must be later than start time.' };
+    }
+    if (event.attendance_closes_at) {
+        const closesAt = new Date(event.attendance_closes_at);
+        if (Number.isNaN(closesAt.getTime())) {
+            return { field: 'attendance_closes_at', message: 'Pick a valid attendance and evaluation deadline.' };
+        }
+        if (end && closesAt <= end) {
+            return { field: 'attendance_closes_at', message: 'Attendance and evaluation deadline must be after the event ends.' };
+        }
+    }
+    return null;
+};
+
 // Re-anchor an explicit close date onto a new schedule by keeping the same
 // offset from the event start. NULL (no explicit close) stays NULL -- the
 // default (end + 3 days) recomputes from the new schedule on its own.
@@ -274,6 +310,8 @@ export function useCareStaffEvents({ functions }: any) {
     const [editBaseline, setEditBaseline] = useState<{ event_date?: string; event_time?: string; end_time?: string; attendance_closes_at?: string | null } | null>(null);
     const [eventToDelete, setEventToDelete] = useState<number | null>(null);
     const [newEvent, setNewEvent] = useState<Partial<SystemEvent>>(() => createEmptyEvent());
+    const [isSavingEvent, setIsSavingEvent] = useState(false);
+    const pendingCreatedEventId = useRef<number | null>(null);
     const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
     const [courseOptions, setCourseOptions] = useState<string[]>([]);
 
@@ -318,8 +356,16 @@ export function useCareStaffEvents({ functions }: any) {
     }, []);
 
     // Handlers
-    const createEvent = async (e: any) => {
+    const startNewEvent = () => {
+        pendingCreatedEventId.current = null;
+        setEditingEventId(null);
+        setNewEvent(createEmptyEvent());
+        setShowEventModal(true);
+    };
+
+    const createEvent = async (e: any, evaluationTemplate?: EvaluationForm) => {
         e.preventDefault();
+        if (isSavingEvent) return;
         try {
             const isAttendanceActivity = isAttendanceActivityType(newEvent.type);
             const audienceType = isAttendanceActivity ? getEventAudienceType(newEvent) : 'all_students';
@@ -345,6 +391,15 @@ export function useCareStaffEvents({ functions }: any) {
                     );
                 }
             }
+            const scheduleProblem = getEventScheduleProblem({
+                ...newEvent,
+                attendance_closes_at: attendanceCloseAt || newEvent.attendance_closes_at
+            });
+            if (scheduleProblem) {
+                if (showToast) showToast(scheduleProblem.message, 'error');
+                return;
+            }
+            setIsSavingEvent(true);
             const payload = {
                 title: newEvent.title,
                 type: newEvent.type,
@@ -375,25 +430,35 @@ export function useCareStaffEvents({ functions }: any) {
                 is_archived: false
             };
 
-            if (editingEventId) {
-                const { error } = await supabase.from('events').update(payload).eq('id', editingEventId);
+            const eventId = editingEventId || pendingCreatedEventId.current;
+            if (eventId) {
+                const { error } = await supabase.from('events').update(payload).eq('id', eventId);
                 if (error) throw error;
-                if (showToast) showToast('Changes saved.');
             } else {
-                const { error } = await supabase.from('events').insert([payload]);
+                const { data, error } = await supabase.from('events').insert([payload]).select('id').single();
                 if (error) throw error;
-                if (showToast) showToast('Changes saved.');
+                pendingCreatedEventId.current = data.id;
             }
+            if (!editingEventId && isAttendanceActivity && evaluationTemplate && pendingCreatedEventId.current) {
+                await attachEvaluationTemplate(pendingCreatedEventId.current, evaluationTemplate);
+            }
+            pendingCreatedEventId.current = null;
+            if (showToast) showToast('Changes saved.');
             setShowEventModal(false);
             setEditingEventId(null);
             setNewEvent(createEmptyEvent());
             await fetchEvents();
         } catch (err: any) {
-            if (showToast) showToast(err.message, 'error');
+            if (showToast) showToast(pendingCreatedEventId.current
+                ? `The event was saved, but its evaluation could not be attached. Submit again to retry. ${err.message}`
+                : err.message, 'error');
+        } finally {
+            setIsSavingEvent(false);
         }
     };
 
     const handleEditEvent = (item: SystemEvent) => {
+        pendingCreatedEventId.current = null;
         setEditBaseline({
             event_date: item.event_date,
             event_time: item.event_time,
@@ -651,10 +716,10 @@ export function useCareStaffEvents({ functions }: any) {
 
         return (
             <div>
-                <p className="block text-xs font-bold text-gray-500 mb-2">{label}</p>
+                <p className="mb-2 block text-sm font-semibold text-gray-700">{label}</p>
                 <div className="max-h-32 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {options.map((option) => (
-                        <label key={option} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+                        <label key={option} className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                             <input
                                 type="checkbox"
                                 checked={selectedValueSet.has(option)}
@@ -759,6 +824,8 @@ export function useCareStaffEvents({ functions }: any) {
         setEventToDelete,
         newEvent,
         setNewEvent,
+        isSavingEvent,
+        startNewEvent,
         departmentOptions,
         setDepartmentOptions,
         courseOptions,
