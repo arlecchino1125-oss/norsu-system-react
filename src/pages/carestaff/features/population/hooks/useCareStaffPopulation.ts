@@ -334,7 +334,7 @@ export function useCareStaffPopulation({
     const activeFilterCount = [departmentFilter, courseFilter, yearFilter, statusFilter, schoolYearFilter, sectionFilter]
         .filter(v => v !== 'All').length + (searchTerm ? 1 : 0) + (hasNoteFilter ? 1 : 0) + (atRiskFilter ? 1 : 0) + (backgroundFilter.length ? 1 : 0);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'stats'
-    const itemsPerPage = useResponsivePageSize();
+    const itemsPerPage = useResponsivePageSize(undefined, 15);
     const [tableStudents, setTableStudents] = useState<any[]>([]);
     const [tableStudentsTotal, setTableStudentsTotal] = useState(0);
     const [tableLoading, setTableLoading] = useState(false);

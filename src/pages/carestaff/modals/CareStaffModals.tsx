@@ -16,10 +16,10 @@ export function renderCareStaffModals(p: any) {
             {/* COMMAND HUB FAB */}
             <button type="button"
                 onClick={() => setShowCommandHub(true)}
-                className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-full shadow-xl shadow-purple-300/40 hover:shadow-2xl hover:shadow-purple-400/50 hover:scale-110 transition-all duration-300 flex items-center justify-center animate-float"
+                className="fixed bottom-16 right-3.5 md:bottom-6 md:right-6 z-40 w-11 h-11 md:w-14 md:h-14 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-full shadow-xl shadow-purple-300/40 hover:shadow-2xl hover:shadow-purple-400/50 hover:scale-110 transition-all duration-300 flex items-center justify-center animate-float"
                 title="Command Hub"
             >
-                <MessageCircle size={24} />
+                <MessageCircle className="w-5 h-5 md:w-6 md:h-6" />
             </button>
 
             {/* COMMAND HUB PANEL */}

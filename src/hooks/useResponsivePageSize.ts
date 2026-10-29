@@ -27,8 +27,13 @@ const DEFAULT_HEIGHT_BREAKPOINTS: ResponsiveBreakpoint[] = [
 
 export function getResponsivePageSize(
     height: number,
-    breakpoints: ResponsiveBreakpoint[] = DEFAULT_HEIGHT_BREAKPOINTS
+    breakpoints: ResponsiveBreakpoint[] = DEFAULT_HEIGHT_BREAKPOINTS,
+    width?: number,
+    mobilePageSize?: number
 ): number {
+    if (typeof mobilePageSize === 'number' && typeof width === 'number' && width < 768) {
+        return mobilePageSize;
+    }
     for (const bp of breakpoints) {
         if (height >= bp.minHeight) {
             return bp.pageSize;
@@ -38,18 +43,19 @@ export function getResponsivePageSize(
 }
 
 export function useResponsivePageSize(
-    breakpoints: ResponsiveBreakpoint[] = DEFAULT_HEIGHT_BREAKPOINTS
+    breakpoints: ResponsiveBreakpoint[] = DEFAULT_HEIGHT_BREAKPOINTS,
+    mobilePageSize?: number
 ): number {
     const [pageSize, setPageSize] = useState<number>(() => {
         if (typeof window === 'undefined') return 5;
-        return getResponsivePageSize(window.innerHeight, breakpoints);
+        return getResponsivePageSize(window.innerHeight, breakpoints, window.innerWidth, mobilePageSize);
     });
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const updateSize = () => {
-            const nextSize = getResponsivePageSize(window.innerHeight, breakpoints);
+            const nextSize = getResponsivePageSize(window.innerHeight, breakpoints, window.innerWidth, mobilePageSize);
             setPageSize((prev) => (prev !== nextSize ? nextSize : prev));
         };
 
@@ -57,7 +63,7 @@ export function useResponsivePageSize(
         updateSize();
         window.addEventListener('resize', updateSize);
         return () => window.removeEventListener('resize', updateSize);
-    }, [breakpoints]);
+    }, [breakpoints, mobilePageSize]);
 
     return pageSize;
 }

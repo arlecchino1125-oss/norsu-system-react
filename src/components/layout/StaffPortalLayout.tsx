@@ -164,9 +164,9 @@ export default function StaffPortalLayout({
                 alt="CARE Center"
                 className="hidden sm:block h-10 w-10 rounded-full object-cover bg-white shadow-md ring-2 ring-purple-200/40 shrink-0"
               />
-              <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-purple-100 bg-purple-50 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-xs sm:text-sm font-extrabold uppercase tracking-[0.14em] text-purple-600">
-                <span className="inline-block h-2 w-2 rounded-full bg-purple-400" />
-                <span className="truncate max-w-[8rem] sm:max-w-none text-sm">{portalLabel}</span>
+              <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-purple-100 bg-purple-50 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-sm font-extrabold uppercase tracking-wider sm:tracking-[0.14em] text-purple-600">
+                <span className="inline-block h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-purple-400 shrink-0" />
+                <span className="whitespace-nowrap text-[11px] sm:text-sm">{portalLabel}</span>
               </span>
             </div>
           </div>
@@ -253,7 +253,7 @@ export default function StaffPortalLayout({
         </header>
 
         {/* Content */}
-        <div className="page-transition flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 flex flex-col">
+        <div className="page-transition flex-1 overflow-y-auto p-2 sm:p-6 md:p-8 flex flex-col">
           {children}
         </div>
       </main>

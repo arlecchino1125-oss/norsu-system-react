@@ -19,6 +19,8 @@ export interface ModalProps {
   zIndex?: string;
   /** Element id to anchor into (e.g. 'staff-content-region'): the modal portals there and fills it, like the attendees list. */
   anchorId?: string;
+  /** Optional mobile-only (< md) full-panel layout when a modal has a dedicated mobile reconstruction. */
+  customMobileLayout?: React.ReactNode;
 }
 
 const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -59,6 +61,7 @@ export default function Modal({
   className = '',
   zIndex = 'z-50',
   anchorId,
+  customMobileLayout,
 }: ModalProps) {
   const titleId = useId();
   const trapRef = useFocusTrap<HTMLDivElement>(open);
@@ -85,7 +88,7 @@ export default function Modal({
         // Anchored mode mirrors the attendees-list layout: fills the content region
         // below its 4.25rem header, z below the sidebar so its toggle stays usable.
         <div className={anchorId
-          ? 'absolute inset-x-0 bottom-0 top-[4.25rem] z-20 flex p-2 sm:p-3'
+          ? 'fixed sm:absolute inset-x-0 bottom-0 top-[3.15rem] sm:top-[4.25rem] z-[45] sm:z-20 flex p-1.5 sm:p-3'
           : `fixed inset-0 ${zIndex} flex items-center justify-center p-4`}>
           {/* Backdrop */}
           <m.div
@@ -115,42 +118,50 @@ export default function Modal({
             animate="visible"
             exit="exit"
           >
-            {/* Header */}
-            {(title || showCloseButton) && (
-              <div className="flex flex-wrap items-start gap-4 border-b border-slate-100 px-6 py-5">
-                <div className="min-w-0 flex-1">
-                  {title && (
-                    <h2 id={titleId} className="text-lg font-bold text-slate-900">{title}</h2>
+            {customMobileLayout && (
+              <div className="flex h-full w-full flex-col overflow-hidden md:hidden">
+                {customMobileLayout}
+              </div>
+            )}
+
+            <div className={customMobileLayout ? 'hidden md:flex md:h-full md:w-full md:flex-col md:overflow-hidden' : ' contents'}>
+              {/* Header */}
+              {(title || showCloseButton) && (
+                <div className="flex flex-wrap items-start gap-4 border-b border-slate-100 px-6 py-5">
+                  <div className="min-w-0 flex-1">
+                    {title && (
+                      <h2 id={titleId} className="text-lg font-bold text-slate-900">{title}</h2>
+                    )}
+                    {subtitle && (
+                      <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+                    )}
+                  </div>
+                  {headerMeta && (
+                    <div className="order-3 w-full sm:order-none sm:w-auto">{headerMeta}</div>
                   )}
-                  {subtitle && (
-                    <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+                  {showCloseButton && (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      aria-label="Close"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                    >
+                      <X size={18} />
+                    </button>
                   )}
                 </div>
-                {headerMeta && (
-                  <div className="order-3 w-full sm:order-none sm:w-auto">{headerMeta}</div>
-                )}
-                {showCloseButton && (
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Close"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                  >
-                    <X size={18} />
-                  </button>
-                )}
-              </div>
-            )}
+              )}
 
-            {/* Body */}
-            <div className={`${anchorId ? 'flex-1' : 'max-h-[65vh]'} overflow-y-auto px-6 py-5`}>{children}</div>
+              {/* Body */}
+              <div className={`${anchorId ? 'flex-1' : 'max-h-[65vh]'} overflow-y-auto px-6 py-5`}>{children}</div>
 
-            {/* Footer */}
-            {footer && (
-              <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-4">
-                {footer}
-              </div>
-            )}
+              {/* Footer */}
+              {footer && (
+                <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-4">
+                  {footer}
+                </div>
+              )}
+            </div>
           </m.div>
         </div>
       )}

@@ -22,11 +22,12 @@ export function useCareStaffGovernance({
         requireEnrollmentKey: true,
         updatedAt: null as string | null,
         updatedBy: null as string | null
-    }, isLoading: isLoadingStudentActivationPolicy, refetch: loadStudentActivationPolicy } = useQuery({
+    }, isFetching: isLoadingStudentActivationPolicy, refetch: loadStudentActivationPolicy } = useQuery({
         queryKey: ['student-activation-policy'],
         queryFn: async () => {
             return fetchStudentActivationPolicy();
         },
+        enabled: false,
         staleTime: 60000
     });
 

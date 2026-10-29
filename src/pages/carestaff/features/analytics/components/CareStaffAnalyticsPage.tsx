@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    Users, Clock, Filter, ArrowUpDown, ArrowLeft, ChevronRight, Search,
-    BarChart2, RefreshCw, ChevronDown, Sparkles, Activity, FileBarChart,
+    Users, Clock, Filter, ArrowUpDown, ArrowLeft, ChevronRight, ChevronLeft, Search,
+    BarChart2, RefreshCw, ChevronDown, ChevronUp, Sparkles, Activity, FileBarChart,
     Download, FileSpreadsheet, FileText, Loader2, HelpCircle, X, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
@@ -20,6 +21,7 @@ import {
     type ExportProgressState as ExportProgress,
     INITIAL_EXPORT_PROGRESS_STATE as INITIAL_EXPORT_PROGRESS
 } from '../../../../../components/ExportProgressModal';
+import { abbreviateCourseName } from '../../population/utils';
 import type { CareStaffDashboardFunctions } from '../../../types';
 
 interface CareStaffAnalyticsPageProps {
@@ -69,10 +71,32 @@ export const withComparisonDeltas = (stats: any[], compareByText: Map<string, an
 };
 
 const ANALYTICS_TABS = [
-    { name: 'Overview', icon: BarChart2 },
-    { name: 'Questions', icon: HelpCircle },
-    { name: 'Respondents', icon: Users }
+    { name: 'Overview', mobileLabel: 'Overview', icon: BarChart2 },
+    { name: 'Questions', mobileLabel: 'Questions', icon: HelpCircle },
+    { name: 'Respondents', mobileLabel: 'Responses', icon: Users }
 ];
+
+export const formatShortDepartment = (dept?: string | null): string => {
+    const raw = String(dept || '').trim();
+    if (!raw || raw === 'All' || raw === 'All Colleges') return 'All';
+    const norm = raw.toLowerCase();
+    if (norm.includes('arts and sciences')) return 'CAS';
+    if (norm.includes('business')) return 'CBA';
+    if (norm.includes('education')) return 'CED';
+    if (norm.includes('engineering')) return 'COE';
+    if (norm.includes('nursing')) return 'CON';
+    if (norm.includes('criminology')) return 'CCJ';
+    if (norm.includes('agriculture')) return 'CAF';
+    if (norm.includes('industrial technology')) return 'CIT';
+    if (raw.length <= 6) return raw;
+    const initials = raw
+        .replace(/college of\s+/i, '')
+        .split(/\s+/)
+        .filter(w => !['of', 'and', 'in', 'the', '&'].includes(w.toLowerCase()))
+        .map(w => w[0]?.toUpperCase())
+        .join('');
+    return initials || raw.slice(0, 5);
+};
 
 const displayAnswer = (answer?: any) => {
     if (!answer) return '';
@@ -114,71 +138,71 @@ const RespondentDetail = ({ student, questions, onBack }: any) => {
 
     return (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="px-3 py-2.5 md:px-6 md:py-4 border-b border-slate-100 bg-slate-50/70 flex flex-wrap items-center justify-between gap-2 md:gap-3 shrink-0">
                 <div>
-                    <h3 className="font-bold text-base text-slate-900">
+                    <h3 className="font-bold text-xs md:text-base text-slate-900">
                         {student.students?.last_name}, {student.students?.first_name}
                     </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    <p className="text-[10px] md:text-xs text-slate-500 font-medium mt-0.5">
                         Submitted {new Date(student.submitted_at).toLocaleString()}
                     </p>
                 </div>
                 <button
                     type="button"
                     onClick={onBack}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:border-purple-300 hover:text-purple-700 shadow-2xs transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 md:px-3.5 md:py-1.5 bg-white border border-slate-200 rounded-lg md:rounded-xl text-[10.5px] md:text-xs font-bold text-slate-700 hover:border-purple-300 hover:text-purple-700 shadow-2xs transition-colors cursor-pointer"
                 >
-                    <ArrowLeft size={13} /> Back to list
+                    <ArrowLeft size={12} /> Back to list
                 </button>
             </div>
 
-            <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 px-6 py-3.5 border-b border-slate-100 text-xs shrink-0 bg-white">
+            <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-4 px-3 py-2.5 md:px-6 md:py-3.5 border-b border-slate-100 text-[10.5px] md:text-xs shrink-0 bg-white">
                 <div>
-                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Student ID</dt>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[9px] md:text-[10px]">Student ID</dt>
                     <dd className="font-mono font-bold text-slate-900 mt-0.5">{student.students?.student_id || '—'}</dd>
                 </div>
                 <div>
-                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">College</dt>
-                    <dd className="font-bold text-slate-900 mt-0.5">{student.students?.department || '—'}</dd>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[9px] md:text-[10px]">College</dt>
+                    <dd className="font-bold text-slate-900 mt-0.5 truncate">{student.students?.department || '—'}</dd>
                 </div>
                 <div>
-                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Course</dt>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[9px] md:text-[10px]">Course</dt>
                     <dd className="font-bold text-slate-900 mt-0.5 truncate" title={student.students?.course}>{student.students?.course || '—'}</dd>
                 </div>
                 <div>
-                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Year Level</dt>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[9px] md:text-[10px]">Year Level</dt>
                     <dd className="font-bold text-purple-700 uppercase mt-0.5">{student.students?.year_level || '—'}</dd>
                 </div>
                 <div>
-                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Sex Assigned</dt>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[9px] md:text-[10px]">Sex Assigned</dt>
                     <dd className="font-bold text-slate-900 mt-0.5">{student.students?.sex || '—'}</dd>
                 </div>
                 <div>
-                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Gender Identity</dt>
-                    <dd className="font-bold text-purple-700 mt-0.5">{student.students?.gender_identity || '—'}</dd>
+                    <dt className="font-bold text-slate-400 uppercase tracking-wider text-[9px] md:text-[10px]">Gender Identity</dt>
+                    <dd className="font-bold text-purple-700 mt-0.5 truncate">{student.students?.gender_identity || '—'}</dd>
                 </div>
             </dl>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-3 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2.5 md:p-6 space-y-2 md:space-y-3 custom-scrollbar">
                 {isLoading && <p className="py-12 text-center text-xs text-slate-400 font-medium">Loading answers…</p>}
                 {!isLoading && questions.map((q: any, idx: number) => {
                     const answer = displayAnswer(answersByQuestion.get(q.id));
                     const isScale = q.question_type !== 'text' && q.question_type !== 'open_ended';
                     return (
-                        <div key={q.id} className="rounded-xl border border-slate-200/80 p-4 bg-white hover:border-purple-200 transition-colors">
-                            <p className="font-bold text-slate-800 text-xs leading-relaxed">
-                                <span className="mr-2 text-slate-400 font-semibold">{idx + 1}.</span>{q.question_text}
+                        <div key={q.id} className="rounded-xl border border-slate-200/80 p-2.5 md:p-4 bg-white hover:border-purple-200 transition-colors">
+                            <p className="font-bold text-slate-800 text-[11px] md:text-xs leading-relaxed">
+                                <span className="mr-1.5 text-slate-400 font-semibold">{idx + 1}.</span>{q.question_text}
                             </p>
                             {answer === '' ? (
-                                <p className="mt-1.5 text-xs italic text-slate-400">Not answered</p>
+                                <p className="mt-1 text-[11px] md:text-xs italic text-slate-400">Not answered</p>
                             ) : isScale ? (
-                                <div className="mt-2 flex items-center gap-2">
-                                    <span className="px-2.5 py-0.5 rounded-lg bg-purple-50 border border-purple-100 text-purple-700 font-bold text-xs">
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                    <span className="px-2 py-0.5 rounded-md bg-purple-50 border border-purple-100 text-purple-700 font-bold text-[10.5px] md:text-xs">
                                         Score: {answer} / {q.scale_max ?? 5}
                                     </span>
                                 </div>
                             ) : (
-                                <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">{answer}</p>
+                                <p className="mt-1 whitespace-pre-wrap text-[11px] md:text-xs text-slate-700 leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-100">{answer}</p>
                             )}
                         </div>
                     );
@@ -196,6 +220,7 @@ const RespondentsTab = ({
     onViewStudent, search, setSearch, page, setPage, onExportExcel, isExporting
 }: any) => {
     const tableRef = useRef<HTMLDivElement>(null);
+    const mobileListRef = useRef<HTMLDivElement>(null);
 
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
@@ -213,11 +238,53 @@ const RespondentsTab = ({
 
     return (
         <div className="flex-1 flex flex-col min-h-0 space-y-3">
-            {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
-                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            {/* Mobile Toolbar (< md) */}
+            <div className="flex md:hidden flex-col gap-1.5 shrink-0">
+                {/* Full-width Search Input */}
+                <div className="relative w-full">
+                    <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
+                        placeholder="Search name or ID"
+                        aria-label="Search respondents by name or student ID"
+                        className="w-full rounded-lg border border-slate-200 bg-white py-1 pl-7 pr-2.5 text-[10px] font-medium text-slate-700 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-slate-400"
+                    />
+                </div>
+
+                {/* Course Filter + Respondent Count Row */}
+                <div className="flex items-center justify-between gap-1.5 w-full">
+                    <div className="relative flex-1 min-w-0 flex items-center bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-2xs">
+                        <Filter size={11} className="text-purple-600 mr-1 shrink-0" />
+                        <select
+                            aria-label="Filter respondents by course"
+                            value={courseFilter}
+                            onChange={e => { setCourseFilter(e.target.value); setPage(1); }}
+                            className="appearance-none pr-4 text-[10px] font-bold text-slate-700 bg-transparent focus:outline-none cursor-pointer w-full truncate"
+                        >
+                            <option value="All">All Courses</option>
+                            {courseOptions.map(([course, count]: [string, number]) => (
+                                <option key={course} value={course}>{course} ({count})</option>
+                            ))}
+                        </select>
+                        <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+
+                    <div className="flex items-center gap-1 text-[9.5px] text-slate-600 shrink-0 px-0.5">
+                        <Users size={11} className="text-purple-600 shrink-0" />
+                        <span>
+                            <strong className="font-extrabold text-slate-900 tabular-nums">{filtered.length}</strong>{' '}
+                            <span className="font-medium text-slate-500">students</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Desktop Toolbar (md and up) */}
+            <div className="hidden md:flex flex-row items-center justify-between gap-3 shrink-0">
+                <div className="flex flex-wrap items-center gap-2.5 w-auto">
                     {/* Search Input */}
-                    <div className="relative w-full sm:w-64">
+                    <div className="relative w-64">
                         <Search size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                             value={search}
@@ -269,8 +336,117 @@ const RespondentsTab = ({
                 </div>
             </div>
 
-            {/* Table in White Bordered Card with Sticky Header */}
-            <div ref={tableRef} className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex-1 flex flex-col min-h-0">
+            {/* Mobile Respondent Cards (< md) */}
+            <div ref={mobileListRef} className="flex md:hidden flex-col flex-1 min-h-0 space-y-1.5">
+                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-0.5">
+                    {visible.map((sub: any) => {
+                        const courseAbbr = sub.students?.course
+                            ? abbreviateCourseName(sub.students.course)
+                            : 'N/A';
+                        const submittedDate = sub.submitted_at ? new Date(sub.submitted_at) : null;
+                        return (
+                            <div
+                                key={sub.id}
+                                onClick={() => onViewStudent(sub)}
+                                className="bg-white rounded-xl border border-slate-200/90 shadow-2xs px-2.5 py-1.5 cursor-pointer active:scale-[0.99] transition-all"
+                            >
+                                {/* Top Row: Name + ID on Left, View Answers Pill on Right */}
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-[10.5px] text-slate-900 leading-tight break-words">
+                                            {sub.students?.last_name}, {sub.students?.first_name}
+                                        </p>
+                                        <p className="font-mono text-[8.5px] text-slate-400 font-medium mt-0.5">
+                                            {sub.students?.student_id || 'ID Unknown'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onViewStudent(sub);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-[8.5px] shrink-0 transition-colors cursor-pointer"
+                                    >
+                                        <span>View answers</span>
+                                        <span aria-hidden="true">&rarr;</span>
+                                    </button>
+                                </div>
+
+                                {/* Bottom Row: Abbreviated Course + Year Level on Left, Submission Date & Time on Right */}
+                                <div className="flex items-center justify-between gap-2 border-t border-slate-100/80 mt-1 pt-1">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                        <span
+                                            className="px-1 py-0.25 rounded bg-purple-50 border border-purple-100/80 text-purple-700 font-extrabold text-[8.5px] tracking-tight shrink-0"
+                                            title={sub.students?.course || undefined}
+                                        >
+                                            {courseAbbr}
+                                        </span>
+                                        <span className="text-[8.5px] font-bold text-slate-500 uppercase tracking-wide truncate">
+                                            {sub.students?.year_level || 'YEAR NOT SET'}
+                                        </span>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className="text-[9px] font-bold text-slate-700 leading-tight tabular-nums">
+                                            {submittedDate ? submittedDate.toLocaleDateString() : '—'}
+                                        </p>
+                                        <p className="text-[8px] font-medium text-slate-400 leading-tight mt-0.5 tabular-nums">
+                                            {submittedDate ? submittedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {filtered.length === 0 && (
+                        <div className="bg-white rounded-xl border border-slate-200 px-4 py-8 text-center text-[10.5px] text-slate-400 font-medium">
+                            No responses found matching your search or filters.
+                        </div>
+                    )}
+                </div>
+
+                {filtered.length > 0 && (
+                    <div className="flex items-center justify-between gap-2 border border-slate-200/90 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl shrink-0 shadow-2xs pr-14">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPage((p: number) => Math.max(1, p - 1));
+                                mobileListRef.current?.scrollIntoView({ block: 'start' });
+                            }}
+                            disabled={currentPage <= 1}
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeft size={13} />
+                        </button>
+
+                        <div className="min-w-0 text-center">
+                            <p className="text-[10px] font-extrabold text-slate-900 leading-tight">
+                                Page {currentPage} of {totalPages}
+                            </p>
+                            <p className="text-[8.5px] font-medium text-slate-400 tabular-nums">
+                                {pageStart + 1}–{Math.min(pageStart + RESPONDENTS_PER_PAGE, filtered.length)} of {filtered.length.toLocaleString()} students
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPage((p: number) => Math.min(totalPages, p + 1));
+                                mobileListRef.current?.scrollIntoView({ block: 'start' });
+                            }}
+                            disabled={currentPage >= totalPages}
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                            aria-label="Next page"
+                        >
+                            <ChevronRight size={13} />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop Table in White Bordered Card with Sticky Header (md and up) */}
+            <div ref={tableRef} className="hidden md:flex bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex-1 flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
                     <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
@@ -370,7 +546,7 @@ const RespondentsTab = ({
     );
 };
 
-/** Overview Tab: 2-Column Equal Width Grid */
+/** Overview Tab: 2-Column Equal Width Grid on Desktop, Vertical Stack on Mobile */
 const OverviewTab = ({
     submissions, questionStats, topQuestionScoreFilter, setTopQuestionScoreFilter
 }: any) => {
@@ -418,88 +594,178 @@ const OverviewTab = ({
         return Math.max(1, ...topQuestions.map(q => q.count));
     }, [topQuestions]);
 
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 flex-1 min-h-0">
-            {/* Left Card: Respondents by Year Level (CSS vertical bars) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 flex flex-col justify-between overflow-hidden">
-                <h3 className="font-bold text-base text-slate-900 tracking-tight shrink-0 mb-4">
-                    Respondents by Year Level
-                </h3>
+    // Mobile Accordion state: by default 'year_level' is open/highlighted; 'top_questions' is minimized
+    const [activeMobileCard, setActiveMobileCard] = useState<'year_level' | 'top_questions'>('year_level');
+    const isYearLevelOpen = activeMobileCard === 'year_level';
+    const isTopQuestionsOpen = activeMobileCard === 'top_questions';
 
-                <div className="flex-1 flex items-end justify-between gap-1.5 sm:gap-3 px-1 pt-6 pb-2 min-h-[220px]">
-                    {YEAR_LEVELS_ORDER.map((year) => {
-                        const count = yearCounts[year] || 0;
-                        const heightPct = (count / maxYearCount) * 100;
-                        return (
-                            <div key={year} className="flex-1 flex flex-col items-center justify-end h-full group min-w-0">
-                                {/* Value label above bar */}
-                                <span className="text-[11px] font-bold text-slate-700 mb-1.5 transition-colors group-hover:text-purple-700 tabular-nums">
-                                    {count}
-                                </span>
-                                {/* Purple vertical bar */}
-                                <div className="w-full max-w-[48px] bg-slate-50 rounded-t-lg overflow-hidden flex items-end h-44 border-b border-slate-200">
-                                    <div
-                                        style={{ height: `${count > 0 ? Math.max(8, heightPct) : 2}%` }}
-                                        className="w-full bg-purple-600 hover:bg-purple-700 rounded-t-lg transition-all duration-300 shadow-2xs cursor-default"
-                                        title={`${year}: ${count} respondents`}
-                                    />
+    return (
+        <div className="flex flex-col lg:grid lg:grid-cols-2 gap-2.5 md:gap-5 flex-1 min-h-0">
+            {/* Card 1: Respondents by Year Level */}
+            <div className={`bg-white rounded-2xl transition-all duration-200 overflow-hidden ${
+                isYearLevelOpen
+                    ? 'border-2 border-purple-300/90 shadow-sm md:border md:border-slate-200 md:shadow-xs p-3 md:p-6 flex flex-col justify-between'
+                    : 'border border-slate-200/90 shadow-2xs md:border md:border-slate-200 md:shadow-xs md:p-6 md:flex md:flex-col md:justify-between'
+            }`}>
+                {/* Mobile Minimized Bar (< md) when Top Questions is active */}
+                {!isYearLevelOpen && (
+                    <div
+                        onClick={() => setActiveMobileCard('year_level')}
+                        className="md:hidden p-2.5 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all bg-slate-50/50 hover:bg-purple-50/30"
+                    >
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+                            <h3 className="font-bold text-xs text-slate-700 truncate">
+                                Respondents by Year Level
+                            </h3>
+                            <span className="text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">
+                                ({submissions.length})
+                            </span>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100 shrink-0">
+                            <span>Highlight</span>
+                            <ChevronDown size={11} />
+                        </span>
+                    </div>
+                )}
+
+                {/* Full Card Content: shown always on desktop (md:), or when isYearLevelOpen on mobile */}
+                <div className={`${isYearLevelOpen ? 'flex flex-col flex-1 justify-between' : 'hidden md:flex md:flex-col md:flex-1 md:justify-between'}`}>
+                    <div
+                        onClick={() => setActiveMobileCard('top_questions')}
+                        className="flex items-center justify-between mb-2 md:mb-4 cursor-pointer md:cursor-default"
+                    >
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-purple-600 md:hidden shrink-0" />
+                            <h3 className="font-extrabold md:font-bold text-xs md:text-base text-slate-900 tracking-tight">
+                                Respondents by Year Level
+                            </h3>
+                        </div>
+                        {/* Mobile active indicator button */}
+                        <div className="flex items-center gap-1 md:hidden">
+                            <span className="text-[9px] font-extrabold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-md border border-purple-100">
+                                Active
+                            </span>
+                            <ChevronUp size={12} className="text-purple-600" />
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex items-end justify-between gap-1 sm:gap-3 px-0.5 sm:px-1 pt-2 md:pt-6 pb-1 md:pb-2 min-h-[140px] md:min-h-[220px]">
+                        {YEAR_LEVELS_ORDER.map((year) => {
+                            const count = yearCounts[year] || 0;
+                            const heightPct = (count / maxYearCount) * 100;
+                            return (
+                                <div key={year} className="flex-1 flex flex-col items-center justify-end h-full group min-w-0">
+                                    {/* Value label above bar */}
+                                    <span className="text-[9px] md:text-[11px] font-bold text-slate-700 mb-1 transition-colors group-hover:text-purple-700 tabular-nums">
+                                        {count}
+                                    </span>
+                                    {/* Purple vertical bar */}
+                                    <div className="w-full max-w-[28px] md:max-w-[48px] bg-slate-50 rounded-t-lg overflow-hidden flex items-end h-28 md:h-44 border-b border-slate-200">
+                                        <div
+                                            style={{ height: `${count > 0 ? Math.max(8, heightPct) : 2}%` }}
+                                            className="w-full bg-purple-600 hover:bg-purple-700 rounded-t-lg transition-all duration-300 shadow-2xs cursor-default"
+                                            title={`${year}: ${count} respondents`}
+                                        />
+                                    </div>
+                                    {/* Year label below bar */}
+                                    <span className="text-[8px] sm:text-[11px] font-semibold text-slate-500 mt-1 md:mt-2 truncate max-w-full text-center tracking-tight">
+                                        {year}
+                                    </span>
                                 </div>
-                                {/* Year label below bar */}
-                                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 mt-2 truncate max-w-full text-center">
-                                    {year}
-                                </span>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 
-            {/* Right Card: Top Questions with Score "5" (Horizontal bars layout) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 flex flex-col overflow-hidden">
-                <div className="flex justify-between items-center mb-4 shrink-0">
-                    <h3 className="font-bold text-base text-slate-900 tracking-tight">
-                        Top Questions with Score "{topQuestionScoreFilter}"
-                    </h3>
-                    <div className="relative">
-                        <select
-                            aria-label="Top question score"
-                            value={topQuestionScoreFilter}
-                            onChange={e => setTopQuestionScoreFilter(e.target.value)}
-                            className="appearance-none pl-3 pr-7 py-1 text-xs font-bold border border-slate-200 rounded-lg bg-white shadow-2xs focus:ring-purple-400 focus:border-purple-400 cursor-pointer text-slate-700"
-                        >
-                            {[5, 4, 3, 2, 1].map(score => (
-                                <option key={score} value={score}>{score} Stars</option>
-                            ))}
-                        </select>
-                        <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            {/* Card 2: Top Questions with Score Filter */}
+            <div className={`bg-white rounded-2xl transition-all duration-200 overflow-hidden ${
+                isTopQuestionsOpen
+                    ? 'border-2 border-purple-300/90 shadow-sm md:border md:border-slate-200 md:shadow-xs p-3 md:p-6 flex flex-col max-h-[300px] md:max-h-none'
+                    : 'border border-slate-200/90 shadow-2xs md:border md:border-slate-200 md:shadow-xs md:p-6 md:flex md:flex-col md:max-h-none'
+            }`}>
+                {/* Mobile Minimized Bar (< md) when Year Level is active (default) */}
+                {!isTopQuestionsOpen && (
+                    <div
+                        onClick={() => setActiveMobileCard('top_questions')}
+                        className="md:hidden p-2.5 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all bg-slate-50/50 hover:bg-purple-50/30"
+                    >
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+                            <h3 className="font-bold text-xs text-slate-700 truncate">
+                                Top Questions with Score "{topQuestionScoreFilter}"
+                            </h3>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100 shrink-0">
+                            <span>Highlight</span>
+                            <ChevronDown size={11} />
+                        </span>
                     </div>
-                </div>
+                )}
 
-                {/* Horizontal Bars List */}
-                <div className="space-y-3.5 overflow-y-auto custom-scrollbar flex-1 pr-1 min-h-0">
-                    {topQuestions.map((item, idx) => (
-                        <div key={item.id || idx} className="space-y-1 group">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-800 font-semibold truncate max-w-[85%]" title={item.question}>
-                                    {item.question}
-                                </span>
-                                <span className="font-extrabold text-purple-700 text-xs ml-2 tabular-nums">
-                                    {item.count}
-                                </span>
+                {/* Full Card Content: shown always on desktop (md:), or when isTopQuestionsOpen on mobile */}
+                <div className={`${isTopQuestionsOpen ? 'flex flex-col flex-1 min-h-0' : 'hidden md:flex md:flex-col md:flex-1 md:min-h-0'}`}>
+                    <div className="flex justify-between items-center mb-2.5 md:mb-4 shrink-0 gap-2">
+                        <div
+                            onClick={() => setActiveMobileCard('year_level')}
+                            className="flex items-center gap-1.5 cursor-pointer md:cursor-default min-w-0"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-purple-600 md:hidden shrink-0" />
+                            <h3 className="font-extrabold md:font-bold text-xs md:text-base text-slate-900 tracking-tight truncate">
+                                Top Questions ({topQuestionScoreFilter}★)
+                            </h3>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="relative shrink-0">
+                                <select
+                                    aria-label="Top question score"
+                                    value={topQuestionScoreFilter}
+                                    onChange={e => setTopQuestionScoreFilter(e.target.value)}
+                                    className="appearance-none pl-2.5 pr-6 py-1 text-[10.5px] md:text-xs font-bold border border-slate-200 rounded-lg bg-white shadow-2xs focus:ring-purple-400 focus:border-purple-400 cursor-pointer text-slate-700"
+                                >
+                                    {[5, 4, 3, 2, 1].map(score => (
+                                        <option key={score} value={score}>{score} Stars</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                             </div>
-                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                    style={{ width: `${item.count > 0 ? Math.max(3, (item.count / maxTopCount) * 100) : 0}%` }}
-                                    className="h-full bg-purple-600 rounded-full transition-all duration-300"
-                                />
+                            <div
+                                onClick={() => setActiveMobileCard('year_level')}
+                                className="md:hidden p-0.5 text-purple-600 cursor-pointer"
+                                title="Minimize"
+                            >
+                                <ChevronUp size={13} />
                             </div>
                         </div>
-                    ))}
-                    {topQuestions.length === 0 && (
-                        <div className="py-12 text-center text-xs text-slate-400 font-medium">
-                            No questions with responses recorded yet.
-                        </div>
-                    )}
+                    </div>
+
+                    {/* Horizontal Bars List */}
+                    <div className="space-y-2 md:space-y-3.5 overflow-y-auto custom-scrollbar flex-1 pr-1 min-h-0">
+                        {topQuestions.map((item, idx) => (
+                            <div key={item.id || idx} className="space-y-1 group">
+                                <div className="flex justify-between items-center text-[10.5px] md:text-xs">
+                                    <span className="text-slate-700 md:text-slate-800 font-semibold truncate max-w-[84%]" title={item.question}>
+                                        {item.question}
+                                    </span>
+                                    <span className="font-extrabold text-purple-600 md:text-purple-700 ml-1.5 tabular-nums">
+                                        {item.count}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 md:h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                        style={{ width: `${item.count > 0 ? Math.max(3, (item.count / maxTopCount) * 100) : 0}%` }}
+                                        className="h-full bg-purple-600 rounded-full transition-all duration-300"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                        {topQuestions.length === 0 && (
+                            <div className="py-8 text-center text-xs text-slate-400 font-medium">
+                                No questions with responses recorded yet.
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -513,17 +779,18 @@ const QuestionRow = ({ stat, index, isOpen, onToggle }: any) => {
     return (
         <div className="border-b border-slate-100 last:border-0">
             <div
-                className="w-full px-6 py-4 flex items-center gap-4 text-left hover:bg-purple-50/30 transition-colors"
+                onClick={onToggle}
+                className="w-full px-2 py-1.5 md:px-6 md:py-4 flex items-center gap-1.5 md:gap-4 text-left hover:bg-purple-50/30 transition-colors cursor-pointer md:cursor-default"
             >
                 {/* Index Number */}
-                <span className="w-5 shrink-0 text-xs font-bold text-slate-400 tabular-nums">{index + 1}</span>
+                <span className="w-3 md:w-5 shrink-0 text-[9px] md:text-xs font-bold text-slate-300 md:text-slate-400 tabular-nums">{index + 1}</span>
 
                 {/* Question Text + Segmented Color Bar */}
-                <div className="flex-1 min-w-0 space-y-2">
-                    <p className="font-bold text-xs sm:text-sm text-slate-800 truncate" title={question.question_text}>
+                <div className="flex-1 min-w-0 space-y-1 md:space-y-2">
+                    <p className="font-bold text-[10px] md:text-sm text-slate-800 leading-tight md:truncate" title={question.question_text}>
                         {question.question_text}
                     </p>
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                    <div className="flex h-1.5 md:h-2 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
                         {counts.map((count: number, i: number) => {
                             const pct = total > 0 ? (count / total) * 100 : 0;
                             if (pct <= 0) return null;
@@ -540,76 +807,108 @@ const QuestionRow = ({ stat, index, isOpen, onToggle }: any) => {
                 </div>
 
                 {/* Average Score in Large Bold Purple */}
-                <div className="w-16 shrink-0 text-center">
-                    <span className="block text-base font-black text-purple-700 tabular-nums leading-none">
+                <div className="w-8 md:w-16 shrink-0 text-right md:text-center">
+                    <span className="block text-[11px] md:text-base font-black text-purple-600 md:text-purple-700 tabular-nums leading-none">
                         {total === 0 ? '—' : average.toFixed(2)}
                     </span>
-                    <span className="block text-[9.5px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    <span className="block text-[7.5px] md:text-[9.5px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
                         AVG
                     </span>
                 </div>
 
                 {/* Delta comparison if available */}
                 {priorAverage !== undefined && (
-                    <div className="w-16 shrink-0 text-center" title={`${priorAverage.toFixed(2)} on comparison form`}>
+                    <div className="w-9 md:w-16 shrink-0 text-center" title={`${priorAverage.toFixed(2)} on comparison form`}>
                         {delta === undefined ? (
-                            <span className="text-[10px] font-bold text-slate-300">no data</span>
+                            <span className="text-[8.5px] md:text-[10px] font-bold text-slate-300">no data</span>
                         ) : (
                             <>
-                                <span className={`block text-xs font-black tabular-nums leading-none ${Math.abs(delta) < 0.05 ? 'text-slate-400' : delta > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                <span className={`block text-[10px] md:text-xs font-black tabular-nums leading-none ${Math.abs(delta) < 0.05 ? 'text-slate-400' : delta > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                     {delta > 0 ? '+' : ''}{delta.toFixed(2)}
                                 </span>
-                                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">vs prior</span>
+                                <span className="block text-[7.5px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">vs prior</span>
                             </>
                         )}
                     </div>
                 )}
 
-                {/* Sample Size */}
-                <span className="w-14 shrink-0 text-right text-xs font-semibold text-slate-400 tabular-nums">
+                {/* Sample Size (Desktop only) */}
+                <span className="hidden md:inline w-14 shrink-0 text-right text-xs font-semibold text-slate-400 tabular-nums">
                     n={total}
                 </span>
 
                 {/* Expand Chevron Button */}
                 <button
                     type="button"
-                    onClick={onToggle}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggle();
+                    }}
                     aria-expanded={isOpen}
-                    className="w-7 h-7 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-purple-600 hover:border-purple-200 transition-colors shrink-0"
+                    className="w-5 h-5 md:w-7 md:h-7 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-purple-600 hover:border-purple-200 transition-colors shrink-0"
                     aria-label={isOpen ? 'Collapse score breakdown' : 'Expand score breakdown'}
                 >
-                    <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-purple-600' : ''}`} />
+                    <ChevronDown size={11} className={`transition-transform duration-200 md:hidden ${isOpen ? 'rotate-180 text-purple-600' : ''}`} />
+                    <ChevronDown size={13} className={`hidden md:block transition-transform duration-200 ${isOpen ? 'rotate-180 text-purple-600' : ''}`} />
                 </button>
             </div>
 
             {/* Inline 5-Band Score Breakdown when expanded */}
             {isOpen && (
-                <div className="px-10 pb-5 pt-1 bg-purple-50/20 border-t border-slate-50 space-y-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Score Distribution Breakdown</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
-                        {counts.map((count: number, i: number) => {
-                            const pct = total > 0 ? (count / total) * 100 : 0;
-                            return (
-                                <div key={SCALE_LABELS[i]} className="bg-white rounded-xl border border-slate-100 p-2.5 shadow-2xs space-y-1.5">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SCALE_COLORS[i] }} />
-                                            {SCALE_LABELS[i]}
-                                        </span>
-                                        <span className="font-bold text-slate-900">{count}</span>
+                <>
+                    {/* Mobile Compact 5-Column Layout (< md) */}
+                    <div className="md:hidden px-1.5 pb-2 pt-1 bg-purple-50/20 border-t border-slate-50">
+                        <div className="grid grid-cols-5 gap-1">
+                            {counts.map((count: number, i: number) => {
+                                const pct = total > 0 ? (count / total) * 100 : 0;
+                                return (
+                                    <div key={SCALE_LABELS[i]} className="bg-white rounded-md border border-slate-100 px-0.5 py-1 shadow-2xs text-center space-y-0.5">
+                                        <div className="flex items-center justify-center gap-0.5">
+                                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: SCALE_COLORS[i] }} />
+                                            <span className="font-extrabold text-[8px] text-slate-700">{i + 1}</span>
+                                        </div>
+                                        <div className="h-0.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                style={{ width: `${pct}%`, backgroundColor: SCALE_COLORS[i] }}
+                                                className="h-full rounded-full"
+                                            />
+                                        </div>
+                                        <p className="text-[8.5px] font-black text-slate-900 tabular-nums leading-none">{pct.toFixed(1)}%</p>
+                                        <p className="text-[7.5px] text-slate-400 font-semibold tabular-nums leading-none">{count}</p>
                                     </div>
-                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                        <div
-                                            style={{ width: `${pct}%`, backgroundColor: SCALE_COLORS[i] }}
-                                            className="h-full rounded-full"
-                                        />
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 text-right font-medium">{pct.toFixed(1)}%</p>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
+
+                    {/* Desktop 5-Card Layout (md and up) */}
+                    <div className="hidden md:block px-10 pb-5 pt-1 bg-purple-50/20 border-t border-slate-50 space-y-2.5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Score Distribution Breakdown</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                            {counts.map((count: number, i: number) => {
+                                const pct = total > 0 ? (count / total) * 100 : 0;
+                                return (
+                                    <div key={SCALE_LABELS[i]} className="bg-white rounded-xl border border-slate-100 p-2.5 shadow-2xs space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SCALE_COLORS[i] }} />
+                                                {SCALE_LABELS[i]}
+                                            </span>
+                                            <span className="font-bold text-slate-900">{count}</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                style={{ width: `${pct}%`, backgroundColor: SCALE_COLORS[i] }}
+                                                className="h-full rounded-full"
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 text-right font-medium">{pct.toFixed(1)}%</p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </>
             )}
         </div>
     );
@@ -625,49 +924,49 @@ const QuestionsTab = ({
     const demographics = useMemo(() => computeGenderDemographics(submissions), [submissions]);
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 space-y-3">
+        <div className="flex-1 flex flex-col min-h-0 space-y-2 md:space-y-3">
             {/* Header row with Title, Subtitle, Export Buttons, Count Badge */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 sm:gap-3 shrink-0">
                 <div>
-                    <h3 className="font-bold text-base text-slate-900 tracking-tight">Question Analysis</h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    <h3 className="font-extrabold md:font-bold text-xs md:text-base text-slate-900 tracking-tight">Question Analysis</h3>
+                    <p className="text-[9.5px] md:text-xs text-slate-500 font-medium leading-tight mt-0.5">
                         Open a question to see its full breakdown. Bars run 1 (red) to 5 (green).
                     </p>
                     {compareTitle && (
-                        <p className="text-xs text-purple-700 font-semibold mt-0.5">
+                        <p className="text-[10px] md:text-xs text-purple-700 font-semibold mt-0.5">
                             Comparing against {compareTitle}
                             {unmatchedCount > 0 && ` (${unmatchedCount} questions unmatched)`}
                         </p>
                     )}
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="grid grid-cols-3 sm:flex items-center gap-1 sm:gap-2 w-full sm:w-auto shrink-0">
                     <button
                         type="button"
                         onClick={onExportPdf}
                         disabled={isExporting || submissions.length === 0}
                         title="Export Questions as PDF Report"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-2xs hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-200 bg-white text-[9.5px] sm:text-xs font-bold text-slate-700 shadow-2xs hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors cursor-pointer"
                     >
-                        <FileText size={13} className="text-rose-500" /> PDF
+                        <FileText size={11} className="text-rose-500 shrink-0" /> PDF
                     </button>
                     <button
                         type="button"
                         onClick={onExportExcel}
                         disabled={isExporting || submissions.length === 0}
                         title="Export Questions as Excel Spreadsheet"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-2xs hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-200 bg-white text-[9.5px] sm:text-xs font-bold text-slate-700 shadow-2xs hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 transition-colors cursor-pointer"
                     >
-                        <FileSpreadsheet size={13} className="text-emerald-600" /> Excel
+                        <FileSpreadsheet size={11} className="text-emerald-600 shrink-0" /> Excel
                     </button>
-                    <span className="text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                    <span className="inline-flex items-center justify-center text-[9.5px] sm:text-xs font-bold text-slate-500 bg-slate-100/80 sm:bg-white px-1.5 py-1 sm:px-2 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-200/70 sm:border-slate-200 shadow-2xs tabular-nums">
                         N = {submissions.length}
                     </span>
                 </div>
             </div>
 
-            {/* Respondent Demographic Breakdown Card — collapsible */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs shrink-0">
+            {/* Respondent Demographic Breakdown Card — collapsible (Desktop only) */}
+            <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-xs shrink-0">
                 <button
                     type="button"
                     onClick={() => setShowDemographics(prev => !prev)}
@@ -830,76 +1129,167 @@ const QuestionsTab = ({
 const AnalyticsStatsBar = ({
     compareFormId, setCompareFormId, compareOptions,
     stats,
-    departmentFilter, setDepartmentFilter, allDepartments
-}: any) => (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
-        {/* COMPARE TO */}
-        <div className="flex flex-col gap-1 min-w-[180px]">
-            <label htmlFor="care-analytics-compare" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                COMPARE TO
-            </label>
-            <div className="relative">
-                <select
-                    id="care-analytics-compare"
-                    value={compareFormId ?? ''}
-                    onChange={e => setCompareFormId(e.target.value ? Number(e.target.value) : null)}
-                    disabled={compareOptions.length === 0}
-                    className="appearance-none pl-3.5 pr-8 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 shadow-2xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    <option value="">{compareOptions.length === 0 ? 'No other runs yet' : 'No comparison'}</option>
-                    {compareOptions.map((f: any) => (
-                        <option key={f.id} value={f.id}>{f.title}</option>
-                    ))}
-                </select>
-                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-        </div>
+    departmentFilter, setDepartmentFilter, allDepartments,
+    isMobileStatsExpanded, setIsMobileStatsExpanded
+}: any) => {
+    return (
+        <>
+            {/* Mobile Summary Layout (< md) — Only rendered when expanded, since the minimized trigger is moved inside the 3 tabs container */}
+            {isMobileStatsExpanded && (
+                <div className="flex md:hidden flex-col gap-2.5 bg-white rounded-xl border border-slate-200 shadow-xs p-2.5 shrink-0 animate-fade-in">
+                        <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider">Analytics Filters &amp; Stats</span>
+                            <button
+                                type="button"
+                                onClick={() => setIsMobileStatsExpanded(false)}
+                                aria-label="Hide stats and filters"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9.5px] font-bold transition-colors cursor-pointer"
+                            >
+                                <span>Hide</span>
+                                <ChevronUp size={11} />
+                            </button>
+                        </div>
 
-        {/* TOTAL RESPONDENTS */}
-        <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 shrink-0">
-                <Users size={18} />
-            </div>
-            <div>
-                <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none">TOTAL RESPONDENTS</p>
-                <p className="text-xl font-black text-slate-900 leading-tight mt-0.5 tabular-nums">{stats.total}</p>
-            </div>
-        </div>
+                        {/* COMPARE TO Full-Width */}
+                        <div className="flex flex-col gap-0.5 w-full">
+                            <label htmlFor="care-analytics-compare-mobile" className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                COMPARE TO
+                            </label>
+                            <div className="relative">
+                                <select
+                                    id="care-analytics-compare-mobile"
+                                    value={compareFormId ?? ''}
+                                    onChange={e => setCompareFormId(e.target.value ? Number(e.target.value) : null)}
+                                    disabled={compareOptions.length === 0}
+                                    className="appearance-none pl-2.5 pr-7 py-1.5 rounded-lg text-[10.5px] font-semibold border border-slate-200 bg-white text-slate-700 shadow-2xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <option value="">{compareOptions.length === 0 ? 'No other runs yet' : 'No comparison'}</option>
+                                    {compareOptions.map((f: any) => (
+                                        <option key={f.id} value={f.id}>{f.title}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
+                        </div>
 
-        {/* AVG. COMPLETION */}
-        <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                <Clock size={18} />
-            </div>
-            <div>
-                <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none">AVG. COMPLETION</p>
-                <p className="text-xl font-black text-slate-900 leading-tight mt-0.5">--</p>
-                <p className="text-[9.5px] text-slate-400 font-medium leading-none">Not tracked</p>
-            </div>
-        </div>
+                        {/* 2-Column Counters: Total Respondents & Avg. Completion */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-sky-50/70 border border-sky-100/80 rounded-xl p-2 flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-sky-100/80 flex items-center justify-center text-blue-600 shrink-0">
+                                    <Users size={14} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-tight truncate">TOTAL RESPONDENTS</p>
+                                    <p className="text-base font-black text-blue-600 leading-tight mt-0.5 tabular-nums">{stats.total}</p>
+                                </div>
+                            </div>
 
-        {/* COLLEGE FILTER */}
-        <div className="flex flex-col gap-1 min-w-[180px]">
-            <label htmlFor="care-analytics-department" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                COLLEGE FILTER
-            </label>
-            <div className="relative">
-                <select
-                    id="care-analytics-department"
-                    value={departmentFilter}
-                    onChange={e => setDepartmentFilter(e.target.value)}
-                    className="appearance-none pl-3.5 pr-8 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white shadow-2xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-full cursor-pointer"
-                >
-                    <option value="All">All Colleges</option>
-                    {allDepartments.map((d: any) => (
-                        <option key={d.name} value={d.name}>{d.name}</option>
-                    ))}
-                </select>
-                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            <div className="bg-purple-50/60 border border-purple-100/80 rounded-xl p-2 flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-purple-100/80 flex items-center justify-center text-purple-600 shrink-0">
+                                    <Clock size={14} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-tight truncate">AVG. COMPLETION</p>
+                                    <p className="text-sm font-black text-slate-400 leading-tight mt-0.5">--</p>
+                                    <p className="text-[8.5px] text-slate-400 font-medium leading-none mt-0.5">Not tracked</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* COLLEGE FILTER Full-Width */}
+                        <div className="flex flex-col gap-0.5 w-full">
+                            <label htmlFor="care-analytics-department-mobile" className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                COLLEGE FILTER
+                            </label>
+                            <div className="relative">
+                                <select
+                                    id="care-analytics-department-mobile"
+                                    value={departmentFilter}
+                                    onChange={e => setDepartmentFilter(e.target.value)}
+                                    className="appearance-none pl-2.5 pr-7 py-1.5 border border-slate-200 rounded-lg text-[10.5px] font-semibold text-slate-700 bg-white shadow-2xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-full cursor-pointer"
+                                >
+                                    <option value="All">All Colleges</option>
+                                    {allDepartments.map((d: any) => (
+                                        <option key={d.name} value={d.name}>{d.name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+            {/* Desktop Summary Layout (md and up) */}
+            <div className="hidden md:flex bg-white rounded-2xl border border-slate-200 shadow-xs p-3.5 sm:p-4 flex-wrap items-center justify-between gap-4 shrink-0">
+                {/* COMPARE TO */}
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                    <label htmlFor="care-analytics-compare" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        COMPARE TO
+                    </label>
+                    <div className="relative">
+                        <select
+                            id="care-analytics-compare"
+                            value={compareFormId ?? ''}
+                            onChange={e => setCompareFormId(e.target.value ? Number(e.target.value) : null)}
+                            disabled={compareOptions.length === 0}
+                            className="appearance-none pl-3.5 pr-8 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 shadow-2xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <option value="">{compareOptions.length === 0 ? 'No other runs yet' : 'No comparison'}</option>
+                            {compareOptions.map((f: any) => (
+                                <option key={f.id} value={f.id}>{f.title}</option>
+                            ))}
+                        </select>
+                        <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                </div>
+
+                {/* TOTAL RESPONDENTS */}
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 shrink-0">
+                        <Users size={18} />
+                    </div>
+                    <div>
+                        <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none">TOTAL RESPONDENTS</p>
+                        <p className="text-xl font-black text-slate-900 leading-tight mt-0.5 tabular-nums">{stats.total}</p>
+                    </div>
+                </div>
+
+                {/* AVG. COMPLETION */}
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+                        <Clock size={18} />
+                    </div>
+                    <div>
+                        <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider leading-none">AVG. COMPLETION</p>
+                        <p className="text-xl font-black text-slate-900 leading-tight mt-0.5">--</p>
+                        <p className="text-[9.5px] text-slate-400 font-medium leading-none">Not tracked</p>
+                    </div>
+                </div>
+
+                {/* COLLEGE FILTER */}
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                    <label htmlFor="care-analytics-department" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        COLLEGE FILTER
+                    </label>
+                    <div className="relative">
+                        <select
+                            id="care-analytics-department"
+                            value={departmentFilter}
+                            onChange={e => setDepartmentFilter(e.target.value)}
+                            className="appearance-none pl-3.5 pr-8 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white shadow-2xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-full cursor-pointer"
+                        >
+                            <option value="All">All Colleges</option>
+                            {allDepartments.map((d: any) => (
+                                <option key={d.name} value={d.name}>{d.name}</option>
+                            ))}
+                        </select>
+                        <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-);
+        </>
+    );
+};
 
 export type { ExportProgress };
 export { INITIAL_EXPORT_PROGRESS };
@@ -987,25 +1377,48 @@ const ExportFilterModal = ({
         });
     }, [submissions, selectedSexes, selectedGenders]);
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+    if (!isOpen) return null;
+    if (typeof document === 'undefined') return null;
+
+    const modalContent = (
+        <div className="fixed inset-x-0 bottom-0 top-[3.15rem] md:inset-0 z-50 flex p-1.5 md:p-4 md:items-center md:justify-center animate-fade-in">
+            {/* Backdrop */}
+            <div
+                className="absolute inset-0 bg-black/30 md:bg-slate-900/60 backdrop-blur-[2px] md:backdrop-blur-xs transition-opacity"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+
+            {/* Modal Panel */}
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="export-filter-modal-title"
+                className="relative bg-white rounded-2xl md:rounded-3xl border border-slate-200/80 md:border-slate-200 shadow-2xl w-full h-full md:h-auto md:max-w-lg md:max-h-[90vh] overflow-hidden flex flex-col focus:outline-none"
+            >
                 {/* Modal Header */}
-                <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-3.5 py-2.5 md:px-6 md:py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
                     <div>
-                        <h3 className="font-extrabold text-base text-slate-900">
+                        <h3 id="export-filter-modal-title" className="font-extrabold text-sm md:text-base text-slate-900 leading-tight">
                             Export Assessment Results
                         </h3>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        <p className="text-[10px] md:text-xs text-slate-500 font-medium mt-0.5">
                             Filter exported questions data by demographic checklist
                         </p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white transition-colors cursor-pointer"
+                        className="-mr-1 -mt-0.5 inline-flex h-7 w-7 md:h-8 md:w-8 md:rounded-full rounded-lg md:border md:border-slate-200 items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 md:hover:bg-white transition-colors cursor-pointer shrink-0"
                         aria-label="Close export dialog"
                     >
                         <X size={15} />
@@ -1013,135 +1426,139 @@ const ExportFilterModal = ({
                 </div>
 
                 {/* Modal Body */}
-                <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar">
+                <div className="p-3 md:p-6 overflow-y-auto space-y-3 md:space-y-5 custom-scrollbar flex-1 min-h-0">
                     {/* Format Toggle */}
                     <div>
-                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Export Format</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setExportFormat('pdf')}
-                                        className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${exportFormat === 'pdf' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
-                                    >
-                                        <FileText size={16} className="text-rose-500" />
-                                        <span>PDF Report (.pdf)</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setExportFormat('excel')}
-                                        className={`flex items-center justify-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${exportFormat === 'excel' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
-                                    >
-                                        <FileSpreadsheet size={16} className="text-emerald-600" />
-                                        <span>Excel Sheet (.xlsx)</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Sex Checklist */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sex Assigned at Birth</label>
-                                    <button
-                                        type="button"
-                                        onClick={toggleAllSexes}
-                                        className="text-[11px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer"
-                                    >
-                                        {isAllSexes ? 'Deselect All' : 'Select All'}
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {availableSexes.map(sex => {
-                                        const count = submissions.filter(s => ((s.students?.sex || '').trim() || 'Other / Unspecified') === sex).length;
-                                        const isChecked = selectedSexes.includes(sex);
-                                        return (
-                                            <label
-                                                key={sex}
-                                                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
-                                            >
-                                                <div className="flex items-center gap-2.5">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isChecked}
-                                                        onChange={() => toggleSex(sex)}
-                                                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
-                                                    />
-                                                    <span>{sex}</span>
-                                                </div>
-                                                <span className="text-[11px] font-bold tabular-nums text-slate-500">({count})</span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Gender Identity Checklist */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gender Identity</label>
-                                    <button
-                                        type="button"
-                                        onClick={toggleAllGenders}
-                                        className="text-[11px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer"
-                                    >
-                                        {isAllGenders ? 'Deselect All' : 'Select All'}
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {availableGenders.map(gender => {
-                                        const count = submissions.filter(s => ((s.students?.gender_identity || '').trim() || 'Other / Unspecified') === gender).length;
-                                        const isChecked = selectedGenders.includes(gender);
-                                        return (
-                                            <label
-                                                key={gender}
-                                                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
-                                            >
-                                                <div className="flex items-center gap-2.5">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isChecked}
-                                                        onChange={() => toggleGender(gender)}
-                                                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
-                                                    />
-                                                    <span>{gender}</span>
-                                                </div>
-                                                <span className="text-[11px] font-bold tabular-nums text-slate-500">({count} respondents)</span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Live Count Preview */}
-                            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
-                                <span className="text-slate-600 font-medium">Matching Respondents:</span>
-                                <span className="font-extrabold text-purple-700 text-sm tabular-nums">
-                                    {matchingSubmissions.length.toLocaleString()} <span className="text-slate-400 text-xs font-normal">of {submissions.length.toLocaleString()}</span>
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+                        <label className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 md:mb-2">Export Format</label>
+                        <div className="grid grid-cols-2 gap-2 md:gap-3">
                             <button
                                 type="button"
-                                onClick={onClose}
-                                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                                onClick={() => setExportFormat('pdf')}
+                                className={`flex items-center justify-center gap-1.5 md:gap-2 p-2 md:p-3 rounded-xl md:rounded-2xl border text-[11px] md:text-xs font-bold transition-all cursor-pointer ${exportFormat === 'pdf' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
                             >
-                                Cancel
+                                <FileText size={15} className="text-rose-500" />
+                                <span>PDF Report (.pdf)</span>
                             </button>
                             <button
                                 type="button"
-                                onClick={() => onExport(selectedSexes, selectedGenders, exportFormat)}
-                                disabled={matchingSubmissions.length === 0}
-                                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                                onClick={() => setExportFormat('excel')}
+                                className={`flex items-center justify-center gap-1.5 md:gap-2 p-2 md:p-3 rounded-xl md:rounded-2xl border text-[11px] md:text-xs font-bold transition-all cursor-pointer ${exportFormat === 'excel' ? 'border-purple-600 bg-purple-50/70 text-purple-700 shadow-xs' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
                             >
-                                <Download size={14} />
-                                <span>Export {exportFormat.toUpperCase()} ({matchingSubmissions.length})</span>
+                                <FileSpreadsheet size={15} className="text-emerald-600" />
+                                <span>Excel Sheet (.xlsx)</span>
                             </button>
                         </div>
                     </div>
+
+                    {/* Sex Checklist */}
+                    <div className="space-y-1.5 md:space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sex Assigned at Birth</label>
+                            <button
+                                type="button"
+                                onClick={toggleAllSexes}
+                                className="text-[10px] md:text-[11px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer"
+                            >
+                                {isAllSexes ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 md:gap-2">
+                            {availableSexes.map(sex => {
+                                const count = submissions.filter(s => ((s.students?.sex || '').trim() || 'Other / Unspecified') === sex).length;
+                                const isChecked = selectedSexes.includes(sex);
+                                return (
+                                    <label
+                                        key={sex}
+                                        className={`flex items-center justify-between p-2 md:p-2.5 rounded-lg md:rounded-xl border text-[11px] md:text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
+                                    >
+                                        <div className="flex items-center gap-2 md:gap-2.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => toggleSex(sex)}
+                                                className="w-3.5 h-3.5 md:w-4 md:h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                                            />
+                                            <span>{sex}</span>
+                                        </div>
+                                        <span className="text-[10px] md:text-[11px] font-bold tabular-nums text-slate-500">({count})</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Gender Identity Checklist */}
+                    <div className="space-y-1.5 md:space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gender Identity</label>
+                            <button
+                                type="button"
+                                onClick={toggleAllGenders}
+                                className="text-[10px] md:text-[11px] font-bold text-purple-600 hover:text-purple-800 cursor-pointer"
+                            >
+                                {isAllGenders ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5 md:gap-2">
+                            {availableGenders.map(gender => {
+                                const count = submissions.filter(s => ((s.students?.gender_identity || '').trim() || 'Other / Unspecified') === gender).length;
+                                const isChecked = selectedGenders.includes(gender);
+                                return (
+                                    <label
+                                        key={gender}
+                                        className={`flex items-center justify-between p-2 md:p-2.5 rounded-lg md:rounded-xl border text-[11px] md:text-xs font-semibold cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/40 border-purple-200 text-slate-900' : 'bg-slate-50/60 border-slate-200 text-slate-400'}`}
+                                    >
+                                        <div className="flex items-center gap-2 md:gap-2.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => toggleGender(gender)}
+                                                className="w-3.5 h-3.5 md:w-4 md:h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                                            />
+                                            <span>{gender}</span>
+                                        </div>
+                                        <span className="text-[10px] md:text-[11px] font-bold tabular-nums text-slate-500">
+                                            ({count} <span className="hidden sm:inline">respondents</span>)
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Live Count Preview */}
+                    <div className="p-2.5 md:p-3.5 rounded-xl md:rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[11px] md:text-xs">
+                        <span className="text-slate-600 font-medium">Matching Respondents:</span>
+                        <span className="font-extrabold text-purple-700 text-xs md:text-sm tabular-nums">
+                            {matchingSubmissions.length.toLocaleString()} <span className="text-slate-400 text-[10px] md:text-xs font-normal">of {submissions.length.toLocaleString()}</span>
+                        </span>
+                    </div>
                 </div>
-            );
+
+                {/* Modal Footer */}
+                <div className="px-3.5 py-2 md:px-6 md:py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between md:justify-end gap-2 md:gap-3 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl border border-slate-200 bg-white text-[11px] md:text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onExport(selectedSexes, selectedGenders, exportFormat)}
+                        disabled={matchingSubmissions.length === 0}
+                        className="inline-flex items-center gap-1.5 md:gap-2 px-3.5 py-1.5 md:px-5 md:py-2 rounded-lg md:rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] md:text-xs font-bold shadow-xs hover:shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                        <Download size={13} className="md:w-3.5 md:h-3.5" />
+                        <span>Export {exportFormat.toUpperCase()} ({matchingSubmissions.length})</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    return createPortal(modalContent, document.body);
         };
 
 /** Main Page Header styled like Student Population banner */
@@ -1149,6 +1566,7 @@ const AnalyticsHeader = ({
     forms, selectedFormId, onFormSelect, onRefresh, isRefreshingData,
     onExportPdf, onExportExcel, isExporting, totalCount
 }: any) => {
+    const [isMobileHeroExpanded, setIsMobileHeroExpanded] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const exportMenuRef = useRef<HTMLDivElement>(null);
 
@@ -1163,21 +1581,131 @@ const AnalyticsHeader = ({
     }, []);
 
     return (
-        <div className="bg-gradient-to-r from-[#170529] via-[#2a0b4d] to-[#170529] rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 shrink-0">
-            {/* Title & Subtitle */}
-            <div>
-                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Student Analytics</h1>
-                <p className="text-purple-200/80 text-xs md:text-sm mt-1 font-medium">Deep dive into student responses and trends.</p>
+        <div className="bg-gradient-to-r from-[#170529] via-[#2a0b4d] to-[#170529] rounded-xl md:rounded-3xl p-2 sm:p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-1.5 sm:gap-3.5 md:gap-4 shrink-0">
+            {/* Title & Subtitle + Mobile Hide Button */}
+            <div className="flex items-start justify-between gap-2">
+                <div>
+                    <h1 className="text-sm sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white">Student Analytics</h1>
+                    <p className="text-purple-200/80 text-[9.5px] sm:text-xs md:text-sm mt-0.5 font-medium">Deep dive into student responses and trends.</p>
+                </div>
+                {isMobileHeroExpanded && (
+                    <button
+                        type="button"
+                        onClick={() => setIsMobileHeroExpanded(false)}
+                        aria-label="Hide hero actions"
+                        className="md:hidden shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/10 hover:bg-white/20 border border-white/15 text-purple-100 text-[9.5px] font-semibold transition-all cursor-pointer"
+                    >
+                        <span>Hide</span>
+                        <ChevronUp size={10} />
+                    </button>
+                )}
             </div>
 
-            {/* Options / Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Mobile Collapsible Hero Actions (Default Minimized, < md) */}
+            <div className="md:hidden">
+                {!isMobileHeroExpanded ? (
+                    <button
+                        type="button"
+                        onClick={() => setIsMobileHeroExpanded(true)}
+                        aria-expanded={false}
+                        aria-label="Show hero actions: Refresh, Export, Form Select"
+                        className="w-full flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[9.5px] font-semibold backdrop-blur-sm transition-all cursor-pointer"
+                    >
+                        <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="inline-flex items-center gap-1 text-purple-200 shrink-0">
+                                <RefreshCw size={10} className={isRefreshingData ? 'animate-spin' : ''} />
+                                <Download size={10} />
+                                <FileText size={10} />
+                            </span>
+                            <span className="text-purple-200/90 text-[9.5px] truncate">
+                                Refresh · Export · Form Select
+                            </span>
+                        </span>
+                        <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold text-purple-200 shrink-0">
+                            <span>Actions</span>
+                            <ChevronDown size={10} />
+                        </span>
+                    </button>
+                ) : (
+                    <div className="grid grid-cols-2 gap-1.5 w-full pt-0.5">
+                        {/* Refresh Data button */}
+                        <button
+                            type="button"
+                            onClick={onRefresh}
+                            disabled={isRefreshingData}
+                            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-[10.5px] font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50 hover:shadow-sm cursor-pointer"
+                        >
+                            <RefreshCw size={11} className={isRefreshingData ? 'animate-spin' : ''} />
+                            <span>Refresh Data</span>
+                        </button>
+
+                        {/* Export Results dropdown */}
+                        <div ref={exportMenuRef} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowExportMenu(prev => !prev)}
+                                disabled={isExporting || totalCount === 0}
+                                className="w-full inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-[10.5px] font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm disabled:opacity-50 cursor-pointer"
+                            >
+                                {isExporting ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                                <span>Export Results</span>
+                            </button>
+
+                            {showExportMenu && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl py-1.5 z-50 animate-scale-in text-slate-800">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowExportMenu(false); onExportPdf(); }}
+                                        className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                        <FileText size={15} className="text-rose-500 shrink-0" />
+                                        <div>
+                                            <p className="font-bold">Export PDF Report</p>
+                                            <p className="text-[10px] font-normal text-slate-400">Executive &amp; question stats</p>
+                                        </div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowExportMenu(false); onExportExcel(); }}
+                                        className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                    >
+                                        <FileSpreadsheet size={15} className="text-emerald-600 shrink-0" />
+                                        <div>
+                                            <p className="font-bold">Export Excel (.xlsx)</p>
+                                            <p className="text-[10px] font-normal text-slate-400">Complete data sheet</p>
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Form Selector */}
+                        <div className="col-span-2 relative w-full">
+                            <select
+                                aria-label="Analytics form"
+                                value={selectedFormId || ''}
+                                onChange={e => onFormSelect(Number(e.target.value))}
+                                className="appearance-none pl-3 pr-7 py-1.5 rounded-lg bg-[#9333EA] hover:bg-[#7C3AED] border border-purple-400/80 text-white text-[10.5px] font-bold shadow-sm transition-all duration-200 hover:shadow-md hover:shadow-purple-500/20 cursor-pointer w-full truncate uppercase text-center"
+                            >
+                                {forms.map((f: any) => (
+                                    <option key={f.id} value={f.id} className="bg-slate-900 text-white">{f.title}</option>
+                                ))}
+                                {forms.length === 0 && <option className="bg-slate-900 text-white">No Forms Available</option>}
+                            </select>
+                            <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-200 pointer-events-none" />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop Toolbar (md and up) - 100% Unchanged */}
+            <div className="hidden md:flex flex-wrap items-center gap-2">
                 {/* Refresh Data button */}
                 <button
                     type="button"
                     onClick={onRefresh}
                     disabled={isRefreshingData}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50 hover:shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50 hover:shadow-sm cursor-pointer"
                 >
                     <RefreshCw size={14} className={isRefreshingData ? 'animate-spin' : ''} />
                     <span>Refresh</span>
@@ -1452,6 +1980,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     const [selectedFormId, setSelectedFormId] = useState<number | null>(null);
     const [compareFormId, setCompareFormId] = useState<number | null>(null);
     const [currentTab, setCurrentTab] = useState('Overview');
+    const [isMobileStatsExpanded, setIsMobileStatsExpanded] = useState(false);
     const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [departmentFilter, setDepartmentFilter] = useState('All');
     const [courseFilter, setCourseFilter] = useState('All');
@@ -1791,7 +2320,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
     };
 
     return (
-        <div className="relative flex-1 flex flex-col min-h-0 h-full overflow-hidden gap-3.5">
+        <div className="relative flex-1 flex flex-col min-h-0 md:h-full overflow-x-hidden md:overflow-hidden gap-2 md:gap-3.5 pb-2 md:pb-0">
             {/* 1. Header Row */}
             <AnalyticsHeader
                 forms={forms}
@@ -1814,10 +2343,56 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 departmentFilter={departmentFilter}
                 setDepartmentFilter={setDepartmentFilter}
                 allDepartments={allDepartments}
+                isMobileStatsExpanded={isMobileStatsExpanded}
+                setIsMobileStatsExpanded={setIsMobileStatsExpanded}
             />
 
-            {/* 3. Tab Strip with Icons & Purple Underline */}
-            <div className="flex border-b border-slate-200 shrink-0 gap-6">
+            {/* 3. Navigation Tabs */}
+            {/* Mobile Highlighted Segmented Tabs (< md) with Stats Pill on the right side */}
+            <div className="flex items-center gap-1 p-0.5 bg-purple-50/80 border border-purple-200/80 rounded-xl shadow-xs md:hidden shrink-0">
+                {/* Left Side: 3 Navigation Tabs with shortened words */}
+                <div className="grid grid-cols-3 gap-0.5 flex-1 min-w-0">
+                    {ANALYTICS_TABS.map(({ name, mobileLabel, icon: Icon }) => {
+                        const isActive = currentTab === name;
+                        return (
+                            <button
+                                key={name}
+                                type="button"
+                                onClick={() => { setCurrentTab(name); setViewingStudent(null); }}
+                                className={`flex items-center justify-center gap-1 py-1 px-1 rounded-lg text-[9.5px] font-bold transition-all duration-200 cursor-pointer ${isActive
+                                    ? 'bg-purple-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-purple-700 hover:bg-white/60'
+                                    }`}
+                            >
+                                <Icon size={11} className={isActive ? 'text-white' : 'text-purple-500/70'} />
+                                <span className="whitespace-nowrap">{mobileLabel || name}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Right Side: Stats Counter & Filter Pill with shortened college name */}
+                <button
+                    type="button"
+                    onClick={() => setIsMobileStatsExpanded(prev => !prev)}
+                    className="inline-flex items-center gap-1 py-1 px-1.5 rounded-lg bg-white/90 hover:bg-white border border-purple-200/70 shadow-2xs text-slate-700 font-extrabold text-[9.5px] shrink-0 active:scale-95 transition-all cursor-pointer"
+                    aria-expanded={isMobileStatsExpanded}
+                    aria-label="Toggle analytics stats and filters"
+                    title={departmentFilter === 'All' ? 'All Colleges · Tap for stats & filters' : `${departmentFilter} · Tap for stats & filters`}
+                >
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-sky-50 border border-sky-100/80 text-blue-700">
+                        <Users size={10} className="text-blue-600 shrink-0" />
+                        <span className="tabular-nums font-black text-[9.5px]">{stats.total.toLocaleString()}</span>
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-500 whitespace-nowrap">
+                        {formatShortDepartment(departmentFilter)}
+                    </span>
+                    <ChevronDown size={10} className={`text-purple-600 shrink-0 transition-transform duration-200 ${isMobileStatsExpanded ? 'rotate-180' : ''}`} />
+                </button>
+            </div>
+
+            {/* Desktop Tab Strip (md and up) - 100% Unchanged */}
+            <div className="hidden md:flex border-b border-slate-200 shrink-0 gap-6">
                 {ANALYTICS_TABS.map(({ name, icon: Icon }) => {
                     const isActive = currentTab === name;
                     return (
@@ -1825,7 +2400,7 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                             key={name}
                             type="button"
                             onClick={() => { setCurrentTab(name); setViewingStudent(null); }}
-                            className={`flex items-center gap-2 pb-2.5 text-xs sm:text-sm font-bold transition-all relative ${isActive
+                            className={`flex items-center gap-2 pb-2.5 text-xs sm:text-sm font-bold transition-all relative cursor-pointer ${isActive
                                 ? 'text-purple-700'
                                 : 'text-slate-500 hover:text-slate-800'
                                 }`}
@@ -1840,14 +2415,14 @@ const CareStaffAnalyticsPage = ({ functions }: CareStaffAnalyticsPageProps) => {
                 })}
             </div>
 
-            {/* 4. Tab Content Area (Viewport-locked & internally scrollable) */}
+            {/* 4. Tab Content Area (Viewport-locked on desktop, vertically scrollable on mobile) */}
             {loading ? (
                 <div className="space-y-4 flex-1">
                     <LoadingSkeleton type="stats" count={4} />
                     <LoadingSkeleton type="card" count={2} />
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="flex-1 flex flex-col min-h-0 md:overflow-hidden">
                     {/* OVERVIEW TAB */}
                     {currentTab === 'Overview' && (
                         <OverviewTab

@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { m, AnimatePresence } from 'framer-motion';
 import {
     Users, Search, Edit, Trash2, Archive,
     PieChart, List, ArrowUpDown, TrendingUp, CheckCircle2,
     Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
     FileSpreadsheet, RefreshCw, Settings, Flag, MessageSquareMore,
-    Users2, X, Check, Filter, XCircle, FileArchive, Loader2
+    Users2, X, Check, Filter, XCircle, FileArchive, Loader2, MoreHorizontal,
+    ChevronDown, ChevronUp
 } from 'lucide-react';
 import { AsyncButton } from '../../../../../components/ui/Button';
 import type { CareStaffDashboardFunctions } from '../../../types';
@@ -17,7 +19,7 @@ import EnrollmentKeysModal from './EnrollmentKeysModal';
 import StudentProfileModal from './StudentProfileModal';
 import IdSwapModal from './IdSwapModal';
 import { STUDENT_BACKGROUND_FILTERS } from '../constants';
-import { renderCareStudentPaddingRows, getArchivedSnapshotForSchoolYear } from '../utils';
+import { renderCareStudentPaddingRows, getArchivedSnapshotForSchoolYear, abbreviateCourseName } from '../utils';
 import { toTitleCase } from '../../../../../utils/formatters';
 
 interface CareStaffPopulationPageProps {
@@ -30,71 +32,180 @@ interface CareStaffPopulationPageProps {
 const PopulationHeader = ({
     isRefreshingData, handleRefreshData, canArchiveRecords, canRestoreRecords,
     overviewLoading, populationOverview, openArchivedStudentsModal, setShowIdSwapModal,
-    setShowEnrollmentModal, viewMode, setViewMode
-}: any) => (
-    <m.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-gradient-to-r from-[#170529] via-[#2a0b4d] to-[#170529] rounded-2xl md:rounded-3xl p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 shrink-0"
-    >
-        <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">Student Population</h1>
-            <p className="text-purple-200/80 text-xs md:text-sm mt-1 font-medium">Comprehensive management and analytics for the student body.</p>
-        </div>
+    setShowEnrollmentModal, viewMode, setViewMode,
+    handleExportExcel, canExportStudents, exportStatus
+}: any) => {
+    const [isMobileHeroExpanded, setIsMobileHeroExpanded] = useState(false);
 
-        {/* Consolidated Single-Row Toolbar */}
-        <div className="flex flex-wrap items-center gap-2">
-            <button
-                type="button"
-                onClick={handleRefreshData}
-                disabled={isRefreshingData}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50 hover:shadow-sm"
-            >
-                <RefreshCw size={14} className={isRefreshingData ? 'animate-spin' : ''} />
-                <span>Refresh</span>
-            </button>
+    return (
+        <m.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="bg-gradient-to-r from-[#170529] via-[#2a0b4d] to-[#170529] rounded-xl md:rounded-3xl px-3 py-2.5 sm:p-5 md:p-6 text-white shadow-md border border-purple-900/40 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-2 md:gap-4 shrink-0"
+        >
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <h1 className="text-base sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">Student Population</h1>
+                    <p className="text-purple-200/80 text-[10.5px] sm:text-xs md:text-sm mt-0.5 md:mt-1 font-medium leading-snug">
+                        Comprehensive management and analytics for the student body.
+                    </p>
+                </div>
 
-            {(canArchiveRecords || canRestoreRecords) && (
+                {isMobileHeroExpanded && (
+                    <button
+                        type="button"
+                        onClick={() => setIsMobileHeroExpanded(false)}
+                        aria-expanded={true}
+                        aria-label="Hide hero actions"
+                        className="md:hidden shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-purple-100 text-[10.5px] font-semibold transition-all"
+                    >
+                        <span>Hide</span>
+                        <ChevronUp size={12} />
+                    </button>
+                )}
+            </div>
+
+            {/* Mobile Collapsible Hero Actions (Default Minimized) */}
+            <div className="md:hidden">
+                {!isMobileHeroExpanded ? (
+                    <button
+                        type="button"
+                        onClick={() => setIsMobileHeroExpanded(true)}
+                        aria-expanded={false}
+                        aria-label="Show hero actions: Refresh, Export, Archive, Swap IDs, Settings, Stats"
+                        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10.5px] font-semibold backdrop-blur-sm transition-all"
+                    >
+                        <span className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-purple-200 shrink-0">
+                                <RefreshCw size={11} />
+                                <FileSpreadsheet size={11} />
+                                <Archive size={11} />
+                                <ArrowUpDown size={11} />
+                                <Settings size={11} className="text-purple-300" />
+                                <TrendingUp size={11} />
+                            </span>
+                        </span>
+                        <span className="inline-flex items-center gap-0.5 text-[10.5px] font-bold text-purple-200 shrink-0">
+                            <span>Actions</span>
+                            <ChevronDown size={13} />
+                        </span>
+                    </button>
+                ) : (
+                    <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                            type="button"
+                            onClick={handleRefreshData}
+                            disabled={isRefreshingData}
+                            className="inline-flex items-center justify-center gap-1 min-h-8 px-1.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-[10.5px] sm:text-xs font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50"
+                        >
+                            <RefreshCw size={12} className={`shrink-0 ${isRefreshingData ? 'animate-spin' : ''}`} />
+                            <span>Refresh</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleExportExcel}
+                            disabled={!canExportStudents || !!exportStatus}
+                            className="inline-flex items-center justify-center gap-1 min-h-8 px-1.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-[10.5px] sm:text-xs font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50"
+                        >
+                            <FileSpreadsheet size={12} className="shrink-0" />
+                            <span>Export</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={openArchivedStudentsModal}
+                            disabled={!(canArchiveRecords || canRestoreRecords)}
+                            className="inline-flex items-center justify-center gap-1 min-h-8 px-1.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-[10.5px] sm:text-xs font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50"
+                        >
+                            <Archive size={12} className="shrink-0" />
+                            <span>Archive ({overviewLoading ? '…' : populationOverview.archivedStudents})</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowIdSwapModal(true)}
+                            className="inline-flex items-center justify-center gap-1 min-h-8 px-1.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-[10.5px] sm:text-xs font-semibold backdrop-blur-sm transition-all duration-200"
+                        >
+                            <ArrowUpDown size={12} className="shrink-0" />
+                            <span>Swap IDs</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowEnrollmentModal(true)}
+                            className="inline-flex items-center justify-center gap-1 min-h-8 px-1.5 py-1.5 rounded-lg bg-[#8B5CF6] hover:bg-[#7C3AED] border border-purple-400/80 text-white text-[10.5px] sm:text-xs font-bold shadow-sm transition-all duration-200"
+                        >
+                            <Settings size={12} className="shrink-0" />
+                            <span>Settings</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')}
+                            className="inline-flex items-center justify-center gap-1 min-h-8 px-1.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-[10.5px] sm:text-xs font-semibold backdrop-blur-sm transition-all duration-200"
+                        >
+                            {viewMode === 'list' ? <TrendingUp size={12} className="shrink-0" /> : <List size={12} className="shrink-0" />}
+                            <span>{viewMode === 'list' ? 'Stats' : 'List'}</span>
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop Consolidated Single-Row Toolbar */}
+            <div className="hidden md:flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    onClick={openArchivedStudentsModal}
+                    onClick={handleRefreshData}
+                    disabled={isRefreshingData}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 disabled:opacity-50 hover:shadow-sm"
+                >
+                    <RefreshCw size={14} className={isRefreshingData ? 'animate-spin' : ''} />
+                    <span>Refresh</span>
+                </button>
+
+                {(canArchiveRecords || canRestoreRecords) && (
+                    <button
+                        type="button"
+                        onClick={openArchivedStudentsModal}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm"
+                    >
+                        <Archive size={14} />
+                        <span>Archived ({overviewLoading ? '...' : populationOverview.archivedStudents})</span>
+                    </button>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => setShowIdSwapModal(true)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm"
                 >
-                    <Archive size={14} />
-                    <span>Archived ({overviewLoading ? '...' : populationOverview.archivedStudents})</span>
+                    <RefreshCw size={14} />
+                    <span>Swap IDs</span>
                 </button>
-            )}
 
-            <button
-                type="button"
-                onClick={() => setShowIdSwapModal(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm"
-            >
-                <RefreshCw size={14} />
-                <span>Swap IDs</span>
-            </button>
+                <button
+                    type="button"
+                    onClick={() => setShowEnrollmentModal(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] border border-purple-400/80 text-white text-xs font-bold shadow-sm transition-all duration-200 hover:shadow-md hover:shadow-purple-500/20"
+                >
+                    <Settings size={14} />
+                    <span>System Settings</span>
+                </button>
 
-            <button
-                type="button"
-                onClick={() => setShowEnrollmentModal(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] border border-purple-400/80 text-white text-xs font-bold shadow-sm transition-all duration-200 hover:shadow-md hover:shadow-purple-500/20"
-            >
-                <Settings size={14} />
-                <span>System Settings</span>
-            </button>
-
-            <button
-                type="button"
-                onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm"
-            >
-                {viewMode === 'list' ? <PieChart size={14} /> : <List size={14} />}
-                <span>{viewMode === 'list' ? 'View Stats' : 'View List'}</span>
-            </button>
-        </div>
-    </m.div>
-);
+                <button
+                    type="button"
+                    onClick={() => setViewMode(viewMode === 'list' ? 'stats' : 'list')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-all duration-200 hover:shadow-sm"
+                >
+                    {viewMode === 'list' ? <PieChart size={14} /> : <List size={14} />}
+                    <span>{viewMode === 'list' ? 'View Stats' : 'View List'}</span>
+                </button>
+            </div>
+        </m.div>
+    );
+};
 
 const PopulationToolbar = ({
     searchTerm, setSearchTerm, overviewLoading, populationOverview,
@@ -105,9 +216,43 @@ const PopulationToolbar = ({
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1, ease: 'easeOut' }}
-        className="bg-white rounded-2xl border border-slate-200/70 p-2.5 md:p-3 shadow-2xs flex flex-col gap-2.5 shrink-0"
+        className="bg-white rounded-xl md:rounded-2xl border border-slate-200/70 p-2 sm:p-2.5 md:p-3 shadow-2xs flex flex-col gap-2 shrink-0"
     >
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* Mobile Layout: Search + Filters row */}
+        <div className="flex items-center gap-1.5 md:hidden">
+            <div className="relative flex-1 min-w-0">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <label htmlFor="population-search-mobile" className="sr-only">Search students by name or ID</label>
+                <input
+                    id="population-search-mobile"
+                    type="text"
+                    placeholder="Search name or ID"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-xs font-medium text-slate-800 placeholder:text-slate-400 transition-all focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10"
+                />
+            </div>
+
+            <button
+                type="button"
+                onClick={onOpenFilters}
+                className={`shrink-0 inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all shadow-2xs ${activeFilterCount > 0
+                    ? 'bg-purple-600 border-purple-600 text-white hover:bg-purple-700 shadow-purple-500/20'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-purple-300 hover:bg-purple-50/40'
+                    }`}
+            >
+                <Filter size={13} />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-white text-purple-700 text-[9.5px] font-extrabold">
+                        {activeFilterCount}
+                    </span>
+                )}
+            </button>
+        </div>
+
+        {/* Desktop Layout */}
+        <div className="hidden md:flex flex-row items-center justify-between gap-3">
             {/* Search by Name or ID */}
             <div className="relative w-full md:w-64 lg:w-72 shrink-0">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -123,20 +268,7 @@ const PopulationToolbar = ({
             </div>
 
             {/* Tinted Stat Cards */}
-            <div className="grid grid-cols-3 gap-2 flex-1 min-w-0 max-w-lg">
-                {/* Total Population */}
-                <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#f8f5ff] border border-purple-100/80 min-w-0">
-                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                        <Users size={15} />
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-[9px] md:text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate">TOTAL POPULATION</p>
-                        <p className="text-sm md:text-base font-extrabold text-purple-900 leading-tight">
-                            {overviewLoading ? '...' : (populationOverview.totalPopulation || 0).toLocaleString()}
-                        </p>
-                    </div>
-                </div>
-
+            <div className="grid grid-cols-2 gap-2 flex-1 min-w-0 max-w-sm">
                 {/* Active Students */}
                 <div className="flex items-center gap-2 md:gap-2.5 px-3 py-1.5 md:py-2 rounded-xl bg-[#f0fdf4] border border-emerald-100/80 min-w-0">
                     <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
@@ -285,7 +417,7 @@ const FilterDrawer = ({
     const draftActiveCount = [draftDept, draftCourse, draftYear, draftStatus, draftSchoolYear, draftSection]
         .filter(v => v !== 'All').length + (draftHasNote ? 1 : 0) + (draftAtRisk ? 1 : 0) + (draftBackground.length ? 1 : 0);
 
-    return (
+    const drawerContent = (
         <AnimatePresence>
             {isOpen && (
                 <>
@@ -304,15 +436,23 @@ const FilterDrawer = ({
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                        className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200"
+                        className="fixed inset-y-0 right-0 z-50 w-full md:max-w-md bg-white shadow-2xl flex flex-col md:border-l border-slate-200"
                     >
                         {/* Drawer Header */}
-                        <div className="flex items-center justify-between p-5 border-b border-slate-100 shrink-0">
-                            <div className="flex items-center gap-2">
-                                <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
+                        <div className="flex items-center justify-between px-4 py-3.5 md:p-5 border-b border-slate-100 shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="md:hidden inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition-colors"
+                                >
+                                    <ChevronLeft size={15} />
+                                    <span>Back</span>
+                                </button>
+                                <div className="hidden md:flex p-2 rounded-xl bg-purple-50 text-purple-600">
                                     <Filter size={18} />
                                 </div>
-                                <h2 className="text-lg font-bold text-slate-800 tracking-tight">Filter Students</h2>
+                                <h2 className="text-base md:text-lg font-bold text-slate-800 tracking-tight">Filter Students</h2>
                                 {draftActiveCount > 0 && (
                                     <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">
                                         {draftActiveCount} active
@@ -504,6 +644,8 @@ const FilterDrawer = ({
             )}
         </AnimatePresence>
     );
+
+    return typeof document !== 'undefined' ? createPortal(drawerContent, document.body) : drawerContent;
 };
 
 const PopulationTable = ({
@@ -511,248 +653,499 @@ const PopulationTable = ({
     studentAnnotationsById, schoolYearFilter, canArchiveRecords,
     openProfileModal, openEditModal, setStudentToDelete, setShowDeleteModal,
     renderCareStudentPaddingRows, startIndex, endIndex, currentPage, setCurrentPage,
-    totalPages, paginationItems, itemsPerPage
-}: any) => (
-    <m.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.18, duration: 0.35, ease: 'easeOut' }}
-        data-refresh-surface
-        className="flex flex-1 flex-col min-h-0 bg-white rounded-2xl border border-slate-200/70 shadow-2xs overflow-hidden"
-    >
-        {/* Table Scrollable Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto custom-scrollbar">
-            <table className="w-full border-collapse text-left text-[13px]">
-                <thead className="sticky top-0 z-10 bg-white border-b border-slate-200/80 text-[10.5px] uppercase text-slate-400 font-bold tracking-wider">
-                    <tr>
-                        <th scope="col" aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
-                            <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('name')}>
-                                STUDENT <ArrowUpDown size={11} className="text-slate-300" />
-                            </button>
-                        </th>
-                        <th scope="col" aria-sort={sortConfig.key === 'student_id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
-                            <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('student_id')}>
-                                ID <ArrowUpDown size={11} className="text-slate-300" />
-                            </button>
-                        </th>
-                        <th scope="col" aria-sort={sortConfig.key === 'course' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
-                            <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('course')}>
-                                COURSE &amp; YEAR <ArrowUpDown size={11} className="text-slate-300" />
-                            </button>
-                        </th>
-                        <th scope="col" aria-sort={sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
-                            <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('status')}>
-                                STATUS <ArrowUpDown size={11} className="text-slate-300" />
-                            </button>
-                        </th>
-                        <th className="py-3 px-6 text-right font-bold text-slate-400 uppercase tracking-wider">
-                            ACTIONS
-                        </th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
+    totalPages, paginationItems, itemsPerPage, overviewLoading, populationOverview
+}: any) => {
+    const [openActionMenuId, setOpenActionMenuId] = useState<string | number | null>(null);
+    const actionMenuRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (openActionMenuId === null) return;
+        const handleOutsideClick = (event: MouseEvent) => {
+            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+                setOpenActionMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [openActionMenuId]);
+
+    useEffect(() => {
+        setOpenActionMenuId(null);
+    }, [currentPage, paginatedStudents]);
+
+    return (
+        <m.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18, duration: 0.35, ease: 'easeOut' }}
+            data-refresh-surface
+            className="flex flex-1 flex-col min-h-0 bg-white rounded-2xl border border-slate-200/70 shadow-2xs md:overflow-hidden"
+        >
+            {/* Mobile Student Cards View */}
+            <div className="flex flex-col md:hidden">
+                {/* Mobile Section Header with Combined Active & Archived Counters */}
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 shrink-0">
+                    <div className="min-w-0">
+                        <h2 className="text-sm font-extrabold text-slate-900 leading-tight">Students</h2>
+                        <p className="text-[10.5px] font-medium text-slate-400 mt-0.5">
+                            {isStudentTableLoading
+                                ? 'Loading records...'
+                                : `${paginatedStudents.length} ${paginatedStudents.length === 1 ? 'record' : 'records'} shown`}
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Active Counter */}
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#f0fdf4] border border-emerald-100/80">
+                            <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                            <div>
+                                <p className="text-[8px] font-extrabold uppercase tracking-wide text-slate-500 leading-none">ACTIVE</p>
+                                <p className="text-[11px] font-extrabold text-emerald-600 leading-tight mt-0.5">
+                                    {overviewLoading ? '…' : (populationOverview?.activeStudents || 0).toLocaleString()}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Archived Counter */}
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#fffbeb] border border-amber-100/80">
+                            <Archive size={12} className="text-amber-500 shrink-0" />
+                            <div>
+                                <p className="text-[8px] font-extrabold uppercase tracking-wide text-slate-500 leading-none">ARCHIVED</p>
+                                <p className="text-[11px] font-extrabold text-amber-500 leading-tight mt-0.5">
+                                    {overviewLoading ? '…' : (populationOverview?.archivedStudents || 0).toLocaleString()}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Mobile Cards List */}
+                <div className="p-2 space-y-1.5">
                     {isStudentTableLoading ? (
-                        <tr>
-                            <td colSpan={5} className="h-64 p-12 text-center text-slate-400 font-medium">Loading students...</td>
-                        </tr>
+                        <div className="py-12 text-center text-xs font-medium text-slate-400">
+                            Loading students...
+                        </div>
                     ) : effectiveTotal === 0 ? (
-                        <tr>
-                            <td colSpan={5} className="h-64 p-12 text-center text-slate-400 font-medium">No students found.</td>
-                        </tr>
+                        <div className="py-12 text-center text-xs font-medium text-slate-400">
+                            No students found.
+                        </div>
                     ) : (
-                        <AnimatePresence mode="wait">
-                            {paginatedStudents.map((student: any, idx: number) => {
-                                const annotations = studentAnnotationsById[String(student.id)] || [];
-                                const hasDeptNote = annotations.some((annotation: any) => String(annotation.note || '').trim());
-                                const isDeptFlagged = annotations.some((annotation: any) => annotation.is_at_risk);
-                                const filteredSnapshot = schoolYearFilter === 'All'
-                                    ? null
-                                    : getArchivedSnapshotForSchoolYear(student, schoolYearFilter);
-                                const displayCourse = filteredSnapshot?.course || student.course || '-';
-                                const displayYear = filteredSnapshot?.year_level || student.year_level || '-';
-                                const isInactive = student.status === 'Inactive' || student.profile_completed !== true;
+                        paginatedStudents.map((student: any) => {
+                            const annotations = studentAnnotationsById[String(student.id)] || [];
+                            const hasDeptNote = annotations.some((annotation: any) => String(annotation.note || '').trim());
+                            const isDeptFlagged = annotations.some((annotation: any) => annotation.is_at_risk);
+                            const filteredSnapshot = schoolYearFilter === 'All'
+                                ? null
+                                : getArchivedSnapshotForSchoolYear(student, schoolYearFilter);
+                            const displayCourse = filteredSnapshot?.course || student.course || '-';
+                            const shortCourse = abbreviateCourseName(displayCourse);
+                            const displayYear = filteredSnapshot?.year_level || student.year_level || '-';
+                            const isInactive = student.status === 'Inactive' || student.profile_completed !== true;
+                            const fullName = toTitleCase(`${student.first_name || ''} ${student.last_name || ''}`);
+                            const isMenuOpen = openActionMenuId === student.id;
 
-                                return (
-                                    <m.tr
-                                        key={student.id}
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.15, delay: idx * 0.015 }}
-                                        className="group odd:bg-white even:bg-slate-50/40 hover:bg-purple-50/25 transition-colors"
-                                    >
-                                        {/* Student Name */}
-                                        <td className="py-3.5 px-6 font-bold text-slate-800 text-[13.5px]">
-                                            {toTitleCase(`${student.first_name || ''} ${student.last_name || ''}`)}
-                                        </td>
+                            return (
+                                <div
+                                    key={student.id}
+                                    className="relative rounded-xl border border-slate-200/80 bg-white px-2.5 py-2 shadow-2xs transition-colors hover:border-purple-200/80"
+                                >
+                                    <div className="flex items-center justify-between gap-1.5">
+                                        <p className="min-w-0 flex-1 text-[12.5px] sm:text-[13px] font-extrabold text-slate-900 leading-snug break-words">
+                                            {fullName}
+                                        </p>
 
-                                        {/* Student ID */}
-                                        <td className="py-3.5 px-6 font-mono text-xs font-semibold text-slate-500">
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            {isInactive ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200/60">
+                                                    <span className="w-1 h-1 rounded-full bg-amber-500" />
+                                                    INCOMPLETE
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                                                    <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                                                    ACTIVE
+                                                </span>
+                                            )}
+
+                                            <div
+                                                ref={isMenuOpen ? actionMenuRef : undefined}
+                                                className="relative"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Actions for ${fullName}`}
+                                                    aria-expanded={isMenuOpen}
+                                                    aria-haspopup="menu"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenActionMenuId((prev) => (prev === student.id ? null : student.id));
+                                                    }}
+                                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                                                >
+                                                    <MoreHorizontal size={14} />
+                                                </button>
+
+                                                {isMenuOpen && (
+                                                    <div
+                                                        role="menu"
+                                                        aria-label={`Actions for ${fullName}`}
+                                                        className="absolute right-0 top-7 z-30 w-32 rounded-xl border border-slate-200/90 bg-white p-1 shadow-lg shadow-slate-900/10"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenActionMenuId(null);
+                                                                openProfileModal(student);
+                                                            }}
+                                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-bold text-slate-700 transition-colors hover:bg-purple-50 hover:text-purple-700"
+                                                        >
+                                                            <Eye size={13} className="text-purple-600 shrink-0" />
+                                                            <span>View</span>
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenActionMenuId(null);
+                                                                openEditModal(student);
+                                                            }}
+                                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-bold text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                                                        >
+                                                            <Edit size={13} className="text-blue-600 shrink-0" />
+                                                            <span>Edit</span>
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            disabled={!canArchiveRecords}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenActionMenuId(null);
+                                                                setStudentToDelete(student);
+                                                                setShowDeleteModal(true);
+                                                            }}
+                                                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                                        >
+                                                            <Archive size={13} className="text-amber-600 shrink-0" />
+                                                            <span>Archive</span>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[10.5px] font-mono font-semibold text-slate-400">
                                             {student.student_id}
-                                        </td>
+                                        </span>
 
-                                        {/* Course & Year */}
-                                        <td className="py-3.5 px-6">
-                                            <div className="text-[13px] font-medium text-slate-800 truncate max-w-[280px] 2xl:max-w-[420px]" title={displayCourse}>
-                                                {displayCourse}
-                                            </div>
-                                            <div className="text-[10.5px] font-bold uppercase tracking-wider text-purple-600 mt-0.5">
-                                                {displayYear}{student.section ? ` — Sec ${student.section}` : ''}
-                                                {filteredSnapshot && <span className="ml-1 text-[10px] text-indigo-600">({schoolYearFilter})</span>}
-                                            </div>
-                                        </td>
+                                        <span
+                                            className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100/80 text-[10px] font-bold leading-none"
+                                            title={displayCourse}
+                                        >
+                                            {shortCourse}
+                                        </span>
 
-                                        {/* Status */}
-                                        <td className="py-3.5 px-6">
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                {isInactive ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200/60 shadow-2xs">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        INCOMPLETE
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-2xs">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                        ACTIVE
-                                                    </span>
-                                                )}
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                            {displayYear}{student.section ? ` — Sec ${student.section}` : ''}
+                                            {filteredSnapshot && <span className="ml-1 text-[9.5px] text-indigo-600">({schoolYearFilter})</span>}
+                                        </span>
 
-                                                {hasDeptNote && (
-                                                    <span className="inline-flex items-center gap-1 rounded-full border border-purple-200/60 bg-purple-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-700">
-                                                        <MessageSquareMore size={11} />
-                                                        Note
-                                                    </span>
-                                                )}
+                                        {hasDeptNote && (
+                                            <span className="inline-flex items-center gap-0.5 rounded-full border border-purple-200/60 bg-purple-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple-700">
+                                                <MessageSquareMore size={9} />
+                                                Note
+                                            </span>
+                                        )}
 
-                                                {isDeptFlagged && (
-                                                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                                                        <Flag size={11} />
-                                                        At-Risk
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
+                                        {isDeptFlagged && (
+                                            <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-200/60 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700">
+                                                <Flag size={9} />
+                                                At-Risk
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
 
-                                        {/* Actions - Floating Pill Card on Hover */}
-                                        <td className="py-3.5 px-6 text-right">
-                                            <div className="inline-flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 bg-white/95 backdrop-blur-sm border border-slate-200/80 shadow-xs rounded-full px-2 py-1">
-                                                <button
-                                                    type="button"
-                                                    aria-label={`View profile for ${student.first_name} ${student.last_name}`}
-                                                    onClick={() => openProfileModal(student)}
-                                                    className="p-1.5 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-full transition-colors"
-                                                    title="View Profile"
-                                                >
-                                                    <Eye size={15} />
-                                                </button>
+                {/* Mobile Sticky Footer Pagination */}
+                <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 border-t border-slate-100 bg-white/95 backdrop-blur-md px-3 py-2 rounded-b-2xl shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
+                        disabled={isStudentTableLoading || currentPage === 1}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Previous page"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
 
-                                                <button
-                                                    type="button"
-                                                    aria-label={`Edit ${student.first_name} ${student.last_name}`}
-                                                    onClick={(e) => { e.stopPropagation(); openEditModal(student); }}
-                                                    className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
-                                                    title="Edit Student"
-                                                >
-                                                    <Edit size={15} />
-                                                </button>
+                    <div className="min-w-0 text-center">
+                        <p className="text-[11px] font-extrabold text-slate-900 leading-tight">
+                            Page {currentPage} of {totalPages}
+                        </p>
+                        <p className="text-[10px] font-medium text-slate-400">
+                            {isStudentTableLoading
+                                ? 'Loading...'
+                                : `${effectiveTotal.toLocaleString()} ${effectiveTotal === 1 ? 'student' : 'students'}`}
+                        </p>
+                    </div>
 
-                                                {canArchiveRecords && (
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
+                        disabled={isStudentTableLoading || currentPage === totalPages}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Next page"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Desktop Table Scrollable Body */}
+            <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto custom-scrollbar">
+                <table className="w-full border-collapse text-left text-[13px]">
+                    <thead className="sticky top-0 z-10 bg-white border-b border-slate-200/80 text-[10.5px] uppercase text-slate-400 font-bold tracking-wider">
+                        <tr>
+                            <th scope="col" aria-sort={sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
+                                <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('name')}>
+                                    STUDENT <ArrowUpDown size={11} className="text-slate-300" />
+                                </button>
+                            </th>
+                            <th scope="col" aria-sort={sortConfig.key === 'student_id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
+                                <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('student_id')}>
+                                    ID <ArrowUpDown size={11} className="text-slate-300" />
+                                </button>
+                            </th>
+                            <th scope="col" aria-sort={sortConfig.key === 'course' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
+                                <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('course')}>
+                                    COURSE &amp; YEAR <ArrowUpDown size={11} className="text-slate-300" />
+                                </button>
+                            </th>
+                            <th scope="col" aria-sort={sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className="py-3 px-6">
+                                <button type="button" className="inline-flex items-center gap-1 font-bold text-slate-400 hover:text-purple-600 transition-colors uppercase tracking-wider" onClick={() => handleSort('status')}>
+                                    STATUS <ArrowUpDown size={11} className="text-slate-300" />
+                                </button>
+                            </th>
+                            <th className="py-3 px-6 text-right font-bold text-slate-400 uppercase tracking-wider">
+                                ACTIONS
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {isStudentTableLoading ? (
+                            <tr>
+                                <td colSpan={5} className="h-64 p-12 text-center text-slate-400 font-medium">Loading students...</td>
+                            </tr>
+                        ) : effectiveTotal === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="h-64 p-12 text-center text-slate-400 font-medium">No students found.</td>
+                            </tr>
+                        ) : (
+                            <AnimatePresence mode="wait">
+                                {paginatedStudents.map((student: any, idx: number) => {
+                                    const annotations = studentAnnotationsById[String(student.id)] || [];
+                                    const hasDeptNote = annotations.some((annotation: any) => String(annotation.note || '').trim());
+                                    const isDeptFlagged = annotations.some((annotation: any) => annotation.is_at_risk);
+                                    const filteredSnapshot = schoolYearFilter === 'All'
+                                        ? null
+                                        : getArchivedSnapshotForSchoolYear(student, schoolYearFilter);
+                                    const displayCourse = filteredSnapshot?.course || student.course || '-';
+                                    const displayYear = filteredSnapshot?.year_level || student.year_level || '-';
+                                    const isInactive = student.status === 'Inactive' || student.profile_completed !== true;
+
+                                    return (
+                                        <m.tr
+                                            key={student.id}
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.15, delay: idx * 0.015 }}
+                                            className="group odd:bg-white even:bg-slate-50/40 hover:bg-purple-50/25 transition-colors"
+                                        >
+                                            {/* Student Name */}
+                                            <td className="py-3.5 px-6 font-bold text-slate-800 text-[13.5px]">
+                                                {toTitleCase(`${student.first_name || ''} ${student.last_name || ''}`)}
+                                            </td>
+
+                                            {/* Student ID */}
+                                            <td className="py-3.5 px-6 font-mono text-xs font-semibold text-slate-500">
+                                                {student.student_id}
+                                            </td>
+
+                                            {/* Course & Year */}
+                                            <td className="py-3.5 px-6">
+                                                <div className="text-[13px] font-medium text-slate-800 truncate max-w-[280px] 2xl:max-w-[420px]" title={displayCourse}>
+                                                    {displayCourse}
+                                                </div>
+                                                <div className="text-[10.5px] font-bold uppercase tracking-wider text-purple-600 mt-0.5">
+                                                    {displayYear}{student.section ? ` — Sec ${student.section}` : ''}
+                                                    {filteredSnapshot && <span className="ml-1 text-[10px] text-indigo-600">({schoolYearFilter})</span>}
+                                                </div>
+                                            </td>
+
+                                            {/* Status */}
+                                            <td className="py-3.5 px-6">
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    {isInactive ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200/60 shadow-2xs">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                            INCOMPLETE
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-2xs">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                            ACTIVE
+                                                        </span>
+                                                    )}
+
+                                                    {hasDeptNote && (
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-purple-200/60 bg-purple-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-700">
+                                                            <MessageSquareMore size={11} />
+                                                            Note
+                                                        </span>
+                                                    )}
+
+                                                    {isDeptFlagged && (
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                                                            <Flag size={11} />
+                                                            At-Risk
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* Actions - Floating Pill Card on Hover */}
+                                            <td className="py-3.5 px-6 text-right">
+                                                <div className="inline-flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 bg-white/95 backdrop-blur-sm border border-slate-200/80 shadow-xs rounded-full px-2 py-1">
                                                     <button
                                                         type="button"
-                                                        aria-label={`Archive ${student.first_name} ${student.last_name}`}
-                                                        onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }}
-                                                        className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-full transition-colors"
-                                                        title="Archive Student"
+                                                        aria-label={`View profile for ${student.first_name} ${student.last_name}`}
+                                                        onClick={() => openProfileModal(student)}
+                                                        className="p-1.5 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-full transition-colors"
+                                                        title="View Profile"
                                                     >
-                                                        <Archive size={15} />
+                                                        <Eye size={15} />
                                                     </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </m.tr>
-                                );
-                            })}
-                            {renderCareStudentPaddingRows(5, paginatedStudents.length, itemsPerPage)}
-                        </AnimatePresence>
-                    )}
-                </tbody>
-            </table>
-        </div>
 
-        {/* Sticky Table Footer Pagination */}
-        <div className="sticky bottom-0 z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200/80 bg-white/95 backdrop-blur-md px-6 py-3 text-xs shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
-            <span className="font-medium text-slate-500">
-                {isStudentTableLoading
-                    ? 'Loading students...'
-                    : effectiveTotal === 0
-                        ? 'No students found.'
-                        : `Showing ${startIndex + 1}-${endIndex} of ${effectiveTotal.toLocaleString()} students`}
-            </span>
+                                                    <button
+                                                        type="button"
+                                                        aria-label={`Edit ${student.first_name} ${student.last_name}`}
+                                                        onClick={(e) => { e.stopPropagation(); openEditModal(student); }}
+                                                        className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                                                        title="Edit Student"
+                                                    >
+                                                        <Edit size={15} />
+                                                    </button>
 
-            <div className="flex flex-wrap items-center justify-end gap-1">
-                <button
-                    type="button"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={isStudentTableLoading || currentPage === 1}
-                    className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="First page"
-                >
-                    <ChevronsLeft size={13} />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
-                    disabled={isStudentTableLoading || currentPage === 1}
-                    className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Previous page"
-                >
-                    <ChevronLeft size={13} />
-                </button>
-
-                {paginationItems.map((item: any, index: number) => (
-                    typeof item === 'number' ? (
-                        <button
-                            key={`student-page-${item}`}
-                            type="button"
-                            onClick={() => setCurrentPage(item)}
-                            disabled={isStudentTableLoading}
-                            className={`inline-flex h-7 min-w-7 items-center justify-center rounded-lg border px-2 text-xs font-bold transition ${item === currentPage
-                                ? 'border-purple-600 bg-purple-600 text-white shadow-2xs'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-purple-200 hover:text-purple-700'
-                                }`}
-                            aria-current={item === currentPage ? 'page' : undefined}
-                        >
-                            {item}
-                        </button>
-                    ) : (
-                        <span key={`student-ellipsis-${index}`} className="inline-flex h-7 min-w-7 items-center justify-center text-slate-400 text-xs">
-                            ...
-                        </span>
-                    )
-                ))}
-
-                <button
-                    type="button"
-                    onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
-                    disabled={isStudentTableLoading || currentPage === totalPages}
-                    className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Next page"
-                >
-                    <ChevronRight size={13} />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={isStudentTableLoading || currentPage === totalPages}
-                    className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Last page"
-                >
-                    <ChevronsRight size={13} />
-                </button>
+                                                    {canArchiveRecords && (
+                                                        <button
+                                                            type="button"
+                                                            aria-label={`Archive ${student.first_name} ${student.last_name}`}
+                                                            onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }}
+                                                            className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-full transition-colors"
+                                                            title="Archive Student"
+                                                        >
+                                                            <Archive size={15} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </m.tr>
+                                    );
+                                })}
+                                {renderCareStudentPaddingRows(5, paginatedStudents.length, itemsPerPage)}
+                            </AnimatePresence>
+                        )}
+                    </tbody>
+                </table>
             </div>
-        </div>
-    </m.div>
-);
+
+            {/* Desktop Sticky Table Footer Pagination */}
+            <div className="hidden md:flex sticky bottom-0 z-10 flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200/80 bg-white/95 backdrop-blur-md px-6 py-3 text-xs shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+                <span className="font-medium text-slate-500">
+                    {isStudentTableLoading
+                        ? 'Loading students...'
+                        : effectiveTotal === 0
+                            ? 'No students found.'
+                            : `Showing ${startIndex + 1}-${endIndex} of ${effectiveTotal.toLocaleString()} students`}
+                </span>
+
+                <div className="flex flex-wrap items-center justify-end gap-1">
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={isStudentTableLoading || currentPage === 1}
+                        className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="First page"
+                    >
+                        <ChevronsLeft size={13} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
+                        disabled={isStudentTableLoading || currentPage === 1}
+                        className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Previous page"
+                    >
+                        <ChevronLeft size={13} />
+                    </button>
+
+                    {paginationItems.map((item: any, index: number) => (
+                        typeof item === 'number' ? (
+                            <button
+                                key={`student-page-${item}`}
+                                type="button"
+                                onClick={() => setCurrentPage(item)}
+                                disabled={isStudentTableLoading}
+                                className={`inline-flex h-7 min-w-7 items-center justify-center rounded-lg border px-2 text-xs font-bold transition ${item === currentPage
+                                    ? 'border-purple-600 bg-purple-600 text-white shadow-2xs'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-purple-200 hover:text-purple-700'
+                                    }`}
+                                aria-current={item === currentPage ? 'page' : undefined}
+                            >
+                                {item}
+                            </button>
+                        ) : (
+                            <span key={`student-ellipsis-${index}`} className="inline-flex h-7 min-w-7 items-center justify-center text-slate-400 text-xs">
+                                ...
+                            </span>
+                        )
+                    ))}
+
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
+                        disabled={isStudentTableLoading || currentPage === totalPages}
+                        className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Next page"
+                    >
+                        <ChevronRight size={13} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={isStudentTableLoading || currentPage === totalPages}
+                        className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-600 transition hover:border-purple-200 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Last page"
+                    >
+                        <ChevronsRight size={13} />
+                    </button>
+                </div>
+            </div>
+        </m.div>
+    );
+};
 
 const PopulationStatsView = ({
     courseYearCountsLoading, allCourses, courseYearCountMap
@@ -761,12 +1154,56 @@ const PopulationStatsView = ({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.35 }}
-        className="flex-1 min-h-0 bg-white rounded-2xl border border-slate-200/70 shadow-2xs overflow-hidden p-6 flex flex-col"
+        className="flex-1 min-h-0 bg-white rounded-2xl border border-slate-200/70 shadow-2xs overflow-hidden p-4 md:p-6 flex flex-col"
     >
-        <h3 className="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
-            <PieChart size={18} className="text-purple-600" /> Live Student Population Counter
+        <h3 className="font-bold text-base md:text-lg text-slate-900 mb-4 flex items-center gap-2">
+            <PieChart size={18} className="text-purple-600 shrink-0" /> Live Student Population Counter
         </h3>
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+
+        {/* Mobile Stats Cards */}
+        <div className="space-y-2.5 md:hidden">
+            {courseYearCountsLoading ? (
+                <div className="p-8 text-center text-sm text-slate-400">Loading student population stats...</div>
+            ) : allCourses.map((course: any) => {
+                const courseCounts = courseYearCountMap[course.name] || {};
+                const y1 = courseCounts['1st Year'] || 0;
+                const y2 = courseCounts['2nd Year'] || 0;
+                const y3 = courseCounts['3rd Year'] || 0;
+                const y4 = courseCounts['4th Year'] || 0;
+                const total = y1 + y2 + y3 + y4;
+                return (
+                    <div key={course.id} className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-bold text-slate-800 leading-snug">{course.name}</p>
+                            <span className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/60 text-xs font-black">
+                                {total} total
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5 text-center">
+                            <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                                <p className="text-[9px] font-bold uppercase text-slate-400">1st Yr</p>
+                                <p className="text-xs font-bold text-slate-700 mt-0.5">{y1}</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                                <p className="text-[9px] font-bold uppercase text-slate-400">2nd Yr</p>
+                                <p className="text-xs font-bold text-slate-700 mt-0.5">{y2}</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                                <p className="text-[9px] font-bold uppercase text-slate-400">3rd Yr</p>
+                                <p className="text-xs font-bold text-slate-700 mt-0.5">{y3}</p>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                                <p className="text-[9px] font-bold uppercase text-slate-400">4th Yr</p>
+                                <p className="text-xs font-bold text-slate-700 mt-0.5">{y4}</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+
+        {/* Desktop Stats Table */}
+        <div className="hidden md:block flex-1 min-h-0 overflow-y-auto custom-scrollbar">
             <table className="w-full text-left text-sm border-collapse">
                 <thead className="sticky top-0 bg-white border-b border-slate-200 text-[10.5px] uppercase tracking-wider text-slate-400 font-bold">
                     <tr>
@@ -868,7 +1305,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
     return (
-        <div className={`relative flex-1 flex flex-col min-h-0 gap-3 h-full overflow-hidden ${isRefreshingData ? 'care-student-refreshing' : ''}`}>
+        <div className={`relative flex-1 flex flex-col min-h-0 gap-2 md:gap-3 w-full max-w-full md:h-full md:overflow-hidden ${isRefreshingData ? 'care-student-refreshing' : ''}`}>
             {isRefreshingData && <RefreshingOverlay />}
 
             {/* 1. Header Banner */}
@@ -884,6 +1321,9 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                 setShowEnrollmentModal={setShowEnrollmentModal}
                 viewMode={viewMode}
                 setViewMode={setViewMode}
+                handleExportExcel={handleExportExcel}
+                canExportStudents={canExportStudents}
+                exportStatus={exportStatus}
             />
 
             {/* 2. Search & Stats Toolbar */}
@@ -929,6 +1369,8 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
                     totalPages={totalPages}
                     paginationItems={paginationItems}
                     itemsPerPage={itemsPerPage}
+                    overviewLoading={overviewLoading}
+                    populationOverview={populationOverview}
                 />
             )}
 
@@ -973,7 +1415,7 @@ const CareStaffPopulationPage = ({ functions, pendingProfileId, onProfileOpened,
 
             {/* Archive Student Confirmation Modal */}
             {showDeleteModal && studentToDelete && canArchiveRecords && (
-                <div className="absolute inset-0 z-40 flex items-center justify-center p-4 pointer-events-auto">
+                <div className="fixed inset-0 md:absolute md:inset-0 z-40 flex items-center justify-center p-4 pointer-events-auto">
                     <button
                         type="button"
                         aria-label="Close archive dialog backdrop"

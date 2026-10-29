@@ -113,3 +113,69 @@ export const isProfileIncompleteStep1 = (student: any) => {
     ];
     return requiredFields.some(val => !String(val || '').trim());
 };
+
+const COURSE_ABBREVIATION_MAP: Record<string, string> = {
+    'bachelor of science in computer science': 'BSCS',
+    'bachelor of science in hospitality management': 'BSHM',
+    'bachelor of science in office administration': 'BSOA',
+    'bachelor of science in criminology': 'BSCrim',
+    'bachelor of science in midwifery': 'BSM',
+    'bachelor of science in agribusiness': 'BS Agribusiness',
+    'bachelor of science in agriculture - major in agronomy': 'BSA - Agronomy',
+    'bachelor of science in agriculture major in agronomy': 'BSA - Agronomy',
+    'bachelor of science in business administration - major in human resource management': 'BSBA - HRM',
+    'bachelor of science in business administration major in human resource management': 'BSBA - HRM',
+    'bachelor of elementary education': 'BEEd',
+    'bachelor of secondary education - major in mathematics': 'BSED - Math',
+    'bachelor of secondary education major in mathematics': 'BSED - Math',
+    'bachelor of secondary education - major in english': 'BSED - English',
+    'bachelor of secondary education major in english': 'BSED - English',
+    'bachelor of secondary education - major in social studies': 'BSED - Social Studies',
+    'bachelor of secondary education major in social studies': 'BSED - Social Studies',
+    'bachelor of technology and livelihood education': 'BTLEd',
+    'bachelor of industrial technology - major in automotive technology': 'BSIT - Automotive',
+    'bachelor of industrial technology major in automotive technology': 'BSIT - Automotive',
+    'bachelor of industrial technology - major in computer technology': 'BSIT - Computer',
+    'bachelor of industrial technology major in computer technology': 'BSIT - Computer',
+    'bachelor of industrial technology - major in electrical technology': 'BSIT - Electrical',
+    'bachelor of industrial technology major in electrical technology': 'BSIT - Electrical',
+    'bachelor of industrial technology - major in electronics technology': 'BSIT - Electronics',
+    'bachelor of industrial technology major in electronics technology': 'BSIT - Electronics',
+    'bachelor of science in information technology': 'BSIT',
+    'bs information technology': 'BSIT',
+    'bachelor of science in civil engineering': 'BSCE',
+    'bs civil engineering': 'BSCE',
+    'bachelor of science in nursing': 'BSN',
+    'bs nursing': 'BSN'
+};
+
+export const abbreviateCourseName = (course?: string | null): string => {
+    const raw = String(course || '').trim();
+    if (!raw || raw === '-') return '-';
+
+    const normalized = raw.toLowerCase().replace(/\s+/g, ' ');
+    if (COURSE_ABBREVIATION_MAP[normalized]) {
+        return COURSE_ABBREVIATION_MAP[normalized];
+    }
+
+    const parentheticalMatch = raw.match(/\(([^)]+)\)\s*$/);
+    if (parentheticalMatch && parentheticalMatch[1]?.trim()) {
+        return parentheticalMatch[1]
+            .trim()
+            .replace(/\s*[–-]\s*Automotive Technology/i, '-Auto')
+            .replace(/\s*[–-]\s*Computer Technology/i, '-Comp')
+            .replace(/\s*[–-]\s*Electrical Technology/i, '-Elec')
+            .replace(/\s*[–-]\s*Electronics Technology/i, '-Elx')
+            .replace(/\s+Technology\b/i, ' Tech');
+    }
+
+    if (/^bachelor of science in\s+/i.test(raw)) {
+        return raw.replace(/^bachelor of science in\s+/i, 'BS ').trim();
+    }
+
+    if (/^bachelor of arts in\s+/i.test(raw)) {
+        return raw.replace(/^bachelor of arts in\s+/i, 'BA ').trim();
+    }
+
+    return raw;
+};
