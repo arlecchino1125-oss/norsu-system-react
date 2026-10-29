@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, RefreshCw, LogOut, KeyRound, AlertCircle, CheckCircle } from 'lucide-react';
+import {
+    Shield, RefreshCw, LogOut, KeyRound, ArrowUpRight,
+    Users, Building2, Activity, LayoutGrid, FileText
+} from 'lucide-react';
 import { useAuth } from '../lib/useAuth';
 import { getSafeErrorMessage } from '../utils/errorMasking';
 import { useToast, type ToastType } from '../components/ui/toast/useToast';
@@ -10,47 +13,52 @@ import { useAdminActions } from './admin/hooks/useAdminActions';
 import { useAdminAuditLogs } from './admin/hooks/useAdminAuditLogs';
 import type { AdminPanelKey } from './admin/types';
 
-import { AdminAlerts } from './admin/components/AdminAlerts';
-import { ExpandablePanel } from './admin/components/ExpandablePanel';
 import { StaffAccountsPanel } from './admin/features/staff/components/StaffAccountsPanel';
+import { StaffProvisionModal } from './admin/features/staff/components/StaffProvisionModal';
 import { CollegesPanel } from './admin/features/colleges/components/CollegesPanel';
-import { StudentOverviewPanel } from './admin/features/students/components/StudentOverviewPanel';
-import { GovernancePanel } from './admin/features/system/components/GovernancePanel';
+import { CollegesModal } from './admin/features/colleges/components/CollegesModal';
 import { AuditPanel } from './admin/features/audit/components/AuditPanel';
-import { IdSwapModal } from './admin/features/students/components/IdSwapModal';
+import { AuditModal } from './admin/features/audit/components/AuditModal';
+import { GovernancePanel } from './admin/features/system/components/GovernancePanel';
+import { GovernanceModal } from './admin/features/system/components/GovernanceModal';
+import { StudentAuthHealthModal } from './admin/features/students/components/StudentAuthHealthModal';
+
+type MobileSectionKey = 'Overview' | 'Staff' | 'Audit Logs' | 'Colleges' | 'Role Map';
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
     const { session, isAuthenticated, logout } = useAuth() as any;
 
-    const [toast] = useState<{ msg: string; type: string } | null>(null);
     const [isRefreshingData, setIsRefreshingData] = useState<boolean>(false);
     const [activePanelModal, setActivePanelModal] = useState<AdminPanelKey | null>(null);
-    const [showIdSwapModal, setShowIdSwapModal] = useState<boolean>(false);
+    const [activeMobileSection, setActiveMobileSection] = useState<MobileSectionKey>('Overview');
 
     useEffect(() => {
         if (!isAuthenticated) navigate('/admin');
     }, [isAuthenticated, navigate]);
 
-    useEffect(() => {
-        if (!activePanelModal || typeof window === 'undefined') return;
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setActivePanelModal(null);
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [activePanelModal]);
-
     const { showToast: pushSharedToast } = useToast();
-    // Display is owned by the app-wide <ToastProvider>; local `toast` stays null
-    // so the legacy inline toast render below no-ops.
     const showToast = React.useCallback((msg: string, type: string = 'success') => {
         const safeMessage = type === 'error' ? getSafeErrorMessage(msg) : msg;
         pushSharedToast(safeMessage, type as ToastType);
     }, [pushSharedToast]);
 
     const adminStats = useAdminData();
-    const { refetchAccounts, refetchDepartments, refetchCourses, refetchStudents, refetchApplications } = adminStats;
+    const {
+        accounts,
+        departmentsData,
+        coursesData,
+        studentsData,
+        applicationsCount,
+        departments,
+        linkedStudentCount,
+        authPendingStudentCount,
+        refetchAccounts,
+        refetchDepartments,
+        refetchCourses,
+        refetchStudents,
+        refetchApplications
+    } = adminStats;
 
     const adminActions = useAdminActions({ showToast, session, refetchAccounts });
     const auditLogsData = useAdminAuditLogs(Boolean(isAuthenticated), showToast);
@@ -79,203 +87,473 @@ export default function AdminDashboard() {
         navigate('/admin');
     };
 
-    // Derived statistics for hero
-    const activeAuditDepartments = new Set(auditLogsData.auditLogs.flatMap((log) => {
-        const department = String(log.actor_department || '').trim();
-        return department ? [department] : [];
-    })).size;
-    const heroStats = [
-        { label: 'Staff Accounts', value: adminStats.accounts.length, hint: `${adminStats.accounts.filter(a => Boolean(a.auth_user_id)).length} linked to auth` },
-        { label: 'Colleges', value: adminStats.departmentsData.length, hint: `${adminStats.coursesData.length} courses assigned` },
-        { label: 'Student Records', value: adminStats.studentsData.length, hint: `${adminStats.applicationsCount} applications tracked` },
-        { label: 'Tracked Staff Logs', value: auditLogsData.auditTotalCount, hint: `${activeAuditDepartments} colleges visible on this page` }
-    ];
-
-    const accountOverviewStats = [
-        { label: 'Admins', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Admin').length },
-        { label: 'College Designates', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Department Head').length },
-        { label: 'CARE Staff', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Care Staff').length },
-        { label: 'Registrars', value: adminStats.accounts.filter(a => String(a.role || '').trim() === 'Registrar').length },
-        { label: 'Unlinked', value: adminStats.unlinkedStaffAccountCount }
-    ];
-
-    const renderExpandablePanel = ({ panelKey, ...panelProps }: any) => (
-        <ExpandablePanel
-            panelKey={panelKey}
-            {...panelProps}
-            isOpen={activePanelModal === panelKey}
-            onOpen={() => setActivePanelModal(panelKey)}
-            onClose={() => setActivePanelModal(null)}
-        />
-    );
+    const activeStudentCount = studentsData.filter(s => String(s.status || '').trim() === 'Active').length;
 
     if (!session) return null;
 
     return (
-        <div className="min-h-screen bg-slate-100">
-            <div className="relative overflow-hidden">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-[340px] bg-gradient-to-b from-teal-50 via-sky-50 to-transparent" />
-                <div className="pointer-events-none absolute -left-16 top-8 h-72 w-72 rounded-full bg-teal-200/40 blur-3xl" />
-                <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-sky-200/40 blur-3xl" />
+        <div className="min-h-screen bg-[#F3F7F9] text-slate-800 font-['Outfit',sans-serif]">
+            {/* Desktop Dashboard Container (hidden on mobile < 768px) */}
+            <div className="hidden md:block max-w-[1380px] mx-auto px-6 py-4 space-y-4">
+                {/* Section A: Compact Executive Hero Header */}
+                <div
+                    className="relative rounded-2xl px-5 py-4 text-white overflow-hidden shadow-md space-y-3.5"
+                    style={{
+                        background: 'linear-gradient(135deg, #0b2327 0%, #0f3d39 52%, #0a2024 100%)'
+                    }}
+                >
+                    {/* Ambient Glow Overlay */}
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-80"
+                        style={{
+                            background: 'radial-gradient(ellipse at 35% 0%, rgba(16, 185, 129, 0.20) 0%, transparent 65%)'
+                        }}
+                    />
 
-                <div className="page-transition relative mx-auto w-full max-w-[1760px] px-4 py-5 sm:px-6 xl:px-8 2xl:px-10">
-
-                    <div className="overflow-hidden rounded-[24px] border border-slate-900/10 bg-slate-900 text-white shadow-2xl shadow-slate-300/40">
-                        <div className="bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.24),transparent_34%),radial-gradient(circle_at_85%_20%,rgba(56,189,248,0.18),transparent_24%),linear-gradient(135deg,#0f172a_0%,#134e4a_50%,#0f172a_100%)] p-4 sm:p-5">
-                            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.85fr)_290px]">
-                                <div>
-                                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                                        <div className="min-w-0 max-w-xl">
-                                            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">
-                                                <Shield className="h-3.5 w-3.5" />
-                                                Admin Control Room
-                                            </div>
-                                            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-[2rem]">Account Management</h1>
-                                            <p className="mt-1.5 text-sm leading-6 text-slate-200">
-                                                Manage staff access, monitor cross-role activity, and keep institution-wide setup healthy from one admin workspace.
-                                            </p>
-                                        </div>
-
-                                        <div className="w-full rounded-[20px] border border-white/10 bg-white/10 p-3 backdrop-blur xl:max-w-[340px]">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div>
-                                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">Section Modals</p>
-                                                    <p className="mt-1 text-[11px] leading-5 text-slate-300">
-                                                        Open each admin section in a floating workspace.
-                                                    </p>
-                                                </div>
-                                                <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100">
-                                                    {activePanelModal ? '1 open' : 'Ready'}
-                                                </span>
-                                            </div>
-
-                                            <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-300">
-                                                <span>Page stays compact while details open on top.</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setActivePanelModal(null)}
-                                                    disabled={!activePanelModal}
-                                                    className="font-semibold text-white transition hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    Close Modal
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                                        {heroStats.map((stat) => (
-                                            <div key={stat.label} className="rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur">
-                                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-300">{stat.label}</p>
-                                                <p className="mt-1.5 text-xl font-semibold text-white sm:text-2xl">{stat.value}</p>
-                                                <p className="mt-1 text-[11px] text-slate-300">{stat.hint}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="rounded-[22px] border border-white/10 bg-white/10 p-3.5 backdrop-blur">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-100">Operational Controls</p>
-                                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                                        <button type="button"
-                                            onClick={handleRefreshData}
-                                            disabled={isRefreshingData}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            <RefreshCw size={16} className={isRefreshingData ? 'animate-spin' : ''} />
-                                            <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
-                                        </button>
-                                        <button type="button"
-                                            onClick={() => navigate('/admin/permissions')}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-                                        >
-                                            <KeyRound size={16} />
-                                            <span>Role Permissions</span>
-                                        </button>
-                                        <button type="button"
-                                            onClick={() => navigate('/privacy-policy')}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-                                        >
-                                            <Shield size={16} />
-                                            <span>Privacy Policy</span>
-                                        </button>
-                                        <button type="button"
-                                            onClick={handleLogout}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/10 sm:col-span-2 xl:col-span-1"
-                                        >
-                                            <LogOut className="h-4 w-4" />
-                                            Logout
-                                        </button>
-                                    </div>
-                                </div>
+                    {/* Top Row: Heading on Left, Controls on Right */}
+                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white leading-none">
+                                    Account Management
+                                </h1>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-bold tracking-widest uppercase text-emerald-200">
+                                    <Shield size={10} className="text-emerald-300" />
+                                    <span>Admin Control Room</span>
+                                </span>
                             </div>
+                            <p className="text-emerald-100/70 text-xs mt-1 truncate">
+                                Manage staff access, institutional colleges, and cross-role governance from one unified admin workspace.
+                            </p>
+                        </div>
+
+                        {/* Right: Compact Horizontal Operational Controls */}
+                        <div className="flex flex-wrap items-center gap-1.5 bg-white/[0.06] border border-white/15 rounded-xl p-1.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={handleRefreshData}
+                                disabled={isRefreshingData}
+                                className="py-1.5 px-3 rounded-lg bg-white text-slate-900 font-bold text-xs inline-flex items-center gap-1.5 shadow-2xs hover:bg-slate-100 transition cursor-pointer disabled:opacity-60"
+                            >
+                                <RefreshCw size={12} className={isRefreshingData ? 'animate-spin' : ''} />
+                                <span>Refresh Data</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => navigate('/admin/permissions')}
+                                className="py-1.5 px-3 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/35 text-white font-semibold text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+                            >
+                                <KeyRound size={12} className="text-emerald-300" />
+                                <span>Role Permissions</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => navigate('/privacy-policy')}
+                                className="py-1.5 px-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white/90 font-semibold text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+                            >
+                                <FileText size={12} />
+                                <span>Privacy Policy</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="py-1.5 px-2.5 rounded-lg bg-white/[0.04] hover:bg-rose-500/20 border border-white/10 text-white/80 font-semibold text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+                            >
+                                <LogOut size={12} />
+                                <span>Logout</span>
+                            </button>
                         </div>
                     </div>
 
-                    <AdminAlerts
-                        adminAlerts={adminStats.adminAlerts}
-                        renderExpandablePanel={renderExpandablePanel}
+                    {/* Bottom Row: Full-Width 4-Column Single-Source-of-Truth KPI Strip */}
+                    <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-2.5 pt-0.5">
+                        {/* 1. Staff Accounts */}
+                        <button
+                            type="button"
+                            onClick={() => setActivePanelModal('staff_accounts')}
+                            className="rounded-xl bg-white/[0.08] hover:bg-white/[0.13] border border-white/15 px-3.5 py-2.5 flex items-center justify-between gap-2 cursor-pointer transition text-left group"
+                        >
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200/90 leading-tight">
+                                    Staff Accounts
+                                </p>
+                                <p className="text-[11px] text-white/60 font-medium truncate mt-0.5">
+                                    Active institutional logins
+                                </p>
+                            </div>
+                            <span className="text-2xl font-extrabold tabular-nums text-white group-hover:text-emerald-200 transition-colors">
+                                {accounts.length}
+                            </span>
+                        </button>
+
+                        {/* 2. Colleges */}
+                        <button
+                            type="button"
+                            onClick={() => setActivePanelModal('colleges')}
+                            className="rounded-xl bg-white/[0.08] hover:bg-white/[0.13] border border-white/15 px-3.5 py-2.5 flex items-center justify-between gap-2 cursor-pointer transition text-left group"
+                        >
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200/90 leading-tight">
+                                    Colleges
+                                </p>
+                                <p className="text-[11px] text-white/60 font-medium truncate mt-0.5">
+                                    {coursesData.length} academic courses assigned
+                                </p>
+                            </div>
+                            <span className="text-2xl font-extrabold tabular-nums text-white group-hover:text-emerald-200 transition-colors">
+                                {departmentsData.length}
+                            </span>
+                        </button>
+
+                        {/* 3. Student Records ↗ */}
+                        <button
+                            type="button"
+                            onClick={() => setActivePanelModal('student_access')}
+                            className="rounded-xl bg-white/[0.08] hover:bg-white/[0.13] border border-white/15 px-3.5 py-2.5 flex items-center justify-between gap-2 cursor-pointer transition text-left group"
+                        >
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-200/90 leading-tight">
+                                    <span>Student Records</span>
+                                    <ArrowUpRight size={12} className="text-emerald-300" />
+                                </div>
+                                <p className="text-[11px] text-white/60 font-medium truncate mt-0.5">
+                                    {activeStudentCount.toLocaleString()} active &middot; ID &amp; Auth Tools
+                                </p>
+                            </div>
+                            <span className="text-2xl font-extrabold tabular-nums text-white group-hover:text-emerald-200 transition-colors">
+                                {studentsData.length.toLocaleString()}
+                            </span>
+                        </button>
+
+                        {/* 4. Tracked Staff Logs */}
+                        <button
+                            type="button"
+                            onClick={() => setActivePanelModal('audit_monitor')}
+                            className="rounded-xl bg-white/[0.08] hover:bg-white/[0.13] border border-white/15 px-3.5 py-2.5 flex items-center justify-between gap-2 cursor-pointer transition text-left group"
+                        >
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200/90 leading-tight">
+                                    Tracked Staff Logs
+                                </p>
+                                <p className="text-[11px] text-white/60 font-medium truncate mt-0.5">
+                                    Cross-role staff actions
+                                </p>
+                            </div>
+                            <span className="text-2xl font-extrabold tabular-nums text-white group-hover:text-emerald-200 transition-colors">
+                                {auditLogsData.auditTotalCount.toLocaleString()}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Section B: Balanced 12-Column Dynamic-Stretch Workspace Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                    {/* Left Column (lg:col-span-7): Interactive Staff Accounts Workspace */}
+                    <StaffAccountsPanel
+                        accounts={accounts}
+                        departments={departments}
+                        onOpenModal={() => setActivePanelModal('staff_accounts')}
+                        showToast={showToast}
+                        refetchAccounts={refetchAccounts}
+                        handleArchiveAccount={adminActions.handleArchiveAccount}
+                        invokeManagedStaffFunction={adminActions.invokeManagedStaffFunction}
                     />
 
-                    <div className="grid grid-cols-1 gap-8">
-                        <StaffAccountsPanel
-                            accounts={adminStats.accounts}
-                            departments={adminStats.departments}
-                            accountOverviewStats={accountOverviewStats}
-                            renderExpandablePanel={renderExpandablePanel}
+                    {/* Right Column (lg:col-span-5): 3-Card Right Rail */}
+                    <div className="lg:col-span-5 space-y-4">
+                        {/* Card 1: Toggleable Minimized Staff Audit Notification Log */}
+                        <AuditPanel
+                            auditLogs={auditLogsData.auditLogs}
+                            auditLoading={auditLogsData.auditLoading}
+                            auditTotalCount={auditLogsData.auditTotalCount}
+                            auditRoleFilter={auditLogsData.auditRoleFilter}
+                            setAuditRoleFilter={auditLogsData.setAuditRoleFilter}
+                            auditSearch={auditLogsData.auditSearch}
+                            setAuditSearch={auditLogsData.setAuditSearch}
+                            onOpenModal={() => setActivePanelModal('audit_monitor')}
+                        />
+
+                        {/* Card 2: Institutional Colleges */}
+                        <CollegesPanel
+                            departmentsData={departmentsData}
+                            coursesData={coursesData}
+                            onOpenModal={() => setActivePanelModal('colleges')}
                             showToast={showToast}
-                            refetchAccounts={adminStats.refetchAccounts}
+                            refetchDepartments={refetchDepartments}
+                        />
+
+                        {/* Card 3: Governance & Role Signals (Role Map) */}
+                        <GovernancePanel
+                            onOpenModal={() => setActivePanelModal('governance')}
+                            onOpenAuditModal={() => setActivePanelModal('audit_monitor')}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Dedicated Mobile View (< 768px / Mobile Layout Mode) */}
+            <div className="block md:hidden pb-20">
+                {/* 1. Compact Sticky App Header */}
+                <div
+                    className="sticky top-0 z-30 px-3 py-2.5 text-white shadow-md space-y-2"
+                    style={{
+                        background: 'linear-gradient(135deg, #0b2327 0%, #0f3d39 52%, #0a2024 100%)'
+                    }}
+                >
+                    {/* Top row: Title + Admin pill on left; Refresh + Permissions on right */}
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <h1 className="text-base font-extrabold tracking-tight text-white truncate">
+                                Account Management
+                            </h1>
+                            <span className="px-1.5 py-0.5 rounded-full bg-white/10 border border-white/15 text-[9px] font-bold tracking-wider uppercase text-emerald-200 shrink-0">
+                                Admin
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={handleRefreshData}
+                                disabled={isRefreshingData}
+                                className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center text-white hover:bg-white/20 transition cursor-pointer"
+                                aria-label="Refresh Data"
+                            >
+                                <RefreshCw size={13} className={isRefreshingData ? 'animate-spin' : ''} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/admin/permissions')}
+                                className="px-2 py-1 rounded-lg bg-emerald-500/25 border border-emerald-400/35 text-white font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                                <KeyRound size={11} className="text-emerald-300" />
+                                <span>Roles</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Bottom row: Single-row 4-column compact KPI bar */}
+                    <div className="grid grid-cols-4 gap-1.5 pt-0.5 text-center">
+                        <div
+                            onClick={() => setActivePanelModal('staff_accounts')}
+                            className="rounded-lg bg-white/[0.08] p-1.5 border border-white/10 cursor-pointer"
+                        >
+                            <p className="text-[8.5px] font-extrabold uppercase text-emerald-200 truncate">Staff</p>
+                            <p className="text-sm font-extrabold tabular-nums text-white mt-0.5">{accounts.length}</p>
+                        </div>
+                        <div
+                            onClick={() => setActivePanelModal('colleges')}
+                            className="rounded-lg bg-white/[0.08] p-1.5 border border-white/10 cursor-pointer"
+                        >
+                            <p className="text-[8.5px] font-extrabold uppercase text-emerald-200 truncate">Colleges</p>
+                            <p className="text-sm font-extrabold tabular-nums text-white mt-0.5">{departmentsData.length}</p>
+                        </div>
+                        <div
+                            onClick={() => setActivePanelModal('student_access')}
+                            className="rounded-lg bg-white/[0.08] p-1.5 border border-white/10 cursor-pointer"
+                        >
+                            <p className="text-[8.5px] font-extrabold uppercase text-emerald-200 truncate">Students</p>
+                            <p className="text-sm font-extrabold tabular-nums text-white mt-0.5">{studentsData.length.toLocaleString()}</p>
+                        </div>
+                        <div
+                            onClick={() => setActivePanelModal('audit_monitor')}
+                            className="rounded-lg bg-white/[0.08] p-1.5 border border-white/10 cursor-pointer"
+                        >
+                            <p className="text-[8.5px] font-extrabold uppercase text-emerald-200 truncate">Logs</p>
+                            <p className="text-sm font-extrabold tabular-nums text-white mt-0.5">{auditLogsData.auditTotalCount.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Horizontal Section Switcher Pills */}
+                <div className="sticky top-[86px] z-20 bg-[#F3F7F9]/95 backdrop-blur-xs border-b border-slate-200/80 px-3 py-2 overflow-x-auto touch-pan-x flex items-center gap-1.5 custom-scrollbar">
+                    {(['Overview', 'Staff', 'Audit Logs', 'Colleges', 'Role Map'] as MobileSectionKey[]).map(sec => {
+                        const isActive = activeMobileSection === sec;
+                        return (
+                            <button
+                                type="button"
+                                key={sec}
+                                onClick={() => setActiveMobileSection(sec)}
+                                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${isActive
+                                    ? 'bg-slate-900 text-white shadow-2xs'
+                                    : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
+                                    }`}
+                            >
+                                {sec}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* 3. Mobile Active Section Content */}
+                <div className="p-3 space-y-3">
+                    {activeMobileSection === 'Overview' && (
+                        <>
+                            <StaffAccountsPanel
+                                accounts={accounts}
+                                departments={departments}
+                                onOpenModal={() => setActivePanelModal('staff_accounts')}
+                                showToast={showToast}
+                                refetchAccounts={refetchAccounts}
+                                handleArchiveAccount={adminActions.handleArchiveAccount}
+                                invokeManagedStaffFunction={adminActions.invokeManagedStaffFunction}
+                            />
+                            <AuditPanel
+                                auditLogs={auditLogsData.auditLogs}
+                                auditLoading={auditLogsData.auditLoading}
+                                auditTotalCount={auditLogsData.auditTotalCount}
+                                auditRoleFilter={auditLogsData.auditRoleFilter}
+                                setAuditRoleFilter={auditLogsData.setAuditRoleFilter}
+                                auditSearch={auditLogsData.auditSearch}
+                                setAuditSearch={auditLogsData.setAuditSearch}
+                                onOpenModal={() => setActivePanelModal('audit_monitor')}
+                            />
+                            <CollegesPanel
+                                departmentsData={departmentsData}
+                                coursesData={coursesData}
+                                onOpenModal={() => setActivePanelModal('colleges')}
+                                showToast={showToast}
+                                refetchDepartments={refetchDepartments}
+                            />
+                            <GovernancePanel
+                                onOpenModal={() => setActivePanelModal('governance')}
+                                onOpenAuditModal={() => setActivePanelModal('audit_monitor')}
+                            />
+                        </>
+                    )}
+
+                    {activeMobileSection === 'Staff' && (
+                        <StaffAccountsPanel
+                            accounts={accounts}
+                            departments={departments}
+                            onOpenModal={() => setActivePanelModal('staff_accounts')}
+                            showToast={showToast}
+                            refetchAccounts={refetchAccounts}
                             handleArchiveAccount={adminActions.handleArchiveAccount}
                             invokeManagedStaffFunction={adminActions.invokeManagedStaffFunction}
                         />
-                    </div>
+                    )}
 
-                    <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
-                        <StudentOverviewPanel
-                            studentsData={adminStats.studentsData}
-                            applicationsCount={adminStats.applicationsCount}
-                            linkedStudentCount={adminStats.linkedStudentCount}
-                            authPendingStudentCount={adminStats.authPendingStudentCount}
-                            setShowIdSwapModal={setShowIdSwapModal}
-                            renderExpandablePanel={renderExpandablePanel}
-                        />
-
-                        <GovernancePanel renderExpandablePanel={renderExpandablePanel} />
-                    </div>
-
-                    <div className="mt-8">
+                    {activeMobileSection === 'Audit Logs' && (
                         <AuditPanel
-                            {...auditLogsData}
-                            renderExpandablePanel={renderExpandablePanel}
+                            auditLogs={auditLogsData.auditLogs}
+                            auditLoading={auditLogsData.auditLoading}
+                            auditTotalCount={auditLogsData.auditTotalCount}
+                            auditRoleFilter={auditLogsData.auditRoleFilter}
+                            setAuditRoleFilter={auditLogsData.setAuditRoleFilter}
+                            auditSearch={auditLogsData.auditSearch}
+                            setAuditSearch={auditLogsData.setAuditSearch}
+                            onOpenModal={() => setActivePanelModal('audit_monitor')}
                         />
-                    </div>
-
-                    <CollegesPanel
-                        departmentsData={adminStats.departmentsData}
-                        coursesData={adminStats.coursesData}
-                        renderExpandablePanel={renderExpandablePanel}
-                        showToast={showToast}
-                        refetchDepartments={adminStats.refetchDepartments}
-                    />
-
-                    {toast && (
-                        <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl text-white flex items-center gap-3 animate-slide-in-up z-50 ${toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
-                            <div className="text-xl">{toast.type === 'error' ? <AlertCircle /> : <CheckCircle />}</div>
-                            <div><h4 className="font-bold text-sm">{toast.type === 'error' ? 'Error' : 'Success'}</h4><p className="text-xs opacity-90">{toast.msg}</p></div>
-                        </div>
                     )}
 
-                    {showIdSwapModal && (
-                        <IdSwapModal
+                    {activeMobileSection === 'Colleges' && (
+                        <CollegesPanel
+                            departmentsData={departmentsData}
+                            coursesData={coursesData}
+                            onOpenModal={() => setActivePanelModal('colleges')}
                             showToast={showToast}
-                            handleRefreshData={handleRefreshData}
-                            invokeManagedStudentFunction={adminActions.invokeManagedStudentFunction}
-                            setShowIdSwapModal={setShowIdSwapModal}
+                            refetchDepartments={refetchDepartments}
                         />
                     )}
 
+                    {activeMobileSection === 'Role Map' && (
+                        <GovernancePanel
+                            onOpenModal={() => setActivePanelModal('governance')}
+                            onOpenAuditModal={() => setActivePanelModal('audit_monitor')}
+                        />
+                    )}
+                </div>
+
+                {/* 4. Sticky Bottom Navigation Bar */}
+                <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1.5 flex items-center justify-around shadow-lg">
+                    <button
+                        type="button"
+                        onClick={() => setActiveMobileSection('Overview')}
+                        className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10.5px] font-bold transition-colors cursor-pointer ${activeMobileSection === 'Overview' ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                        <LayoutGrid size={16} />
+                        <span>Control Room</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveMobileSection('Staff')}
+                        className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10.5px] font-bold transition-colors cursor-pointer ${activeMobileSection === 'Staff' ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                        <Users size={16} />
+                        <span>Staff ({accounts.length})</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveMobileSection('Audit Logs')}
+                        className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10.5px] font-bold transition-colors cursor-pointer ${activeMobileSection === 'Audit Logs' ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                        <Activity size={16} />
+                        <span>Audit Log</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate('/admin/permissions')}
+                        className="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10.5px] font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                    >
+                        <KeyRound size={16} />
+                        <span>RBAC Roles</span>
+                    </button>
                 </div>
             </div>
+
+            {/* Modal Workspaces */}
+            <StaffProvisionModal
+                isOpen={activePanelModal === 'staff_accounts' || activePanelModal === 'staffAccounts'}
+                onClose={() => setActivePanelModal(null)}
+                departments={departments}
+                showToast={showToast}
+                refetchAccounts={refetchAccounts}
+            />
+
+            <CollegesModal
+                isOpen={activePanelModal === 'colleges'}
+                onClose={() => setActivePanelModal(null)}
+                departmentsData={departmentsData}
+                coursesData={coursesData}
+                showToast={showToast}
+                refetchDepartments={refetchDepartments}
+            />
+
+            <StudentAuthHealthModal
+                isOpen={activePanelModal === 'student_access' || activePanelModal === 'studentOverview'}
+                onClose={() => setActivePanelModal(null)}
+                studentsData={studentsData}
+                applicationsCount={applicationsCount}
+                linkedStudentCount={linkedStudentCount}
+                authPendingStudentCount={authPendingStudentCount}
+                showToast={showToast}
+                handleRefreshData={handleRefreshData}
+                invokeManagedStudentFunction={adminActions.invokeManagedStudentFunction}
+            />
+
+            <AuditModal
+                isOpen={activePanelModal === 'audit_monitor' || activePanelModal === 'audit'}
+                onClose={() => setActivePanelModal(null)}
+                auditLogs={auditLogsData.auditLogs}
+                auditLoading={auditLogsData.auditLoading}
+                auditTotalCount={auditLogsData.auditTotalCount}
+                auditRoleFilter={auditLogsData.auditRoleFilter}
+                setAuditRoleFilter={auditLogsData.setAuditRoleFilter}
+                auditSearch={auditLogsData.auditSearch}
+                setAuditSearch={auditLogsData.setAuditSearch}
+                auditPage={auditLogsData.auditPage}
+                setAuditPage={auditLogsData.setAuditPage}
+            />
+
+            <GovernanceModal
+                isOpen={activePanelModal === 'governance'}
+                onClose={() => setActivePanelModal(null)}
+                onNavigatePermissions={() => navigate('/admin/permissions')}
+            />
         </div>
     );
 }

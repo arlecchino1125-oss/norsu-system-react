@@ -1,8 +1,16 @@
 import type { TrackedStaffAuditRole } from '../../lib/staffAudit';
 
-const ADMIN_PANEL_ORDER = ['alerts', 'staffAccounts', 'studentOverview', 'governance', 'audit', 'colleges'] as const;
+export type AdminPanelKey =
+    | 'staff_accounts'
+    | 'staffAccounts'
+    | 'colleges'
+    | 'student_access'
+    | 'studentOverview'
+    | 'audit_monitor'
+    | 'audit'
+    | 'governance'
+    | 'alerts';
 
-export type AdminPanelKey = typeof ADMIN_PANEL_ORDER[number];
 export type AuditRoleFilter = 'All' | TrackedStaffAuditRole;
 
 export interface AdminStats {
