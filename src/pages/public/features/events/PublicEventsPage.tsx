@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { HelpCircle } from "lucide-react";
 import PublicHelpGuideModal from "./components/PublicHelpGuideModal";
+import PublicPwaInstallAndPushBar from "./components/PublicPwaInstallAndPushBar";
+import { usePublicPwaPush } from "./hooks/usePublicPwaPush";
 import PublicEventsView from "./components/PublicEventsView";
 import PublicOfficeVisitView from "./components/PublicOfficeVisitView";
 import PublicCounselingView from "./components/PublicCounselingView";
@@ -183,7 +185,19 @@ function ServiceScreenShell({ service, studentId, onBack, children }: { service:
 }
 
 export default function PublicEventsPage() {
-    const [activeServiceId, setActiveServiceId] = useState<ServiceId | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { identity, verify, signOut } = usePublicIdentity();
+    const studentId = identity?.student.student_id ?? null;
+
+    const requestedServiceParam = searchParams.get("service") as ServiceId | null;
+    const initialMatchedService = requestedServiceParam
+        ? ALL_SERVICES.find((s) => s.id === requestedServiceParam) ?? null
+        : null;
+
+    const [activeServiceId, setActiveServiceId] = useState<ServiceId | null>(() => {
+        if (!initialMatchedService) return null;
+        return initialMatchedService.access === "anonymous" || identity ? initialMatchedService.id : null;
+    });
     const [expandedId, setExpandedId] = useState<ServiceId | null>(null);
     const [toast, setToast] = useState<{ message: string; type: string } | null>(null);
     const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -195,11 +209,14 @@ export default function PublicEventsPage() {
     }, []);
     useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
-    const { identity, verify, signOut } = usePublicIdentity();
-    const studentId = identity?.student.student_id ?? null;
-
-    const [showSheet, setShowSheet] = useState(false);
-    const [pendingServiceId, setPendingServiceId] = useState<ServiceId | null>(null);
+    const [showSheet, setShowSheet] = useState(() =>
+        Boolean(initialMatchedService && initialMatchedService.access !== "anonymous" && !identity)
+    );
+    const [pendingServiceId, setPendingServiceId] = useState<ServiceId | null>(() =>
+        initialMatchedService && initialMatchedService.access !== "anonymous" && !identity
+            ? initialMatchedService.id
+            : null
+    );
     const [sheetLoading, setSheetLoading] = useState(false);
     const [sheetError, setSheetError] = useState("");
 
@@ -208,6 +225,37 @@ export default function PublicEventsPage() {
     const { formsList: assessmentFormsList, isLoading: assessmentLoading, isError: assessmentError, refreshForms: refreshAssessmentForms } = usePublicAssessmentData(identity, { enabled: activeServiceId === "assessment" });
     const assessmentActions = usePublicAssessmentActions(identity, showToast, refreshAssessmentForms);
     const { scholarshipsList = [], isLoading: scholarshipsLoading, isError: scholarshipsError } = usePublicScholarshipsData();
+
+    const handleNavigateNotificationUrl = useCallback((url: string) => {
+        try {
+            const parsed = new URL(url, window.location.origin);
+            const targetService = parsed.searchParams.get("service") as ServiceId | null;
+            if (targetService && ALL_SERVICES.some((s) => s.id === targetService)) {
+                setActiveServiceId(targetService);
+            } else {
+                setActiveServiceId(null);
+            }
+        } catch {
+            setActiveServiceId(null);
+        }
+    }, []);
+
+    const pwaPush = usePublicPwaPush({
+        studentId,
+        showToast,
+        onNavigateUrl: handleNavigateNotificationUrl,
+        onBroadcastReceived: () => {
+            void refreshEvents();
+        }
+    });
+
+    // Clear ?service= query parameter once consumed
+    useEffect(() => {
+        if (!searchParams.has("service")) return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("service");
+        setSearchParams(nextParams, { replace: true });
+    }, [searchParams, setSearchParams]);
 
     const [evaluationEvent, setEvaluationEvent] = useState<PublicEvent | null>(null);
     const [showCounselingEvalModal, setShowCounselingEvalModal] = useState(false);
@@ -345,6 +393,19 @@ export default function PublicEventsPage() {
                         Pick what you need below. Your Student ID is only asked once for the whole session.
                     </p>
                 </div>
+
+                {/* ── PWA Download App & Push Notification Controls ── */}
+                <PublicPwaInstallAndPushBar
+                    isStandalone={pwaPush.isStandalone}
+                    isIos={pwaPush.isIos}
+                    pushSupported={pwaPush.pushSupported}
+                    pushEnabled={pwaPush.pushEnabled}
+                    isSubscribing={pwaPush.isSubscribing}
+                    showInstallModal={pwaPush.showInstallModal}
+                    setShowInstallModal={pwaPush.setShowInstallModal}
+                    onInstallClick={() => void pwaPush.handleInstallClick()}
+                    onTogglePush={() => void pwaPush.handleTogglePush()}
+                />
 
                 {/* ── Purple Header Announcements, Events & Scholarships Slideshow ── */}
                 <PublicAnnouncementsSlideshow

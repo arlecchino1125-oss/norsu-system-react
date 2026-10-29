@@ -25,6 +25,7 @@ import {
 import { DEFAULT_CLOSE_MS, getEventWindows, parseEventDate, parseEventTime } from '../../../../../utils/eventWindows';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import { attachEvaluationTemplate, type EvaluationForm } from '../eventEvaluationService';
+import { sendPublicPushBroadcast } from '../../../../../services/pushNotificationService';
 
 
 export interface CareStaffEventsPageProps {
@@ -56,7 +57,7 @@ const EVENT_FEEDBACK_COLUMNS = [
     'submitted_at'
 ].join(', ');
 
-export const createEmptyEvent = (): Partial<SystemEvent> => ({
+export const createEmptyEvent = (): Partial<SystemEvent> & { send_push_notification?: boolean } => ({
     title: '',
     description: '',
     event_date: '',
@@ -78,7 +79,8 @@ export const createEmptyEvent = (): Partial<SystemEvent> => ({
     registration_deadline: '',
     attendance_closes_at: '',
     require_photo: false,
-    require_geolocation: false
+    require_geolocation: false,
+    send_push_notification: true
 });
 
 export const getEventTypeBadgeClass = (type: unknown) => {
@@ -442,7 +444,22 @@ export function useCareStaffEvents({ functions }: any) {
             if (!editingEventId && isAttendanceActivity && evaluationTemplate && pendingCreatedEventId.current) {
                 await attachEvaluationTemplate(pendingCreatedEventId.current, evaluationTemplate);
             }
+            const createdId = pendingCreatedEventId.current;
+            const shouldSendPush = !editingEventId && (newEvent as any).send_push_notification !== false;
             pendingCreatedEventId.current = null;
+            if (shouldSendPush) {
+                const pushCategory = isAttendanceActivity ? (newEvent.type || 'Event') : 'Announcement';
+                const pushTitle = isAttendanceActivity
+                    ? `📅 New ${newEvent.type || 'Event'}: ${newEvent.title}`
+                    : `📢 Announcement: ${newEvent.title}`;
+                void sendPublicPushBroadcast({
+                    category: pushCategory,
+                    title: pushTitle,
+                    body: newEvent.description || '',
+                    url: isAttendanceActivity ? '/public?service=events' : '/public',
+                    tag: `care-event-${createdId || Date.now()}`
+                });
+            }
             if (showToast) showToast('Changes saved.');
             setShowEventModal(false);
             setEditingEventId(null);

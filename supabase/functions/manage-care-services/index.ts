@@ -783,6 +783,129 @@ const completeSupport = async (
     };
 };
 
+const DEFAULT_VAPID_PUBLIC_KEY = 'BDHQjaZ2ktph5MkmLx3X-hKT3fOdJqA73-5ylq7LF6Z00Cc8Ur7rMcYFOq2Ei26ytIM-fGwYfDTF1WHGeeAcuO4';
+const DEFAULT_VAPID_PRIVATE_KEY = 'mWpbN4iHrdxF65Bo1u1wjHEqrIFmCafvETpUlnoN550';
+const DEFAULT_VAPID_SUBJECT = 'mailto:carecenter@norsu.edu.ph';
+
+const sendPushBroadcast = async (
+    adminClient: any,
+    request: Request,
+    payload: Record<string, unknown>
+) => {
+    const actor = await assertCareStaffRequest(adminClient, request);
+
+    const category = sanitizePlainText(payload.category || 'Announcement', { maxLength: 60 }) || 'Announcement';
+    const title = sanitizePlainText(payload.title || '', { maxLength: 140 });
+    const messageBody = sanitizeLongText(payload.body || '', 300) || 'Tap to view the latest update on the NORSU-G CARE Center Public Hub.';
+    const rawUrl = String(payload.url || '/public').trim();
+    const url = rawUrl.startsWith('/') ? rawUrl : '/public';
+    const tag = sanitizePlainText(payload.tag || `care-broadcast-${Date.now()}`, { maxLength: 120 }) || `care-broadcast-${Date.now()}`;
+
+    if (!title) {
+        throw new Error('Notification title is required.');
+    }
+
+    // 1. Record in public_push_notifications for live/returning clients
+    await adminClient
+        .from('public_push_notifications')
+        .insert([{
+            category,
+            title,
+            body: messageBody,
+            url,
+            tag,
+            created_by: actor.displayName
+        }]);
+
+    // 2. Fetch active Web Push subscriptions
+    const { data: subscriptions, error: subError } = await adminClient
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth')
+        .eq('is_active', true)
+        .limit(2000);
+
+    if (subError) throw subError;
+
+    const activeSubs = Array.isArray(subscriptions) ? subscriptions : [];
+    let sentCount = 0;
+    const staleEndpoints: string[] = [];
+
+    if (activeSubs.length > 0) {
+        try {
+            const webpushModule = await import('npm:web-push@3.6.7');
+            const webpush = webpushModule.default || webpushModule;
+            const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY') || DEFAULT_VAPID_PUBLIC_KEY;
+            const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY') || DEFAULT_VAPID_PRIVATE_KEY;
+            const vapidSubject = Deno.env.get('VAPID_SUBJECT') || DEFAULT_VAPID_SUBJECT;
+
+            webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+
+            const pushPayload = JSON.stringify({
+                title,
+                body: messageBody,
+                category,
+                url,
+                tag,
+                icon: '/pwa-192x192.png',
+                badge: '/pwa-192x192.png'
+            });
+
+            await Promise.allSettled(
+                activeSubs.map(async (sub: any) => {
+                    try {
+                        await webpush.sendNotification(
+                            {
+                                endpoint: sub.endpoint,
+                                keys: {
+                                    p256dh: sub.p256dh,
+                                    auth: sub.auth
+                                }
+                            },
+                            pushPayload,
+                            { TTL: 86400 }
+                        );
+                        sentCount += 1;
+                    } catch (pushErr: any) {
+                        const statusCode = Number(pushErr?.statusCode || pushErr?.status || 0);
+                        if (statusCode === 404 || statusCode === 410) {
+                            staleEndpoints.push(String(sub.endpoint));
+                        }
+                    }
+                })
+            );
+        } catch (webPushInitErr) {
+            console.warn('Web push delivery skipped or failed:', webPushInitErr);
+        }
+    }
+
+    if (staleEndpoints.length > 0) {
+        await adminClient
+            .from('push_subscriptions')
+            .delete()
+            .in('endpoint', staleEndpoints);
+    }
+
+    await writeStaffAuditLog(adminClient, actor, {
+        action: `Sent ${category.toLowerCase()} push notification`,
+        entityTable: 'public_push_notifications',
+        entityId: tag,
+        details: {
+            summary: `${actor.displayName} broadcasted a ${category.toLowerCase()} push notification: "${title}".`,
+            category,
+            title,
+            sent_count: sentCount,
+            total_subscribers: activeSubs.length
+        }
+    });
+
+    return {
+        success: true,
+        sentCount,
+        totalSubscribers: activeSubs.length,
+        tag
+    };
+};
+
 serve(async (request) => {
     if (request.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
@@ -838,6 +961,10 @@ serve(async (request) => {
 
         if (mode === 'complete-support') {
             return json(await completeSupport(adminClient, request, body.requestId, body.resolutionNotes));
+        }
+
+        if (mode === 'send-push-broadcast') {
+            return json(await sendPushBroadcast(adminClient, request, body));
         }
 
         return json({ success: false, error: 'Unsupported CARE services mode.' }, 400);

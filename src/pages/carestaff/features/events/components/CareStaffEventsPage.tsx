@@ -308,6 +308,19 @@ const EventFormModal = ({
                                         />
                                     </div>
                                 )}
+
+                                {!editingEventId && (
+                                    <label htmlFor="event-send-push-notification" className={checkboxRowClass}>
+                                        <input
+                                            id="event-send-push-notification"
+                                            type="checkbox"
+                                            checked={newEvent.send_push_notification !== false}
+                                            onChange={e => setNewEvent({ ...newEvent, send_push_notification: e.target.checked })}
+                                            className="h-4 w-4 cursor-pointer rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                                        />
+                                        <span>Send push notification to Public Hub subscribers</span>
+                                    </label>
+                                )}
                             </section>
 
                             {/* Right column: schedule & attendance */}

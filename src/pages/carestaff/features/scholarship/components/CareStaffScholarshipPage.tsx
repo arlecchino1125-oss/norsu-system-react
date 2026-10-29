@@ -11,7 +11,8 @@ const EMPTY_SCHOLARSHIP_FORM = {
     deadline: '',
     application_method: 'portal',
     application_url: '',
-    is_active: true
+    is_active: true,
+    send_push_notification: true
 };
 
 const ScholarshipFormModal = ({ isEditing, loading, form, setForm, onClose, onSave }: any) => (
@@ -77,7 +78,7 @@ const ScholarshipFormModal = ({ isEditing, loading, form, setForm, onClose, onSa
                     </div>
                 )}
 
-                {isEditing && (
+                {isEditing ? (
                     <div>
                     <label htmlFor="scholarship-status" className="block text-xs font-bold text-gray-500 mb-1">Status</label>
                     <select
@@ -90,6 +91,17 @@ const ScholarshipFormModal = ({ isEditing, loading, form, setForm, onClose, onSa
                             <option value="closed">Closed (Hidden from Students)</option>
                         </select>
                     </div>
+                ) : (
+                    <label htmlFor="scholarship-send-push" className="flex min-h-[44px] cursor-pointer select-none items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300">
+                        <input
+                            id="scholarship-send-push"
+                            type="checkbox"
+                            checked={form.send_push_notification !== false}
+                            onChange={e => setForm({ ...form, send_push_notification: e.target.checked })}
+                            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span>Send push notification to Public Hub subscribers</span>
+                    </label>
                 )}
             </div>
             <div className="shrink-0 border-t border-slate-100 bg-slate-50/50 px-6 py-4">

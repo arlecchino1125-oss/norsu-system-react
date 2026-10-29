@@ -8,6 +8,7 @@ import { buildStudentAddress } from '../../../../../utils/studentFields';
 import type { CareStaffDashboardFunctions } from '../../../types';
 import { parseScholarship, serializeRequirements, isScholarshipExpired } from '../../../../../utils/scholarshipHelpers';
 import { toTitleCase } from '../../../../../utils/formatters';
+import { sendPublicPushBroadcast } from '../../../../../services/pushNotificationService';
 export interface ScholarshipApplicantStudent {
     student_id: string;
     first_name?: string | null;
@@ -159,14 +160,15 @@ export function useCareStaffScholarship({ functions }: any) {
     const [applicantsError, setApplicantsError] = useState('');
 
     // Form & Data State
-    const [scholarshipForm, setScholarshipForm] = useState<Partial<Scholarship>>({ 
+    const [scholarshipForm, setScholarshipForm] = useState<Partial<Scholarship> & { send_push_notification?: boolean }>({ 
         title: '', 
         description: '', 
         requirements: '', 
         deadline: '',
         application_method: 'portal',
         application_url: '',
-        is_active: true 
+        is_active: true,
+        send_push_notification: true
     });
     const [applicantsList, setApplicantsList] = useState<ScholarshipApplicantRecord[]>([]);
     const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
@@ -208,6 +210,15 @@ export function useCareStaffScholarship({ functions }: any) {
                     is_active: true
                 }]);
                 if (error) throw error;
+                if (scholarshipForm.send_push_notification !== false) {
+                    void sendPublicPushBroadcast({
+                        category: 'Scholarship',
+                        title: `🎓 New Scholarship: ${scholarshipForm.title}`,
+                        body: scholarshipForm.description || `Apply before ${scholarshipForm.deadline}`,
+                        url: '/public?service=scholarship',
+                        tag: `care-scholarship-${Date.now()}`
+                    });
+                }
                 if (showToast) showToast("Scholarship added.");
             }
             setShowScholarshipModal(false);
@@ -219,7 +230,8 @@ export function useCareStaffScholarship({ functions }: any) {
                 deadline: '', 
                 application_method: 'portal', 
                 application_url: '', 
-                is_active: true 
+                is_active: true,
+                send_push_notification: true
             });
             Promise.all([fetchScholarships(), fetchClosedScholarships()]);
         } catch (err: any) {

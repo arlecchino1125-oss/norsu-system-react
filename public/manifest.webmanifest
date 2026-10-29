@@ -1,0 +1,70 @@
+{
+  "id": "/public",
+  "name": "NORSU-G CARE Center Public Hub",
+  "short_name": "CARE Hub",
+  "description": "NORSU-Guihulngan Campus CARE Center Public Hub — Announcements, Events & Attendance, Scholarships, Office Visits, Counseling, and Student Support.",
+  "start_url": "/public",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#2a1280",
+  "theme_color": "#4c1fa8",
+  "categories": ["education", "utilities"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Events & Attendance",
+      "short_name": "Events",
+      "description": "Browse campus events and record attendance",
+      "url": "/public?service=events",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Scholarships",
+      "short_name": "Scholarships",
+      "description": "Browse active scholarships and apply",
+      "url": "/public?service=scholarship",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Office Visit Logbook",
+      "short_name": "Office Visit",
+      "description": "Log time in and time out at the CARE Center",
+      "url": "/public?service=office_visit",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Counseling Services",
+      "short_name": "Counseling",
+      "description": "Request counseling or evaluate a session",
+      "url": "/public?service=counseling",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
+
